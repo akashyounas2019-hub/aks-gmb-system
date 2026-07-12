@@ -158,7 +158,7 @@ function GeneralSettings() {
   const [form, setForm] = useState<General>(DEFAULTS);
   const [saving, setSaving] = useState(false);
   const load = useServerFn(getPreferences);
-  const save = useServerFn(savePreferences);
+  const savePrefs = useServerFn(savePreferences);
 
   useEffect(() => {
     load()
@@ -217,7 +217,7 @@ function GeneralSettings() {
       bookingUrl: normalizeUrl(form.bookingUrl),
     };
     try {
-      await save({ data: { general: normalized as unknown as Record<string, unknown> } });
+      await savePrefs({ data: { general: normalized as unknown as Record<string, unknown> } });
       setForm(normalized);
       toast.success("Business profile saved");
     } catch (e) {
