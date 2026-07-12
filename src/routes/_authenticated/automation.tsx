@@ -179,6 +179,22 @@ type ActivityEntry = {
 
 const STORAGE_KEY_RULES = "automation.rules.v1";
 const STORAGE_KEY_ACTIVITY = "automation.activity.v1";
+const STORAGE_KEY_CUSTOM = "automation.customTemplates.v1";
+
+const CATEGORY_ICONS: Record<AutomationCategory, typeof Zap> = {
+  geotagging: MapPin,
+  content: PenSquare,
+  monitoring: Target,
+  media: Images,
+};
+const CATEGORY_TONES: Record<AutomationCategory, string> = {
+  geotagging: "bg-emerald-500/15 text-emerald-500",
+  content: "bg-violet-500/15 text-violet-500",
+  monitoring: "bg-rose-500/15 text-rose-500",
+  media: "bg-sky-500/15 text-sky-500",
+};
+
+type CustomTemplateSerialized = Omit<Template, "icon" | "tone"> & { custom: true };
 
 const CATEGORY_META: Record<AutomationCategory, { label: string; color: string }> = {
   geotagging: { label: "Geotagging", color: "text-emerald-500" },
