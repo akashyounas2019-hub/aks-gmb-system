@@ -5,6 +5,7 @@ import { UploadCloud } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
+import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 
 export const Route = createFileRoute("/_authenticated/upload")({
   component: UploadPage,
@@ -20,6 +21,8 @@ function UploadPage() {
   const [maxFrames, setMaxFrames] = useState(15);
   const [sampleMs, setSampleMs] = useState(1000);
   const [dragOver, setDragOver] = useState(false);
+  const [location, setLocation] = useState<PickedLocation | null>(null);
+  const [autoGeotag, setAutoGeotag] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const handleFile = useCallback(
@@ -100,6 +103,8 @@ function UploadPage() {
             timestamp_seconds: f.timestampSeconds,
             width: f.width,
             height: f.height,
+            lat: autoGeotag && location ? location.lat : null,
+            lng: autoGeotag && location ? location.lng : null,
           });
           if (iErr) throw iErr;
           setProgress((i + 1) / frames.length);
@@ -115,7 +120,7 @@ function UploadPage() {
         setStage("idle");
       }
     },
-    [maxFrames, sampleMs, navigate],
+    [maxFrames, sampleMs, navigate, location, autoGeotag],
   );
 
   return (
@@ -197,6 +202,27 @@ function UploadPage() {
             Lower = more candidates, slower analysis.
           </div>
         </label>
+      </div>
+
+      <div className="mt-6 rounded-lg border border-border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">Geotag frames</div>
+            <div className="text-xs text-muted-foreground">
+              Pick a location (e.g. Al Qusais, Dubai). Every extracted frame gets these coordinates.
+            </div>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={autoGeotag}
+              onChange={(e) => setAutoGeotag(e.target.checked)}
+              className="accent-primary"
+            />
+            Auto-apply on upload
+          </label>
+        </div>
+        <LocationPicker value={location} onChange={setLocation} />
       </div>
 
       {stage !== "idle" && (

@@ -17,6 +17,7 @@ import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
 import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 
@@ -60,6 +61,11 @@ const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedKeywordsRoute = AuthenticatedKeywordsRouteImport.update({
+  id: '/keywords',
+  path: '/keywords',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedGmbAnalyticsRoute =
   AuthenticatedGmbAnalyticsRouteImport.update({
     id: '/gmb-analytics',
@@ -77,6 +83,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
+  '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/upload': typeof AuthenticatedUploadRoute
@@ -88,6 +95,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
+  '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/upload': typeof AuthenticatedUploadRoute
@@ -101,6 +109,7 @@ export interface FileRoutesById {
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
   '/_authenticated/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
+  '/_authenticated/keywords': typeof AuthenticatedKeywordsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
   '/_authenticated/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
@@ -114,6 +123,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/gmb-analytics'
+    | '/keywords'
     | '/library'
     | '/post-generator'
     | '/upload'
@@ -125,6 +135,7 @@ export interface FileRouteTypes {
     | '/'
     | '/auth'
     | '/gmb-analytics'
+    | '/keywords'
     | '/library'
     | '/post-generator'
     | '/upload'
@@ -137,6 +148,7 @@ export interface FileRouteTypes {
     | '/_authenticated'
     | '/auth'
     | '/_authenticated/gmb-analytics'
+    | '/_authenticated/keywords'
     | '/_authenticated/library'
     | '/_authenticated/post-generator'
     | '/_authenticated/upload'
@@ -209,6 +221,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/keywords': {
+      id: '/_authenticated/keywords'
+      path: '/keywords'
+      fullPath: '/keywords'
+      preLoaderRoute: typeof AuthenticatedKeywordsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/gmb-analytics': {
       id: '/_authenticated/gmb-analytics'
       path: '/gmb-analytics'
@@ -239,6 +258,7 @@ const AuthenticatedLibraryRouteWithChildren =
 
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedGmbAnalyticsRoute: typeof AuthenticatedGmbAnalyticsRoute
+  AuthenticatedKeywordsRoute: typeof AuthenticatedKeywordsRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
   AuthenticatedPostGeneratorRoute: typeof AuthenticatedPostGeneratorRoute
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
@@ -248,6 +268,7 @@ interface AuthenticatedRouteRouteChildren {
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedGmbAnalyticsRoute: AuthenticatedGmbAnalyticsRoute,
+  AuthenticatedKeywordsRoute: AuthenticatedKeywordsRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
   AuthenticatedPostGeneratorRoute: AuthenticatedPostGeneratorRoute,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
