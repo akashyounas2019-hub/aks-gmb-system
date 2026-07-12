@@ -953,7 +953,7 @@ function MiniStat({
   icon: React.ReactNode;
   label: string;
   value: string;
-  tone?: "good";
+  tone?: "good" | "bad";
 }) {
   return (
     <div className="min-w-[110px] rounded-lg border border-border bg-background/40 px-3 py-2">
@@ -962,7 +962,9 @@ function MiniStat({
         {label}
       </div>
       <div
-        className={`mt-0.5 text-lg font-semibold ${tone === "good" ? "text-emerald-500" : ""}`}
+        className={`mt-0.5 text-lg font-semibold ${
+          tone === "good" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : ""
+        }`}
       >
         {value}
       </div>
