@@ -337,8 +337,16 @@ function BulkPanel({
       return;
     }
     setSaving(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) {
+      setSaving(false);
+      toast.error("Not signed in");
+      return;
+    }
     const rows = imageIds.flatMap((imageId) =>
       Array.from(pickedKw).map((keywordId) => ({
+        owner_id: uid,
         image_id: imageId,
         keyword_id: keywordId,
         is_primary: keywordId === primaryKw,
