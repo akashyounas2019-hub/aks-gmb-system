@@ -1,8 +1,9 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDownRight,
   ArrowUpRight,
+  CheckCircle2,
   Eye,
   Info,
   Lightbulb,
@@ -10,15 +11,18 @@ import {
   MapPin,
   Minus,
   Phone,
+  Plug,
   Search,
   Sparkles,
   Star,
   TrendingUp,
+  XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 
 import { generateChangeSuggestions } from "@/lib/insights.functions";
+import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
   component: GmbAnalyticsPage,
@@ -270,6 +274,39 @@ const DARK_MAP_STYLE: any[] = [
 function GmbAnalyticsPage() {
   const [keyword, setKeyword] = useState(MOCK_KEYWORDS[0].keyword);
   const [search, setSearch] = useState("");
+  const [gmb, setGmb] = useState(() => readGmbConnection());
+  const [connectBusy, setConnectBusy] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setGmb(readGmbConnection());
+    sync();
+    window.addEventListener("gmb-connection-changed", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("gmb-connection-changed", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  async function handleConnect() {
+    setConnectBusy(true);
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+      writeGmbConnection({
+        connected: true,
+        accountName: "Pearl Home Cleaning",
+        locationName: "Downtown Dubai",
+        connectedAt: new Date().toISOString(),
+      });
+      toast.success(gmb.connected ? "Reconnected" : "Connected");
+    } finally {
+      setConnectBusy(false);
+    }
+  }
+  function handleDisconnect() {
+    writeGmbConnection({ connected: false });
+    toast.message("Disconnected");
+  }
 
   const summary = useMemo(() => {
     const improved = MOCK_KEYWORDS.filter((k) => k.previous > k.current).length;
@@ -353,10 +390,86 @@ function GmbAnalyticsPage() {
             Profile.
           </p>
         </div>
-        <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs uppercase tracking-widest text-amber-500">
-          Preview · sample data
-        </span>
+        {gmb.connected ? (
+          <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-3 py-1 text-xs uppercase tracking-widest text-emerald-500">
+            <CheckCircle2 className="h-3 w-3" /> Live · connected
+          </span>
+        ) : (
+          <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs uppercase tracking-widest text-amber-500">
+            Preview · sample data
+          </span>
+        )}
       </div>
+
+      {/* GMB Connector */}
+      <div className="mt-6 rounded-2xl border border-border bg-card p-5">
+        <div className="flex flex-wrap items-center gap-4">
+          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${gmb.connected ? "bg-emerald-500/15 text-emerald-500" : "bg-primary/15 text-primary"}`}>
+            {gmb.connected ? <CheckCircle2 className="h-6 w-6" /> : <Plug className="h-6 w-6" />}
+          </div>
+          <div className="flex-1 min-w-[220px]">
+            <div className="flex items-center gap-2">
+              <div className="font-semibold">Google Business Profile</div>
+              {gmb.connected ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                  <CheckCircle2 className="h-3 w-3" /> Connected
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  <XCircle className="h-3 w-3" /> Not connected
+                </span>
+              )}
+            </div>
+            <div className="mt-1 text-sm text-muted-foreground">
+              {gmb.connected
+                ? `${gmb.accountName} · ${gmb.locationName}${gmb.connectedAt ? ` · since ${new Date(gmb.connectedAt).toLocaleDateString()}` : ""}`
+                : "Connect your GMB account to pull live views, calls, reviews, and rankings."}
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <Link
+              to="/settings/integrations"
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
+            >
+              Manage
+            </Link>
+            {gmb.connected ? (
+              <>
+                <button
+                  onClick={handleConnect}
+                  disabled={connectBusy}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+                >
+                  {connectBusy ? "Reconnecting…" : "Reconnect"}
+                </button>
+                <button
+                  onClick={handleDisconnect}
+                  className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive hover:bg-destructive/20"
+                >
+                  Disconnect
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={handleConnect}
+                disabled={connectBusy}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                <Plug className="h-4 w-4" />
+                {connectBusy ? "Connecting…" : "Connect GMB"}
+              </button>
+            )}
+          </div>
+        </div>
+        {!gmb.connected && (
+          <div className="mt-3 text-xs text-muted-foreground">
+            Metrics below are sample data until GMB is connected. Live insights
+            require a Google Cloud OAuth client with the Business Profile API enabled.
+          </div>
+        )}
+      </div>
+
+
 
       {/* Business card */}
       <div className="mt-6 rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 p-5">
