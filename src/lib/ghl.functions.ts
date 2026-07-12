@@ -62,7 +62,7 @@ export const sendImagesToGhl = createServerFn({ method: "POST" })
       tagMap.set(row.image_id, arr);
     }
 
-    const results: Array<{ imageId: string; ok: boolean; status: number; error?: string }> = [];
+    const results: Array<{ imageId: string; target: "ghl" | "n8n"; ok: boolean; status: number; error?: string }> = [];
 
     for (const img of images) {
       const { data: signed } = await supabase.storage
