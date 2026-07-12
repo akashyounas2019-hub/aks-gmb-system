@@ -1,5 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  listDrafts,
+  upsertDraft,
+  deleteDraft as deleteDraftFn,
+  listFolders,
+  saveFolders,
+  type DraftFolder,
+  type PostDraft,
+} from "@/lib/post-drafts.functions";
 import {
   Folder,
   FolderPlus,
@@ -23,46 +34,10 @@ export function PostStoragePage() {
 
 type PostStatus = "Draft" | "Upcoming" | "Published" | "Live";
 
-type Folder = {
-  id: string;
-  name: string;
-  parentId: string | null;
-  createdAt: string;
-};
-
-type Post = {
-  id: string;
-  folderId: string | null;
-  title: string;
-  body: string;
-  status: PostStatus;
-  scheduledAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-};
-
-const FOLDERS_KEY = "posts.folders.v1";
-const POSTS_KEY = "posts.items.v1";
-
-function loadFolders(): Folder[] {
-  try {
-    const raw = localStorage.getItem(FOLDERS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [
-    { id: "f-general", name: "General", parentId: null, createdAt: new Date().toISOString() },
-    { id: "f-campaigns", name: "Campaigns", parentId: null, createdAt: new Date().toISOString() },
-  ];
-}
-
-function loadPosts(): Post[] {
-  try {
-    const raw = localStorage.getItem(POSTS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
-}
+// Folder and Post types re-declared as local aliases so the rest of the file
+// (which references `Folder` and `Post`) keeps compiling unchanged.
+type Folder = DraftFolder;
+type Post = PostDraft;
 
 const STATUS_STYLES: Record<PostStatus, string> = {
   Draft: "bg-muted text-muted-foreground border-border",
@@ -72,7 +47,6 @@ const STATUS_STYLES: Record<PostStatus, string> = {
 };
 
 export function PostStoragePanel() {
-
   const [folders, setFolders] = useState<Folder[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [activeFolder, setActiveFolder] = useState<string | "all" | "unfiled">("all");
@@ -84,18 +58,38 @@ export function PostStoragePanel() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
 
-  useEffect(() => {
-    setFolders(loadFolders());
-    setPosts(loadPosts());
-  }, []);
+  const loadDraftsFn = useServerFn(listDrafts);
+  const loadFoldersFn = useServerFn(listFolders);
+  const saveDraftFn = useServerFn(upsertDraft);
+  const removeDraftFn = useServerFn(deleteDraftFn);
+  const saveFoldersFn = useServerFn(saveFolders);
 
   useEffect(() => {
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  }, [folders]);
+    loadFoldersFn()
+      .then((rows) => {
+        if (rows.length === 0) {
+          const seed: Folder[] = [
+            { id: `f-${Date.now()}-g`, name: "General", parentId: null, createdAt: new Date().toISOString() },
+            { id: `f-${Date.now()}-c`, name: "Campaigns", parentId: null, createdAt: new Date().toISOString() },
+          ];
+          setFolders(seed);
+          saveFoldersFn({ data: { folders: seed } }).catch(() => {});
+        } else {
+          setFolders(rows);
+        }
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load folders"));
+    loadDraftsFn()
+      .then((rows) => setPosts(rows))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load posts"));
+  }, [loadDraftsFn, loadFoldersFn, saveFoldersFn]);
 
-  useEffect(() => {
-    localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
-  }, [posts]);
+  function persistFolders(next: Folder[]) {
+    setFolders(next);
+    saveFoldersFn({ data: { folders: next } }).catch((e) =>
+      toast.error(e instanceof Error ? e.message : "Failed to save folders"),
+    );
+  }
 
   const rootFolders = folders.filter((f) => f.parentId === null);
   const childrenOf = (id: string) => folders.filter((f) => f.parentId === id);
