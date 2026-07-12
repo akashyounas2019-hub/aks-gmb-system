@@ -10,8 +10,8 @@ const nav = [
   { to: "/keywords", label: "Keywords", icon: KeyRound },
   { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
   { to: "/post-generator", label: "Post Generator", icon: PenSquare },
-  { to: "/settings/integrations", label: "Settings", icon: Settings },
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
+  { to: "/settings/integrations", label: "Settings", icon: Settings },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
