@@ -36,6 +36,7 @@ const groups: NavGroup[] = [
   {
     label: "Workflow",
     items: [
+      { to: "/automation", label: "Automation", icon: Zap },
       { to: "/wizard", label: "Pipeline", icon: Workflow },
       { to: "/upload", label: "Upload", icon: Upload },
       { to: "/library", label: "Image Library", icon: Images },
@@ -56,17 +57,10 @@ const groups: NavGroup[] = [
       { to: "/post-generator", label: "Post Generator", icon: PenSquare },
     ],
   },
-
   {
     label: "Publishing",
     items: [
       { to: "/calendar", label: "Calendar", icon: CalendarDays },
-    ],
-  },
-  {
-    label: "Operations",
-    items: [
-      { to: "/automation", label: "Automation", icon: Zap },
     ],
   },
 ];
