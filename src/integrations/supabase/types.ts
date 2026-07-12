@@ -50,6 +50,89 @@ export type Database = {
         }
         Relationships: []
       }
+      automation_runs: {
+        Row: {
+          automation_id: string
+          error: string | null
+          finished_at: string | null
+          id: string
+          output: Json
+          owner_id: string
+          started_at: string
+          status: string
+        }
+        Insert: {
+          automation_id: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          output?: Json
+          owner_id: string
+          started_at?: string
+          status: string
+        }
+        Update: {
+          automation_id?: string
+          error?: string | null
+          finished_at?: string | null
+          id?: string
+          output?: Json
+          owner_id?: string
+          started_at?: string
+          status?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "automation_runs_automation_id_fkey"
+            columns: ["automation_id"]
+            isOneToOne: false
+            referencedRelation: "automations"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      automations: {
+        Row: {
+          config: Json
+          created_at: string
+          cron: string
+          enabled: boolean
+          id: string
+          kind: string
+          last_run_at: string | null
+          name: string
+          next_run_at: string | null
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          config?: Json
+          created_at?: string
+          cron?: string
+          enabled?: boolean
+          id?: string
+          kind: string
+          last_run_at?: string | null
+          name: string
+          next_run_at?: string | null
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          config?: Json
+          created_at?: string
+          cron?: string
+          enabled?: boolean
+          id?: string
+          kind?: string
+          last_run_at?: string | null
+          name?: string
+          next_run_at?: string | null
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       competitor_rank_history: {
         Row: {
           city: string | null
@@ -446,6 +529,48 @@ export type Database = {
         }
         Relationships: []
       }
+      post_drafts: {
+        Row: {
+          body: string
+          created_at: string
+          id: string
+          image_ids: string[]
+          meta: Json
+          owner_id: string
+          platforms: string[]
+          scheduled_for: string | null
+          status: string
+          title: string | null
+          updated_at: string
+        }
+        Insert: {
+          body?: string
+          created_at?: string
+          id?: string
+          image_ids?: string[]
+          meta?: Json
+          owner_id: string
+          platforms?: string[]
+          scheduled_for?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Update: {
+          body?: string
+          created_at?: string
+          id?: string
+          image_ids?: string[]
+          meta?: Json
+          owner_id?: string
+          platforms?: string[]
+          scheduled_for?: string | null
+          status?: string
+          title?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       rank_alerts: {
         Row: {
           alert_type: string
@@ -492,6 +617,60 @@ export type Database = {
             columns: ["competitor_id"]
             isOneToOne: false
             referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      rank_snapshots: {
+        Row: {
+          checked_at: string
+          id: string
+          keyword_id: string | null
+          keyword_phrase: string
+          lat: number
+          lng: number
+          owner_id: string
+          rank: number | null
+          source: string
+          venue_id: string | null
+        }
+        Insert: {
+          checked_at?: string
+          id?: string
+          keyword_id?: string | null
+          keyword_phrase: string
+          lat: number
+          lng: number
+          owner_id: string
+          rank?: number | null
+          source?: string
+          venue_id?: string | null
+        }
+        Update: {
+          checked_at?: string
+          id?: string
+          keyword_id?: string | null
+          keyword_phrase?: string
+          lat?: number
+          lng?: number
+          owner_id?: string
+          rank?: number | null
+          source?: string
+          venue_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_snapshots_keyword_id_fkey"
+            columns: ["keyword_id"]
+            isOneToOne: false
+            referencedRelation: "keywords"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "rank_snapshots_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
             referencedColumns: ["id"]
           },
         ]
@@ -598,6 +777,57 @@ export type Database = {
         }
         Relationships: []
       }
+      user_preferences: {
+        Row: {
+          appearance: Json
+          created_at: string
+          general: Json
+          notifications: Json
+          owner_id: string
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          appearance?: Json
+          created_at?: string
+          general?: Json
+          notifications?: Json
+          owner_id: string
+          theme?: string
+          updated_at?: string
+        }
+        Update: {
+          appearance?: Json
+          created_at?: string
+          general?: Json
+          notifications?: Json
+          owner_id?: string
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      user_roles: {
+        Row: {
+          created_at: string
+          id: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          role: Database["public"]["Enums"]["app_role"]
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          role?: Database["public"]["Enums"]["app_role"]
+          user_id?: string
+        }
+        Relationships: []
+      }
       venues: {
         Row: {
           address: string | null
@@ -667,15 +897,63 @@ export type Database = {
         }
         Relationships: []
       }
+      webhooks: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          events: string[]
+          id: string
+          last_fired_at: string | null
+          last_status: number | null
+          name: string
+          owner_id: string
+          secret: string | null
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          events?: string[]
+          id?: string
+          last_fired_at?: string | null
+          last_status?: number | null
+          name: string
+          owner_id: string
+          secret?: string | null
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          events?: string[]
+          id?: string
+          last_fired_at?: string | null
+          last_status?: number | null
+          name?: string
+          owner_id?: string
+          secret?: string | null
+          updated_at?: string
+          url?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      has_role: {
+        Args: {
+          _role: Database["public"]["Enums"]["app_role"]
+          _user_id: string
+        }
+        Returns: boolean
+      }
     }
     Enums: {
-      [_ in never]: never
+      app_role: "admin" | "moderator" | "user"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -802,6 +1080,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      app_role: ["admin", "moderator", "user"],
+    },
   },
 } as const
