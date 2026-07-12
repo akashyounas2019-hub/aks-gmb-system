@@ -280,8 +280,11 @@ export const getGmbConnectionStatus = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const ctx = context as SupabaseCtx;
     const tokens = await loadTokens(ctx);
-    if (!tokens) return { connected: false as const };
-    return {
+    if (!tokens) {
+      logGmb("status", ctx.userId, { connected: false, reason: "no_tokens" });
+      return { connected: false as const };
+    }
+    const result = {
       connected: true as const,
       accountName: tokens.account_name as string | null,
       locationName: tokens.location_name as string | null,
@@ -289,6 +292,17 @@ export const getGmbConnectionStatus = createServerFn({ method: "GET" })
       expiresAt: tokens.expires_at as string,
       hasRefresh: Boolean(tokens.refresh_token),
     };
+    logGmb("status", ctx.userId, {
+      connected: true,
+      accountName: result.accountName,
+      locationName: result.locationName,
+      locationTitle: result.locationTitle,
+      hasRefresh: result.hasRefresh,
+      // Diagnostic: this is the #1 cause of "still showing dummy data".
+      // If locationName is null the metrics fetch cannot run.
+      needsLocation: !result.locationName,
+    });
+    return result;
   });
 
 export const disconnectGmb = createServerFn({ method: "POST" })
