@@ -471,6 +471,11 @@ function IntegrationsPage() {
         docsUrl="https://highlevel.stoplight.io/docs/integrations/"
       />
 
+      {/* n8n */}
+      <N8nIntegrationCard />
+
+
+
       {/* Rank sources */}
       <div>
         <h3 className="text-lg font-semibold">Rank sources</h3>
