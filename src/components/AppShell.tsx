@@ -57,6 +57,12 @@ const groups: NavGroup[] = [
       { to: "/calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
+  {
+    label: "Operations",
+    items: [
+      { to: "/automation", label: "Automation", icon: Zap },
+    ],
+  },
 ];
 
 const settingsChildren: NavItem[] = [
