@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { BarChart3, CalendarDays, Film, Images, KeyRound, LogOut, PenSquare, Settings, Upload, Workflow } from "lucide-react";
+import { BarChart3, CalendarDays, Film, Images, KeyRound, LogOut, PenSquare, Settings, Target, Upload, Workflow } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
@@ -9,6 +9,7 @@ const nav = [
   { to: "/videos", label: "Videos", icon: Film },
   { to: "/keywords", label: "Keywords", icon: KeyRound },
   { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
+  { to: "/competitors", label: "Competitors", icon: Target },
   { to: "/post-generator", label: "Post Generator", icon: PenSquare },
   { to: "/calendar", label: "Calendar", icon: CalendarDays },
   { to: "/settings", label: "Settings", icon: Settings },

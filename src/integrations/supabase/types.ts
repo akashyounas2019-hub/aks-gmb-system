@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      competitors: {
+        Row: {
+          created_at: string
+          gbp_url: string
+          id: string
+          name: string
+          notes: string | null
+          place_id: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          gbp_url: string
+          id?: string
+          name: string
+          notes?: string | null
+          place_id?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          gbp_url?: string
+          id?: string
+          name?: string
+          notes?: string | null
+          place_id?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       gmb_credentials: {
         Row: {
           client_id: string

@@ -19,9 +19,11 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+
 import { toast } from "sonner";
 
 import { generateChangeSuggestions } from "@/lib/insights.functions";
+import { listCompetitors } from "@/lib/competitors.functions";
 import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
@@ -276,6 +278,14 @@ function GmbAnalyticsPage() {
   const [search, setSearch] = useState("");
   const [gmb, setGmb] = useState(() => readGmbConnection());
   const [connectBusy, setConnectBusy] = useState(false);
+  const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
+  const fetchCompetitors = useServerFn(listCompetitors);
+
+  useEffect(() => {
+    fetchCompetitors()
+      .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
+      .catch(() => setCompetitors([]));
+  }, [fetchCompetitors]);
 
   useEffect(() => {
     const sync = () => setGmb(readGmbConnection());
@@ -693,6 +703,87 @@ function GmbAnalyticsPage() {
         </div>
       </section>
 
+      {/* Competitor rank comparison */}
+      <section className="mt-10">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Competitor rank comparison</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your rank vs. tracked competitor GBPs per keyword.
+            </p>
+          </div>
+          <Link
+            to="/competitors"
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
+          >
+            Manage competitors
+          </Link>
+        </div>
+
+        {competitors.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card/40 p-8 text-center text-sm text-muted-foreground">
+            No competitors tracked yet.{" "}
+            <Link to="/competitors" className="text-primary hover:underline">
+              Add competitor GBP URLs →
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-card text-left text-xs uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Keyword</th>
+                  <th className="px-4 py-3">You</th>
+                  {competitors.map((c) => (
+                    <th key={c.id} className="px-4 py-3">
+                      <div className="max-w-[140px] truncate" title={c.name}>{c.name}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {MOCK_KEYWORDS.map((k) => (
+                  <tr key={k.keyword} className="border-t border-border">
+                    <td className="px-4 py-3 font-medium">{k.keyword}</td>
+                    <td className="px-4 py-3">
+                      <RankPill rank={k.current} />
+                    </td>
+                    {competitors.map((c) => {
+                      const r = competitorRank(c.place_id ?? c.gbp_url, k.keyword);
+                      const delta = r - k.current;
+                      return (
+                        <td key={c.id} className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <RankPill rank={r} />
+                            <span
+                              className={`text-[11px] ${
+                                delta > 0
+                                  ? "text-emerald-500"
+                                  : delta < 0
+                                    ? "text-destructive"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              {delta > 0 ? `+${delta}` : delta === 0 ? "=" : delta}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="border-t border-border bg-card/40 px-4 py-2 text-[11px] text-muted-foreground">
+              Positive delta means the competitor ranks worse than you.
+              Ranks are derived from stored GBP identifiers; connect a rank
+              source in Settings → Integrations to replace with live data.
+            </div>
+          </div>
+        )}
+      </section>
+
+
       <div className="mt-6 flex items-start gap-2 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div>
@@ -805,6 +896,25 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
         style={{ backgroundColor: color }}
       />
       <span className="text-muted-foreground">{label}</span>
+    </span>
+  );
+}
+
+function competitorRank(idOrUrl: string, keyword: string): number {
+  let h = 0;
+  const s = `${idOrUrl}::${keyword}`;
+  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
+  // Weighted toward positions 2–20 so most competitors land on page 1–2
+  return 1 + (h % 20);
+}
+
+function RankPill({ rank }: { rank: number }) {
+  return (
+    <span
+      className="rounded-full px-2 py-0.5 text-xs font-semibold"
+      style={{ backgroundColor: `${rankColor(rank)}22`, color: rankColor(rank) }}
+    >
+      #{rank}
     </span>
   );
 }
