@@ -66,7 +66,7 @@ export function LocationPicker({
     loadMaps().then(() => setReady(true)).catch((e) => setError(e.message));
     supabase
       .from("location_history")
-      .select("id,label,lat,lng,place_id")
+      .select("id,label,lat,lng,place_id,used_count")
       .order("last_used_at", { ascending: false })
       .limit(8)
       .then(({ data }) => setHistory((data ?? []) as HistoryRow[]));
