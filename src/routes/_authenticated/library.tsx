@@ -74,7 +74,9 @@ function LibraryPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
   const [autoTagging, setAutoTagging] = useState(false);
+  const [tab, setTab] = useState<LibraryTab>("raw");
   const autoTag = useServerFn(autoTagImages);
+
 
   async function runAutoTag() {
     if (selected.size === 0) return;
