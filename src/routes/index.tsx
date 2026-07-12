@@ -10,8 +10,8 @@ function Landing() {
     <div className="min-h-screen bg-hero-gradient">
       <header className="mx-auto flex max-w-6xl items-center justify-between px-6 py-6">
         <div className="flex items-center gap-2">
-          <div className="h-8 w-8 rounded-md bg-primary" />
-          <span className="font-display text-lg font-semibold">Frame Vault</span>
+          <img src="/favicon.png" alt="" width={32} height={32} className="h-8 w-8 rounded-md" />
+          <span className="font-display text-lg font-semibold">GMB Rank Pilot</span>
         </div>
         <nav className="flex items-center gap-4 text-sm">
           <Link to="/auth" className="text-muted-foreground hover:text-foreground">
@@ -28,16 +28,16 @@ function Landing() {
 
       <section className="mx-auto max-w-4xl px-6 pb-20 pt-16 text-center">
         <span className="inline-block rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs uppercase tracking-widest text-primary">
-          Video · Frame extraction · Dubai geotagging
+          Local SEO · Rank tracking · Content automation
         </span>
         <h1 className="mt-6 text-5xl leading-tight sm:text-6xl">
-          Turn video into a searchable{" "}
-          <span className="text-gold-gradient">image library</span>
+          Pilot your Google Business{" "}
+          <span className="text-gold-gradient">local rankings</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Drop a video in the browser. Frame Vault picks the sharpest frames with
-          on-device ffmpeg, then lets you rename, tag, and geotag them to iconic
-          Dubai venues — all from one CMS.
+          Track keyword rankings across your service area, visualize local visibility
+          on a heat map, and push AI-generated posts and media straight into
+          GoHighLevel — from a single control center.
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link

@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Film, Images, LogOut, Upload, Workflow } from "lucide-react";
+import { BarChart3, Film, Images, LogOut, PenSquare, Upload, Workflow } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
@@ -7,6 +7,8 @@ const nav = [
   { to: "/upload", label: "Upload", icon: Upload },
   { to: "/library", label: "Library", icon: Images },
   { to: "/videos", label: "Videos", icon: Film },
+  { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
+  { to: "/post-generator", label: "Post Generator", icon: PenSquare },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
@@ -22,8 +24,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     <div className="flex min-h-screen">
       <aside className="hidden w-60 shrink-0 flex-col border-r border-border bg-sidebar p-4 md:flex">
         <Link to="/" className="mb-8 flex items-center gap-2">
-          <div className="h-7 w-7 rounded-md bg-primary" />
-          <span className="font-display text-lg">Frame Vault</span>
+          <img src="/favicon.png" alt="" width={28} height={28} className="h-7 w-7 rounded-md" />
+          <span className="font-display text-lg">GMB Rank Pilot</span>
         </Link>
         <nav className="space-y-1">
           {nav.map((item) => {
@@ -53,7 +55,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
       <main className="min-w-0 flex-1">
         <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
-          <Link to="/" className="font-display">Frame Vault</Link>
+          <Link to="/" className="font-display">GMB Rank Pilot</Link>
           <div className="flex gap-2">
             {nav.map((n) => (
               <Link key={n.to} to={n.to} className="rounded-md px-2 py-1 text-xs">

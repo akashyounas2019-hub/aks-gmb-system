@@ -75,24 +75,24 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Frame Vault — Video to Image CMS for Dubai" },
+      { title: "GMB Rank Pilot — Local SEO & Content Automation" },
       {
         name: "description",
         content:
-          "Upload videos, extract the sharpest frames in your browser, and tag them with Dubai venue locations and AI-suggested keywords.",
+          "Track Google Business rankings, visualize local visibility heat maps, and automate GBP content and media workflows.",
       },
-      { property: "og:title", content: "Frame Vault — Video to Image CMS" },
+      { property: "og:title", content: "GMB Rank Pilot" },
       {
         property: "og:description",
         content:
-          "Extract sharp frames from any video and manage them with venue geotags and smart tags.",
+          "Local SEO command center: keyword rank tracking, geo-grid heat maps, and GHL-ready content automation.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
+      { rel: "icon", href: "/favicon.png", type: "image/png" },
       { rel: "preconnect", href: "https://fonts.googleapis.com" },
       { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "" },
       {
