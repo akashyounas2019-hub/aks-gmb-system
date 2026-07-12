@@ -64,7 +64,20 @@ async function loadTokens(ctx: SupabaseCtx) {
     .select("*")
     .eq("user_id", ctx.userId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    logGmb("loadTokens.error", ctx.userId, { message: error.message });
+    throw new Error(error.message);
+  }
+  logGmb("loadTokens", ctx.userId, {
+    hasTokens: Boolean(data),
+    accessToken: mask((data?.access_token as string | null) ?? null),
+    refreshToken: mask((data?.refresh_token as string | null) ?? null),
+    expiresAt: data?.expires_at ?? null,
+    accountName: (data?.account_name as string | null) ?? null,
+    locationName: (data?.location_name as string | null) ?? null,
+    locationTitle: (data?.location_title as string | null) ?? null,
+    scope: (data?.scope as string | null) ?? null,
+  });
   return data;
 }
 
@@ -73,7 +86,18 @@ async function refreshIfNeeded(
   tokens: NonNullable<Awaited<ReturnType<typeof loadTokens>>>,
 ): Promise<string> {
   const expMs = new Date(tokens.expires_at as string).getTime();
-  if (expMs - Date.now() > 60_000) return tokens.access_token as string;
+  const secondsToExpiry = Math.round((expMs - Date.now()) / 1000);
+  if (expMs - Date.now() > 60_000) {
+    logGmb("token.reuse", ctx.userId, { secondsToExpiry });
+    return tokens.access_token as string;
+  }
+  logGmb("token.refresh.start", ctx.userId, {
+    secondsToExpiry,
+    hasRefreshToken: Boolean(tokens.refresh_token),
+  });
+  if (!tokens.refresh_token) {
+    throw new Error("Access token expired and no refresh token stored. Reconnect Google.");
+  }
   if (!tokens.refresh_token) {
     throw new Error("Access token expired and no refresh token stored. Reconnect Google.");
   }
