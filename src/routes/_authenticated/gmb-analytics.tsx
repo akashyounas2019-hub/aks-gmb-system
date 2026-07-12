@@ -399,7 +399,7 @@ function GmbAnalyticsPage() {
     setRankErr(null);
     fetchCompetitorRanks({
       data: {
-        keywords: MOCK_KEYWORDS.map((k) => ({
+        keywords: keywordRows.map((k) => ({
           keyword: k.keyword,
           city: k.city,
           userRank: k.current,
@@ -743,7 +743,7 @@ function GmbAnalyticsPage() {
 
       {/* Summary cards */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Tracked keywords" value={MOCK_KEYWORDS.length} />
+        <StatCard label="Tracked keywords" value={keywordRows.length} />
         <StatCard label="Average rank" value={summary.avg} />
         <StatCard label="In top 3" value={summary.top3} tone="good" />
         <StatCard
@@ -1054,7 +1054,7 @@ function GmbAnalyticsPage() {
       {/* Competitor rank history chart */}
       {competitors.length > 0 && (
         <CompetitorRankHistory
-          keywords={MOCK_KEYWORDS.map((k) => ({ keyword: k.keyword, current: k.current }))}
+          keywords={keywordRows.map((k) => ({ keyword: k.keyword, current: k.current }))}
           competitors={competitors}
           rankSource={rankSource}
         />
