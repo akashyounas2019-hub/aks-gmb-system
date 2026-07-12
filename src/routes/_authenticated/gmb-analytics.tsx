@@ -421,8 +421,20 @@ function GmbAnalyticsPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
           <HeatMap keyword={keyword} />
           <div className="space-y-3">
-            <StatCard label="Cells in top 3" value={`${gridStats.top3}/49`} tone="good" />
-            <StatCard label="Avg. rank in grid" value={gridStats.avg} />
+            <StatCard
+              label="Cells in top 3"
+              value={`${gridStats.top3}/49`}
+              tone="good"
+              delta={gridStats.top3Delta}
+              deltaLabel="vs last week"
+            />
+            <StatCard
+              label="Avg. rank in grid"
+              value={gridStats.avg}
+              delta={gridStats.avgDelta}
+              deltaLabel="vs last week"
+              deltaInvert
+            />
             <StatCard label="Local visibility share" value={`${gridStats.share}%`} />
             <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
               <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
@@ -430,10 +442,73 @@ function GmbAnalyticsPage() {
               </div>
               Each circle is a ranking probe at that lat/lng for the selected
               keyword. Green = top 3, amber = 4–10, red = off page 1. The blue
-              dot is your business location.
+              dot is your business location. Deltas compare this week's grid to
+              last week's snapshot.
             </div>
           </div>
         </div>
+      </section>
+
+      {/* AI Change Suggestions */}
+      <section className="mt-10 rounded-2xl border border-border bg-gradient-to-br from-primary/5 to-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Lightbulb className="h-5 w-5 text-primary" /> AI Change
+              Suggestions
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Prioritized actions based on your rankings and recent post
+              activity.
+            </p>
+          </div>
+          <button
+            onClick={runSuggestions}
+            disabled={loadingSug}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {loadingSug ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {suggestions ? "Regenerate" : "Generate suggestions"}
+          </button>
+        </div>
+        {suggestions && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {suggestions.length === 0 ? (
+              <div className="col-span-full rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                No suggestions returned. Try again.
+              </div>
+            ) : (
+              suggestions.map((s, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border bg-card p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-medium">{s.title}</div>
+                    <PriorityBadge priority={s.priority} />
+                  </div>
+                  {s.targetKeyword && (
+                    <div className="mt-1 text-[11px] uppercase tracking-widest text-primary">
+                      → {s.targetKeyword}
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Why:</span>{" "}
+                    {s.why}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">How:</span>{" "}
+                    {s.how}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </section>
 
       {/* Keyword table */}
