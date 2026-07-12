@@ -596,11 +596,19 @@ function StatCard({
   label,
   value,
   tone,
+  delta,
+  deltaLabel,
+  deltaInvert,
 }: {
   label: string;
   value: string | number;
   tone?: "good";
+  delta?: number;
+  deltaLabel?: string;
+  deltaInvert?: boolean;
 }) {
+  const showDelta = typeof delta === "number" && delta !== 0;
+  const positive = deltaInvert ? (delta ?? 0) > 0 : (delta ?? 0) > 0;
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -611,7 +619,42 @@ function StatCard({
       >
         {value}
       </div>
+      {showDelta && (
+        <div
+          className={`mt-1 inline-flex items-center gap-1 text-xs ${
+            positive ? "text-emerald-500" : "text-red-500"
+          }`}
+        >
+          {positive ? (
+            <ArrowUpRight className="h-3 w-3" />
+          ) : (
+            <ArrowDownRight className="h-3 w-3" />
+          )}
+          {delta! > 0 ? "+" : ""}
+          {delta}
+          {deltaLabel ? ` ${deltaLabel}` : ""}
+        </div>
+      )}
     </div>
+  );
+}
+
+function PriorityBadge({
+  priority,
+}: {
+  priority: "high" | "medium" | "low";
+}) {
+  const map = {
+    high: "bg-red-500/15 text-red-500 border-red-500/30",
+    medium: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+    low: "bg-blue-500/15 text-blue-500 border-blue-500/30",
+  } as const;
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${map[priority] ?? map.low}`}
+    >
+      {priority}
+    </span>
   );
 }
 
