@@ -163,6 +163,8 @@ function KeywordsPage() {
     folder?: KFolder;
   } | null>(null);
   const [enriching, setEnriching] = useState(false);
+  const [activeTab, setActiveTab] = useState<"research" | "library">("research");
+  const [researchQuery, setResearchQuery] = useState("");
 
   const semrushRef = useRef<HTMLInputElement>(null);
   const genericRef = useRef<HTMLInputElement>(null);
@@ -614,8 +616,161 @@ function KeywordsPage() {
   }
 
   return (
-    <div className="flex min-h-[calc(100vh-4rem)] w-full">
-      {/* ---------- Sidebar (folder tree) ---------- */}
+    <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col">
+      {/* ---------- Top tab bar ---------- */}
+      <div className="border-b border-border bg-card/40 px-6 md:px-10">
+        <div className="flex items-end justify-between gap-4 pt-6">
+          <div>
+            <h1 className="flex items-center gap-2 text-2xl font-semibold">
+              <Target className="h-5 w-5 text-primary" /> Keywords
+            </h1>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Research new opportunities, then save and organize them into your keyword library.
+            </p>
+          </div>
+          <div className="hidden text-xs text-muted-foreground md:block">
+            {rows.length.toLocaleString()} saved · {folders.length} folder
+            {folders.length === 1 ? "" : "s"}
+          </div>
+        </div>
+        <nav role="tablist" className="mt-4 flex gap-1">
+          {(
+            [
+              { id: "research" as const, label: "Keyword Research", icon: Search },
+              { id: "library" as const, label: "Library", icon: FolderOpen },
+            ]
+          ).map((t) => {
+            const active = activeTab === t.id;
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setActiveTab(t.id)}
+                className={`-mb-px flex items-center gap-2 border-b-2 px-4 py-2.5 text-sm transition ${
+                  active
+                    ? "border-primary text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {activeTab === "research" && (
+        <div className="w-full px-6 py-6 md:px-10 md:py-10">
+          <div className="mx-auto max-w-4xl space-y-6">
+            {/* Research bar */}
+            <div className="rounded-xl border border-border bg-card p-5">
+              <h2 className="text-lg font-semibold">Research a keyword</h2>
+              <p className="mt-1 text-sm text-muted-foreground">
+                Look up volume, difficulty, and intent on Semrush without leaving your workflow.
+              </p>
+              <div className="mt-4 flex flex-wrap items-center gap-2">
+                <div className="flex flex-1 min-w-[260px] items-center gap-2 rounded-lg border border-border bg-background px-3 py-2">
+                  <Search className="h-4 w-4 text-muted-foreground" />
+                  <input
+                    value={researchQuery}
+                    onChange={(e) => setResearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && researchQuery.trim())
+                        openSemrushResearch(researchQuery.trim());
+                    }}
+                    placeholder="e.g. sofa cleaning services dubai"
+                    className="flex-1 bg-transparent text-sm outline-none"
+                  />
+                </div>
+                <button
+                  onClick={() =>
+                    researchQuery.trim() && openSemrushResearch(researchQuery.trim())
+                  }
+                  disabled={!researchQuery.trim()}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  <Sparkles className="h-4 w-4" /> Research on Semrush
+                </button>
+              </div>
+            </div>
+
+            {/* Add & Import */}
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="rounded-xl border border-border bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <Plus className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold">Add keywords manually</h3>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Type or paste a list of phrases. Metrics can be filled later.
+                </p>
+                <button
+                  onClick={() => setManualOpen(true)}
+                  className="mt-4 flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
+                >
+                  <Plus className="h-4 w-4" /> Add keywords
+                </button>
+              </div>
+              <div className="rounded-xl border border-border bg-card p-5">
+                <div className="flex items-center gap-2">
+                  <Upload className="h-4 w-4 text-primary" />
+                  <h3 className="font-semibold">Import from file</h3>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Bulk import from Semrush exports or any CSV / TSV / TXT / JSON.
+                </p>
+                <input
+                  ref={semrushRef}
+                  type="file"
+                  accept=".csv,.tsv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importSemrush(f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <input
+                  ref={genericRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,.json,text/*,application/json"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importGeneric(f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <div className="mt-4 flex flex-wrap gap-2">
+                  <button
+                    onClick={() => semrushRef.current?.click()}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm hover:border-primary/50"
+                  >
+                    <Upload className="h-4 w-4" /> Semrush CSV
+                  </button>
+                  <button
+                    onClick={() => genericRef.current?.click()}
+                    className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm hover:border-primary/50"
+                  >
+                    <FileUp className="h-4 w-4" /> CSV / TSV / TXT / JSON
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-dashed border-border bg-background/30 p-4 text-sm text-muted-foreground">
+              Everything you save here shows up under the <strong>Library</strong> tab, where you can
+              organize keywords into folders and clusters.
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === "library" && (
+        <div className="flex flex-1">
       <aside className="hidden w-72 shrink-0 border-r border-border bg-card/40 lg:block">
         <div className="flex items-center justify-between px-4 py-4">
           <div>
@@ -1130,6 +1285,8 @@ function KeywordsPage() {
           </p>
         )}
       </div>
+        </div>
+      )}
 
       {manualOpen && (
         <ManualAddModal
