@@ -19,6 +19,15 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import {
+  CartesianGrid,
+  Line,
+  LineChart,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from "recharts";
 
 import { toast } from "sonner";
 
@@ -1073,6 +1082,8 @@ function RankPill({ rank }: { rank: number }) {
       #{rank}
     </span>
   );
+}
+
 
 type CompetitorLite = { id: string; name: string; gbp_url: string; place_id: string | null };
 
