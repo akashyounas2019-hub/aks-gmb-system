@@ -94,9 +94,12 @@ function IntegrationsPage() {
     try {
       const s = await fetchConn();
       setServerConn(s);
-      // keep the local-storage flag in sync so gmb-analytics reflects reality
+      // Only mark "connected" once a location has been selected — otherwise
+      // gmb-analytics would show "Live · connected" while getGmbMetrics still
+      // throws "Select a business location first" and the UI keeps rendering
+      // sample data.
       writeGmbConnection(
-        s.connected
+        s.connected && s.locationName
           ? {
               connected: true,
               accountName: s.accountName ?? "Google Business Profile",
