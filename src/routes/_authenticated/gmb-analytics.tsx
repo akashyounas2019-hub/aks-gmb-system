@@ -35,6 +35,7 @@ import { generateChangeSuggestions } from "@/lib/insights.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
 import { getCompetitorRanks, getCompetitorRankHistory } from "@/lib/rank-source.functions";
 import { getGmbMetrics, getGmbConnectionStatus } from "@/lib/gmb-oauth.functions";
+import { getRankGrid, refreshRankGrid } from "@/lib/rank-grid.functions";
 import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
@@ -151,14 +152,26 @@ function loadMaps(): Promise<void> {
 }
 
 /* ---------- HEAT MAP -------------------------------------------------- */
-function HeatMap({ keyword }: { keyword: string }) {
+function HeatMap({
+  keyword,
+  cells,
+  center,
+}: {
+  keyword: string;
+  cells?: { lat: number; lng: number; rank: number }[];
+  center?: { lat: number; lng: number };
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const overlaysRef = useRef<any[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const grid = useMemo(() => buildGrid(keyword), [keyword]);
+  const grid = useMemo(
+    () => (cells && cells.length > 0 ? cells : buildGrid(keyword)),
+    [keyword, cells],
+  );
+  const mapCenter = center ?? BUSINESS;
 
   useEffect(() => {
     let cancelled = false;
@@ -167,7 +180,7 @@ function HeatMap({ keyword }: { keyword: string }) {
         if (cancelled || !containerRef.current) return;
         const g = (window as any).google;
         mapRef.current = new g.maps.Map(containerRef.current, {
-          center: BUSINESS,
+          center: mapCenter,
           zoom: 12,
           disableDefaultUI: true,
           zoomControl: true,
@@ -180,7 +193,9 @@ function HeatMap({ keyword }: { keyword: string }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
@@ -220,7 +235,7 @@ function HeatMap({ keyword }: { keyword: string }) {
     }
     // Business marker
     const biz = new g.maps.Marker({
-      position: BUSINESS,
+      position: mapCenter,
       map: mapRef.current,
       title: BUSINESS.name,
       icon: {
@@ -294,6 +309,15 @@ function GmbAnalyticsPage() {
   const fetchCompetitorRanks = useServerFn(getCompetitorRanks);
   const fetchMetrics = useServerFn(getGmbMetrics);
   const fetchGmbStatus = useServerFn(getGmbConnectionStatus);
+  const fetchRankGrid = useServerFn(getRankGrid);
+  const runRankRefresh = useServerFn(refreshRankGrid);
+
+  // Real rank data (falls back to MOCK when the user has no keywords yet).
+  const [realKeywords, setRealKeywords] = useState<KeywordRow[] | null>(null);
+  const [realCurrentGrid, setRealCurrentGrid] = useState<{ lat: number; lng: number; rank: number }[] | null>(null);
+  const [realPreviousGrid, setRealPreviousGrid] = useState<{ lat: number; lng: number; rank: number }[] | null>(null);
+  const [realCenter, setRealCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [refreshingGrid, setRefreshingGrid] = useState(false);
 
   type Metrics = Awaited<ReturnType<typeof getGmbMetrics>>;
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -315,6 +339,74 @@ function GmbAnalyticsPage() {
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
 
+  // Load real rank grid whenever the selected keyword changes.
+  useEffect(() => {
+    let cancelled = false;
+    fetchRankGrid({ data: { phrase: keyword } })
+      .then((r) => {
+        if (cancelled) return;
+        if (r.keywords.length > 0) {
+          setRealKeywords(
+            r.keywords.map((k) => ({
+              keyword: k.phrase,
+              current: k.current,
+              previous: k.previous,
+              volume: k.volume,
+              city: "",
+            })),
+          );
+          // If the currently selected keyword isn't in the real set, snap to first.
+          if (!r.keywords.some((k) => k.phrase === keyword)) {
+            const first = r.keywords[0]?.phrase;
+            if (first) setKeyword(first);
+          }
+          setRealCurrentGrid(r.current);
+          setRealPreviousGrid(r.previous);
+          setRealCenter(r.center);
+        } else {
+          setRealKeywords(null);
+          setRealCurrentGrid(null);
+          setRealPreviousGrid(null);
+          setRealCenter(null);
+        }
+      })
+      .catch(() => {
+        /* fall back to MOCK */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchRankGrid, keyword]);
+
+  async function handleRefreshGrid() {
+    setRefreshingGrid(true);
+    try {
+      const res = await runRankRefresh();
+      toast.success(`Refreshed ${res.keywords} keywords · ${res.snapshots} probes`);
+      // Reload grid for currently selected keyword.
+      const r = await fetchRankGrid({ data: { phrase: keyword } });
+      if (r.keywords.length > 0) {
+        setRealKeywords(
+          r.keywords.map((k) => ({
+            keyword: k.phrase,
+            current: k.current,
+            previous: k.previous,
+            volume: k.volume,
+            city: "",
+          })),
+        );
+        setRealCurrentGrid(r.current);
+        setRealPreviousGrid(r.previous);
+        setRealCenter(r.center);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshingGrid(false);
+    }
+  }
+
+
   useEffect(() => {
     if (competitors.length === 0) {
       setRankData({});
@@ -326,7 +418,7 @@ function GmbAnalyticsPage() {
     setRankErr(null);
     fetchCompetitorRanks({
       data: {
-        keywords: MOCK_KEYWORDS.map((k) => ({
+        keywords: keywordRows.map((k) => ({
           keyword: k.keyword,
           city: k.city,
           userRank: k.current,
@@ -411,31 +503,43 @@ function GmbAnalyticsPage() {
     toast.message("Disconnected");
   }
 
-  const summary = useMemo(() => {
-    const improved = MOCK_KEYWORDS.filter((k) => k.previous > k.current).length;
-    const declined = MOCK_KEYWORDS.filter((k) => k.previous < k.current).length;
-    const top3 = MOCK_KEYWORDS.filter((k) => k.current <= 3).length;
-    const avg =
-      MOCK_KEYWORDS.reduce((s, k) => s + k.current, 0) / MOCK_KEYWORDS.length;
-    return { improved, declined, top3, avg: avg.toFixed(1) };
-  }, []);
+  // Real data if available, else MOCK. Powers every keyword-driven UI section.
+  const keywordRows: KeywordRow[] = realKeywords ?? MOCK_KEYWORDS;
+  const usingRealData = realKeywords !== null;
 
-  const activeGrid = useMemo(() => buildGrid(keyword, 0), [keyword]);
-  const previousGrid = useMemo(() => buildGrid(keyword, 1), [keyword]);
+  const summary = useMemo(() => {
+    const improved = keywordRows.filter((k) => k.previous > k.current).length;
+    const declined = keywordRows.filter((k) => k.previous < k.current).length;
+    const top3 = keywordRows.filter((k) => k.current <= 3).length;
+    const avg =
+      keywordRows.length > 0
+        ? keywordRows.reduce((s, k) => s + k.current, 0) / keywordRows.length
+        : 0;
+    return { improved, declined, top3, avg: avg.toFixed(1) };
+  }, [keywordRows]);
+
+  const activeGrid = useMemo(
+    () => (realCurrentGrid && realCurrentGrid.length > 0 ? realCurrentGrid : buildGrid(keyword, 0)),
+    [keyword, realCurrentGrid],
+  );
+  const previousGrid = useMemo(
+    () => (realPreviousGrid && realPreviousGrid.length > 0 ? realPreviousGrid : buildGrid(keyword, 1)),
+    [keyword, realPreviousGrid],
+  );
   const gridStats = useMemo(() => {
     const ranks = activeGrid.map((c) => c.rank);
     const prevRanks = previousGrid.map((c) => c.rank);
     const top3 = ranks.filter((r) => r <= 3).length;
     const prevTop3 = prevRanks.filter((r) => r <= 3).length;
-    const avg = ranks.reduce((a, b) => a + b, 0) / ranks.length;
-    const prevAvg = prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length;
-    const share = Math.round((top3 / ranks.length) * 100);
+    const avg = ranks.length > 0 ? ranks.reduce((a, b) => a + b, 0) / ranks.length : 0;
+    const prevAvg = prevRanks.length > 0 ? prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length : 0;
+    const share = ranks.length > 0 ? Math.round((top3 / ranks.length) * 100) : 0;
     return {
       top3,
       avg: avg.toFixed(1),
       share,
       top3Delta: top3 - prevTop3,
-      avgDelta: +(prevAvg - avg).toFixed(1), // positive = improved (lower avg rank)
+      avgDelta: +(prevAvg - avg).toFixed(1),
     };
   }, [activeGrid, previousGrid]);
 
@@ -456,7 +560,7 @@ function GmbAnalyticsPage() {
       const res = await suggest({
         data: {
           businessName: BUSINESS.name,
-          rankings: MOCK_KEYWORDS.map((k) => ({
+          rankings: keywordRows.map((k) => ({
             keyword: k.keyword,
             current: k.current,
             previous: k.previous,
@@ -474,10 +578,11 @@ function GmbAnalyticsPage() {
   }
 
   const filteredKw = search.trim()
-    ? MOCK_KEYWORDS.filter((k) =>
+    ? keywordRows.filter((k) =>
         k.keyword.toLowerCase().includes(search.trim().toLowerCase()),
       )
-    : MOCK_KEYWORDS;
+    : keywordRows;
+
 
   return (
     <div
@@ -657,7 +762,7 @@ function GmbAnalyticsPage() {
 
       {/* Summary cards */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Tracked keywords" value={MOCK_KEYWORDS.length} />
+        <StatCard label="Tracked keywords" value={keywordRows.length} />
         <StatCard label="Average rank" value={summary.avg} />
         <StatCard label="In top 3" value={summary.top3} tone="good" />
         <StatCard
@@ -672,7 +777,16 @@ function GmbAnalyticsPage() {
           <div>
             <h2 className="text-lg font-semibold">Local visibility heat map</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Geo-grid ranks across a 7×7 grid centered on your business.
+              Geo-grid ranks across a 7×7 grid centered on your business.{" "}
+              {usingRealData ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                  Live · from your keywords
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Sample data
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -681,12 +795,21 @@ function GmbAnalyticsPage() {
               onChange={(e) => setKeyword(e.target.value)}
               className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
             >
-              {MOCK_KEYWORDS.map((k) => (
+              {keywordRows.map((k) => (
                 <option key={k.keyword} value={k.keyword}>
                   {k.keyword}
                 </option>
               ))}
             </select>
+            <button
+              onClick={handleRefreshGrid}
+              disabled={refreshingGrid}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              title="Recompute geo-grid ranks for all tracked keywords"
+            >
+              {refreshingGrid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Refresh grid
+            </button>
             <div className="flex gap-3 text-xs">
               <LegendSwatch color={rankColor(1)} label="1–3" />
               <LegendSwatch color={rankColor(5)} label="4–10" />
@@ -696,7 +819,11 @@ function GmbAnalyticsPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <HeatMap keyword={keyword} />
+          <HeatMap
+            keyword={keyword}
+            cells={realCurrentGrid ?? undefined}
+            center={realCenter ?? undefined}
+          />
           <div className="space-y-3">
             <StatCard
               label="Cells in top 3"
@@ -896,7 +1023,7 @@ function GmbAnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_KEYWORDS.map((k) => (
+                {keywordRows.map((k) => (
                   <tr key={k.keyword} className="border-t border-border">
                     <td className="px-4 py-3 font-medium">{k.keyword}</td>
                     <td className="px-4 py-3">
@@ -968,7 +1095,7 @@ function GmbAnalyticsPage() {
       {/* Competitor rank history chart */}
       {competitors.length > 0 && (
         <CompetitorRankHistory
-          keywords={MOCK_KEYWORDS.map((k) => ({ keyword: k.keyword, current: k.current }))}
+          keywords={keywordRows.map((k) => ({ keyword: k.keyword, current: k.current }))}
           competitors={competitors}
           rankSource={rankSource}
         />
