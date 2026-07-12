@@ -295,6 +295,15 @@ function GmbAnalyticsPage() {
   const fetchCompetitorRanks = useServerFn(getCompetitorRanks);
   const fetchMetrics = useServerFn(getGmbMetrics);
   const fetchGmbStatus = useServerFn(getGmbConnectionStatus);
+  const fetchRankGrid = useServerFn(getRankGrid);
+  const runRankRefresh = useServerFn(refreshRankGrid);
+
+  // Real rank data (falls back to MOCK when the user has no keywords yet).
+  const [realKeywords, setRealKeywords] = useState<KeywordRow[] | null>(null);
+  const [realCurrentGrid, setRealCurrentGrid] = useState<{ lat: number; lng: number; rank: number }[] | null>(null);
+  const [realPreviousGrid, setRealPreviousGrid] = useState<{ lat: number; lng: number; rank: number }[] | null>(null);
+  const [realCenter, setRealCenter] = useState<{ lat: number; lng: number } | null>(null);
+  const [refreshingGrid, setRefreshingGrid] = useState(false);
 
   type Metrics = Awaited<ReturnType<typeof getGmbMetrics>>;
   const [metrics, setMetrics] = useState<Metrics | null>(null);
@@ -315,6 +324,69 @@ function GmbAnalyticsPage() {
       .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
+
+  // Load real rank grid whenever the selected keyword changes.
+  useEffect(() => {
+    let cancelled = false;
+    fetchRankGrid({ data: { phrase: keyword } })
+      .then((r) => {
+        if (cancelled) return;
+        if (r.keywords.length > 0) {
+          setRealKeywords(
+            r.keywords.map((k) => ({
+              keyword: k.phrase,
+              current: k.current,
+              previous: k.previous,
+              volume: k.volume,
+              city: "",
+            })),
+          );
+          setRealCurrentGrid(r.current);
+          setRealPreviousGrid(r.previous);
+          setRealCenter(r.center);
+        } else {
+          setRealKeywords(null);
+          setRealCurrentGrid(null);
+          setRealPreviousGrid(null);
+          setRealCenter(null);
+        }
+      })
+      .catch(() => {
+        /* fall back to MOCK */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchRankGrid, keyword]);
+
+  async function handleRefreshGrid() {
+    setRefreshingGrid(true);
+    try {
+      const res = await runRankRefresh();
+      toast.success(`Refreshed ${res.keywords} keywords · ${res.snapshots} probes`);
+      // Reload grid for currently selected keyword.
+      const r = await fetchRankGrid({ data: { phrase: keyword } });
+      if (r.keywords.length > 0) {
+        setRealKeywords(
+          r.keywords.map((k) => ({
+            keyword: k.phrase,
+            current: k.current,
+            previous: k.previous,
+            volume: k.volume,
+            city: "",
+          })),
+        );
+        setRealCurrentGrid(r.current);
+        setRealPreviousGrid(r.previous);
+        setRealCenter(r.center);
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Refresh failed");
+    } finally {
+      setRefreshingGrid(false);
+    }
+  }
+
 
   useEffect(() => {
     if (competitors.length === 0) {
