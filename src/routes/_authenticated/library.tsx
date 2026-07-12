@@ -127,13 +127,14 @@ function LibraryPage() {
   }
 
   const counts = useMemo(() => {
-    const c = { raw: 0, published: 0, geotagged: 0 };
+    const c: Record<"raw" | "published" | "geotagged", number> = { raw: 0, published: 0, geotagged: 0 };
     for (const i of data?.images ?? []) {
       c[imageBucket(i)]++;
     }
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
+
 
   const filtered = useMemo(() => {
     if (!data) return [];
