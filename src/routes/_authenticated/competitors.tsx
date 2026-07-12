@@ -30,6 +30,7 @@ function CompetitorsPage() {
   const add = useServerFn(addCompetitor);
   const update = useServerFn(updateCompetitor);
   const remove = useServerFn(deleteCompetitor);
+  const refreshPlace = useServerFn(refreshCompetitorPlaceId);
 
   const [rows, setRows] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
