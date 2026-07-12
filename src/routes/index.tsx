@@ -98,7 +98,7 @@ function Landing() {
           <ol className="mt-6 grid gap-6 sm:grid-cols-3">
             {[
               ["1", "Upload", "Drag a video into your browser."],
-              ["2", "Extract", "Frame Vault runs ffmpeg.wasm locally, scores every frame for sharpness, and keeps the winners."],
+              ["2", "Extract", "GMB Rank Pilot runs ffmpeg.wasm locally, scores every frame for sharpness, and keeps the winners."],
               ["3", "Tag & geotag", "Rename, pick tags (AI-assisted), and attach a Dubai venue with real coordinates."],
             ].map(([n, t, d]) => (
               <li key={n}>
