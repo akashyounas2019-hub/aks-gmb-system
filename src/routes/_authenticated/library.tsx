@@ -695,7 +695,7 @@ function ImageEditModal({
       setLoc({
         lat: Number(data.image.lat),
         lng: Number(data.image.lng),
-        label: data.image.location_label ?? "",
+        label: "",
       });
     } else if (hasPublished) {
       setBucket("published");
