@@ -50,6 +50,12 @@ import {
   getCompetitorRanks,
   getCompetitorRankHistory,
 } from "@/lib/rank-source.functions";
+import {
+  getAlertSettings,
+  updateAlertSettings,
+  type AlertSettings,
+} from "@/lib/alert-settings.functions";
+import { Bell } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/competitors")({
   component: CompetitorsPage,
