@@ -20,6 +20,7 @@ import {
   saveIntegration,
   deleteIntegration,
 } from "@/lib/user-integrations.functions";
+import { PROVIDER_RULES, validateField, type ProviderId } from "@/lib/user-integrations.validation";
 
 export const Route = createFileRoute("/_authenticated/settings/integrations")({
   component: IntegrationsPage,
@@ -515,7 +516,7 @@ function IntegrationsPage() {
 type FieldDef = { key: string; label: string; secret: boolean; placeholder?: string };
 
 type ProviderCardProps = {
-  provider: "ghl" | "dataforseo" | "serpapi" | "local_falcon";
+  provider: ProviderId;
   title: string;
   description: string;
   icon: React.ReactNode;
@@ -527,10 +528,14 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
   const fetchAll = useServerFn(listIntegrations);
   const save = useServerFn(saveIntegration);
   const remove = useServerFn(deleteIntegration);
+  const rules = PROVIDER_RULES[provider];
 
   const [configured, setConfigured] = useState<null | { masked: Record<string, string>; updatedAt: string }>(null);
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [touched, setTouched] = useState<Record<string, boolean>>({});
+  const [formError, setFormError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
 
@@ -549,17 +554,54 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  function setField(key: string, val: string) {
+    setValues((v) => ({ ...v, [key]: val }));
+    if (touched[key]) {
+      const rule = rules[key];
+      setErrors((e) => ({ ...e, [key]: rule ? (validateField(rule, val) ?? "") : "" }));
+    }
+  }
+
+  function markTouched(key: string) {
+    setTouched((t) => ({ ...t, [key]: true }));
+    const rule = rules[key];
+    if (rule) {
+      setErrors((e) => ({ ...e, [key]: validateField(rule, values[key] ?? "") ?? "" }));
+    }
+  }
+
   async function onSave(e: React.FormEvent) {
     e.preventDefault();
+    setFormError(null);
+    // Validate every field before submitting.
+    const nextErrors: Record<string, string> = {};
+    const nextTouched: Record<string, boolean> = {};
+    for (const f of fields) {
+      const rule = rules[f.key];
+      if (!rule) continue;
+      nextTouched[f.key] = true;
+      const err = validateField(rule, values[f.key] ?? "");
+      if (err) nextErrors[f.key] = err;
+    }
+    setTouched((t) => ({ ...t, ...nextTouched }));
+    setErrors(nextErrors);
+    if (Object.keys(nextErrors).length > 0) {
+      toast.error("Please fix the highlighted fields.");
+      return;
+    }
     setBusy(true);
     try {
       await save({ data: { provider, config: values } });
       setValues({});
+      setErrors({});
+      setTouched({});
       setOpen(false);
       await refresh();
       toast.success(`${title} saved`);
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Failed to save");
+      const msg = err instanceof Error ? err.message : "Failed to save";
+      setFormError(msg);
+      toast.error(msg);
     } finally {
       setBusy(false);
     }
@@ -567,9 +609,13 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
 
   async function onRemove() {
     if (!confirm(`Remove ${title} credentials?`)) return;
-    await remove({ data: { provider } });
-    await refresh();
-    toast.message("Removed");
+    try {
+      await remove({ data: { provider } });
+      await refresh();
+      toast.message("Removed");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove");
+    }
   }
 
   return (
@@ -620,34 +666,53 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
       </div>
 
       {open && (
-        <form onSubmit={onSave} className="mt-4 space-y-3">
-          {fields.map((f) => (
-            <label key={f.key} className="block">
-              <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">{f.label}</span>
-              <div className="relative">
-                <input
-                  type={f.secret && !reveal[f.key] ? "password" : "text"}
-                  autoComplete="off"
-                  spellCheck={false}
-                  value={values[f.key] ?? ""}
-                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
-                  placeholder={f.placeholder}
-                  className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm font-mono"
-                  required
-                />
-                {f.secret && (
-                  <button
-                    type="button"
-                    onClick={() => setReveal((r) => ({ ...r, [f.key]: !r[f.key] }))}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
-                    aria-label={reveal[f.key] ? "Hide" : "Show"}
-                  >
-                    {reveal[f.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
+        <form onSubmit={onSave} noValidate className="mt-4 space-y-3">
+          {fields.map((f) => {
+            const err = touched[f.key] ? errors[f.key] : "";
+            const inputId = `${provider}-${f.key}`;
+            return (
+              <label key={f.key} htmlFor={inputId} className="block">
+                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">{f.label}</span>
+                <div className="relative">
+                  <input
+                    id={inputId}
+                    type={f.secret && !reveal[f.key] ? "password" : "text"}
+                    autoComplete="off"
+                    spellCheck={false}
+                    value={values[f.key] ?? ""}
+                    onChange={(e) => setField(f.key, e.target.value)}
+                    onBlur={() => markTouched(f.key)}
+                    placeholder={f.placeholder}
+                    aria-invalid={err ? true : undefined}
+                    aria-describedby={err ? `${inputId}-error` : undefined}
+                    className={`w-full rounded-lg border bg-background px-3 py-2 pr-10 text-sm font-mono ${
+                      err ? "border-destructive focus:outline-destructive" : "border-border"
+                    }`}
+                  />
+                  {f.secret && (
+                    <button
+                      type="button"
+                      onClick={() => setReveal((r) => ({ ...r, [f.key]: !r[f.key] }))}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
+                      aria-label={reveal[f.key] ? "Hide" : "Show"}
+                    >
+                      {reveal[f.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </button>
+                  )}
+                </div>
+                {err && (
+                  <p id={`${inputId}-error`} className="mt-1 text-xs text-destructive">
+                    {err}
+                  </p>
                 )}
-              </div>
-            </label>
-          ))}
+              </label>
+            );
+          })}
+          {formError && (
+            <div className="rounded-md border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+              {formError}
+            </div>
+          )}
           <div className="flex items-center gap-2">
             <button
               type="submit"
@@ -659,7 +724,12 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
             </button>
             <button
               type="button"
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                setErrors({});
+                setTouched({});
+                setFormError(null);
+              }}
               className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
             >
               Cancel
@@ -676,7 +746,7 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
             )}
           </div>
           <p className="text-[11px] text-muted-foreground">
-            Values are stored server-side with row-level security scoped to your user.
+            Values are encrypted at rest and scoped to your user with row-level security.
           </p>
         </form>
       )}
