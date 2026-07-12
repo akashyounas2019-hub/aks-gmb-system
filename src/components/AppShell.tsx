@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
+  Zap,
   Palette,
   PenSquare,
   Settings as SettingsIcon,
@@ -54,6 +55,12 @@ const groups: NavGroup[] = [
     items: [
       { to: "/post-generator", label: "Post Generator", icon: PenSquare },
       { to: "/calendar", label: "Calendar", icon: CalendarDays },
+    ],
+  },
+  {
+    label: "Operations",
+    items: [
+      { to: "/automation", label: "Automation", icon: Zap },
     ],
   },
 ];
