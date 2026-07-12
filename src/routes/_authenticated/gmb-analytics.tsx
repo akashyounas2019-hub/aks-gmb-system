@@ -1262,17 +1262,7 @@ function RankHistoryChart({
   data: Array<Record<string, string | number | null>>;
   competitors: CompetitorLite[];
 }) {
-  // Lazy import so recharts doesn't bloat the initial route bundle unnecessarily.
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const {
-    ResponsiveContainer,
-    LineChart,
-    Line,
-    XAxis,
-    YAxis,
-    Tooltip,
-    CartesianGrid,
-  } = require("recharts");
+
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
