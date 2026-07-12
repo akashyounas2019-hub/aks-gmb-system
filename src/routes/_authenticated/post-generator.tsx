@@ -529,24 +529,69 @@ function PostGeneratorPage() {
                   )}
                 </div>
               </label>
-              <button
-                onClick={handleSend}
-                disabled={sending || !caption.trim()}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                {sending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Send className="h-4 w-4" />
-                )}
-                {scheduledAt
-                  ? "Schedule in GHL Social Planner"
-                  : "Send to GHL Social Planner now"}
-              </button>
+
+              {/* Multi-network selector */}
+              <div>
+                <div className="text-xs text-muted-foreground">Networks</div>
+                <div className="mt-1.5 flex flex-wrap gap-1.5">
+                  {(
+                    [
+                      { id: "gmb", label: "Google" },
+                      { id: "facebook", label: "Facebook" },
+                      { id: "instagram", label: "Instagram" },
+                      { id: "linkedin", label: "LinkedIn" },
+                      { id: "twitter", label: "X / Twitter" },
+                    ] as const
+                  ).map((n) => {
+                    const on = networks.includes(n.id);
+                    return (
+                      <button
+                        key={n.id}
+                        type="button"
+                        onClick={() =>
+                          setNetworks((prev) =>
+                            on ? prev.filter((x) => x !== n.id) : [...prev, n.id],
+                          )
+                        }
+                        className={`rounded-full border px-3 py-1 text-xs transition ${
+                          on
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {n.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  onClick={() => setPreviewOpen(true)}
+                  disabled={!caption.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  <Eye className="h-4 w-4" /> Preview
+                </button>
+                <button
+                  onClick={() => setPreviewOpen(true)}
+                  disabled={sending || !caption.trim() || networks.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {scheduledAt ? "Schedule…" : "Send…"}
+                </button>
+              </div>
               <p className="text-xs text-muted-foreground">
-                On success, the selected images are marked as posted and hidden
-                from future selections.
+                Preview shows exactly what will post to each network before it
+                leaves. On success, images are marked as posted.
               </p>
+
             </div>
           </section>
         </div>
