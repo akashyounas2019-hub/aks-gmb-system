@@ -487,7 +487,7 @@ function AutomationPage() {
             ) : (
               <div className="space-y-2">
                 {rules.map((r) => {
-                  const tpl = TEMPLATES.find((t) => t.id === r.templateId);
+                  const tpl = allTemplates.find((t) => t.id === r.templateId);
                   if (!tpl) return null;
                   const Icon = tpl.icon;
                   return (
@@ -620,7 +620,7 @@ function AutomationPage() {
       {editing && (
         <ConfigureModal
           rule={editing}
-          template={TEMPLATES.find((t) => t.id === editing.templateId)!}
+          template={allTemplates.find((t) => t.id === editing.templateId)!}
           onClose={() => setEditing(null)}
           onSave={(patch) => {
             setRules((prev) =>
