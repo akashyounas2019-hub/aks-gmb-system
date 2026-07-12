@@ -58,7 +58,7 @@ import {
 import {
   listTrackedKeywords,
   saveTrackedKeywords,
-  STARTER_TRACKED_KEYWORDS,
+  STARTER_trackedKeywords,
   type TrackedKeyword,
 } from "@/lib/tracked-keywords.functions";
 import { Bell, Filter, Search, Download, FileText, FileSpreadsheet } from "lucide-react";
@@ -86,7 +86,7 @@ type Competitor = {
 };
 
 // Keyword universe is loaded per-user from the `tracked_keywords` table.
-// STARTER_TRACKED_KEYWORDS is only used as the initial render seed until the
+// STARTER_trackedKeywords is only used as the initial render seed until the
 // server responds; users edit their own list from the Manage keywords panel.
 
 const KEYWORD_CATEGORIES = ["Residential", "Commercial", "Specialty"] as const;
@@ -225,7 +225,7 @@ function CompetitorsPage() {
     setRanksLoading(true);
     fetchRanks({
       data: {
-        keywords: TRACKED_KEYWORDS.map((k) => ({
+        keywords: trackedKeywords.map((k) => ({
           keyword: k.keyword,
           city: k.city,
           userRank: k.userRank,
@@ -276,7 +276,7 @@ function CompetitorsPage() {
       let behind = 0;
       let tied = 0;
       let top3 = 0;
-      for (const k of TRACKED_KEYWORDS) {
+      for (const k of trackedKeywords) {
         const r = rankMatrix[k.keyword]?.[c.id];
         if (r == null) continue;
         sum += r;
@@ -316,7 +316,7 @@ function CompetitorsPage() {
       contested += s.coverage;
     }
     const yourAvg =
-      TRACKED_KEYWORDS.reduce((a, b) => a + b.userRank, 0) / TRACKED_KEYWORDS.length;
+      trackedKeywords.reduce((a, b) => a + b.userRank, 0) / trackedKeywords.length;
     const compAvg = ranks.length > 0 ? ranks.reduce((a, b) => a + b, 0) / ranks.length : null;
     return {
       total: rows.length,
@@ -351,7 +351,7 @@ function CompetitorsPage() {
       }
       // Keyword category — require competitor to have at least one resolved rank in a selected category
       if (catSet.size > 0) {
-        const hasHit = TRACKED_KEYWORDS.some(
+        const hasHit = trackedKeywords.some(
           (k) => catSet.has(k.category) && rankMatrix[k.keyword]?.[c.id] != null,
         );
         if (!hasHit) return false;
@@ -417,7 +417,7 @@ function CompetitorsPage() {
     }
 
     // Keyword-level SOS
-    const contested = TRACKED_KEYWORDS.map((k) => {
+    const contested = trackedKeywords.map((k) => {
       const compRanks = rows
         .map((c) => rankMatrix[k.keyword]?.[c.id])
         .filter((r): r is number => typeof r === "number");
@@ -495,7 +495,7 @@ function CompetitorsPage() {
     return filteredRows.map((c) => {
       const s = stats[c.id];
       const level = computeThreatLevel(s);
-      const perKeyword = TRACKED_KEYWORDS.map((k) => {
+      const perKeyword = trackedKeywords.map((k) => {
         const r = rankMatrix[k.keyword]?.[c.id];
         return r != null ? `${k.keyword}: #${r}` : `${k.keyword}: —`;
       }).join(" | ");
@@ -638,7 +638,7 @@ function CompetitorsPage() {
     autoTable(doc, {
       startY: y + 8,
       head: [["Keyword", "You", ...filteredRows.map((c) => (c.name.length > 14 ? c.name.slice(0, 12) + "…" : c.name))]],
-      body: TRACKED_KEYWORDS.map((k) => [
+      body: trackedKeywords.map((k) => [
         k.keyword,
         `#${k.userRank}`,
         ...filteredRows.map((c) => {
@@ -719,7 +719,7 @@ function CompetitorsPage() {
           icon={<Target className="h-4 w-4" />}
           label="Tracked competitors"
           value={portfolio.total.toString()}
-          hint={`across ${TRACKED_KEYWORDS.length} keywords`}
+          hint={`across ${trackedKeywords.length} keywords`}
         />
         <KpiCard
           icon={<Award className="h-4 w-4" />}
@@ -1301,7 +1301,7 @@ function CompetitorDrawer({
   onClose: () => void;
   fetchHistory: ReturnType<typeof useServerFn<typeof getCompetitorRankHistory>>;
 }) {
-  const [historyKw, setHistoryKw] = useState(TRACKED_KEYWORDS[0].keyword);
+  const [historyKw, setHistoryKw] = useState(trackedKeywords[0].keyword);
   const [history, setHistory] = useState<Array<{ recordedAt: string; rank: number | null; competitorId: string | null }>>([]);
   const [hLoading, setHLoading] = useState(false);
 
@@ -1369,7 +1369,7 @@ function CompetitorDrawer({
           {/* Snapshot */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <SnapStat label="Avg rank" value={stats?.avgRank != null ? `#${stats.avgRank}` : "—"} tone="neutral" />
-            <SnapStat label="Coverage" value={`${stats?.coverage ?? 0}/${TRACKED_KEYWORDS.length}`} tone="neutral" />
+            <SnapStat label="Coverage" value={`${stats?.coverage ?? 0}/${trackedKeywords.length}`} tone="neutral" />
             <SnapStat label="Beats you" value={stats?.beating ?? 0} tone="bad" />
             <SnapStat label="Top 3" value={stats?.top3 ?? 0} tone="good" />
           </div>
@@ -1388,7 +1388,7 @@ function CompetitorDrawer({
                   </tr>
                 </thead>
                 <tbody>
-                  {TRACKED_KEYWORDS.map((k) => {
+                  {trackedKeywords.map((k) => {
                     const them = rankMatrix[k.keyword]?.[competitor.id] ?? null;
                     const delta = them != null ? them - k.userRank : null;
                     return (
@@ -1416,7 +1416,7 @@ function CompetitorDrawer({
                 onChange={(e) => setHistoryKw(e.target.value)}
                 className="rounded-lg border border-border bg-card px-2 py-1 text-xs outline-none"
               >
-                {TRACKED_KEYWORDS.map((k) => (
+                {trackedKeywords.map((k) => (
                   <option key={k.keyword} value={k.keyword}>
                     {k.keyword}
                   </option>
