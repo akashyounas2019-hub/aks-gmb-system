@@ -572,7 +572,22 @@ function GmbAnalyticsPage() {
         )}
       </div>
 
-
+      {needsLocation && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <div>
+            <div className="font-medium text-amber-200">Google is connected — pick a business location to load live data</div>
+            <div className="mt-0.5 text-xs text-amber-200/80">
+              OAuth succeeded, but no Business Profile location is selected yet. Until you pick one, the dashboard keeps showing sample data.
+            </div>
+          </div>
+          <Link
+            to="/settings/integrations"
+            className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-black hover:opacity-90"
+          >
+            Choose location →
+          </Link>
+        </div>
+      )}
 
       {/* Business card */}
       <div className="mt-6 rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 p-5">
