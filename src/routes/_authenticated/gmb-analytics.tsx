@@ -282,6 +282,7 @@ function GmbAnalyticsPage() {
   const [connectBusy, setConnectBusy] = useState(false);
   const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
   const fetchCompetitors = useServerFn(listCompetitors);
+  const fetchCompetitorRanks = useServerFn(getCompetitorRanks);
   const fetchMetrics = useServerFn(getGmbMetrics);
   const fetchGmbStatus = useServerFn(getGmbConnectionStatus);
 
@@ -290,11 +291,46 @@ function GmbAnalyticsPage() {
   const [metricsErr, setMetricsErr] = useState<string | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
 
+  // Live competitor rank lookup state.
+  const [rankSource, setRankSource] = useState<"serpapi" | "dataforseo" | "local_falcon" | null>(null);
+  const [rankData, setRankData] = useState<Record<string, Record<string, number | null>>>({});
+  const [rankErr, setRankErr] = useState<string | null>(null);
+  const [rankLoading, setRankLoading] = useState(false);
+
   useEffect(() => {
     fetchCompetitors()
       .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
+
+  useEffect(() => {
+    if (competitors.length === 0) {
+      setRankData({});
+      setRankErr(null);
+      setRankSource(null);
+      return;
+    }
+    setRankLoading(true);
+    setRankErr(null);
+    fetchCompetitorRanks({
+      data: {
+        keywords: MOCK_KEYWORDS.map((k) => ({ keyword: k.keyword, city: k.city })),
+        competitors: competitors.map((c) => ({
+          id: c.id,
+          name: c.name,
+          gbpUrl: c.gbp_url,
+          placeId: c.place_id,
+        })),
+      },
+    })
+      .then((res) => {
+        setRankSource(res.source);
+        setRankData(res.results);
+        setRankErr(res.error);
+      })
+      .catch((e) => setRankErr(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setRankLoading(false));
+  }, [competitors, fetchCompetitorRanks]);
 
   useEffect(() => {
     let cancelled = false;
