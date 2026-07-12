@@ -229,10 +229,22 @@ function IntegrationsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Pulls views, calls, reviews, and rankings from your GMB account.
             </p>
-            {gmb.connected && (
-              <div className="mt-3 text-xs text-muted-foreground">
-                <div><span className="text-foreground">{gmb.accountName}</span> · {gmb.locationName}</div>
-                <div>Connected {gmb.connectedAt ? new Date(gmb.connectedAt).toLocaleString() : ""}</div>
+            {serverConn.connected && (
+              <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+                {serverConn.locationTitle ? (
+                  <div>
+                    <span className="text-foreground">{serverConn.locationTitle}</span>
+                    <span className="ml-1 font-mono text-[10px] opacity-70">{serverConn.locationName}</span>
+                  </div>
+                ) : (
+                  <div className="text-amber-500">No location selected — pick one below.</div>
+                )}
+                <div>Token expires {serverConn.expiresAt ? new Date(serverConn.expiresAt).toLocaleString() : ""}</div>
+                {!serverConn.hasRefresh && (
+                  <div className="text-amber-500">
+                    No refresh token stored — reconnect to obtain one (Google issues it on first consent).
+                  </div>
+                )}
               </div>
             )}
           </div>
