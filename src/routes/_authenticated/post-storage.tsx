@@ -121,7 +121,7 @@ export function PostStoragePanel() {
       Published: 0,
       Live: 0,
     };
-    posts.forEach((p) => c[p.status]++);
+    posts.forEach((p) => { c[(p.status as PostStatus) ?? "Draft"]++; });
     return c;
   }, [posts]);
 
@@ -593,7 +593,7 @@ function PostCard({
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[post.status]}`}>
+        <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
           {post.status}
         </span>
         {folderName && (
