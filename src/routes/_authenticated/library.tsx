@@ -55,6 +55,27 @@ function LibraryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
+  const [autoTagging, setAutoTagging] = useState(false);
+  const autoTag = useServerFn(autoTagImages);
+
+  async function runAutoTag() {
+    if (selected.size === 0) return;
+    setAutoTagging(true);
+    try {
+      const res = await autoTag({
+        data: { imageIds: Array.from(selected), overwrite: false },
+      });
+      toast.success(
+        `Auto-tagged ${res.tagged} image(s). Skipped ${res.skipped}, failed ${res.failed}.`,
+      );
+      qc.invalidateQueries({ queryKey: ["library"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Auto-tag failed");
+    } finally {
+      setAutoTagging(false);
+    }
+  }
+
 
   async function renameImage(id: string, currentName: string) {
     const next = window.prompt("Rename image", currentName);
