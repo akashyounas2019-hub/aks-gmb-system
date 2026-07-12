@@ -10,6 +10,9 @@ import {
   Loader2,
   ImageIcon,
   KeyRound,
+  Plus,
+  ChevronDown,
+  CheckCircle2,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -34,18 +37,30 @@ type KeywordRow = {
   cluster: string | null;
   volume: number | null;
 };
-type ImageRow = { id: string; name: string; storage_path: string };
+type ImageRow = {
+  id: string;
+  name: string;
+  storage_path: string;
+  posted_at: string | null;
+};
+
+const PREVIEW_COUNT = 8;
 
 function PostGeneratorPage() {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
 
-  const [keywordsAll, setKeywordsAll] = useState<KeywordRow[]>([]);
-  const [selectedKw, setSelectedKw] = useState<Set<string>>(new Set());
-  const [kwFilter, setKwFilter] = useState("");
+  // Keywords — manual list is primary; CSV imports come from the `keywords` table
+  const [manualKw, setManualKw] = useState<string[]>([]);
+  const [manualInput, setManualInput] = useState("");
+  const [importedKw, setImportedKw] = useState<KeywordRow[]>([]);
+  const [importOpen, setImportOpen] = useState(false);
+  const [importFilter, setImportFilter] = useState("");
 
   const [images, setImages] = useState<ImageRow[]>([]);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [galleryOpen, setGalleryOpen] = useState(false);
+  const [showPosted, setShowPosted] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [language, setLanguage] = useState<"en" | "ar" | "both">("en");
@@ -61,43 +76,67 @@ function PostGeneratorPage() {
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
 
+  async function reloadImages() {
+    const { data } = await supabase
+      .from("images")
+      .select("id,name,storage_path,posted_at")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    setImages((data ?? []) as ImageRow[]);
+  }
+
   useEffect(() => {
     supabase
       .from("keywords")
       .select("id,phrase,cluster,volume")
       .order("volume", { ascending: false, nullsFirst: false })
       .limit(500)
-      .then(({ data }) => setKeywordsAll((data ?? []) as KeywordRow[]));
-    supabase
-      .from("images")
-      .select("id,name,storage_path")
-      .order("created_at", { ascending: false })
-      .limit(48)
-      .then(({ data }) => setImages((data ?? []) as ImageRow[]));
+      .then(({ data }) => setImportedKw((data ?? []) as KeywordRow[]));
+    reloadImages();
   }, []);
 
-  const filteredKw = useMemo(() => {
-    const q = kwFilter.trim().toLowerCase();
-    if (!q) return keywordsAll.slice(0, 200);
-    return keywordsAll.filter(
-      (k) =>
-        k.phrase.toLowerCase().includes(q) ||
-        (k.cluster ?? "").toLowerCase().includes(q),
-    );
-  }, [kwFilter, keywordsAll]);
-
-  const selectedKwPhrases = useMemo(
-    () => keywordsAll.filter((k) => selectedKw.has(k.id)).map((k) => k.phrase),
-    [keywordsAll, selectedKw],
+  const visibleImages = useMemo(
+    () =>
+      showPosted ? images : images.filter((i) => !i.posted_at),
+    [images, showPosted],
   );
+  const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
-  function toggleKw(id: string) {
-    setSelectedKw((s) => {
-      const n = new Set(s);
-      n.has(id) ? n.delete(id) : n.add(id);
-      return n;
+  const filteredImportKw = useMemo(() => {
+    const q = importFilter.trim().toLowerCase();
+    const already = new Set(manualKw.map((k) => k.toLowerCase()));
+    return importedKw.filter(
+      (k) =>
+        !already.has(k.phrase.toLowerCase()) &&
+        (!q ||
+          k.phrase.toLowerCase().includes(q) ||
+          (k.cluster ?? "").toLowerCase().includes(q)),
+    );
+  }, [importedKw, importFilter, manualKw]);
+
+  function addManualKw(raw: string) {
+    const parts = raw
+      .split(/[,\n]/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (!parts.length) return;
+    setManualKw((prev) => {
+      const seen = new Set(prev.map((k) => k.toLowerCase()));
+      const next = [...prev];
+      for (const p of parts) {
+        if (!seen.has(p.toLowerCase())) {
+          next.push(p);
+          seen.add(p.toLowerCase());
+        }
+      }
+      return next;
     });
+    setManualInput("");
   }
+  function removeManualKw(kw: string) {
+    setManualKw((prev) => prev.filter((k) => k !== kw));
+  }
+
   function toggleImage(id: string) {
     setSelectedImages((s) => {
       const n = new Set(s);
@@ -109,15 +148,15 @@ function PostGeneratorPage() {
   }
 
   async function handleGenerate() {
-    if (!selectedKwPhrases.length) {
-      toast.error("Pick at least one keyword");
+    if (!manualKw.length) {
+      toast.error("Add at least one keyword");
       return;
     }
     setGenerating(true);
     try {
       const res = await compose({
         data: {
-          keywords: selectedKwPhrases,
+          keywords: manualKw,
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
           language,
@@ -149,7 +188,7 @@ function PostGeneratorPage() {
           locationLabel: location?.label,
           lat: location?.lat,
           lng: location?.lng,
-          primaryKeyword: selectedKwPhrases[0],
+          primaryKeyword: manualKw[0],
           ghlLocationId: ghlLocationId || undefined,
           scheduledAt: scheduledAt
             ? new Date(scheduledAt).toISOString()
@@ -158,8 +197,12 @@ function PostGeneratorPage() {
         },
       });
       toast.success(
-        res.status === "queued" ? "Scheduled in GHL Social Planner" : "Sent to GHL Social Planner",
+        res.status === "queued"
+          ? "Scheduled in GHL Social Planner"
+          : "Sent to GHL Social Planner",
       );
+      setSelectedImages(new Set());
+      reloadImages();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Send failed");
     } finally {
@@ -173,13 +216,16 @@ function PostGeneratorPage() {
   }
 
   return (
-    <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
+    <div
+      className="w-full py-6 pl-6 md:py-10 md:pl-10"
+      style={{ paddingRight: 50 }}
+    >
       <div className="flex items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">Post Generator</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Pick keywords + images + location, generate with AI, then push to
-            GHL Social Planner.
+            Enter your keywords, pick images + location, generate with AI, then
+            push to GHL Social Planner.
           </p>
         </div>
       </div>
@@ -187,94 +233,162 @@ function PostGeneratorPage() {
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* Left column — inputs */}
         <div className="space-y-6">
-          {/* Keywords picker */}
+          {/* Keywords — manual first, CSV import as dropdown */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <KeyRound className="h-4 w-4 text-primary" /> Keywords
                 <span className="text-xs text-muted-foreground">
-                  ({selectedKw.size} selected)
+                  ({manualKw.length} added)
                 </span>
               </div>
-              <input
-                value={kwFilter}
-                onChange={(e) => setKwFilter(e.target.value)}
-                placeholder="Filter…"
-                className="w-40 rounded border border-border bg-background px-2 py-1 text-xs outline-none"
-              />
-            </div>
-            {keywordsAll.length === 0 ? (
-              <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                No keywords yet. Import a Semrush CSV in the Keywords tab.
+              <div className="relative">
+                <button
+                  onClick={() => setImportOpen((v) => !v)}
+                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+                >
+                  Import from Semrush
+                  <ChevronDown className="h-3 w-3" />
+                </button>
+                {importOpen && (
+                  <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
+                    <input
+                      autoFocus
+                      value={importFilter}
+                      onChange={(e) => setImportFilter(e.target.value)}
+                      placeholder="Search imported keywords…"
+                      className="mb-2 w-full rounded border border-border bg-background px-2 py-1.5 text-xs outline-none"
+                    />
+                    <div className="max-h-64 overflow-auto">
+                      {filteredImportKw.length === 0 ? (
+                        <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                          {importedKw.length === 0
+                            ? "No CSV imported yet. Go to Keywords tab."
+                            : "No matches."}
+                        </div>
+                      ) : (
+                        filteredImportKw.slice(0, 100).map((k) => (
+                          <button
+                            key={k.id}
+                            onClick={() => {
+                              addManualKw(k.phrase);
+                              setImportFilter("");
+                            }}
+                            className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                          >
+                            <span>{k.phrase}</span>
+                            {k.volume ? (
+                              <span className="text-muted-foreground">
+                                {k.volume.toLocaleString()}
+                              </span>
+                            ) : null}
+                          </button>
+                        ))
+                      )}
+                    </div>
+                    <div className="mt-1 flex justify-end border-t border-border pt-2">
+                      <button
+                        onClick={() => setImportOpen(false)}
+                        className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
+                      >
+                        Close
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
-            ) : (
-              <div className="flex max-h-52 flex-wrap gap-1.5 overflow-auto">
-                {filteredKw.map((k) => {
-                  const active = selectedKw.has(k.id);
-                  return (
+            </div>
+
+            {/* Manual entry */}
+            <div className="flex gap-2">
+              <input
+                value={manualInput}
+                onChange={(e) => setManualInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault();
+                    addManualKw(manualInput);
+                  }
+                }}
+                placeholder="Type a keyword and press Enter (or paste comma-separated)"
+                className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+              <button
+                onClick={() => addManualKw(manualInput)}
+                className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+              >
+                <Plus className="h-3.5 w-3.5" /> Add
+              </button>
+            </div>
+
+            {manualKw.length > 0 && (
+              <div className="mt-3 flex flex-wrap gap-1.5">
+                {manualKw.map((k) => (
+                  <span
+                    key={k}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs text-primary"
+                  >
+                    {k}
                     <button
-                      key={k.id}
-                      onClick={() => toggleKw(k.id)}
-                      className={`rounded-full border px-2.5 py-1 text-xs ${
-                        active
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border hover:border-primary/50"
-                      }`}
+                      onClick={() => removeManualKw(k)}
+                      className="ml-0.5 rounded-full hover:bg-primary/20"
+                      aria-label={`Remove ${k}`}
                     >
-                      {k.phrase}
-                      {k.volume ? (
-                        <span className="ml-1 opacity-60">
-                          · {k.volume.toLocaleString()}
-                        </span>
-                      ) : null}
+                      <X className="h-3 w-3" />
                     </button>
-                  );
-                })}
+                  </span>
+                ))}
               </div>
             )}
           </section>
 
-          {/* Images picker */}
+          {/* Images picker — preview + View all */}
           <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-              <ImageIcon className="h-4 w-4 text-primary" /> Images
-              <span className="text-xs text-muted-foreground">
-                ({selectedImages.size}/4)
-              </span>
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ImageIcon className="h-4 w-4 text-primary" /> Images
+                <span className="text-xs text-muted-foreground">
+                  ({selectedImages.size}/4 selected · {visibleImages.length}{" "}
+                  available)
+                </span>
+              </div>
+              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                <input
+                  type="checkbox"
+                  checked={showPosted}
+                  onChange={(e) => setShowPosted(e.target.checked)}
+                  className="h-3.5 w-3.5"
+                />
+                Show posted
+              </label>
             </div>
-            {images.length === 0 ? (
+            {previewImages.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                No images yet. Extract frames from a video first.
+                {images.length === 0
+                  ? "No images yet. Extract frames from a video first."
+                  : "All available images have been posted. Toggle 'Show posted' to reuse."}
               </div>
             ) : (
-              <div className="grid grid-cols-4 gap-2">
-                {images.map((img) => {
-                  const active = selectedImages.has(img.id);
-                  return (
-                    <button
+              <>
+                <div className="grid grid-cols-4 gap-2">
+                  {previewImages.map((img) => (
+                    <ImageThumb
                       key={img.id}
+                      img={img}
+                      active={selectedImages.has(img.id)}
                       onClick={() => toggleImage(img.id)}
-                      className={`relative overflow-hidden rounded-md border transition ${
-                        active
-                          ? "border-primary ring-2 ring-primary"
-                          : "border-border hover:border-primary/50"
-                      }`}
-                    >
-                      <SignedImage
-                        bucket="frames"
-                        path={img.storage_path}
-                        alt={img.name}
-                        className="aspect-square w-full object-cover"
-                      />
-                      {active && (
-                        <div className="absolute right-1 top-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
-                          ✓
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
+                    />
+                  ))}
+                </div>
+                {visibleImages.length > PREVIEW_COUNT && (
+                  <button
+                    onClick={() => setGalleryOpen(true)}
+                    className="mt-3 w-full rounded-md border border-border py-2 text-xs font-medium hover:border-primary/50 hover:bg-accent"
+                  >
+                    View all {visibleImages.length} images →
+                  </button>
+                )}
+              </>
             )}
           </section>
 
@@ -284,7 +398,7 @@ function PostGeneratorPage() {
             <LocationPicker value={location} onChange={setLocation} />
           </section>
 
-          {/* Settings */}
+          {/* Voice */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Voice</div>
             <div className="grid grid-cols-2 gap-3 text-sm">
@@ -427,15 +541,117 @@ function PostGeneratorPage() {
                   : "Send to GHL Social Planner now"}
               </button>
               <p className="text-xs text-muted-foreground">
-                Sends to your <code>N8N_WEBHOOK_URL</code> (falls back to{" "}
-                <code>GHL_WEBHOOK_URL</code>). Configure your n8n workflow to
-                receive this payload and post to GHL's{" "}
-                <code>/social-media-posting/{"{locationId}"}/posts</code>.
+                On success, the selected images are marked as posted and hidden
+                from future selections.
               </p>
             </div>
           </section>
         </div>
       </div>
+
+      {/* Full gallery modal */}
+      {galleryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setGalleryOpen(false)}
+        >
+          <div
+            className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <div>
+                <div className="text-sm font-medium">All images</div>
+                <div className="text-xs text-muted-foreground">
+                  {selectedImages.size}/4 selected · {visibleImages.length}{" "}
+                  available
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showPosted}
+                    onChange={(e) => setShowPosted(e.target.checked)}
+                  />
+                  Show posted
+                </label>
+                <button
+                  onClick={() => setGalleryOpen(false)}
+                  className="rounded p-1 hover:bg-accent"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                {visibleImages.map((img) => (
+                  <ImageThumb
+                    key={img.id}
+                    img={img}
+                    active={selectedImages.has(img.id)}
+                    onClick={() => toggleImage(img.id)}
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="border-t border-border px-5 py-3 text-right">
+              <button
+                onClick={() => setGalleryOpen(false)}
+                className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+  );
+}
+
+function ImageThumb({
+  img,
+  active,
+  onClick,
+}: {
+  img: ImageRow;
+  active: boolean;
+  onClick: () => void;
+}) {
+  const posted = !!img.posted_at;
+  return (
+    <button
+      onClick={onClick}
+      className={`relative overflow-hidden rounded-md border transition ${
+        active
+          ? "border-primary ring-2 ring-primary"
+          : "border-border hover:border-primary/50"
+      } ${posted ? "opacity-70" : ""}`}
+      title={
+        posted
+          ? `Posted ${new Date(img.posted_at!).toLocaleDateString()}`
+          : img.name
+      }
+    >
+      <SignedImage
+        bucket="frames"
+        path={img.storage_path}
+        alt={img.name}
+        className="aspect-square w-full object-cover"
+      />
+      {active && (
+        <div className="absolute right-1 top-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
+          ✓
+        </div>
+      )}
+      {posted && (
+        <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-emerald-600/85 py-0.5 text-[10px] font-medium text-white">
+          <CheckCircle2 className="h-3 w-3" /> Posted
+        </div>
+      )}
+    </button>
   );
 }

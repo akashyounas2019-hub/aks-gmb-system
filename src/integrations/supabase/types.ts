@@ -83,6 +83,7 @@ export type Database = {
           lng: number | null
           name: string
           owner_id: string
+          posted_at: string | null
           sharpness_score: number | null
           storage_path: string
           timestamp_seconds: number | null
@@ -98,6 +99,7 @@ export type Database = {
           lng?: number | null
           name: string
           owner_id: string
+          posted_at?: string | null
           sharpness_score?: number | null
           storage_path: string
           timestamp_seconds?: number | null
@@ -113,6 +115,7 @@ export type Database = {
           lng?: number | null
           name?: string
           owner_id?: string
+          posted_at?: string | null
           sharpness_score?: number | null
           storage_path?: string
           timestamp_seconds?: number | null

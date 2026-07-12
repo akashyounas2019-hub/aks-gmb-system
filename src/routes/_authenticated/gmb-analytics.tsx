@@ -1,14 +1,23 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { ArrowDownRight, ArrowUpRight, Info, Minus } from "lucide-react";
-import { useMemo, useState } from "react";
+import {
+  ArrowDownRight,
+  ArrowUpRight,
+  Eye,
+  Info,
+  MapPin,
+  Minus,
+  Phone,
+  Search,
+  Star,
+  TrendingUp,
+} from "lucide-react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
   component: GmbAnalyticsPage,
 });
 
-// ---------- MOCK DATA ----------
-// Replace with a server function calling Local Falcon / SerpApi / BrightLocal.
-// See notes at the bottom of this file for the integration outline.
+/* ---------- MOCK DATA ----------------------------------------------- */
 type KeywordRow = {
   keyword: string;
   current: number;
@@ -18,36 +27,57 @@ type KeywordRow = {
 };
 
 const MOCK_KEYWORDS: KeywordRow[] = [
-  { keyword: "plumber near me", current: 3, previous: 7, volume: 2400, city: "Dubai Marina" },
-  { keyword: "emergency plumber dubai", current: 5, previous: 4, volume: 880, city: "JLT" },
-  { keyword: "gas leak repair", current: 12, previous: 18, volume: 320, city: "Business Bay" },
-  { keyword: "water heater installation", current: 8, previous: 8, volume: 590, city: "Downtown" },
-  { keyword: "24 hour plumber", current: 2, previous: 6, volume: 1300, city: "Marina" },
-  { keyword: "blocked drain service", current: 14, previous: 11, volume: 720, city: "Deira" },
-  { keyword: "leak detection dubai", current: 4, previous: 9, volume: 480, city: "Al Barsha" },
+  { keyword: "deep cleaning dubai", current: 3, previous: 7, volume: 2900, city: "Downtown Dubai" },
+  { keyword: "sofa cleaning near me", current: 5, previous: 4, volume: 1600, city: "Al Qusais" },
+  { keyword: "move in cleaning dubai", current: 12, previous: 18, volume: 720, city: "Dubai Marina" },
+  { keyword: "carpet cleaning service", current: 8, previous: 8, volume: 990, city: "Business Bay" },
+  { keyword: "post construction cleaning", current: 2, previous: 6, volume: 480, city: "JLT" },
+  { keyword: "villa deep cleaning", current: 14, previous: 11, volume: 590, city: "Al Barsha" },
+  { keyword: "office cleaning dubai", current: 4, previous: 9, volume: 1300, city: "Deira" },
 ];
 
-// 7x7 mock heat grid — value = rank (1 = best, 20 = worst).
+// Business center = Dubai Downtown-ish
+const BUSINESS = { lat: 25.2048, lng: 55.2708, name: "Pearl Home Cleaning" };
 const GRID_SIZE = 7;
-const MOCK_GRID: number[][] = Array.from({ length: GRID_SIZE }, (_, r) =>
-  Array.from({ length: GRID_SIZE }, (_, c) => {
-    // center = better rank, edges = worse
-    const dx = c - (GRID_SIZE - 1) / 2;
-    const dy = r - (GRID_SIZE - 1) / 2;
-    const dist = Math.sqrt(dx * dx + dy * dy);
-    return Math.max(1, Math.min(20, Math.round(dist * 2.5 + Math.random() * 3)));
-  }),
-);
+const GRID_STEP_DEG = 0.012; // ~1.3 km per cell
+
+function seededRandom(seed: number) {
+  let s = seed;
+  return () => {
+    s = (s * 9301 + 49297) % 233280;
+    return s / 233280;
+  };
+}
+
+function buildGrid(keyword: string): { lat: number; lng: number; rank: number }[] {
+  const rand = seededRandom(
+    keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0),
+  );
+  const cells: { lat: number; lng: number; rank: number }[] = [];
+  for (let r = 0; r < GRID_SIZE; r++) {
+    for (let c = 0; c < GRID_SIZE; c++) {
+      const dx = c - (GRID_SIZE - 1) / 2;
+      const dy = r - (GRID_SIZE - 1) / 2;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const rank = Math.max(1, Math.min(20, Math.round(dist * 2.4 + rand() * 4)));
+      cells.push({
+        lat: BUSINESS.lat + dy * GRID_STEP_DEG,
+        lng: BUSINESS.lng + dx * GRID_STEP_DEG,
+        rank,
+      });
+    }
+  }
+  return cells;
+}
 
 function rankColor(rank: number): string {
-  // 1-3 green, 4-10 amber, 11+ red
-  if (rank <= 3) return "hsl(142 71% 45%)";
-  if (rank <= 10) return "hsl(38 92% 50%)";
-  return "hsl(0 72% 51%)";
+  if (rank <= 3) return "#22c55e";
+  if (rank <= 10) return "#f59e0b";
+  return "#ef4444";
 }
 
 function TrendCell({ current, previous }: { current: number; previous: number }) {
-  const delta = previous - current; // positive = moved up
+  const delta = previous - current;
   if (delta === 0)
     return (
       <span className="inline-flex items-center gap-1 text-muted-foreground">
@@ -67,8 +97,164 @@ function TrendCell({ current, previous }: { current: number; previous: number })
   );
 }
 
+/* ---------- Google Maps loader (shared with LocationPicker) --------- */
+const MAPS_KEY = import.meta.env
+  .VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+
+let mapsPromise: Promise<void> | null = null;
+function loadMaps(): Promise<void> {
+  if (typeof window === "undefined") return Promise.resolve();
+  if ((window as any).google?.maps?.importLibrary) return Promise.resolve();
+  if (mapsPromise) return mapsPromise;
+  if (!MAPS_KEY) return Promise.reject(new Error("Google Maps key missing"));
+  mapsPromise = new Promise<void>((resolve, reject) => {
+    (window as any).__initMapsGmb = () => resolve();
+    const s = document.createElement("script");
+    s.async = true;
+    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&v=weekly&callback=__initMapsGmb&loading=async`;
+    s.onerror = () => reject(new Error("Failed to load Google Maps"));
+    document.head.appendChild(s);
+  });
+  return mapsPromise;
+}
+
+/* ---------- HEAT MAP -------------------------------------------------- */
+function HeatMap({ keyword }: { keyword: string }) {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const mapRef = useRef<any>(null);
+  const overlaysRef = useRef<any[]>([]);
+  const [ready, setReady] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const grid = useMemo(() => buildGrid(keyword), [keyword]);
+
+  useEffect(() => {
+    let cancelled = false;
+    loadMaps()
+      .then(() => {
+        if (cancelled || !containerRef.current) return;
+        const g = (window as any).google;
+        mapRef.current = new g.maps.Map(containerRef.current, {
+          center: BUSINESS,
+          zoom: 12,
+          disableDefaultUI: true,
+          zoomControl: true,
+          styles: DARK_MAP_STYLE,
+          backgroundColor: "#0b1220",
+        });
+        setReady(true);
+      })
+      .catch((e) => setError(e.message));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!ready || !mapRef.current) return;
+    const g = (window as any).google;
+    // clear old markers
+    overlaysRef.current.forEach((m) => m.setMap(null));
+    overlaysRef.current = [];
+    for (const cell of grid) {
+      const color = rankColor(cell.rank);
+      const circle = new g.maps.Circle({
+        strokeColor: color,
+        strokeOpacity: 0.9,
+        strokeWeight: 2,
+        fillColor: color,
+        fillOpacity: 0.35,
+        map: mapRef.current,
+        center: { lat: cell.lat, lng: cell.lng },
+        radius: 550,
+      });
+      overlaysRef.current.push(circle);
+
+      const label = new g.maps.Marker({
+        position: { lat: cell.lat, lng: cell.lng },
+        map: mapRef.current,
+        label: {
+          text: String(cell.rank),
+          color: "#ffffff",
+          fontWeight: "700",
+          fontSize: "12px",
+        },
+        icon: {
+          path: g.maps.SymbolPath.CIRCLE,
+          scale: 0,
+        },
+      });
+      overlaysRef.current.push(label);
+    }
+    // Business marker
+    const biz = new g.maps.Marker({
+      position: BUSINESS,
+      map: mapRef.current,
+      title: BUSINESS.name,
+      icon: {
+        path: g.maps.SymbolPath.CIRCLE,
+        scale: 8,
+        fillColor: "#3b82f6",
+        fillOpacity: 1,
+        strokeColor: "#ffffff",
+        strokeWeight: 2,
+      },
+    });
+    overlaysRef.current.push(biz);
+  }, [ready, grid]);
+
+  return (
+    <div className="relative h-[520px] w-full overflow-hidden rounded-2xl border border-border">
+      <div ref={containerRef} className="absolute inset-0" />
+      {!ready && !error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-card/80 text-sm text-muted-foreground">
+          Loading map…
+        </div>
+      )}
+      {error && (
+        <div className="absolute inset-0 flex items-center justify-center bg-card/90 text-sm text-destructive">
+          {error}
+        </div>
+      )}
+    </div>
+  );
+}
+
+const DARK_MAP_STYLE: any[] = [
+  { elementType: "geometry", stylers: [{ color: "#0b1220" }] },
+  { elementType: "labels.text.stroke", stylers: [{ color: "#0b1220" }] },
+  { elementType: "labels.text.fill", stylers: [{ color: "#9ca3af" }] },
+  {
+    featureType: "administrative.locality",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#d1d5db" }],
+  },
+  {
+    featureType: "road",
+    elementType: "geometry",
+    stylers: [{ color: "#1f2937" }],
+  },
+  {
+    featureType: "road",
+    elementType: "labels.text.fill",
+    stylers: [{ color: "#6b7280" }],
+  },
+  {
+    featureType: "water",
+    elementType: "geometry",
+    stylers: [{ color: "#0f2540" }],
+  },
+  {
+    featureType: "poi",
+    elementType: "labels",
+    stylers: [{ visibility: "off" }],
+  },
+];
+
+/* ---------- PAGE ---------------------------------------------------- */
 function GmbAnalyticsPage() {
   const [keyword, setKeyword] = useState(MOCK_KEYWORDS[0].keyword);
+  const [search, setSearch] = useState("");
 
   const summary = useMemo(() => {
     const improved = MOCK_KEYWORDS.filter((k) => k.previous > k.current).length;
@@ -79,23 +265,62 @@ function GmbAnalyticsPage() {
     return { improved, declined, top3, avg: avg.toFixed(1) };
   }, []);
 
+  const activeGrid = useMemo(() => buildGrid(keyword), [keyword]);
+  const gridStats = useMemo(() => {
+    const ranks = activeGrid.map((c) => c.rank);
+    const top3 = ranks.filter((r) => r <= 3).length;
+    const avg = (ranks.reduce((a, b) => a + b, 0) / ranks.length).toFixed(1);
+    const share = Math.round((top3 / ranks.length) * 100);
+    return { top3, avg, share };
+  }, [activeGrid]);
+
+  const filteredKw = search.trim()
+    ? MOCK_KEYWORDS.filter((k) =>
+        k.keyword.toLowerCase().includes(search.trim().toLowerCase()),
+      )
+    : MOCK_KEYWORDS;
+
   return (
-    <div className="p-6 md:p-10">
-      <div className="flex items-start justify-between gap-4">
+    <div
+      className="w-full py-6 pl-6 md:py-10 md:pl-10"
+      style={{ paddingRight: 50 }}
+    >
+      {/* Header */}
+      <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">GMB Analytics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Track Google Business rankings across your service area and visualize
-            local visibility on a geo-grid heat map.
+            Live rank tracking + geo-grid visibility for your Google Business
+            Profile.
           </p>
         </div>
-        <span className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-xs uppercase tracking-widest text-primary">
-          Preview · mock data
+        <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs uppercase tracking-widest text-amber-500">
+          Preview · sample data
         </span>
       </div>
 
+      {/* Business card */}
+      <div className="mt-6 rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 p-5">
+        <div className="flex flex-wrap items-center gap-6">
+          <div className="flex h-14 w-14 items-center justify-center rounded-xl bg-primary/15 text-primary">
+            <MapPin className="h-7 w-7" />
+          </div>
+          <div className="flex-1 min-w-[200px]">
+            <div className="text-sm text-muted-foreground">Connected profile</div>
+            <div className="text-lg font-semibold">{BUSINESS.name}</div>
+            <div className="text-xs text-muted-foreground">
+              Dubai, UAE · Cleaning services
+            </div>
+          </div>
+          <MiniStat icon={<Star className="h-4 w-4" />} label="Rating" value="4.9" tone="good" />
+          <MiniStat icon={<Eye className="h-4 w-4" />} label="Views (30d)" value="12,480" />
+          <MiniStat icon={<Phone className="h-4 w-4" />} label="Calls (30d)" value="386" />
+          <MiniStat icon={<TrendingUp className="h-4 w-4" />} label="Trend" value="+18%" tone="good" />
+        </div>
+      </div>
+
       {/* Summary cards */}
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <StatCard label="Tracked keywords" value={MOCK_KEYWORDS.length} />
         <StatCard label="Average rank" value={summary.avg} />
         <StatCard label="In top 3" value={summary.top3} tone="good" />
@@ -105,10 +330,69 @@ function GmbAnalyticsPage() {
         />
       </div>
 
+      {/* Heat map + keyword filter */}
+      <section className="mt-10">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="text-lg font-semibold">Local visibility heat map</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Geo-grid ranks across a 7×7 grid centered on your business.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={keyword}
+              onChange={(e) => setKeyword(e.target.value)}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
+            >
+              {MOCK_KEYWORDS.map((k) => (
+                <option key={k.keyword} value={k.keyword}>
+                  {k.keyword}
+                </option>
+              ))}
+            </select>
+            <div className="flex gap-3 text-xs">
+              <LegendSwatch color={rankColor(1)} label="1–3" />
+              <LegendSwatch color={rankColor(5)} label="4–10" />
+              <LegendSwatch color={rankColor(15)} label="11+" />
+            </div>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
+          <HeatMap keyword={keyword} />
+          <div className="space-y-3">
+            <StatCard label="Cells in top 3" value={`${gridStats.top3}/49`} tone="good" />
+            <StatCard label="Avg. rank in grid" value={gridStats.avg} />
+            <StatCard label="Local visibility share" value={`${gridStats.share}%`} />
+            <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
+              <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
+                <Info className="h-3.5 w-3.5 text-primary" /> How to read this
+              </div>
+              Each circle is a ranking probe at that lat/lng for the selected
+              keyword. Green = top 3, amber = 4–10, red = off page 1. The blue
+              dot is your business location.
+            </div>
+          </div>
+        </div>
+      </section>
+
       {/* Keyword table */}
       <section className="mt-10">
-        <h2 className="text-lg font-semibold">Keyword rank tracking</h2>
-        <div className="mt-4 overflow-hidden rounded-xl border border-border">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-lg font-semibold">Keyword rank tracking</h2>
+          <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter keywords"
+              className="w-56 bg-transparent text-sm outline-none"
+            />
+          </div>
+        </div>
+
+        <div className="overflow-hidden rounded-xl border border-border">
           <table className="w-full text-sm">
             <thead className="bg-card text-left text-xs uppercase tracking-widest text-muted-foreground">
               <tr>
@@ -121,8 +405,13 @@ function GmbAnalyticsPage() {
               </tr>
             </thead>
             <tbody>
-              {MOCK_KEYWORDS.map((k) => (
-                <tr key={k.keyword} className="border-t border-border">
+              {filteredKw.map((k) => (
+                <tr
+                  key={k.keyword}
+                  className={`border-t border-border transition ${
+                    k.keyword === keyword ? "bg-primary/5" : ""
+                  }`}
+                >
                   <td className="px-4 py-3 font-medium">{k.keyword}</td>
                   <td className="px-4 py-3 text-muted-foreground">{k.city}</td>
                   <td className="px-4 py-3 text-muted-foreground">
@@ -130,7 +419,7 @@ function GmbAnalyticsPage() {
                   </td>
                   <td className="px-4 py-3">
                     <span
-                      className="rounded-full px-2 py-0.5 text-xs"
+                      className="rounded-full px-2 py-0.5 text-xs font-semibold"
                       style={{
                         backgroundColor: `${rankColor(k.current)}22`,
                         color: rankColor(k.current),
@@ -157,52 +446,14 @@ function GmbAnalyticsPage() {
         </div>
       </section>
 
-      {/* Heat map */}
-      <section className="mt-10">
-        <div className="flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-lg font-semibold">Local visibility heat map</h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Geo-grid ranks for <span className="text-foreground">"{keyword}"</span>{" "}
-              across a 7×7 grid centered on your business.
-            </p>
-          </div>
-          <div className="flex gap-3 text-xs">
-            <LegendSwatch color={rankColor(1)} label="1–3" />
-            <LegendSwatch color={rankColor(5)} label="4–10" />
-            <LegendSwatch color={rankColor(15)} label="11+" />
-          </div>
+      <div className="mt-6 flex items-start gap-2 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
+        <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <div>
+          Rank data shown is sample. Connect Google Business Profile + a rank
+          source (Local Falcon, DataForSEO, or SerpApi) to stream live grid
+          rankings, review velocity, and profile insights into this dashboard.
         </div>
-
-        <div className="mt-4 rounded-2xl border border-border bg-card p-6">
-          <div
-            className="mx-auto grid gap-2"
-            style={{
-              gridTemplateColumns: `repeat(${GRID_SIZE}, minmax(0, 1fr))`,
-              maxWidth: 520,
-            }}
-          >
-            {MOCK_GRID.flat().map((rank, i) => (
-              <div
-                key={i}
-                className="flex aspect-square items-center justify-center rounded-md text-sm font-semibold text-white shadow-sm"
-                style={{ backgroundColor: rankColor(rank) }}
-                title={`Rank #${rank}`}
-              >
-                {rank}
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="mt-4 flex items-start gap-2 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
-          <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          <div>
-            Data shown is mock. To pull real ranks, connect a data source (see the
-            integration notes in <code className="text-foreground">gmb-analytics.tsx</code>).
-          </div>
-        </div>
-      </section>
+      </div>
     </div>
   );
 }
@@ -230,6 +481,32 @@ function StatCard({
   );
 }
 
+function MiniStat({
+  icon,
+  label,
+  value,
+  tone,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  tone?: "good";
+}) {
+  return (
+    <div className="min-w-[110px] rounded-lg border border-border bg-background/40 px-3 py-2">
+      <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+        {icon}
+        {label}
+      </div>
+      <div
+        className={`mt-0.5 text-lg font-semibold ${tone === "good" ? "text-emerald-500" : ""}`}
+      >
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function LegendSwatch({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
@@ -241,42 +518,3 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
     </span>
   );
 }
-
-/*
-=================================================================
-HEAT MAP INTEGRATION NOTES
-=================================================================
-
-Two layers to plug in:
-
-1) RANK DATA SOURCE (pick one)
-   - Local Falcon        https://www.localfalcon.com/api  (geo-grid native, cheapest for GBP)
-   - SerpApi             https://serpapi.com/google-local-api  (per-point search)
-   - BrightLocal         https://www.brightlocal.com/api/  (bundled GBP audit)
-   - DataForSEO          https://dataforseo.com/apis  (SERP + local pack)
-
-   Add the API key with the add_secret tool (e.g. LOCAL_FALCON_API_KEY),
-   then wrap the call in a server function under
-   src/lib/gmb.functions.ts using createServerFn + requireSupabaseAuth.
-   Persist results in a `keyword_ranks` table (keyword, lat, lng, rank,
-   checked_at) so history / trends are queryable.
-
-2) MAP RENDERING (upgrade from the SVG grid above)
-   Simplest → advanced:
-   a) Keep the CSS grid — works for a fixed 5x5/7x7 audit.
-   b) Leaflet + react-leaflet + leaflet.heat  → true street map with
-      colored circle markers per grid point.
-      bun add leaflet react-leaflet leaflet.heat
-   c) Mapbox GL JS heat layer → smoother interpolation, needs a token.
-      bun add mapbox-gl react-map-gl
-
-   For (b), each grid point becomes a CircleMarker with radius/color
-   derived from `rankColor(rank)`, centered on business lat/lng with
-   an offset of ±(step * i) degrees.
-
-3) SCHEDULING
-   Use pg_cron + pg_net to hit a /api/public/hooks/refresh-ranks route
-   daily; that route calls the chosen API and upserts new rows into
-   keyword_ranks. Trend arrows come from comparing today's row with
-   the previous run.
-*/

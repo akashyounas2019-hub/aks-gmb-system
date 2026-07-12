@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { Trash2, Upload, Plus, Search } from "lucide-react";
+import { Trash2, Upload, Plus, Search, X, FileUp } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/keywords")({
@@ -20,9 +20,8 @@ type Keyword = {
   created_at: string;
 };
 
-// Lenient CSV parser: handles quoted fields and commas/semicolons/tabs
+// Lenient CSV/TSV parser
 function parseCSV(text: string): string[][] {
-  // Detect delimiter from header
   const firstLine = text.split(/\r?\n/, 1)[0] ?? "";
   const delim = firstLine.includes("\t")
     ? "\t"
@@ -39,9 +38,8 @@ function parseCSV(text: string): string[][] {
       if (c === '"' && text[i + 1] === '"') {
         field += '"';
         i++;
-      } else if (c === '"') {
-        inQuotes = false;
-      } else field += c;
+      } else if (c === '"') inQuotes = false;
+      else field += c;
     } else {
       if (c === '"') inQuotes = true;
       else if (c === delim) {
@@ -69,7 +67,6 @@ function pickIndex(headers: string[], names: string[]): number {
     const i = lower.indexOf(n.toLowerCase());
     if (i >= 0) return i;
   }
-  // fuzzy contains
   for (const n of names) {
     const i = lower.findIndex((h) => h.includes(n.toLowerCase()));
     if (i >= 0) return i;
@@ -85,12 +82,19 @@ function toNum(v: string | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+function looksLikeHeader(row: string[]): boolean {
+  // A header row is mostly non-numeric strings
+  const nonNumeric = row.filter((c) => c && !/^-?\d/.test(c.trim())).length;
+  return nonNumeric >= Math.ceil(row.length / 2);
+}
+
 function KeywordsPage() {
   const [rows, setRows] = useState<Keyword[]>([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState("");
-  const [addPhrase, setAddPhrase] = useState("");
-  const inputRef = useRef<HTMLInputElement>(null);
+  const [manualOpen, setManualOpen] = useState(false);
+  const semrushRef = useRef<HTMLInputElement>(null);
+  const genericRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -98,7 +102,7 @@ function KeywordsPage() {
       .from("keywords")
       .select("*")
       .order("created_at", { ascending: false })
-      .limit(500);
+      .limit(1000);
     setRows((data ?? []) as Keyword[]);
     setLoading(false);
   }, []);
@@ -107,18 +111,23 @@ function KeywordsPage() {
     load();
   }, [load]);
 
-  async function handleCSV(file: File) {
-    const text = await file.text();
+  async function readFileText(file: File): Promise<string> {
+    // For .txt/.csv/.tsv/.json we can just read as text
+    return await file.text();
+  }
+
+  async function importSemrush(file: File) {
+    const text = await readFileText(file);
     const rows = parseCSV(text);
     if (rows.length < 2) {
-      toast.error("CSV appears empty");
+      toast.error("File appears empty");
       return;
     }
     const headers = rows[0];
     const iPhrase = pickIndex(headers, ["keyword", "phrase", "query"]);
     if (iPhrase < 0) {
       toast.error(
-        'No "Keyword" column found. Expected a Semrush-style CSV export.',
+        'No "Keyword" column found. Use "Generic import" for other formats.',
       );
       return;
     }
@@ -133,19 +142,15 @@ function KeywordsPage() {
     const iIntent = pickIndex(headers, ["intent", "search intent"]);
     const iCluster = pickIndex(headers, ["cluster", "topic", "group"]);
 
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = userData.user?.id;
-    if (!uid) {
-      toast.error("Not signed in");
-      return;
-    }
+    const uid = (await supabase.auth.getUser()).data.user?.id;
+    if (!uid) return toast.error("Not signed in");
 
     const payload = rows
       .slice(1)
       .map((r) => ({
         owner_id: uid,
         phrase: (r[iPhrase] ?? "").trim(),
-        volume: iVol >= 0 ? (toNum(r[iVol]) as number | null) : null,
+        volume: iVol >= 0 ? toNum(r[iVol]) : null,
         keyword_difficulty: iKD >= 0 ? toNum(r[iKD]) : null,
         cpc: iCPC >= 0 ? toNum(r[iCPC]) : null,
         intent: iIntent >= 0 ? (r[iIntent] ?? "").trim() || null : null,
@@ -154,12 +159,128 @@ function KeywordsPage() {
       }))
       .filter((k) => k.phrase);
 
-    if (!payload.length) {
-      toast.error("No keyword rows found");
+    await insertBatch(payload);
+  }
+
+  async function importGeneric(file: File) {
+    const uid = (await supabase.auth.getUser()).data.user?.id;
+    if (!uid) return toast.error("Not signed in");
+    const name = file.name.toLowerCase();
+    const text = await readFileText(file).catch(() => "");
+    if (!text) {
+      toast.error("Could not read this file. Try CSV, TSV, TXT, or JSON.");
       return;
     }
 
-    // Insert in batches
+    let phrases: Array<{
+      phrase: string;
+      volume?: number | null;
+      cluster?: string | null;
+    }> = [];
+
+    // JSON — accept array of strings or array of objects with { keyword|phrase, volume? }
+    if (name.endsWith(".json")) {
+      try {
+        const parsed = JSON.parse(text);
+        const arr = Array.isArray(parsed)
+          ? parsed
+          : Array.isArray(parsed?.keywords)
+            ? parsed.keywords
+            : [];
+        for (const item of arr) {
+          if (typeof item === "string") phrases.push({ phrase: item.trim() });
+          else if (item && typeof item === "object") {
+            const p = String(
+              item.keyword ?? item.phrase ?? item.term ?? item.query ?? "",
+            ).trim();
+            if (p)
+              phrases.push({
+                phrase: p,
+                volume:
+                  toNum(String(item.volume ?? item.search_volume ?? "")) ??
+                  null,
+                cluster:
+                  (item.cluster ?? item.topic ?? item.group ?? null) || null,
+              });
+          }
+        }
+      } catch {
+        toast.error("Invalid JSON");
+        return;
+      }
+    }
+    // Plain text — one keyword per line
+    else if (name.endsWith(".txt") || !/[,;\t]/.test(text.split(/\r?\n/)[0] ?? "")) {
+      phrases = text
+        .split(/\r?\n/)
+        .map((l) => l.trim())
+        .filter(Boolean)
+        .map((phrase) => ({ phrase }));
+    }
+    // Any delimited file — auto-detect the keyword column
+    else {
+      const parsed = parseCSV(text);
+      if (!parsed.length) {
+        toast.error("File is empty");
+        return;
+      }
+      let headers = parsed[0];
+      let dataRows = parsed.slice(1);
+      const hasHeader = looksLikeHeader(headers);
+      if (!hasHeader) {
+        // No header — treat first column as phrase
+        dataRows = parsed;
+        headers = headers.map((_, i) => `col_${i}`);
+      }
+      const iPhrase = hasHeader
+        ? pickIndex(headers, ["keyword", "phrase", "query", "term"])
+        : 0;
+      const pIdx = iPhrase >= 0 ? iPhrase : 0;
+      const iVol = hasHeader
+        ? pickIndex(headers, ["search volume", "volume"])
+        : -1;
+      const iCluster = hasHeader
+        ? pickIndex(headers, ["cluster", "topic", "group", "category"])
+        : -1;
+      phrases = dataRows
+        .map((r) => ({
+          phrase: (r[pIdx] ?? "").trim(),
+          volume: iVol >= 0 ? toNum(r[iVol]) : null,
+          cluster: iCluster >= 0 ? (r[iCluster] ?? "").trim() || null : null,
+        }))
+        .filter((p) => p.phrase);
+    }
+
+    const payload = phrases.map((p) => ({
+      owner_id: uid,
+      phrase: p.phrase,
+      volume: p.volume ?? null,
+      keyword_difficulty: null,
+      cpc: null,
+      intent: null,
+      cluster: p.cluster ?? null,
+      source: `import:${name.split(".").pop() ?? "file"}`,
+    }));
+
+    await insertBatch(payload);
+  }
+
+  async function insertBatch(
+    payload: Array<{
+      owner_id: string;
+      phrase: string;
+      volume: number | null;
+      keyword_difficulty: number | null;
+      cpc: number | null;
+      intent: string | null;
+      cluster: string | null;
+      source: string;
+    }>,
+  ) {
+    if (!payload.length) {
+      toast.error("No keywords found in file");
+      return;
+    }
     const chunk = 200;
     for (let i = 0; i < payload.length; i += chunk) {
       const { error } = await supabase
@@ -172,22 +293,6 @@ function KeywordsPage() {
     }
     toast.success(`Imported ${payload.length} keywords`);
     load();
-  }
-
-  async function addManual() {
-    const p = addPhrase.trim();
-    if (!p) return;
-    const { data: userData } = await supabase.auth.getUser();
-    const uid = userData.user?.id;
-    if (!uid) return;
-    const { error } = await supabase
-      .from("keywords")
-      .insert({ owner_id: uid, phrase: p, source: "manual" });
-    if (error) toast.error(error.message);
-    else {
-      setAddPhrase("");
-      load();
-    }
   }
 
   async function remove(id: string) {
@@ -205,32 +310,58 @@ function KeywordsPage() {
     : rows;
 
   return (
-    <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
+    <div
+      className="w-full py-6 pl-6 md:py-10 md:pl-10"
+      style={{ paddingRight: 50 }}
+    >
       <div className="mb-6 flex items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl">Keywords</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Import Semrush exports or add keywords manually. Attach them to
-            images in the Library.
+            Add keywords manually, import a Semrush CSV, or bring in any other
+            file (CSV, TSV, TXT, JSON).
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <input
-            ref={inputRef}
+            ref={semrushRef}
             type="file"
             accept=".csv,.tsv,text/csv"
             className="hidden"
             onChange={(e) => {
               const f = e.target.files?.[0];
-              if (f) handleCSV(f);
+              if (f) importSemrush(f);
+              e.currentTarget.value = "";
+            }}
+          />
+          <input
+            ref={genericRef}
+            type="file"
+            accept=".csv,.tsv,.txt,.json,text/*,application/json"
+            className="hidden"
+            onChange={(e) => {
+              const f = e.target.files?.[0];
+              if (f) importGeneric(f);
               e.currentTarget.value = "";
             }}
           />
           <button
-            onClick={() => inputRef.current?.click()}
+            onClick={() => setManualOpen(true)}
             className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
           >
-            <Upload className="h-4 w-4" /> Import Semrush CSV
+            <Plus className="h-4 w-4" /> Add manually
+          </button>
+          <button
+            onClick={() => semrushRef.current?.click()}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm hover:border-primary/50"
+          >
+            <Upload className="h-4 w-4" /> Semrush CSV
+          </button>
+          <button
+            onClick={() => genericRef.current?.click()}
+            className="flex items-center gap-2 rounded-lg border border-border bg-card px-4 py-2 text-sm hover:border-primary/50"
+          >
+            <FileUp className="h-4 w-4" /> Generic import
           </button>
         </div>
       </div>
@@ -244,22 +375,6 @@ function KeywordsPage() {
             placeholder="Filter keywords or cluster"
             className="flex-1 bg-transparent text-sm outline-none"
           />
-        </div>
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-          <input
-            value={addPhrase}
-            onChange={(e) => setAddPhrase(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && addManual()}
-            placeholder="Add keyword…"
-            className="w-52 bg-transparent text-sm outline-none"
-          />
-          <button
-            onClick={addManual}
-            className="rounded p-1 text-primary hover:bg-accent"
-            aria-label="Add keyword"
-          >
-            <Plus className="h-4 w-4" />
-          </button>
         </div>
       </div>
 
@@ -287,7 +402,7 @@ function KeywordsPage() {
             ) : filtered.length === 0 ? (
               <tr>
                 <td colSpan={8} className="px-3 py-6 text-center text-muted-foreground">
-                  No keywords yet. Import a Semrush CSV to get started.
+                  No keywords yet. Add manually or import a file.
                 </td>
               </tr>
             ) : (
@@ -324,13 +439,122 @@ function KeywordsPage() {
         </table>
       </div>
 
-      <p className="mt-4 text-xs text-muted-foreground">
-        Expected Semrush columns: <span className="font-mono">Keyword</span>,{" "}
-        <span className="font-mono">Search Volume</span>,{" "}
-        <span className="font-mono">Keyword Difficulty</span>,{" "}
-        <span className="font-mono">CPC</span>,{" "}
-        <span className="font-mono">Intent</span>. Extras are ignored.
-      </p>
+      {manualOpen && (
+        <ManualAddModal
+          onClose={() => setManualOpen(false)}
+          onAdded={load}
+        />
+      )}
+    </div>
+  );
+}
+
+function ManualAddModal({
+  onClose,
+  onAdded,
+}: {
+  onClose: () => void;
+  onAdded: () => void;
+}) {
+  const [text, setText] = useState("");
+  const [cluster, setCluster] = useState("");
+  const [saving, setSaving] = useState(false);
+
+  async function save() {
+    const phrases = text
+      .split(/\r?\n|,/)
+      .map((p) => p.trim())
+      .filter(Boolean);
+    if (!phrases.length) {
+      toast.error("Enter at least one keyword");
+      return;
+    }
+    setSaving(true);
+    const uid = (await supabase.auth.getUser()).data.user?.id;
+    if (!uid) {
+      setSaving(false);
+      return toast.error("Not signed in");
+    }
+    const rows = phrases.map((phrase) => ({
+      owner_id: uid,
+      phrase,
+      cluster: cluster.trim() || null,
+      source: "manual",
+    }));
+    const { error } = await supabase.from("keywords").insert(rows);
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`Added ${rows.length} keyword${rows.length > 1 ? "s" : ""}`);
+      onAdded();
+      onClose();
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-background p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Add keywords</h2>
+            <p className="text-xs text-muted-foreground">
+              One per line or comma-separated.
+            </p>
+          </div>
+          <button
+            onClick={onClose}
+            className="rounded p-1 hover:bg-accent"
+            aria-label="Close"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <label className="block text-sm">
+          <span className="text-xs text-muted-foreground">Keywords</span>
+          <textarea
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            rows={8}
+            placeholder={"deep cleaning dubai\nsofa cleaning near me\nmove-in cleaning al qusais"}
+            className="mt-1 w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-primary"
+            autoFocus
+          />
+        </label>
+        <label className="mt-3 block text-sm">
+          <span className="text-xs text-muted-foreground">
+            Cluster / topic (optional)
+          </span>
+          <input
+            value={cluster}
+            onChange={(e) => setCluster(e.target.value)}
+            placeholder="e.g. deep cleaning"
+            className="mt-1 w-full rounded border border-border bg-background p-2 text-sm outline-none focus:border-primary"
+          />
+        </label>
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={save}
+            disabled={saving}
+            className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save keywords"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
