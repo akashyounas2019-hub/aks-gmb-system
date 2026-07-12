@@ -216,7 +216,7 @@ function IntegrationsPage() {
           <div className="flex-1 min-w-[220px]">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold">Google Business Profile</h3>
-              {gmb.connected ? (
+              {serverConn.connected ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
                   <CheckCircle2 className="h-3 w-3" /> Connected
                 </span>
