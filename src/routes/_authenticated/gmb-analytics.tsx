@@ -361,8 +361,8 @@ function GmbAnalyticsPage() {
           setRealCenter(null);
         }
       })
-      .catch(() => {
-        /* fall back to MOCK */
+      .catch((e) => {
+        console.error("[gmb-analytics] rank grid load failed", e);
       });
     return () => {
       cancelled = true;
