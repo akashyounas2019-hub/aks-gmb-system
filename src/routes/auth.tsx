@@ -59,6 +59,8 @@ function AuthPage() {
     if (result.redirected) return;
     navigate({ to: "/upload" });
   }
+  // Referenced only from the commented-out Google button; keep the function alive.
+  void handleGoogle;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-hero-gradient px-4">
