@@ -329,6 +329,50 @@ function CompetitorsPage() {
     };
   }, [rows, stats]);
 
+  /* -------- Filtering ------------------------------------------- */
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const catSet = categoryFilter;
+    const threatSet = threatFilter;
+    return rows.filter((c) => {
+      // Text search — name, notes, URL
+      if (q) {
+        const hay = `${c.name} ${c.notes ?? ""} ${c.gbp_url}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      // Threat level
+      if (threatSet.size > 0) {
+        const level = computeThreatLevel(stats[c.id]);
+        if (!threatSet.has(level)) return false;
+      }
+      // Provider — only meaningful when a source is active. When "all", let everything through.
+      if (providerFilter !== "all") {
+        if (!rankSource || rankSource !== providerFilter) return false;
+      }
+      // Keyword category — require competitor to have at least one resolved rank in a selected category
+      if (catSet.size > 0) {
+        const hasHit = TRACKED_KEYWORDS.some(
+          (k) => catSet.has(k.category) && rankMatrix[k.keyword]?.[c.id] != null,
+        );
+        if (!hasHit) return false;
+      }
+      return true;
+    });
+  }, [rows, query, threatFilter, providerFilter, categoryFilter, stats, rankSource, rankMatrix]);
+
+  const activeFilterCount =
+    (query.trim() ? 1 : 0) +
+    threatFilter.size +
+    (providerFilter !== "all" ? 1 : 0) +
+    categoryFilter.size;
+
+  function clearFilters() {
+    setQuery("");
+    setThreatFilter(new Set());
+    setProviderFilter("all");
+    setCategoryFilter(new Set());
+  }
+
   /* -------- Head-to-head chart data ----------------------------- */
   const chartData = useMemo(
     () =>
