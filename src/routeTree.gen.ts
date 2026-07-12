@@ -21,6 +21,7 @@ import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
 import { Route as AuthenticatedGmbOauthCallbackRouteImport } from './routes/_authenticated/gmb-oauth-callback'
 import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
+import { Route as AuthenticatedGeotaggingRouteImport } from './routes/_authenticated/geotagging'
 import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
@@ -95,6 +96,11 @@ const AuthenticatedGmbAnalyticsRoute =
     path: '/gmb-analytics',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedGeotaggingRoute = AuthenticatedGeotaggingRouteImport.update({
+  id: '/geotagging',
+  path: '/geotagging',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/geotagging': typeof AuthenticatedGeotaggingRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
   '/dashboard': typeof AuthenticatedDashboardRoute
+  '/geotagging': typeof AuthenticatedGeotaggingRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
@@ -216,6 +224,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/competitors': typeof AuthenticatedCompetitorsRoute
   '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
+  '/_authenticated/geotagging': typeof AuthenticatedGeotaggingRoute
   '/_authenticated/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/_authenticated/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/_authenticated/keywords': typeof AuthenticatedKeywordsRoute
@@ -242,6 +251,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/competitors'
     | '/dashboard'
+    | '/geotagging'
     | '/gmb-analytics'
     | '/gmb-oauth-callback'
     | '/keywords'
@@ -266,6 +276,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/competitors'
     | '/dashboard'
+    | '/geotagging'
     | '/gmb-analytics'
     | '/gmb-oauth-callback'
     | '/keywords'
@@ -291,6 +302,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar'
     | '/_authenticated/competitors'
     | '/_authenticated/dashboard'
+    | '/_authenticated/geotagging'
     | '/_authenticated/gmb-analytics'
     | '/_authenticated/gmb-oauth-callback'
     | '/_authenticated/keywords'
@@ -400,6 +412,13 @@ declare module '@tanstack/react-router' {
       path: '/gmb-analytics'
       fullPath: '/gmb-analytics'
       preLoaderRoute: typeof AuthenticatedGmbAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/geotagging': {
+      id: '/_authenticated/geotagging'
+      path: '/geotagging'
+      fullPath: '/geotagging'
+      preLoaderRoute: typeof AuthenticatedGeotaggingRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/dashboard': {
@@ -524,6 +543,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCompetitorsRoute: typeof AuthenticatedCompetitorsRoute
   AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
+  AuthenticatedGeotaggingRoute: typeof AuthenticatedGeotaggingRoute
   AuthenticatedGmbAnalyticsRoute: typeof AuthenticatedGmbAnalyticsRoute
   AuthenticatedGmbOauthCallbackRoute: typeof AuthenticatedGmbOauthCallbackRoute
   AuthenticatedKeywordsRoute: typeof AuthenticatedKeywordsRoute
@@ -539,6 +559,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCompetitorsRoute: AuthenticatedCompetitorsRoute,
   AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
+  AuthenticatedGeotaggingRoute: AuthenticatedGeotaggingRoute,
   AuthenticatedGmbAnalyticsRoute: AuthenticatedGmbAnalyticsRoute,
   AuthenticatedGmbOauthCallbackRoute: AuthenticatedGmbOauthCallbackRoute,
   AuthenticatedKeywordsRoute: AuthenticatedKeywordsRoute,
