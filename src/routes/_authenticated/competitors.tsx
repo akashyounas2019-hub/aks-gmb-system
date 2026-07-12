@@ -608,6 +608,9 @@ function CompetitorsPage() {
         </section>
       )}
 
+      {/* Alert settings */}
+      <AlertSettingsSection />
+
       {/* Head-to-head chart */}
       {rows.length > 0 && (
         <section className="mt-8 rounded-2xl border border-border bg-card p-5">
