@@ -1285,6 +1285,8 @@ function KeywordsPage() {
           </p>
         )}
       </div>
+        </div>
+      )}
 
       {manualOpen && (
         <ManualAddModal
