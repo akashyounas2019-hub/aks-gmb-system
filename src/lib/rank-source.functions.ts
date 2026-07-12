@@ -230,6 +230,48 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
           source,
         });
       }
+
+      // Overtake detection: fire an alert when a competitor is now ranked
+      // better than the user AND wasn't the last time we checked.
+      if (typeof kw.userRank === "number") {
+        const userRank = kw.userRank;
+        for (const c of data.competitors) {
+          const r = perKw[c.id];
+          if (r == null || r >= userRank) continue;
+
+          const { data: prev } = await supabase
+            .from("competitor_rank_history")
+            .select("rank")
+            .eq("user_id", userId)
+            .eq("competitor_id", c.id)
+            .eq("keyword", kw.keyword)
+            .order("recorded_at", { ascending: false })
+            .limit(1);
+          const prevRank = prev?.[0]?.rank ?? null;
+          const wasAhead = prevRank == null || prevRank >= userRank;
+          if (!wasAhead) continue;
+
+          // Skip if an unread alert for this pairing already exists.
+          const { data: existing } = await supabase
+            .from("rank_alerts")
+            .select("id")
+            .eq("user_id", userId)
+            .eq("competitor_id", c.id)
+            .eq("keyword", kw.keyword)
+            .is("read_at", null)
+            .limit(1);
+          if (existing && existing.length > 0) continue;
+
+          await supabase.from("rank_alerts").insert({
+            user_id: userId,
+            competitor_id: c.id,
+            keyword: kw.keyword,
+            competitor_rank: r,
+            user_rank: userRank,
+            source,
+          });
+        }
+      }
     }
 
     if (snapshots.length > 0) {
