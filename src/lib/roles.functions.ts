@@ -4,8 +4,17 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 export type AppRole = "admin" | "moderator" | "user";
 export type Member = { userId: string; email: string; roles: AppRole[]; isSelf: boolean };
 
-async function isAdmin(supabase: { rpc: (fn: "has_role", args: { _user_id: string; _role: AppRole }) => Promise<{ data: boolean | null }> }, userId: string) {
-  const { data } = await supabase.rpc("has_role", { _user_id: userId, _role: "admin" });
+async function isAdmin(
+  supabase: { from: (t: "user_roles") => { select: (c: string) => { eq: (col: string, val: string) => { eq: (col: string, val: string) => { maybeSingle: () => Promise<{ data: unknown; error: unknown }> } } } } },
+  userId: string,
+) {
+  // Query user_roles directly — RLS lets users read their own roles.
+  const { data } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId)
+    .eq("role", "admin")
+    .maybeSingle();
   return Boolean(data);
 }
 
