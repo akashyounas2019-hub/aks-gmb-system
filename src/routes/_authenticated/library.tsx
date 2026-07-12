@@ -183,7 +183,7 @@ function LibraryPage() {
           </p>
         </div>
 
-        {tab !== "videos" && (
+        {tab !== "videos" && tab !== "upload" && (
           <div className="flex items-center gap-2">
             <input
               type="search"
@@ -242,7 +242,7 @@ function LibraryPage() {
       </div>
 
 
-      {tab !== "videos" && selectMode && (
+      {tab !== "videos" && tab !== "upload" && selectMode && (
 
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           <span className="text-sm">
