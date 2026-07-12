@@ -16,6 +16,10 @@ import {
   Crosshair,
   Pin,
   X,
+  ChevronLeft,
+  ChevronRight,
+  ChevronDown,
+  CircleCheck,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -122,6 +126,8 @@ function GeotaggingPage() {
   const [images, setImages] = useState<LocalImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [openSection, setOpenSection] = useState<"quick" | "library" | "map">("quick");
 
   const [areaFilter, setAreaFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<PlaceType | "All">("All");
@@ -331,186 +337,423 @@ function GeotaggingPage() {
 
   const expandedCoords = typeFilter === "home" || typeFilter === "office";
 
+  const steps = [
+    { n: 1 as const, title: "Upload images", hint: "Drop or browse photos" },
+    { n: 2 as const, title: "Choose location", hint: "Pick a coordinate" },
+    { n: 3 as const, title: "Assign & review", hint: "Apply to your batch" },
+    { n: 4 as const, title: "Save", hint: "Push to library" },
+  ];
+
+  const canNext =
+    (step === 1 && images.length > 0) ||
+    (step === 2 && activeCoord !== null) ||
+    (step === 3 && stats.tagged > 0) ||
+    step === 4;
+
+  const gotoNext = () => {
+    if (step === 1 && images.length === 0) return toast.error("Upload at least one image.");
+    if (step === 2 && !activeCoord) return toast.error("Pick a location first.");
+    if (step === 3 && stats.tagged === 0) return toast.error("Tag at least one image.");
+    if (step < 4) setStep(((step + 1) as 1 | 2 | 3 | 4));
+  };
+
+  const gotoBack = () => {
+    if (step > 1) setStep(((step - 1) as 1 | 2 | 3 | 4));
+  };
+
   return (
-    <div className="mx-auto max-w-[1400px] p-6">
+    <div className="mx-auto max-w-[1200px] p-6">
       {/* Header */}
-      <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
-            <MapPin className="h-3.5 w-3.5" /> Geotagging
-          </div>
-          <h1 className="font-display text-3xl leading-tight">
-            Bulk image geotagging
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Upload photos in bulk, pick a location from the curated library or the map,
-            and apply GPS coordinates to single images or the entire batch.
-          </p>
+      <header className="mb-6">
+        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
+          <MapPin className="h-3.5 w-3.5" /> Geotagging wizard
         </div>
-        <div className="flex gap-2">
-          <StatChip label="Uploaded" value={stats.total} />
-          <StatChip label="Tagged" value={stats.tagged} tone="primary" />
-          <StatChip label="Saved" value={stats.saved} tone="success" />
-        </div>
+        <h1 className="font-display text-3xl leading-tight">Bulk image geotagging</h1>
+        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+          A guided flow — upload, choose a location, assign, then save. One step at a time.
+        </p>
       </header>
 
-      {/* Home / Office coordinate picker */}
-      <div className="mb-4 grid gap-3 md:grid-cols-2">
-        {([
-          { kind: "home" as const, list: homePlaces, pickId: homePickId, setPickId: setHomePickId },
-          { kind: "office" as const, list: officePlaces, pickId: officePickId, setPickId: setOfficePickId },
-        ]).map(({ kind, list, pickId, setPickId }) => {
-          const meta = TYPE_META[kind];
-          const Icon = meta.icon;
-          const place = list.find((p) => p.id === pickId) ?? list[0];
-          const isPinned =
-            pinnedCoord?.kind === kind &&
-            place &&
-            pinnedCoord.lat === place.lat &&
-            pinnedCoord.lng === place.lng;
+      {/* Progress bar */}
+      <ol className="mb-8 grid grid-cols-4 gap-2">
+        {steps.map((s) => {
+          const done = step > s.n;
+          const active = step === s.n;
           return (
-            <div key={kind} className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center justify-between gap-2">
+            <li key={s.n}>
+              <button
+                onClick={() => {
+                  // allow backwards nav freely; forward only if valid
+                  if (s.n <= step) setStep(s.n);
+                }}
+                className="w-full text-left"
+              >
                 <div className="flex items-center gap-2">
-                  <span className={`grid h-9 w-9 place-items-center rounded-md ${meta.tone}`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div>
-                    <div className="text-sm font-medium">{meta.label} coordinate</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      Pick one, then pin it to auto-tag new uploads.
+                  <div
+                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs font-semibold transition ${
+                      done
+                        ? "border-primary bg-primary text-primary-foreground"
+                        : active
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-border bg-card text-muted-foreground"
+                    }`}
+                  >
+                    {done ? <CircleCheck className="h-4 w-4" /> : s.n}
+                  </div>
+                  <div className="min-w-0">
+                    <div
+                      className={`truncate text-xs font-medium ${
+                        active ? "text-foreground" : "text-muted-foreground"
+                      }`}
+                    >
+                      Step {s.n}
                     </div>
+                    <div className="truncate text-[11px] text-muted-foreground/80">{s.title}</div>
                   </div>
                 </div>
-                {isPinned && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-                    <Pin className="h-3 w-3" /> Pinned
-                  </span>
-                )}
-              </div>
-              <select
-                value={pickId}
-                onChange={(e) => setPickId(e.target.value)}
-                className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-              >
-                {list.map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name} — {p.area}
-                  </option>
-                ))}
-              </select>
-              {place && (
-                <div className="mt-2 rounded-md bg-muted/60 px-2 py-1.5 font-mono text-[11px]">
-                  {place.lat.toFixed(6)}, {place.lng.toFixed(6)}
-                </div>
-              )}
-              <div className="mt-3 flex flex-wrap gap-2">
-                <button
-                  onClick={() => {
-                    if (!place) return;
-                    setActivePlace(place);
-                    setCustomLocation(null);
-                  }}
-                  className="flex-1 rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
-                >
-                  Use as active
-                </button>
-                <button
-                  onClick={() => {
-                    if (!place) return;
-                    if (isPinned) {
-                      setPinnedCoord(null);
-                      toast.success(`Unpinned ${meta.label.toLowerCase()} coordinate.`);
-                    } else {
-                      setPinnedCoord({
-                        lat: place.lat,
-                        lng: place.lng,
-                        label: `${place.name}, ${place.area}`,
-                        kind,
-                      });
-                      setActivePlace(place);
-                      setCustomLocation(null);
-                      toast.success(
-                        `Pinned ${meta.label.toLowerCase()} coordinate — new uploads will be auto-tagged.`,
-                      );
-                    }
-                  }}
-                  className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-                    isPinned
-                      ? "border border-border hover:bg-accent"
-                      : "bg-primary text-primary-foreground hover:opacity-90"
+                <div
+                  className={`mt-2 h-1 rounded-full transition ${
+                    done || active ? "bg-primary" : "bg-muted"
                   }`}
-                >
-                  <Pin className="h-3.5 w-3.5" />
-                  {isPinned ? "Unpin" : "Pin for new uploads"}
-                </button>
-                <button
-                  onClick={() => {
-                    if (!place) return;
-                    const ids = selected.size ? Array.from(selected) : images.map((i) => i.id);
-                    if (ids.length === 0) {
-                      toast.error("Upload some images first.");
-                      return;
-                    }
-                    setImages((prev) =>
-                      prev.map((img) =>
-                        ids.includes(img.id)
-                          ? {
-                              ...img,
-                              lat: place.lat,
-                              lng: place.lng,
-                              locationLabel: `${place.name}, ${place.area}`,
-                            }
-                          : img,
-                      ),
-                    );
-                    toast.success(
-                      `Applied to ${ids.length} image${ids.length === 1 ? "" : "s"}.`,
-                    );
-                  }}
-                  className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
-                >
-                  Apply now
-                </button>
-              </div>
-            </div>
+                />
+              </button>
+            </li>
           );
         })}
-      </div>
+      </ol>
 
-      {/* Pinned banner */}
-      {pinnedCoord && (
-        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 px-4 py-2.5">
-          <Pin className="h-4 w-4 text-primary" />
-          <div className="min-w-0 flex-1 text-xs">
-            <span className="font-medium">New uploads auto-tag:</span>{" "}
-            <span className="text-muted-foreground">{pinnedCoord.label}</span>{" "}
+      {/* Persistent lightweight status strip */}
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+        <StatChip label="Uploaded" value={stats.total} />
+        <StatChip label="Tagged" value={stats.tagged} tone="primary" />
+        <StatChip label="Saved" value={stats.saved} tone="success" />
+        {activeCoord && (
+          <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
+            <Crosshair className="h-3.5 w-3.5 text-primary" />
+            <span className="truncate max-w-[220px]" title={activeCoord.label}>
+              {activeCoord.label}
+            </span>
             <span className="font-mono text-muted-foreground/80">
-              ({pinnedCoord.lat.toFixed(5)}, {pinnedCoord.lng.toFixed(5)})
+              {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
             </span>
           </div>
+        )}
+      </div>
+
+      {/* Step body */}
+      <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
+        {step === 1 && (
+          <StepUpload
+            images={images}
+            dragOver={dragOver}
+            setDragOver={setDragOver}
+            inputRef={inputRef}
+            addFiles={addFiles}
+            removeImage={removeImage}
+          />
+        )}
+
+        {step === 2 && (
+          <StepLocation
+            openSection={openSection}
+            setOpenSection={setOpenSection}
+            pinnedCoord={pinnedCoord}
+            setPinnedCoord={setPinnedCoord}
+            homePlaces={homePlaces}
+            officePlaces={officePlaces}
+            homePickId={homePickId}
+            setHomePickId={setHomePickId}
+            officePickId={officePickId}
+            setOfficePickId={setOfficePickId}
+            setActivePlace={setActivePlace}
+            setCustomLocation={setCustomLocation}
+            filteredPlaces={filteredPlaces}
+            activePlace={activePlace}
+            customLocation={customLocation}
+            areaFilter={areaFilter}
+            setAreaFilter={setAreaFilter}
+            typeFilter={typeFilter}
+            setTypeFilter={setTypeFilter}
+            placeSearch={placeSearch}
+            setPlaceSearch={setPlaceSearch}
+            expandedCoords={expandedCoords}
+            activeCoord={activeCoord}
+            copyCoord={copyCoord}
+            copied={copied}
+          />
+        )}
+
+        {step === 3 && (
+          <StepAssign
+            images={images}
+            selected={selected}
+            toggleSelect={toggleSelect}
+            selectAll={selectAll}
+            clearSelection={clearSelection}
+            activeCoord={activeCoord}
+            applyToTargets={applyToTargets}
+            applyToSelected={applyToSelected}
+            removeImage={removeImage}
+          />
+        )}
+
+        {step === 4 && (
+          <StepSave
+            stats={stats}
+            readyToSave={readyToSave}
+            savingBulk={savingBulk}
+            saveAll={saveAll}
+            images={images}
+          />
+        )}
+      </section>
+
+      {/* Wizard nav */}
+      <div className="mt-6 flex items-center justify-between gap-3">
+        <button
+          onClick={gotoBack}
+          disabled={step === 1}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-40"
+        >
+          <ChevronLeft className="h-4 w-4" /> Back
+        </button>
+        <div className="text-xs text-muted-foreground">
+          Step {step} of 4 · {steps[step - 1].hint}
+        </div>
+        {step < 4 ? (
           <button
-            onClick={() => setPinnedCoord(null)}
-            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent"
+            onClick={gotoNext}
+            disabled={!canNext}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
           >
-            <X className="h-3 w-3" /> Clear
+            Continue <ChevronRight className="h-4 w-4" />
           </button>
+        ) : (
+          <button
+            onClick={saveAll}
+            disabled={savingBulk || readyToSave.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          >
+            {savingBulk ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <UploadCloud className="h-4 w-4" />
+            )}
+            Save {readyToSave.length > 0 ? readyToSave.length : ""} to cloud
+          </button>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Collapsible section                                                        */
+/* -------------------------------------------------------------------------- */
+
+function Collapsible({
+  title,
+  subtitle,
+  open,
+  onToggle,
+  badge,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  open: boolean;
+  onToggle: () => void;
+  badge?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="overflow-hidden rounded-xl border border-border">
+      <button
+        onClick={onToggle}
+        className="flex w-full items-center gap-3 bg-muted/30 px-4 py-3 text-left hover:bg-muted/50"
+      >
+        <ChevronDown
+          className={`h-4 w-4 shrink-0 text-muted-foreground transition-transform ${
+            open ? "" : "-rotate-90"
+          }`}
+        />
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">{title}</div>
+          {subtitle && (
+            <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
+          )}
+        </div>
+        {badge}
+      </button>
+      {open && <div className="border-t border-border p-4">{children}</div>}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 1 — Upload                                                            */
+/* -------------------------------------------------------------------------- */
+
+function StepUpload({
+  images,
+  dragOver,
+  setDragOver,
+  inputRef,
+  addFiles,
+  removeImage,
+}: {
+  images: LocalImage[];
+  dragOver: boolean;
+  setDragOver: (b: boolean) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  addFiles: (f: FileList | File[]) => void;
+  removeImage: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-medium">Upload your images</h2>
+        <p className="text-sm text-muted-foreground">
+          Drop a batch of photos below. You can add more later.
+        </p>
+      </div>
+
+      <div
+        onDragOver={(e) => {
+          e.preventDefault();
+          setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={(e) => {
+          e.preventDefault();
+          setDragOver(false);
+          if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+        }}
+        onClick={() => inputRef.current?.click()}
+        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-10 text-center transition ${
+          dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"
+        }`}
+      >
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/*"
+          multiple
+          hidden
+          onChange={(e) => e.target.files && addFiles(e.target.files)}
+        />
+        <UploadCloud className="h-8 w-8 text-muted-foreground" />
+        <div className="text-sm font-medium">Drop images here or click to browse</div>
+        <div className="text-xs text-muted-foreground">JPG, PNG, WEBP — bulk upload supported</div>
+      </div>
+
+      {images.length > 0 && (
+        <div className="grid grid-cols-3 gap-2 md:grid-cols-5 lg:grid-cols-6">
+          {images.map((img) => (
+            <div key={img.id} className="group relative overflow-hidden rounded-lg border border-border">
+              <img
+                src={img.previewUrl}
+                alt={img.file.name}
+                className="aspect-square h-full w-full object-cover"
+              />
+              <button
+                onClick={() => removeImage(img.id)}
+                className="absolute right-1 top-1 rounded-md bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive"
+                aria-label="Remove"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          ))}
         </div>
       )}
+    </div>
+  );
+}
 
-      {/* Active coordinate strip */}
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-          <Crosshair className="h-5 w-5" />
+/* -------------------------------------------------------------------------- */
+/* Step 2 — Location                                                          */
+/* -------------------------------------------------------------------------- */
+
+function StepLocation(props: {
+  openSection: "quick" | "library" | "map";
+  setOpenSection: (s: "quick" | "library" | "map") => void;
+  pinnedCoord: { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null;
+  setPinnedCoord: (
+    p: { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null,
+  ) => void;
+  homePlaces: Place[];
+  officePlaces: Place[];
+  homePickId: string;
+  setHomePickId: (id: string) => void;
+  officePickId: string;
+  setOfficePickId: (id: string) => void;
+  setActivePlace: (p: Place | null) => void;
+  setCustomLocation: (l: PickedLocation | null) => void;
+  filteredPlaces: Place[];
+  activePlace: Place | null;
+  customLocation: PickedLocation | null;
+  areaFilter: string;
+  setAreaFilter: (a: string) => void;
+  typeFilter: PlaceType | "All";
+  setTypeFilter: (t: PlaceType | "All") => void;
+  placeSearch: string;
+  setPlaceSearch: (s: string) => void;
+  expandedCoords: boolean;
+  activeCoord: { lat: number; lng: number; label: string } | null;
+  copyCoord: () => void;
+  copied: boolean;
+}) {
+  const {
+    openSection,
+    setOpenSection,
+    pinnedCoord,
+    setPinnedCoord,
+    homePlaces,
+    officePlaces,
+    homePickId,
+    setHomePickId,
+    officePickId,
+    setOfficePickId,
+    setActivePlace,
+    setCustomLocation,
+    filteredPlaces,
+    activePlace,
+    customLocation,
+    areaFilter,
+    setAreaFilter,
+    typeFilter,
+    setTypeFilter,
+    placeSearch,
+    setPlaceSearch,
+    expandedCoords,
+    activeCoord,
+    copyCoord,
+    copied,
+  } = props;
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-medium">Choose a location</h2>
+        <p className="text-sm text-muted-foreground">
+          Pick from a quick preset, browse the library, or drop a pin on the map.
+        </p>
+      </div>
+
+      {/* Selected coordinate summary */}
+      <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
+        <div className="grid h-9 w-9 place-items-center rounded-md bg-primary/15 text-primary">
+          <Crosshair className="h-4 w-4" />
         </div>
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">
-            {activeCoord?.label ?? "No location selected"}
+            {activeCoord?.label ?? "No location selected yet"}
           </div>
           <div className="font-mono text-xs text-muted-foreground">
             {activeCoord
               ? `${activeCoord.lat.toFixed(6)}, ${activeCoord.lng.toFixed(6)}`
-              : "Pick a location to see coordinates"}
+              : "Choose a section below"}
           </div>
         </div>
         <button
@@ -521,42 +764,112 @@ function GeotaggingPage() {
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? "Copied" : "Copy"}
         </button>
-        <button
-          onClick={() => {
-            if (!activeCoord) return;
-            setPinnedCoord({
-              lat: activeCoord.lat,
-              lng: activeCoord.lng,
-              label: activeCoord.label,
-              kind: "custom",
-            });
-            toast.success("Pinned — new uploads will auto-tag with this coordinate.");
-          }}
-          disabled={!activeCoord}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-40"
-        >
-          <Pin className="h-3.5 w-3.5" />
-          Pin
-        </button>
-        <button
-          onClick={applyToSelected}
-          disabled={!activeCoord || images.length === 0}
-          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-        >
-          <MapPin className="h-3.5 w-3.5" />
-          Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
-        </button>
       </div>
 
-      {/* Horizontal location library */}
-      <div className="mb-6 rounded-xl border border-border bg-card p-4">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <h2 className="font-display text-base">Location library</h2>
-            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
-              {filteredPlaces.length}
+      {/* Collapsible: quick home/office */}
+      <Collapsible
+        title="Quick pick — Home / Office"
+        subtitle="One-tap presets. Pin one to auto-tag new uploads."
+        open={openSection === "quick"}
+        onToggle={() => setOpenSection("quick")}
+        badge={
+          pinnedCoord && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <Pin className="h-3 w-3" /> Pinned
             </span>
-          </div>
+          )
+        }
+      >
+        <div className="grid gap-3 md:grid-cols-2">
+          {(
+            [
+              { kind: "home" as const, list: homePlaces, pickId: homePickId, setPickId: setHomePickId },
+              { kind: "office" as const, list: officePlaces, pickId: officePickId, setPickId: setOfficePickId },
+            ]
+          ).map(({ kind, list, pickId, setPickId }) => {
+            const meta = TYPE_META[kind];
+            const Icon = meta.icon;
+            const place = list.find((p) => p.id === pickId) ?? list[0];
+            const isPinned =
+              pinnedCoord?.kind === kind &&
+              place &&
+              pinnedCoord.lat === place.lat &&
+              pinnedCoord.lng === place.lng;
+            return (
+              <div key={kind} className="rounded-lg border border-border p-3">
+                <div className="mb-2 flex items-center gap-2">
+                  <span className={`grid h-8 w-8 place-items-center rounded-md ${meta.tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div className="text-sm font-medium">{meta.label} coordinate</div>
+                </div>
+                <select
+                  value={pickId}
+                  onChange={(e) => setPickId(e.target.value)}
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                >
+                  {list.map((p) => (
+                    <option key={p.id} value={p.id}>
+                      {p.name} — {p.area}
+                    </option>
+                  ))}
+                </select>
+                {place && (
+                  <div className="mt-2 rounded-md bg-muted/60 px-2 py-1.5 font-mono text-[11px]">
+                    {place.lat.toFixed(6)}, {place.lng.toFixed(6)}
+                  </div>
+                )}
+                <div className="mt-3 flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (!place) return;
+                      setActivePlace(place);
+                      setCustomLocation(null);
+                    }}
+                    className="flex-1 rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
+                  >
+                    Use as active
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (!place) return;
+                      if (isPinned) {
+                        setPinnedCoord(null);
+                      } else {
+                        setPinnedCoord({
+                          lat: place.lat,
+                          lng: place.lng,
+                          label: `${place.name}, ${place.area}`,
+                          kind,
+                        });
+                        setActivePlace(place);
+                        setCustomLocation(null);
+                      }
+                    }}
+                    className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                      isPinned
+                        ? "border border-border hover:bg-accent"
+                        : "bg-primary text-primary-foreground hover:opacity-90"
+                    }`}
+                  >
+                    <Pin className="h-3.5 w-3.5" />
+                    {isPinned ? "Unpin" : "Pin"}
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </Collapsible>
+
+      {/* Collapsible: library */}
+      <Collapsible
+        title="Location library"
+        subtitle={`${filteredPlaces.length} curated places · filter by area & type`}
+        open={openSection === "library"}
+        onToggle={() => setOpenSection("library")}
+      >
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div className="relative w-full max-w-xs">
             <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
             <input
@@ -566,54 +879,42 @@ function GeotaggingPage() {
               className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
             />
           </div>
-        </div>
-
-        {/* Property type tabs (horizontal) */}
-        <div className="mb-3 flex flex-wrap gap-2">
-          {(["All", "home", "office", "commercial"] as const).map((t) => {
-            const active = typeFilter === t;
-            const Icon = t === "All" ? MapPin : TYPE_META[t as PlaceType].icon;
-            return (
-              <button
-                key={t}
-                onClick={() => setTypeFilter(t as typeof typeFilter)}
-                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
-                  active
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:bg-accent"
-                }`}
-              >
-                <Icon className="h-3.5 w-3.5" />
-                {t === "All" ? "All" : TYPE_META[t as PlaceType].label}
-              </button>
-            );
-          })}
-        </div>
-
-        {/* Area filter */}
-        <div className="mb-3 flex flex-wrap gap-1.5">
-          {(["All", ...AREAS] as const).map((a) => (
-            <button
-              key={a}
-              onClick={() => setAreaFilter(a)}
-              className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
-                areaFilter === a
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border text-muted-foreground hover:bg-accent"
-              }`}
+          <div className="flex flex-wrap gap-2">
+            <select
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value as PlaceType | "All")}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
             >
-              {a}
-            </button>
-          ))}
+              <option value="All">All types</option>
+              <option value="home">Home</option>
+              <option value="office">Office</option>
+              <option value="commercial">Commercial</option>
+            </select>
+            <select
+              value={areaFilter}
+              onChange={(e) => setAreaFilter(e.target.value)}
+              className="rounded-md border border-input bg-background px-2 py-1.5 text-xs"
+            >
+              <option value="All">All areas</option>
+              {AREAS.map((a) => (
+                <option key={a} value={a}>
+                  {a}
+                </option>
+              ))}
+            </select>
+          </div>
         </div>
 
-        {/* Place list — expanded coord layout when Home/Office filter active */}
         {filteredPlaces.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
             No locations match your filters.
           </div>
-        ) : expandedCoords ? (
-          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+        ) : (
+          <div
+            className={`grid gap-2 ${
+              expandedCoords ? "md:grid-cols-2 lg:grid-cols-3" : "md:grid-cols-2 lg:grid-cols-3"
+            } max-h-[360px] overflow-auto pr-1`}
+          >
             {filteredPlaces.map((p) => {
               const active = activePlace?.id === p.id && !customLocation;
               const meta = TYPE_META[p.type];
@@ -639,11 +940,6 @@ function GeotaggingPage() {
                     <span className="block truncate text-xs text-muted-foreground">
                       {p.area} · {meta.label}
                     </span>
-                    {p.address && (
-                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/80">
-                        {p.address}
-                      </span>
-                    )}
                     <span className="mt-1 block rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] text-foreground">
                       {p.lat.toFixed(6)}, {p.lng.toFixed(6)}
                     </span>
@@ -652,217 +948,263 @@ function GeotaggingPage() {
               );
             })}
           </div>
-        ) : (
-          <div className="flex gap-2 overflow-x-auto pb-1">
-            {filteredPlaces.map((p) => {
-              const active = activePlace?.id === p.id && !customLocation;
-              const meta = TYPE_META[p.type];
-              const Icon = meta.icon;
-              return (
-                <button
-                  key={p.id}
-                  onClick={() => {
-                    setActivePlace(p);
-                    setCustomLocation(null);
-                  }}
-                  className={`flex min-w-[220px] shrink-0 items-start gap-2 rounded-lg border p-2.5 text-left transition ${
-                    active
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:bg-accent"
-                  }`}
-                >
-                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${meta.tone}`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <span className="min-w-0 flex-1">
-                    <span className="block truncate text-sm font-medium">{p.name}</span>
-                    <span className="block truncate text-xs text-muted-foreground">
-                      {p.area} · {meta.label}
-                    </span>
-                    <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground/80">
-                      {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
-                    </span>
-                  </span>
-                </button>
-              );
-            })}
-          </div>
         )}
+      </Collapsible>
 
-        {/* Custom location picker */}
-        <details className="mt-4 rounded-lg border border-border">
-          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
-            Or pick anywhere on the map
-            {customLocation && (
-              <button
-                onClick={(e) => {
-                  e.preventDefault();
-                  setCustomLocation(null);
-                }}
-                className="ml-3 text-xs text-muted-foreground hover:text-foreground"
-              >
-                Clear
-              </button>
-            )}
-          </summary>
-          <div className="border-t border-border p-3">
-            <LocationPicker value={customLocation} onChange={setCustomLocation} compact />
-          </div>
-        </details>
+      {/* Collapsible: map */}
+      <Collapsible
+        title="Pick anywhere on the map"
+        subtitle="Drop a pin to use a custom coordinate."
+        open={openSection === "map"}
+        onToggle={() => setOpenSection("map")}
+        badge={
+          customLocation && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+              Custom
+            </span>
+          )
+        }
+      >
+        <LocationPicker value={customLocation} onChange={setCustomLocation} compact />
+      </Collapsible>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 3 — Assign & review                                                   */
+/* -------------------------------------------------------------------------- */
+
+function StepAssign({
+  images,
+  selected,
+  toggleSelect,
+  selectAll,
+  clearSelection,
+  activeCoord,
+  applyToTargets,
+  applyToSelected,
+  removeImage,
+}: {
+  images: LocalImage[];
+  selected: Set<string>;
+  toggleSelect: (id: string) => void;
+  selectAll: () => void;
+  clearSelection: () => void;
+  activeCoord: { lat: number; lng: number; label: string } | null;
+  applyToTargets: (ids: string[]) => void;
+  applyToSelected: () => void;
+  removeImage: (id: string) => void;
+}) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-medium">Assign the coordinate</h2>
+        <p className="text-sm text-muted-foreground">
+          Apply to every image, just the selected ones, or tag individually.
+        </p>
       </div>
 
-      {/* Images section */}
-      <section className="space-y-4">
-        {/* Dropzone */}
-        <div
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragOver(false);
-            if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-          }}
-          onClick={() => inputRef.current?.click()}
-          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition ${
-            dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"
-          }`}
-        >
-          <input
-            ref={inputRef}
-            type="file"
-            accept="image/*"
-            multiple
-            hidden
-            onChange={(e) => e.target.files && addFiles(e.target.files)}
-          />
-          <UploadCloud className="h-8 w-8 text-muted-foreground" />
-          <div className="text-sm font-medium">Drop images here or click to browse</div>
-          <div className="text-xs text-muted-foreground">
-            JPG, PNG, WEBP — bulk upload supported
-          </div>
+      <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
+        <div className="text-xs text-muted-foreground">
+          <b className="text-foreground">{images.length}</b> image{images.length === 1 ? "" : "s"} ·{" "}
+          <b className="text-foreground">{selected.size}</b> selected
         </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={selected.size === images.length ? clearSelection : selectAll}
+            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            {selected.size === images.length ? "Clear selection" : "Select all"}
+          </button>
+          <button
+            onClick={applyToSelected}
+            disabled={!activeCoord || images.length === 0}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          >
+            <MapPin className="h-3.5 w-3.5" />
+            Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
+          </button>
+        </div>
+      </div>
 
-        {/* Toolbar */}
-        {images.length > 0 && (
-          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
-            <div className="flex items-center gap-3 text-xs text-muted-foreground">
-              <span>
-                <b className="text-foreground">{images.length}</b> image
-                {images.length === 1 ? "" : "s"}
-              </span>
-              {selected.size > 0 && (
-                <span>
-                  <b className="text-foreground">{selected.size}</b> selected
-                </span>
-              )}
-            </div>
-            <div className="flex flex-wrap items-center gap-2">
-              <button
-                onClick={selected.size === images.length ? clearSelection : selectAll}
-                className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+      {images.length === 0 ? (
+        <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+          <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
+          No images uploaded.
+        </div>
+      ) : (
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
+          {images.map((img) => {
+            const isSelected = selected.has(img.id);
+            return (
+              <div
+                key={img.id}
+                className={`group relative overflow-hidden rounded-xl border bg-card transition ${
+                  isSelected ? "border-primary ring-2 ring-primary/40" : "border-border"
+                }`}
               >
-                {selected.size === images.length ? "Clear selection" : "Select all"}
-              </button>
-              <button
-                onClick={saveAll}
-                disabled={savingBulk || readyToSave.length === 0}
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-              >
-                {savingBulk ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                ) : (
-                  <UploadCloud className="h-3.5 w-3.5" />
-                )}
-                Save {readyToSave.length > 0 ? `${readyToSave.length} ` : ""}to cloud
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Image grid */}
-        {images.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-            <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
-            No images yet. Upload some to start geotagging.
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
-            {images.map((img) => {
-              const isSelected = selected.has(img.id);
-              return (
-                <div
-                  key={img.id}
-                  className={`group relative overflow-hidden rounded-xl border bg-card transition ${
-                    isSelected ? "border-primary ring-2 ring-primary/40" : "border-border"
-                  }`}
+                <button
+                  onClick={() => toggleSelect(img.id)}
+                  className="relative block aspect-square w-full overflow-hidden"
                 >
-                  <button
-                    onClick={() => toggleSelect(img.id)}
-                    className="relative block aspect-square w-full overflow-hidden"
-                  >
-                    <img
-                      src={img.previewUrl}
-                      alt={img.file.name}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                    />
-                    {img.lat !== null && (
-                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
-                        <MapPin className="h-3 w-3" />
-                        Tagged
-                      </span>
-                    )}
-                    {img.status === "saved" && (
-                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
-                        <Check className="h-3 w-3" /> Saved
-                      </span>
-                    )}
-                    {img.status === "saving" && (
-                      <span className="absolute inset-0 grid place-items-center bg-black/40">
-                        <Loader2 className="h-6 w-6 animate-spin text-white" />
-                      </span>
-                    )}
-                    {isSelected && (
-                      <span className="absolute inset-0 ring-2 ring-inset ring-primary" />
-                    )}
-                  </button>
-                  <div className="space-y-1.5 p-2.5">
-                    <div className="truncate text-xs font-medium" title={img.file.name}>
-                      {img.file.name}
-                    </div>
-                    <div className="truncate text-[11px] text-muted-foreground">
-                      {img.locationLabel ?? "Not tagged"}
-                    </div>
-                    {img.lat !== null && (
-                      <div className="font-mono text-[10px] text-muted-foreground/80">
-                        {img.lat.toFixed(4)}, {img.lng!.toFixed(4)}
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1.5 pt-1">
-                      <button
-                        onClick={() => applyToTargets([img.id])}
-                        disabled={!activeCoord}
-                        className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
-                      >
-                        Tag
-                      </button>
-                      <button
-                        onClick={() => removeImage(img.id)}
-                        className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                        aria-label="Remove"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
+                  <img
+                    src={img.previewUrl}
+                    alt={img.file.name}
+                    className="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                  {img.lat !== null && (
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
+                      <MapPin className="h-3 w-3" />
+                      Tagged
+                    </span>
+                  )}
+                  {isSelected && <span className="absolute inset-0 ring-2 ring-inset ring-primary" />}
+                </button>
+                <div className="space-y-1 p-2.5">
+                  <div className="truncate text-xs font-medium" title={img.file.name}>
+                    {img.file.name}
+                  </div>
+                  <div className="truncate text-[11px] text-muted-foreground">
+                    {img.locationLabel ?? "Not tagged"}
+                  </div>
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <button
+                      onClick={() => applyToTargets([img.id])}
+                      disabled={!activeCoord}
+                      className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+                    >
+                      Tag
+                    </button>
+                    <button
+                      onClick={() => removeImage(img.id)}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      aria-label="Remove"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
                   </div>
                 </div>
-              );
-            })}
-          </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Step 4 — Save                                                              */
+/* -------------------------------------------------------------------------- */
+
+function StepSave({
+  stats,
+  readyToSave,
+  savingBulk,
+  saveAll,
+  images,
+}: {
+  stats: { total: number; tagged: number; saved: number };
+  readyToSave: LocalImage[];
+  savingBulk: boolean;
+  saveAll: () => void;
+  images: LocalImage[];
+}) {
+  const untagged = stats.total - stats.tagged;
+  return (
+    <div className="space-y-4">
+      <div>
+        <h2 className="text-lg font-medium">Review & save</h2>
+        <p className="text-sm text-muted-foreground">
+          Everything ready looks right? Push the batch to your cloud library.
+        </p>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-3">
+        <SummaryCard label="Total images" value={stats.total} />
+        <SummaryCard label="Ready to save" value={readyToSave.length} tone="primary" />
+        <SummaryCard label="Untagged" value={untagged} tone={untagged > 0 ? "warn" : undefined} />
+      </div>
+
+      {untagged > 0 && (
+        <div className="rounded-lg border border-amber-500/40 bg-amber-500/5 p-3 text-xs text-amber-600 dark:text-amber-400">
+          {untagged} image{untagged === 1 ? "" : "s"} still untagged — they will be skipped. Go back
+          to Step 3 to tag them.
+        </div>
+      )}
+
+      <div className="rounded-lg border border-border">
+        <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
+          Preview
+        </div>
+        <div className="grid max-h-72 gap-2 overflow-auto p-3 sm:grid-cols-2 md:grid-cols-3">
+          {images.map((img) => (
+            <div
+              key={img.id}
+              className="flex items-center gap-2 rounded-md border border-border bg-muted/20 p-2"
+            >
+              <img
+                src={img.previewUrl}
+                alt=""
+                className="h-10 w-10 shrink-0 rounded object-cover"
+              />
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-xs font-medium">{img.file.name}</div>
+                <div className="truncate text-[10px] text-muted-foreground">
+                  {img.locationLabel ?? "Not tagged"}
+                </div>
+              </div>
+              {img.status === "saved" ? (
+                <Check className="h-4 w-4 text-emerald-500" />
+              ) : img.status === "saving" ? (
+                <Loader2 className="h-4 w-4 animate-spin text-primary" />
+              ) : img.lat !== null ? (
+                <MapPin className="h-4 w-4 text-primary" />
+              ) : (
+                <X className="h-4 w-4 text-muted-foreground/60" />
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <button
+        onClick={saveAll}
+        disabled={savingBulk || readyToSave.length === 0}
+        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+      >
+        {savingBulk ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : (
+          <UploadCloud className="h-4 w-4" />
         )}
-      </section>
+        Save {readyToSave.length > 0 ? readyToSave.length : ""} image
+        {readyToSave.length === 1 ? "" : "s"} to cloud
+      </button>
+    </div>
+  );
+}
+
+function SummaryCard({
+  label,
+  value,
+  tone,
+}: {
+  label: string;
+  value: number;
+  tone?: "primary" | "warn";
+}) {
+  const cls =
+    tone === "primary"
+      ? "border-primary/40 bg-primary/5"
+      : tone === "warn"
+        ? "border-amber-500/40 bg-amber-500/5"
+        : "border-border bg-card";
+  return (
+    <div className={`rounded-xl border p-4 ${cls}`}>
+      <div className="text-2xl font-semibold">{value}</div>
+      <div className="mt-0.5 text-xs text-muted-foreground">{label}</div>
     </div>
   );
 }
