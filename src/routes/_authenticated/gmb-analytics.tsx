@@ -663,8 +663,9 @@ function GmbAnalyticsPage() {
         </div>
         {!gmb.connected && (
           <div className="mt-3 text-xs text-muted-foreground">
-            Metrics below are sample data until GMB is connected. Live insights
-            require a Google Cloud OAuth client with the Business Profile API enabled.
+            Connect a Google Cloud OAuth client with the Business Profile API for
+            official GMB insights. Rank tracking below uses your own snapshots
+            from the Keywords page.
           </div>
         )}
       </div>
