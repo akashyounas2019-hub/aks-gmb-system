@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { BarChart3, Film, Images, KeyRound, LogOut, PenSquare, Upload, Workflow } from "lucide-react";
+import { BarChart3, CalendarDays, Film, Images, KeyRound, LogOut, PenSquare, Upload, Workflow } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
@@ -10,6 +10,7 @@ const nav = [
   { to: "/keywords", label: "Keywords", icon: KeyRound },
   { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
   { to: "/post-generator", label: "Post Generator", icon: PenSquare },
+  { to: "/calendar", label: "Calendar", icon: CalendarDays },
 ] as const;
 
 export function AppShell({ children }: { children: React.ReactNode }) {
