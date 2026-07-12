@@ -14,7 +14,11 @@ import {
   ChevronDown,
   CheckCircle2,
   Eye,
+  PenSquare,
+  Inbox,
 } from "lucide-react";
+import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
+
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
