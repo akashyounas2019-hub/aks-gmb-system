@@ -410,7 +410,7 @@ export function PostStoragePanel() {
           onConfirm={(when) => schedulePost(scheduling.id, when)}
         />
       )}
-    </AppShell>
+    </div>
   );
 }
 
