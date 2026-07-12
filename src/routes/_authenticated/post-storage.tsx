@@ -1,5 +1,16 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  listDrafts,
+  upsertDraft,
+  deleteDraft as deleteDraftFn,
+  listFolders,
+  saveFolders,
+  type DraftFolder,
+  type PostDraft,
+} from "@/lib/post-drafts.functions";
 import {
   Folder,
   FolderPlus,
@@ -23,46 +34,10 @@ export function PostStoragePage() {
 
 type PostStatus = "Draft" | "Upcoming" | "Published" | "Live";
 
-type Folder = {
-  id: string;
-  name: string;
-  parentId: string | null;
-  createdAt: string;
-};
-
-type Post = {
-  id: string;
-  folderId: string | null;
-  title: string;
-  body: string;
-  status: PostStatus;
-  scheduledAt: string | null;
-  createdAt: string;
-  updatedAt: string;
-  tags: string[];
-};
-
-const FOLDERS_KEY = "posts.folders.v1";
-const POSTS_KEY = "posts.items.v1";
-
-function loadFolders(): Folder[] {
-  try {
-    const raw = localStorage.getItem(FOLDERS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [
-    { id: "f-general", name: "General", parentId: null, createdAt: new Date().toISOString() },
-    { id: "f-campaigns", name: "Campaigns", parentId: null, createdAt: new Date().toISOString() },
-  ];
-}
-
-function loadPosts(): Post[] {
-  try {
-    const raw = localStorage.getItem(POSTS_KEY);
-    if (raw) return JSON.parse(raw);
-  } catch {}
-  return [];
-}
+// Folder and Post types re-declared as local aliases so the rest of the file
+// (which references `Folder` and `Post`) keeps compiling unchanged.
+type Folder = DraftFolder;
+type Post = PostDraft;
 
 const STATUS_STYLES: Record<PostStatus, string> = {
   Draft: "bg-muted text-muted-foreground border-border",
@@ -72,7 +47,6 @@ const STATUS_STYLES: Record<PostStatus, string> = {
 };
 
 export function PostStoragePanel() {
-
   const [folders, setFolders] = useState<Folder[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [activeFolder, setActiveFolder] = useState<string | "all" | "unfiled">("all");
@@ -84,18 +58,38 @@ export function PostStoragePanel() {
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
 
-  useEffect(() => {
-    setFolders(loadFolders());
-    setPosts(loadPosts());
-  }, []);
+  const loadDraftsFn = useServerFn(listDrafts);
+  const loadFoldersFn = useServerFn(listFolders);
+  const saveDraftFn = useServerFn(upsertDraft);
+  const removeDraftFn = useServerFn(deleteDraftFn);
+  const saveFoldersFn = useServerFn(saveFolders);
 
   useEffect(() => {
-    localStorage.setItem(FOLDERS_KEY, JSON.stringify(folders));
-  }, [folders]);
+    loadFoldersFn()
+      .then((rows) => {
+        if (rows.length === 0) {
+          const seed: Folder[] = [
+            { id: `f-${Date.now()}-g`, name: "General", parentId: null, createdAt: new Date().toISOString() },
+            { id: `f-${Date.now()}-c`, name: "Campaigns", parentId: null, createdAt: new Date().toISOString() },
+          ];
+          setFolders(seed);
+          saveFoldersFn({ data: { folders: seed } }).catch(() => {});
+        } else {
+          setFolders(rows);
+        }
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load folders"));
+    loadDraftsFn()
+      .then((rows) => setPosts(rows))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load posts"));
+  }, [loadDraftsFn, loadFoldersFn, saveFoldersFn]);
 
-  useEffect(() => {
-    localStorage.setItem(POSTS_KEY, JSON.stringify(posts));
-  }, [posts]);
+  function persistFolders(next: Folder[]) {
+    setFolders(next);
+    saveFoldersFn({ data: { folders: next } }).catch((e) =>
+      toast.error(e instanceof Error ? e.message : "Failed to save folders"),
+    );
+  }
 
   const rootFolders = folders.filter((f) => f.parentId === null);
   const childrenOf = (id: string) => folders.filter((f) => f.parentId === id);
@@ -127,7 +121,7 @@ export function PostStoragePanel() {
       Published: 0,
       Live: 0,
     };
-    posts.forEach((p) => c[p.status]++);
+    posts.forEach((p) => { c[(p.status as PostStatus) ?? "Draft"]++; });
     return c;
   }, [posts]);
 
@@ -140,7 +134,7 @@ export function PostStoragePanel() {
       parentId: newFolderParent,
       createdAt: new Date().toISOString(),
     };
-    setFolders((prev) => [...prev, f]);
+    persistFolders([...folders, f]);
     setNewFolderName("");
     setNewFolderParent(null);
     setCreatingFolder(false);
@@ -148,25 +142,49 @@ export function PostStoragePanel() {
 
   function deleteFolder(id: string) {
     if (!confirm("Delete this folder? Posts inside will be moved to Unfiled.")) return;
-    setFolders((prev) => prev.filter((f) => f.id !== id && f.parentId !== id));
+    persistFolders(folders.filter((f) => f.id !== id && f.parentId !== id));
+    // Reassign posts in this folder to unfiled (persist each)
+    posts
+      .filter((p) => p.folderId === id)
+      .forEach((p) => {
+        saveDraftFn({ data: { id: p.id, folderId: null } }).catch(() => {});
+      });
     setPosts((prev) => prev.map((p) => (p.folderId === id ? { ...p, folderId: null } : p)));
     if (activeFolder === id) setActiveFolder("all");
   }
 
-  function createPost() {
-    const p: Post = {
-      id: `p-${Date.now()}`,
+  async function createPost() {
+    const now = new Date().toISOString();
+    const draft: Post = {
+      id: crypto.randomUUID(),
       folderId: activeFolder !== "all" && activeFolder !== "unfiled" ? activeFolder : null,
       title: "Untitled post",
       body: "",
       status: "Draft",
       scheduledAt: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       tags: [],
     };
-    setPosts((prev) => [p, ...prev]);
-    setSelectedPost(p);
+    setPosts((prev) => [draft, ...prev]);
+    setSelectedPost(draft);
+    try {
+      const saved = await saveDraftFn({
+        data: {
+          id: draft.id,
+          folderId: draft.folderId,
+          title: draft.title,
+          body: draft.body,
+          status: draft.status,
+          scheduledAt: draft.scheduledAt,
+          tags: draft.tags,
+        },
+      });
+      setPosts((prev) => prev.map((p) => (p.id === draft.id ? saved : p)));
+      setSelectedPost((s) => (s?.id === draft.id ? saved : s));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create post");
+    }
   }
 
   function updatePost(id: string, patch: Partial<Post>) {
@@ -176,12 +194,26 @@ export function PostStoragePanel() {
       ),
     );
     if (selectedPost?.id === id) setSelectedPost((s) => (s ? { ...s, ...patch } : s));
+    saveDraftFn({
+      data: {
+        id,
+        ...(patch.folderId !== undefined ? { folderId: patch.folderId } : {}),
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.body !== undefined ? { body: patch.body } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.scheduledAt !== undefined ? { scheduledAt: patch.scheduledAt } : {}),
+        ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
+      },
+    }).catch((e) => toast.error(e instanceof Error ? e.message : "Could not save post"));
   }
 
   function deletePost(id: string) {
     if (!confirm("Delete this post?")) return;
     setPosts((prev) => prev.filter((p) => p.id !== id));
     if (selectedPost?.id === id) setSelectedPost(null);
+    removeDraftFn({ data: { id } }).catch((e) =>
+      toast.error(e instanceof Error ? e.message : "Could not delete post"),
+    );
   }
 
   function schedulePost(id: string, when: string) {
@@ -599,7 +631,7 @@ function PostCard({
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-        <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[post.status]}`}>
+        <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
           {post.status}
         </span>
         {folderName && (

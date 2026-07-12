@@ -1,12 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { getPreferences, savePreferences } from "@/lib/user-preferences.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/appearance")({
   component: AppearanceSettings,
 });
 
-const KEY = "settings_theme_v1";
 type Theme = "system" | "light" | "dark";
 
 function applyTheme(t: Theme) {
@@ -18,21 +19,35 @@ function applyTheme(t: Theme) {
 
 function AppearanceSettings() {
   const [theme, setTheme] = useState<Theme>("system");
+  const load = useServerFn(getPreferences);
+  const save = useServerFn(savePreferences);
+
   useEffect(() => {
-    const raw = typeof window !== "undefined" ? (localStorage.getItem(KEY) as Theme | null) : null;
-    if (raw) setTheme(raw);
-  }, []);
-  function choose(t: Theme) {
+    load()
+      .then((p) => {
+        const t = (p.theme as Theme) || "system";
+        setTheme(t);
+        applyTheme(t);
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load"));
+  }, [load]);
+
+  async function choose(t: Theme) {
     setTheme(t);
-    localStorage.setItem(KEY, t);
     applyTheme(t);
-    toast.success(`Theme set to ${t}`);
+    try {
+      await save({ data: { theme: t } });
+      toast.success(`Theme set to ${t}`);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
+    }
   }
+
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold">Appearance</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Choose how the app looks on this device.</p>
+        <p className="mt-1 text-sm text-muted-foreground">Choose how the app looks.</p>
       </div>
       <div className="grid gap-3 sm:grid-cols-3">
         {(["system", "light", "dark"] as Theme[]).map((t) => (

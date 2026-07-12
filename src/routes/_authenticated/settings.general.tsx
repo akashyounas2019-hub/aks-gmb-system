@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { getPreferences, savePreferences } from "@/lib/user-preferences.functions";
 import {
   Building2,
   MapPin,
@@ -155,15 +157,17 @@ function isPhone(v: string) {
 function GeneralSettings() {
   const [form, setForm] = useState<General>(DEFAULTS);
   const [saving, setSaving] = useState(false);
+  const load = useServerFn(getPreferences);
+  const savePrefs = useServerFn(savePreferences);
 
   useEffect(() => {
-    try {
-      const raw = typeof window !== "undefined" ? localStorage.getItem(KEY) : null;
-      if (raw) setForm({ ...DEFAULTS, ...JSON.parse(raw) });
-    } catch {
-      /* ignore */
-    }
-  }, []);
+    load()
+      .then((p) => {
+        const g = (p.general as Partial<General> | null) ?? {};
+        setForm({ ...DEFAULTS, ...g });
+      })
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load"));
+  }, [load]);
 
   const errors = useMemo(() => {
     const e: Partial<Record<keyof General, string>> = {};
@@ -213,11 +217,11 @@ function GeneralSettings() {
       bookingUrl: normalizeUrl(form.bookingUrl),
     };
     try {
-      localStorage.setItem(KEY, JSON.stringify(normalized));
+      await savePrefs({ data: { general: normalized as unknown as Record<string, unknown> } });
       setForm(normalized);
       toast.success("Business profile saved");
-    } catch {
-      toast.error("Could not save");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save");
     } finally {
       setSaving(false);
     }
