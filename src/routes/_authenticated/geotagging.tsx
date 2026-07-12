@@ -14,6 +14,7 @@ import {
   Loader2,
   Image as ImageIcon,
   Crosshair,
+  Pin,
   X,
 } from "lucide-react";
 
