@@ -8,6 +8,7 @@ import {
   ChevronDown,
   Film,
   Images,
+  Inbox,
   KeyRound,
   LayoutDashboard,
   LogOut,
