@@ -19,6 +19,7 @@ import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticat
 import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
+import { Route as AuthenticatedGmbOauthCallbackRouteImport } from './routes/_authenticated/gmb-oauth-callback'
 import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
 import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
@@ -81,6 +82,12 @@ const AuthenticatedKeywordsRoute = AuthenticatedKeywordsRouteImport.update({
   path: '/keywords',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGmbOauthCallbackRoute =
+  AuthenticatedGmbOauthCallbackRouteImport.update({
+    id: '/gmb-oauth-callback',
+    path: '/gmb-oauth-callback',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedGmbAnalyticsRoute =
   AuthenticatedGmbAnalyticsRouteImport.update({
     id: '/gmb-analytics',
@@ -153,6 +160,7 @@ export interface FileRoutesByFullPath {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
+  '/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
@@ -175,6 +183,7 @@ export interface FileRoutesByTo {
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
+  '/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
@@ -199,6 +208,7 @@ export interface FileRoutesById {
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/competitors': typeof AuthenticatedCompetitorsRoute
   '/_authenticated/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
+  '/_authenticated/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/_authenticated/keywords': typeof AuthenticatedKeywordsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
   '/_authenticated/post-generator': typeof AuthenticatedPostGeneratorRoute
@@ -223,6 +233,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/competitors'
     | '/gmb-analytics'
+    | '/gmb-oauth-callback'
     | '/keywords'
     | '/library'
     | '/post-generator'
@@ -245,6 +256,7 @@ export interface FileRouteTypes {
     | '/calendar'
     | '/competitors'
     | '/gmb-analytics'
+    | '/gmb-oauth-callback'
     | '/keywords'
     | '/library'
     | '/post-generator'
@@ -268,6 +280,7 @@ export interface FileRouteTypes {
     | '/_authenticated/calendar'
     | '/_authenticated/competitors'
     | '/_authenticated/gmb-analytics'
+    | '/_authenticated/gmb-oauth-callback'
     | '/_authenticated/keywords'
     | '/_authenticated/library'
     | '/_authenticated/post-generator'
@@ -361,6 +374,13 @@ declare module '@tanstack/react-router' {
       path: '/keywords'
       fullPath: '/keywords'
       preLoaderRoute: typeof AuthenticatedKeywordsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gmb-oauth-callback': {
+      id: '/_authenticated/gmb-oauth-callback'
+      path: '/gmb-oauth-callback'
+      fullPath: '/gmb-oauth-callback'
+      preLoaderRoute: typeof AuthenticatedGmbOauthCallbackRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/gmb-analytics': {
@@ -485,6 +505,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCompetitorsRoute: typeof AuthenticatedCompetitorsRoute
   AuthenticatedGmbAnalyticsRoute: typeof AuthenticatedGmbAnalyticsRoute
+  AuthenticatedGmbOauthCallbackRoute: typeof AuthenticatedGmbOauthCallbackRoute
   AuthenticatedKeywordsRoute: typeof AuthenticatedKeywordsRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
   AuthenticatedPostGeneratorRoute: typeof AuthenticatedPostGeneratorRoute
@@ -498,6 +519,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCompetitorsRoute: AuthenticatedCompetitorsRoute,
   AuthenticatedGmbAnalyticsRoute: AuthenticatedGmbAnalyticsRoute,
+  AuthenticatedGmbOauthCallbackRoute: AuthenticatedGmbOauthCallbackRoute,
   AuthenticatedKeywordsRoute: AuthenticatedKeywordsRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
   AuthenticatedPostGeneratorRoute: AuthenticatedPostGeneratorRoute,
