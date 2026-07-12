@@ -170,6 +170,18 @@ function LibraryPage() {
             >
               Geotag
             </button>
+            <button
+              disabled={selected.size === 0 || autoTagging}
+              onClick={runAutoTag}
+              className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              {autoTagging ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              Auto-tag with AI
+            </button>
           </div>
         </div>
       )}
