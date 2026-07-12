@@ -365,11 +365,17 @@ function AutomationPage() {
             Turn repetitive tasks into scheduled or event-driven rules.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StatChip label="Automations" value={stats.total} />
           <StatChip label="Active" value={stats.active} tone="primary" />
           <StatChip label="Runs" value={stats.runs} tone="success" />
           <StatChip label="Errors" value={stats.errors} tone={stats.errors ? "danger" : undefined} />
+          <button
+            onClick={() => setCreating(true)}
+            className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Add New Automation
+          </button>
         </div>
       </header>
 
