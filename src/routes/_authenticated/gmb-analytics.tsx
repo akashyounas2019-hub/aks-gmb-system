@@ -56,17 +56,25 @@ function seededRandom(seed: number) {
   };
 }
 
-function buildGrid(keyword: string): { lat: number; lng: number; rank: number }[] {
-  const rand = seededRandom(
-    keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0),
-  );
+function buildGrid(
+  keyword: string,
+  weekOffset = 0,
+): { lat: number; lng: number; rank: number }[] {
+  const seed =
+    keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0) +
+    weekOffset * 137;
+  const rand = seededRandom(seed);
+  const drift = weekOffset === 0 ? 0 : -0.6; // this week trends slightly better than last
   const cells: { lat: number; lng: number; rank: number }[] = [];
   for (let r = 0; r < GRID_SIZE; r++) {
     for (let c = 0; c < GRID_SIZE; c++) {
       const dx = c - (GRID_SIZE - 1) / 2;
       const dy = r - (GRID_SIZE - 1) / 2;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const rank = Math.max(1, Math.min(20, Math.round(dist * 2.4 + rand() * 4)));
+      const rank = Math.max(
+        1,
+        Math.min(20, Math.round(dist * 2.4 + rand() * 4 + drift)),
+      );
       cells.push({
         lat: BUSINESS.lat + dy * GRID_STEP_DEG,
         lng: BUSINESS.lng + dx * GRID_STEP_DEG,
