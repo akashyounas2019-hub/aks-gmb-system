@@ -83,7 +83,12 @@ export const updateCompetitor = createServerFn({ method: "POST" })
   })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const patch: Record<string, unknown> = {};
+    const patch: {
+      name?: string;
+      gbp_url?: string;
+      place_id?: string | null;
+      notes?: string;
+    } = {};
     if (data.name != null) patch.name = data.name;
     if (data.gbpUrl != null) {
       patch.gbp_url = data.gbpUrl;
