@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
 import {
   Folder,
   FolderPlus,
@@ -16,6 +15,11 @@ import {
 export const Route = createFileRoute("/_authenticated/post-storage")({
   component: PostStoragePage,
 });
+
+export function PostStoragePage() {
+  return <PostStoragePanel />;
+}
+
 
 type PostStatus = "Draft" | "Upcoming" | "Published" | "Live";
 
