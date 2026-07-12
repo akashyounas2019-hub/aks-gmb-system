@@ -102,7 +102,7 @@ Return ONLY the caption text, no preamble.`;
 /* ------------------------------------------------------------------ */
 
 const SendInput = z.object({
-  caption: z.string().min(1).max(5000),
+  caption: z.string().min(1).max(1500),
   imageIds: z.array(z.string().uuid()).max(10).default([]),
   locationLabel: z.string().max(200).optional(),
   lat: z.number().optional(),
@@ -113,7 +113,12 @@ const SendInput = z.object({
   networks: z
     .array(z.enum(["gmb", "facebook", "instagram", "linkedin", "twitter"]))
     .default(["gmb"]),
+  ctaType: z
+    .enum(["none", "book", "order", "shop", "learn_more", "sign_up", "call"])
+    .default("none"),
+  ctaUrl: z.string().max(500).optional(),
 });
+
 
 export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
