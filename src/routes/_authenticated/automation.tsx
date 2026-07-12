@@ -233,8 +233,10 @@ function AutomationPage() {
     try {
       const r = localStorage.getItem(STORAGE_KEY_RULES);
       const a = localStorage.getItem(STORAGE_KEY_ACTIVITY);
+      const c = localStorage.getItem(STORAGE_KEY_CUSTOM);
       if (r) setRules(JSON.parse(r));
       if (a) setActivity(JSON.parse(a));
+      if (c) setCustomTemplates(JSON.parse(c));
     } catch {
       /* noop */
     }
@@ -247,10 +249,13 @@ function AutomationPage() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ACTIVITY, JSON.stringify(activity.slice(0, 50)));
   }, [activity]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customTemplates));
+  }, [customTemplates]);
 
   const filteredTemplates = useMemo(
-    () => (category === "all" ? TEMPLATES : TEMPLATES.filter((t) => t.category === category)),
-    [category],
+    () => (category === "all" ? allTemplates : allTemplates.filter((t) => t.category === category)),
+    [category, allTemplates],
   );
 
   const stats = {
