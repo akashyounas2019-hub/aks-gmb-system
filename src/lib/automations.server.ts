@@ -9,7 +9,7 @@ export type AutomationRow = {
   name: string;
   kind: "rank_refresh" | "auto_publish" | "auto_tag" | "alert_scan";
   cron: string;
-  config: Record<string, unknown>;
+  config: Record<string, number | string>;
   enabled: boolean;
 };
 
@@ -35,7 +35,7 @@ export async function executeAutomation(automation: AutomationRow, supabase: Cli
 
   const finish = async (
     status: "success" | "error",
-    output: Record<string, unknown>,
+    output: Record<string, number | string>,
     error?: string,
   ) => {
     await supabase
@@ -56,7 +56,7 @@ export async function executeAutomation(automation: AutomationRow, supabase: Cli
   };
 
   try {
-    let output: Record<string, unknown> = {};
+    let output: Record<string, number | string> = {};
     switch (automation.kind) {
       case "auto_tag": {
         // Untagged images from this user, cap at 10 per run.
