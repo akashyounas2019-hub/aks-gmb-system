@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/gmb-analytics")({
   component: GmbAnalyticsPage,
 });
 
-/* ---------- MOCK DATA ----------------------------------------------- */
+/* ---------- TYPES --------------------------------------------------- */
 type KeywordRow = {
   keyword: string;
   current: number;
@@ -51,15 +51,6 @@ type KeywordRow = {
   city: string;
 };
 
-const MOCK_KEYWORDS: KeywordRow[] = [
-  { keyword: "deep cleaning dubai", current: 3, previous: 7, volume: 2900, city: "Downtown Dubai" },
-  { keyword: "sofa cleaning near me", current: 5, previous: 4, volume: 1600, city: "Al Qusais" },
-  { keyword: "move in cleaning dubai", current: 12, previous: 18, volume: 720, city: "Dubai Marina" },
-  { keyword: "carpet cleaning service", current: 8, previous: 8, volume: 990, city: "Business Bay" },
-  { keyword: "post construction cleaning", current: 2, previous: 6, volume: 480, city: "JLT" },
-  { keyword: "villa deep cleaning", current: 14, previous: 11, volume: 590, city: "Al Barsha" },
-  { keyword: "office cleaning dubai", current: 4, previous: 9, volume: 1300, city: "Deira" },
-];
 
 // Business center = Dubai Downtown-ish
 const BUSINESS = { lat: 25.2048, lng: 55.2708, name: "Pearl Home Cleaning" };
