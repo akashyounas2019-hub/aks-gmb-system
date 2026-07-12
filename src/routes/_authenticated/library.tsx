@@ -421,6 +421,16 @@ function LibraryPage() {
           }}
         />
       )}
+
+      {editingId && (
+        <ImageEditModal
+          imageId={editingId}
+          onClose={() => setEditingId(null)}
+          onSaved={() => {
+            qc.invalidateQueries({ queryKey: ["library"] });
+          }}
+        />
+      )}
     </div>
   );
 }
