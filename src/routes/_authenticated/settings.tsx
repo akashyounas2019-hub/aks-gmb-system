@@ -1,12 +1,23 @@
-import { createFileRoute, Link, Outlet, useLocation } from "@tanstack/react-router";
-import { Cable, Settings as SettingsIcon } from "lucide-react";
+import { createFileRoute, Link, Outlet, useLocation, redirect } from "@tanstack/react-router";
+import { Bell, Cable, Palette, Settings as SettingsIcon, ShieldCheck, User, Users } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsLayout,
+  beforeLoad: ({ location }) => {
+    if (location.pathname === "/settings" || location.pathname === "/settings/") {
+      throw redirect({ to: "/settings/general" });
+    }
+  },
 });
 
 const submenu = [
+  { to: "/settings/general", label: "General", icon: SettingsIcon },
+  { to: "/settings/profile", label: "Profile", icon: User },
   { to: "/settings/integrations", label: "Integrations", icon: Cable },
+  { to: "/settings/notifications", label: "Notifications", icon: Bell },
+  { to: "/settings/appearance", label: "Appearance", icon: Palette },
+  { to: "/settings/team", label: "Team", icon: Users },
+  { to: "/settings/security", label: "Security", icon: ShieldCheck },
 ] as const;
 
 function SettingsLayout() {
