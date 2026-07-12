@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { generateChangeSuggestions } from "@/lib/insights.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
+import { getGmbMetrics, getGmbConnectionStatus } from "@/lib/gmb-oauth.functions";
 import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
@@ -280,12 +281,47 @@ function GmbAnalyticsPage() {
   const [connectBusy, setConnectBusy] = useState(false);
   const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
   const fetchCompetitors = useServerFn(listCompetitors);
+  const fetchMetrics = useServerFn(getGmbMetrics);
+  const fetchGmbStatus = useServerFn(getGmbConnectionStatus);
+
+  type Metrics = Awaited<ReturnType<typeof getGmbMetrics>>;
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [metricsErr, setMetricsErr] = useState<string | null>(null);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
   useEffect(() => {
     fetchCompetitors()
       .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      try {
+        const s = await fetchGmbStatus();
+        if (!s.connected || !s.locationName) {
+          if (!cancelled) {
+            setMetrics(null);
+            setMetricsErr(null);
+          }
+          return;
+        }
+        setLoadingMetrics(true);
+        setMetricsErr(null);
+        const m = await fetchMetrics();
+        if (!cancelled) setMetrics(m);
+      } catch (e) {
+        if (!cancelled) setMetricsErr(e instanceof Error ? e.message : "Failed to load GMB metrics");
+      } finally {
+        if (!cancelled) setLoadingMetrics(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchGmbStatus, fetchMetrics, gmb.connected]);
 
   useEffect(() => {
     const sync = () => setGmb(readGmbConnection());
@@ -488,17 +524,63 @@ function GmbAnalyticsPage() {
             <MapPin className="h-7 w-7" />
           </div>
           <div className="flex-1 min-w-[200px]">
-            <div className="text-sm text-muted-foreground">Connected profile</div>
-            <div className="text-lg font-semibold">{BUSINESS.name}</div>
+            <div className="text-sm text-muted-foreground">
+              {metrics ? "Live · Business Profile Performance API" : "Connected profile (sample)"}
+            </div>
+            <div className="text-lg font-semibold">
+              {metrics?.locationTitle ?? BUSINESS.name}
+            </div>
             <div className="text-xs text-muted-foreground">
-              Dubai, UAE · Cleaning services
+              {metrics
+                ? `Last 30 days · ${metrics.range.start} → ${metrics.range.end}`
+                : "Dubai, UAE · Cleaning services"}
             </div>
           </div>
-          <MiniStat icon={<Star className="h-4 w-4" />} label="Rating" value="4.9" tone="good" />
-          <MiniStat icon={<Eye className="h-4 w-4" />} label="Views (30d)" value="12,480" />
-          <MiniStat icon={<Phone className="h-4 w-4" />} label="Calls (30d)" value="386" />
-          <MiniStat icon={<TrendingUp className="h-4 w-4" />} label="Trend" value="+18%" tone="good" />
+          {loadingMetrics ? (
+            <div className="flex items-center gap-2 text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" /> Loading live metrics…
+            </div>
+          ) : metrics ? (
+            <>
+              <MiniStat
+                icon={<Eye className="h-4 w-4" />}
+                label="Impressions (30d)"
+                value={metrics.totals.impressions.toLocaleString()}
+                tone={metrics.deltas.impressions >= 0 ? "good" : "bad"}
+              />
+              <MiniStat
+                icon={<Phone className="h-4 w-4" />}
+                label="Calls (30d)"
+                value={metrics.totals.callClicks.toLocaleString()}
+                tone={metrics.deltas.callClicks >= 0 ? "good" : "bad"}
+              />
+              <MiniStat
+                icon={<TrendingUp className="h-4 w-4" />}
+                label="Website clicks"
+                value={metrics.totals.websiteClicks.toLocaleString()}
+                tone={metrics.deltas.websiteClicks >= 0 ? "good" : "bad"}
+              />
+              <MiniStat
+                icon={<MapPin className="h-4 w-4" />}
+                label="Direction requests"
+                value={metrics.totals.directionRequests.toLocaleString()}
+                tone={metrics.deltas.directionRequests >= 0 ? "good" : "bad"}
+              />
+            </>
+          ) : (
+            <>
+              <MiniStat icon={<Star className="h-4 w-4" />} label="Rating" value="4.9" tone="good" />
+              <MiniStat icon={<Eye className="h-4 w-4" />} label="Views (30d)" value="12,480" />
+              <MiniStat icon={<Phone className="h-4 w-4" />} label="Calls (30d)" value="386" />
+              <MiniStat icon={<TrendingUp className="h-4 w-4" />} label="Trend" value="+18%" tone="good" />
+            </>
+          )}
         </div>
+        {metricsErr && (
+          <div className="mt-3 rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-xs text-destructive">
+            Live metrics unavailable: {metricsErr}
+          </div>
+        )}
       </div>
 
       {/* Summary cards */}
@@ -871,7 +953,7 @@ function MiniStat({
   icon: React.ReactNode;
   label: string;
   value: string;
-  tone?: "good";
+  tone?: "good" | "bad";
 }) {
   return (
     <div className="min-w-[110px] rounded-lg border border-border bg-background/40 px-3 py-2">
@@ -880,7 +962,9 @@ function MiniStat({
         {label}
       </div>
       <div
-        className={`mt-0.5 text-lg font-semibold ${tone === "good" ? "text-emerald-500" : ""}`}
+        className={`mt-0.5 text-lg font-semibold ${
+          tone === "good" ? "text-emerald-500" : tone === "bad" ? "text-destructive" : ""
+        }`}
       >
         {value}
       </div>

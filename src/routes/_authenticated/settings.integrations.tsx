@@ -1,13 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   getGmbCredentialsStatus,
   saveGmbCredentials,
   clearGmbCredentials,
 } from "@/lib/gmb-credentials.functions";
+import {
+  getGmbAuthUrl,
+  getGmbConnectionStatus,
+  disconnectGmb,
+  listGmbAccounts,
+  setGmbLocation,
+} from "@/lib/gmb-oauth.functions";
 import {
   listIntegrations,
   saveIntegration,
@@ -57,14 +64,57 @@ function IntegrationsPage() {
   const [showSecret, setShowSecret] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
 
+  // Real OAuth connection state
+  type ServerConn = {
+    connected: boolean;
+    accountName?: string | null;
+    locationName?: string | null;
+    locationTitle?: string | null;
+    expiresAt?: string;
+    hasRefresh?: boolean;
+  };
+  const [serverConn, setServerConn] = useState<ServerConn>({ connected: false });
+  const [accounts, setAccounts] = useState<
+    Array<{ account: string; accountLabel: string; locations: Array<{ name: string; title: string }>; error?: string }>
+  >([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [savingLoc, setSavingLoc] = useState(false);
+
   const fetchStatus = useServerFn(getGmbCredentialsStatus);
   const saveCreds = useServerFn(saveGmbCredentials);
   const removeCreds = useServerFn(clearGmbCredentials);
+  const getAuthUrl = useServerFn(getGmbAuthUrl);
+  const fetchConn = useServerFn(getGmbConnectionStatus);
+  const fetchAccounts = useServerFn(listGmbAccounts);
+  const chooseLocation = useServerFn(setGmbLocation);
+  const revoke = useServerFn(disconnectGmb);
+
+  const syncConn = useCallback(async () => {
+    try {
+      const s = await fetchConn();
+      setServerConn(s);
+      // keep the local-storage flag in sync so gmb-analytics reflects reality
+      writeGmbConnection(
+        s.connected
+          ? {
+              connected: true,
+              accountName: s.accountName ?? "Google Business Profile",
+              locationName: s.locationTitle ?? s.locationName ?? "Location",
+              connectedAt: new Date().toISOString(),
+            }
+          : { connected: false },
+      );
+      setGmb(readGmbConnection());
+    } catch {
+      setServerConn({ connected: false });
+    }
+  }, [fetchConn]);
 
   useEffect(() => {
     setGmb(readGmbConnection());
     fetchStatus().then(setCredStatus).catch(() => setCredStatus({ configured: false }));
-  }, [fetchStatus]);
+    syncConn();
+  }, [fetchStatus, syncConn]);
 
   async function connect() {
     if (!credStatus?.configured) {
@@ -74,29 +124,53 @@ function IntegrationsPage() {
     }
     setBusy(true);
     try {
-      // With user-supplied OAuth credentials configured, mark the account
-      // as live-connected. The GMB API fetch will use these credentials
-      // server-side once the OAuth redirect handshake is completed.
-      await new Promise((r) => setTimeout(r, 500));
-      const next: GmbConn = {
-        connected: true,
-        accountName: "Google Business Profile",
-        locationName: "Primary location",
-        connectedAt: new Date().toISOString(),
-      };
-      writeGmbConnection(next);
-      setGmb(next);
-      toast.success("Connected — live data enabled");
-    } finally {
+      const { url } = await getAuthUrl({ data: { origin: window.location.origin } });
+      window.location.href = url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start OAuth");
       setBusy(false);
     }
   }
 
-  function disconnect() {
+  async function disconnect() {
+    try {
+      await revoke({});
+    } catch {
+      /* ignore revoke errors */
+    }
     writeGmbConnection({ connected: false });
     setGmb({ connected: false });
+    setServerConn({ connected: false });
+    setAccounts([]);
     toast.message("Disconnected");
   }
+
+  async function loadAccountsList() {
+    setLoadingAccounts(true);
+    try {
+      const rows = await fetchAccounts();
+      setAccounts(rows);
+      if (rows.length === 0) toast.message("No Business Profile accounts found on this Google account.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load accounts");
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }
+
+  async function pickLocation(account: string, loc: { name: string; title: string }) {
+    setSavingLoc(true);
+    try {
+      await chooseLocation({ data: { account, location: loc.name, locationTitle: loc.title } });
+      toast.success(`Selected ${loc.title}`);
+      await syncConn();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save location");
+    } finally {
+      setSavingLoc(false);
+    }
+  }
+
 
   async function submitCreds(e: React.FormEvent) {
     e.preventDefault();
@@ -142,7 +216,7 @@ function IntegrationsPage() {
           <div className="flex-1 min-w-[220px]">
             <div className="flex items-center gap-2">
               <h3 className="text-base font-semibold">Google Business Profile</h3>
-              {gmb.connected ? (
+              {serverConn.connected ? (
                 <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
                   <CheckCircle2 className="h-3 w-3" /> Connected
                 </span>
@@ -155,15 +229,27 @@ function IntegrationsPage() {
             <p className="mt-1 text-sm text-muted-foreground">
               Pulls views, calls, reviews, and rankings from your GMB account.
             </p>
-            {gmb.connected && (
-              <div className="mt-3 text-xs text-muted-foreground">
-                <div><span className="text-foreground">{gmb.accountName}</span> · {gmb.locationName}</div>
-                <div>Connected {gmb.connectedAt ? new Date(gmb.connectedAt).toLocaleString() : ""}</div>
+            {serverConn.connected && (
+              <div className="mt-3 space-y-0.5 text-xs text-muted-foreground">
+                {serverConn.locationTitle ? (
+                  <div>
+                    <span className="text-foreground">{serverConn.locationTitle}</span>
+                    <span className="ml-1 font-mono text-[10px] opacity-70">{serverConn.locationName}</span>
+                  </div>
+                ) : (
+                  <div className="text-amber-500">No location selected — pick one below.</div>
+                )}
+                <div>Token expires {serverConn.expiresAt ? new Date(serverConn.expiresAt).toLocaleString() : ""}</div>
+                {!serverConn.hasRefresh && (
+                  <div className="text-amber-500">
+                    No refresh token stored — reconnect to obtain one (Google issues it on first consent).
+                  </div>
+                )}
               </div>
             )}
           </div>
           <div className="flex gap-2">
-            {gmb.connected ? (
+            {serverConn.connected ? (
               <>
                 <button
                   onClick={connect}
@@ -186,11 +272,72 @@ function IntegrationsPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 <Plug className="h-4 w-4" />
-                {busy ? "Connecting…" : "Connect"}
+                {busy ? "Redirecting…" : "Connect with Google"}
               </button>
             )}
           </div>
         </div>
+
+        {/* Account / location picker */}
+        {serverConn.connected && (
+          <div className="mt-5 rounded-xl border border-border bg-background/50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-medium">Business location</div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Choose which Business Profile location powers analytics. Requires the
+                  Business Profile APIs enabled in your Google Cloud project.
+                </p>
+              </div>
+              <button
+                onClick={loadAccountsList}
+                disabled={loadingAccounts}
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                {loadingAccounts ? <Loader2 className="h-3 w-3 animate-spin" /> : "Load accounts"}
+              </button>
+            </div>
+            {accounts.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {accounts.map((a) => (
+                  <div key={a.account} className="rounded-lg border border-border p-3">
+                    <div className="text-xs font-medium">{a.accountLabel}</div>
+                    {a.error ? (
+                      <div className="mt-1 text-xs text-destructive">{a.error}</div>
+                    ) : a.locations.length === 0 ? (
+                      <div className="mt-1 text-xs text-muted-foreground">No locations on this account.</div>
+                    ) : (
+                      <ul className="mt-2 space-y-1">
+                        {a.locations.map((l) => {
+                          const active = serverConn.locationName === l.name;
+                          return (
+                            <li key={l.name} className="flex items-center justify-between gap-2 text-sm">
+                              <div className="min-w-0">
+                                <div className="truncate">{l.title}</div>
+                                <div className="truncate font-mono text-[10px] text-muted-foreground">{l.name}</div>
+                              </div>
+                              <button
+                                onClick={() => pickLocation(a.account, l)}
+                                disabled={savingLoc || active}
+                                className={`rounded-md border px-2 py-1 text-xs ${
+                                  active
+                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                                    : "border-border bg-card hover:bg-accent"
+                                }`}
+                              >
+                                {active ? "Selected" : "Use this"}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* OAuth credentials block */}
         <div className="mt-5 rounded-xl border border-border bg-background/50 p-4">
