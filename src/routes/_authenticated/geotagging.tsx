@@ -131,27 +131,46 @@ function GeotaggingPage() {
   const [copied, setCopied] = useState(false);
   const [savingBulk, setSavingBulk] = useState(false);
 
+  // Pinned coordinate (auto-applied to newly uploaded images)
+  const [pinnedCoord, setPinnedCoord] = useState<
+    { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null
+  >(null);
+
+  // Dedicated Home/Office quick pickers
+  const homePlaces = useMemo(() => PLACES.filter((p) => p.type === "home"), []);
+  const officePlaces = useMemo(() => PLACES.filter((p) => p.type === "office"), []);
+  const [homePickId, setHomePickId] = useState<string>(homePlaces[0]?.id ?? "");
+  const [officePickId, setOfficePickId] = useState<string>(officePlaces[0]?.id ?? "");
+
   /* --------------------------- upload handling --------------------------- */
 
-  const addFiles = useCallback((files: FileList | File[]) => {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) {
-      toast.error("Please choose image files.");
-      return;
-    }
-    setImages((prev) => [
-      ...prev,
-      ...list.map((f) => ({
-        id: crypto.randomUUID(),
-        file: f,
-        previewUrl: URL.createObjectURL(f),
-        lat: null,
-        lng: null,
-        locationLabel: null,
-        status: "pending" as const,
-      })),
-    ]);
-  }, []);
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (list.length === 0) {
+        toast.error("Please choose image files.");
+        return;
+      }
+      setImages((prev) => [
+        ...prev,
+        ...list.map((f) => ({
+          id: crypto.randomUUID(),
+          file: f,
+          previewUrl: URL.createObjectURL(f),
+          lat: pinnedCoord?.lat ?? null,
+          lng: pinnedCoord?.lng ?? null,
+          locationLabel: pinnedCoord?.label ?? null,
+          status: "pending" as const,
+        })),
+      ]);
+      if (pinnedCoord) {
+        toast.success(
+          `Auto-tagged ${list.length} new image${list.length === 1 ? "" : "s"} with ${pinnedCoord.label}.`,
+        );
+      }
+    },
+    [pinnedCoord],
+  );
 
   const removeImage = (id: string) => {
     setImages((prev) => {
