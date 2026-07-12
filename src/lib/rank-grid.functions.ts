@@ -71,7 +71,7 @@ export const getRankGrid = createServerFn({ method: "POST" })
       if (cells.length === 0) return 20;
       // Approximate: median rank.
       const sorted = [...cells].map((c) => c.rank).sort((a, b) => a - b);
-      return sorted[Math.floor(sorted.length / 2)];
+      return sorted[Math.floor(sorted.length / 2)] ?? 20;
     };
 
     const kwRows: RankGridKeyword[] = kws.map((k) => {
