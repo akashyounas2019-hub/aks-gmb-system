@@ -1,12 +1,37 @@
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
-import { UploadCloud } from "lucide-react";
+import {
+  UploadCloud,
+  CheckCircle2,
+  XCircle,
+  Loader2,
+  RotateCw,
+  X,
+  Clock,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 
-type Stage = "idle" | "uploading" | "extracting" | "saving" | "done";
+type QueueStage =
+  | "pending"
+  | "extracting"
+  | "uploading"
+  | "saving"
+  | "done"
+  | "error";
+
+interface QueueItem {
+  id: string;
+  file: File;
+  stage: QueueStage;
+  progress: number;
+  message: string;
+  error?: string;
+  framesSaved?: number;
+  framesTotal?: number;
+}
 
 export interface UploadPanelProps {
   onComplete?: () => void;
@@ -15,115 +40,173 @@ export interface UploadPanelProps {
 }
 
 export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
-  const [stage, setStage] = useState<Stage>("idle");
-  const [progress, setProgress] = useState(0);
-  const [message, setMessage] = useState("");
+  const [queue, setQueue] = useState<QueueItem[]>([]);
   const [maxFrames, setMaxFrames] = useState(15);
   const [sampleMs, setSampleMs] = useState(1000);
   const [dragOver, setDragOver] = useState(false);
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [autoGeotag, setAutoGeotag] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
+  const processingRef = useRef(false);
 
-  const handleFile = useCallback(
-    async (file: File) => {
-      if (!file.type.startsWith("video/")) {
-        toast.error("Please choose a video file.");
-        return;
-      }
+  // Keep latest option values reachable from the processor without re-triggering effect
+  const optsRef = useRef({ maxFrames, sampleMs, autoGeotag, location });
+  useEffect(() => {
+    optsRef.current = { maxFrames, sampleMs, autoGeotag, location };
+  }, [maxFrames, sampleMs, autoGeotag, location]);
+
+  const patchItem = useCallback((id: string, patch: Partial<QueueItem>) => {
+    setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
+  }, []);
+
+  const processItem = useCallback(
+    async (item: QueueItem) => {
+      const { maxFrames, sampleMs, autoGeotag, location } = optsRef.current;
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
-      if (!userId) {
-        toast.error("Not signed in.");
-        return;
+      if (!userId) throw new Error("Not signed in.");
+
+      patchItem(item.id, { stage: "extracting", message: "Analyzing video…", progress: 0 });
+      const { frames, durationSeconds } = await extractSharpFrames(item.file, {
+        sampleEveryMs: sampleMs,
+        maxFrames,
+        onProgress: (p) => {
+          patchItem(item.id, {
+            progress: p.progress * 0.3,
+            message: p.message ?? "Analyzing video…",
+          });
+        },
+      });
+      if (frames.length === 0) throw new Error("Couldn't extract any frames.");
+
+      patchItem(item.id, {
+        stage: "uploading",
+        message: "Uploading video…",
+        progress: 0.3,
+        framesTotal: frames.length,
+      });
+
+      const videoPath = `${userId}/${crypto.randomUUID()}-${item.file.name}`;
+      const { error: vErr } = await supabase.storage
+        .from("videos")
+        .upload(videoPath, item.file, { upsert: false, contentType: item.file.type });
+      if (vErr) throw vErr;
+
+      const { data: videoRow, error: vRowErr } = await supabase
+        .from("videos")
+        .insert({
+          owner_id: userId,
+          storage_path: videoPath,
+          original_name: item.file.name,
+          duration_seconds: durationSeconds,
+          size_bytes: item.file.size,
+          frame_count: frames.length,
+          status: "ready",
+        })
+        .select("id")
+        .single();
+      if (vRowErr) throw vRowErr;
+
+      patchItem(item.id, { stage: "saving", message: "Saving frames…", progress: 0.4 });
+      const baseName = item.file.name.replace(/\.[^.]+$/, "");
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i];
+        const framePath = `${userId}/${videoRow.id}/${String(i + 1).padStart(3, "0")}.jpg`;
+        const { error: fErr } = await supabase.storage
+          .from("frames")
+          .upload(framePath, f.blob, { contentType: "image/jpeg", upsert: false });
+        if (fErr) throw fErr;
+        const { error: iErr } = await supabase.from("images").insert({
+          owner_id: userId,
+          video_id: videoRow.id,
+          storage_path: framePath,
+          name: `${baseName} — Frame ${i + 1}`,
+          sharpness_score: f.sharpness,
+          timestamp_seconds: f.timestampSeconds,
+          width: f.width,
+          height: f.height,
+          lat: autoGeotag && location ? location.lat : null,
+          lng: autoGeotag && location ? location.lng : null,
+        });
+        if (iErr) throw iErr;
+        const done = i + 1;
+        patchItem(item.id, {
+          progress: 0.4 + (done / frames.length) * 0.6,
+          message: `Saved ${done}/${frames.length}`,
+          framesSaved: done,
+        });
+        onImageSaved?.();
       }
 
+      patchItem(item.id, {
+        stage: "done",
+        progress: 1,
+        message: `Extracted ${frames.length} sharp frames`,
+      });
+      onComplete?.();
+    },
+    [patchItem, onImageSaved, onComplete],
+  );
+
+  // Drain queue sequentially
+  useEffect(() => {
+    if (processingRef.current) return;
+    const next = queue.find((q) => q.stage === "pending");
+    if (!next) return;
+    processingRef.current = true;
+    (async () => {
       try {
-        setStage("extracting");
-        setMessage("Analyzing video…");
-        const { frames, durationSeconds } = await extractSharpFrames(file, {
-          sampleEveryMs: sampleMs,
-          maxFrames,
-          onProgress: (p) => {
-            setProgress(p.progress);
-            if (p.message) setMessage(p.message);
-          },
-        });
-
-        if (frames.length === 0) {
-          toast.error("Couldn't extract any frames from this video.");
-          setStage("idle");
-          return;
-        }
-
-        setStage("uploading");
-        setMessage("Uploading video…");
-        setProgress(0);
-        const videoPath = `${userId}/${crypto.randomUUID()}-${file.name}`;
-        const { error: vErr } = await supabase.storage
-          .from("videos")
-          .upload(videoPath, file, { upsert: false, contentType: file.type });
-        if (vErr) throw vErr;
-
-        const { data: videoRow, error: vRowErr } = await supabase
-          .from("videos")
-          .insert({
-            owner_id: userId,
-            storage_path: videoPath,
-            original_name: file.name,
-            duration_seconds: durationSeconds,
-            size_bytes: file.size,
-            frame_count: frames.length,
-            status: "ready",
-          })
-          .select("id")
-          .single();
-        if (vRowErr) throw vRowErr;
-
-        setStage("saving");
-        setMessage("Saving frames…");
-        const baseName = file.name.replace(/\.[^.]+$/, "");
-        for (let i = 0; i < frames.length; i++) {
-          const f = frames[i];
-          const framePath = `${userId}/${videoRow.id}/${String(i + 1).padStart(3, "0")}.jpg`;
-          const { error: fErr } = await supabase.storage
-            .from("frames")
-            .upload(framePath, f.blob, { contentType: "image/jpeg", upsert: false });
-          if (fErr) throw fErr;
-          const { error: iErr } = await supabase.from("images").insert({
-            owner_id: userId,
-            video_id: videoRow.id,
-            storage_path: framePath,
-            name: `${baseName} — Frame ${i + 1}`,
-            sharpness_score: f.sharpness,
-            timestamp_seconds: f.timestampSeconds,
-            width: f.width,
-            height: f.height,
-            lat: autoGeotag && location ? location.lat : null,
-            lng: autoGeotag && location ? location.lng : null,
-          });
-          if (iErr) throw iErr;
-          setProgress((i + 1) / frames.length);
-          setMessage(`Saved ${i + 1}/${frames.length}`);
-          onImageSaved?.();
-        }
-
-        setStage("done");
-        toast.success(`Extracted ${frames.length} sharp frames.`);
-        setTimeout(() => {
-          onComplete?.();
-          setStage("idle");
-          setProgress(0);
-          setMessage("");
-        }, 800);
+        await processItem(next);
       } catch (err) {
         console.error(err);
-        toast.error(err instanceof Error ? err.message : "Upload failed");
-        setStage("idle");
+        const msg = err instanceof Error ? err.message : "Upload failed";
+        patchItem(next.id, { stage: "error", error: msg, message: msg });
+        toast.error(`${next.file.name}: ${msg}`);
+      } finally {
+        processingRef.current = false;
+        // Trigger effect re-run by touching state minimally
+        setQueue((prev) => [...prev]);
       }
-    },
-    [maxFrames, sampleMs, location, autoGeotag, onComplete, onImageSaved],
-  );
+    })();
+  }, [queue, processItem, patchItem]);
+
+  const enqueueFiles = useCallback((files: FileList | File[]) => {
+    const arr = Array.from(files);
+    const valid: QueueItem[] = [];
+    for (const file of arr) {
+      if (!file.type.startsWith("video/")) {
+        toast.error(`Skipped ${file.name}: not a video`);
+        continue;
+      }
+      valid.push({
+        id: crypto.randomUUID(),
+        file,
+        stage: "pending",
+        progress: 0,
+        message: "Waiting…",
+      });
+    }
+    if (valid.length) setQueue((prev) => [...prev, ...valid]);
+  }, []);
+
+  const retry = useCallback((id: string) => {
+    patchItem(id, {
+      stage: "pending",
+      progress: 0,
+      message: "Waiting…",
+      error: undefined,
+    });
+  }, [patchItem]);
+
+  const remove = useCallback((id: string) => {
+    setQueue((prev) => prev.filter((q) => q.id !== id));
+  }, []);
+
+  const clearFinished = useCallback(() => {
+    setQueue((prev) => prev.filter((q) => q.stage !== "done"));
+  }, []);
+
+  const hasFinished = queue.some((q) => q.stage === "done");
 
   return (
     <div>
@@ -146,8 +229,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         onDrop={(e) => {
           e.preventDefault();
           setDragOver(false);
-          const f = e.dataTransfer.files?.[0];
-          if (f) handleFile(f);
+          if (e.dataTransfer.files?.length) enqueueFiles(e.dataTransfer.files);
         }}
         onClick={() => inputRef.current?.click()}
         className={`mt-6 flex cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed p-16 text-center transition ${
@@ -158,19 +240,20 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       >
         <UploadCloud className="h-10 w-10 text-primary" />
         <div className="mt-4 text-lg font-medium">
-          Drop your video here, or click to browse
+          Drop videos here, or click to browse
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
-          MP4, MOV, WebM · up to a few hundred MB
+          MP4, MOV, WebM · queue multiple files · up to a few hundred MB each
         </div>
         <input
           ref={inputRef}
           type="file"
           accept="video/*"
+          multiple
           className="hidden"
           onChange={(e) => {
-            const f = e.target.files?.[0];
-            if (f) handleFile(f);
+            if (e.target.files?.length) enqueueFiles(e.target.files);
+            e.target.value = "";
           }}
         />
       </div>
@@ -231,20 +314,102 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         <LocationPicker value={location} onChange={setLocation} />
       </div>
 
-      {stage !== "idle" && (
+      {queue.length > 0 && (
         <div className="mt-8 rounded-lg border border-border bg-card p-4">
-          <div className="mb-2 flex justify-between text-sm">
-            <span className="capitalize">{stage}</span>
-            <span className="text-muted-foreground">{message}</span>
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-medium">
+              Upload queue{" "}
+              <span className="text-muted-foreground">({queue.length})</span>
+            </div>
+            {hasFinished && (
+              <button
+                onClick={clearFinished}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear completed
+              </button>
+            )}
           </div>
-          <div className="h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${Math.round(progress * 100)}%` }}
-            />
-          </div>
+          <ul className="space-y-2">
+            {queue.map((q) => (
+              <QueueRow key={q.id} item={q} onRetry={() => retry(q.id)} onRemove={() => remove(q.id)} />
+            ))}
+          </ul>
         </div>
       )}
     </div>
   );
+}
+
+function QueueRow({
+  item,
+  onRetry,
+  onRemove,
+}: {
+  item: QueueItem;
+  onRetry: () => void;
+  onRemove: () => void;
+}) {
+  const active =
+    item.stage === "extracting" || item.stage === "uploading" || item.stage === "saving";
+  const pct = Math.round(item.progress * 100);
+
+  return (
+    <li className="rounded-md border border-border/60 bg-background/50 p-3">
+      <div className="flex items-center gap-3">
+        <StatusIcon stage={item.stage} />
+        <div className="min-w-0 flex-1">
+          <div className="flex items-center justify-between gap-2">
+            <div className="truncate text-sm font-medium">{item.file.name}</div>
+            <div className="flex shrink-0 items-center gap-2 text-xs text-muted-foreground">
+              <span>{(item.file.size / (1024 * 1024)).toFixed(1)} MB</span>
+              {active && <span className="font-mono">{pct}%</span>}
+            </div>
+          </div>
+          <div className="mt-0.5 truncate text-xs text-muted-foreground">
+            {item.stage === "error" ? item.error : item.message}
+          </div>
+          {(active || item.stage === "done") && (
+            <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className={`h-full transition-all ${
+                  item.stage === "done" ? "bg-emerald-500" : "bg-primary"
+                }`}
+                style={{ width: `${pct}%` }}
+              />
+            </div>
+          )}
+        </div>
+        <div className="flex shrink-0 items-center gap-1">
+          {item.stage === "error" && (
+            <button
+              onClick={onRetry}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+            >
+              <RotateCw className="h-3 w-3" /> Retry
+            </button>
+          )}
+          {(item.stage === "pending" || item.stage === "error" || item.stage === "done") && (
+            <button
+              onClick={onRemove}
+              aria-label="Remove from queue"
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+      </div>
+    </li>
+  );
+}
+
+function StatusIcon({ stage }: { stage: QueueStage }) {
+  if (stage === "done")
+    return <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />;
+  if (stage === "error")
+    return <XCircle className="h-5 w-5 shrink-0 text-destructive" />;
+  if (stage === "pending")
+    return <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />;
+  return <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />;
 }
