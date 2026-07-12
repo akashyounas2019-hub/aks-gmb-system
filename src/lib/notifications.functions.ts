@@ -2,6 +2,8 @@ import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+export type RankAlertType = "overtake" | "threat" | "improvement";
+
 export type RankAlert = {
   id: string;
   keyword: string;
@@ -12,6 +14,8 @@ export type RankAlert = {
   source: string;
   createdAt: string;
   readAt: string | null;
+  alertType: RankAlertType;
+  rankDelta: number | null;
 };
 
 export const listRankAlerts = createServerFn({ method: "GET" })
@@ -29,7 +33,7 @@ export const listRankAlerts = createServerFn({ method: "GET" })
     let q = supabase
       .from("rank_alerts")
       .select(
-        "id, keyword, competitor_id, competitor_rank, user_rank, source, created_at, read_at, competitors(name)",
+        "id, keyword, competitor_id, competitor_rank, user_rank, source, created_at, read_at, alert_type, rank_delta, competitors(name)",
       )
       .eq("user_id", userId)
       .order("created_at", { ascending: false })
@@ -52,6 +56,8 @@ export const listRankAlerts = createServerFn({ method: "GET" })
         source: r.source as string,
         createdAt: r.created_at as string,
         readAt: r.read_at as string | null,
+        alertType: ((r as { alert_type?: string }).alert_type ?? "overtake") as RankAlertType,
+        rankDelta: ((r as { rank_delta?: number | null }).rank_delta ?? null) as number | null,
       };
     });
   });

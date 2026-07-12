@@ -14,6 +14,42 @@ export type Database = {
   }
   public: {
     Tables: {
+      alert_settings: {
+        Row: {
+          created_at: string
+          id: string
+          improvement_enabled: boolean
+          overtake_enabled: boolean
+          rank_improvement_delta: number
+          threat_enabled: boolean
+          threat_keyword_threshold: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          improvement_enabled?: boolean
+          overtake_enabled?: boolean
+          rank_improvement_delta?: number
+          threat_enabled?: boolean
+          threat_keyword_threshold?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          improvement_enabled?: boolean
+          overtake_enabled?: boolean
+          rank_improvement_delta?: number
+          threat_enabled?: boolean
+          threat_keyword_threshold?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       competitor_rank_history: {
         Row: {
           city: string | null
@@ -357,33 +393,39 @@ export type Database = {
       }
       rank_alerts: {
         Row: {
+          alert_type: string
           competitor_id: string
           competitor_rank: number
           created_at: string
           id: string
           keyword: string
+          rank_delta: number | null
           read_at: string | null
           source: string
           user_id: string
           user_rank: number
         }
         Insert: {
+          alert_type?: string
           competitor_id: string
           competitor_rank: number
           created_at?: string
           id?: string
           keyword: string
+          rank_delta?: number | null
           read_at?: string | null
           source: string
           user_id: string
           user_rank: number
         }
         Update: {
+          alert_type?: string
           competitor_id?: string
           competitor_rank?: number
           created_at?: string
           id?: string
           keyword?: string
+          rank_delta?: number | null
           read_at?: string | null
           source?: string
           user_id?: string

@@ -187,6 +187,54 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
       source: string;
     }> = [];
 
+    // Load user alert preferences (or defaults).
+    const { data: prefsRow } = await supabase
+      .from("alert_settings")
+      .select(
+        "threat_keyword_threshold, rank_improvement_delta, overtake_enabled, threat_enabled, improvement_enabled",
+      )
+      .eq("user_id", userId)
+      .maybeSingle();
+    const prefs = {
+      threat_keyword_threshold: prefsRow?.threat_keyword_threshold ?? 2,
+      rank_improvement_delta: prefsRow?.rank_improvement_delta ?? 3,
+      overtake_enabled: prefsRow?.overtake_enabled ?? true,
+      threat_enabled: prefsRow?.threat_enabled ?? true,
+      improvement_enabled: prefsRow?.improvement_enabled ?? true,
+    };
+
+    // Track how many keywords each competitor is beating the user on this run.
+    const beatingCount = new Map<string, number>();
+    // Track competitor previous rank per keyword for improvement detection.
+    async function prevRankFor(competitorId: string, keyword: string): Promise<number | null> {
+      const { data: prev } = await supabase
+        .from("competitor_rank_history")
+        .select("rank")
+        .eq("user_id", userId)
+        .eq("competitor_id", competitorId)
+        .eq("keyword", keyword)
+        .order("recorded_at", { ascending: false })
+        .limit(1);
+      return prev?.[0]?.rank ?? null;
+    }
+    async function hasRecentAlert(
+      competitorId: string,
+      keyword: string | null,
+      alertType: string,
+    ): Promise<boolean> {
+      let q = supabase
+        .from("rank_alerts")
+        .select("id")
+        .eq("user_id", userId)
+        .eq("competitor_id", competitorId)
+        .eq("alert_type", alertType)
+        .is("read_at", null)
+        .limit(1);
+      if (keyword != null) q = q.eq("keyword", keyword);
+      const { data: existing } = await q;
+      return !!(existing && existing.length > 0);
+    }
+
     for (const kw of data.keywords) {
       const location = kw.city ?? data.defaultLocation ?? "";
       let places: LocalPlace[] = [];
@@ -231,46 +279,67 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
         });
       }
 
-      // Overtake detection: fire an alert when a competitor is now ranked
-      // better than the user AND wasn't the last time we checked.
-      if (typeof kw.userRank === "number") {
-        const userRank = kw.userRank;
-        for (const c of data.competitors) {
-          const r = perKw[c.id];
-          if (r == null || r >= userRank) continue;
+      // Per-keyword alert evaluation.
+      const userRank = typeof kw.userRank === "number" ? kw.userRank : null;
+      for (const c of data.competitors) {
+        const r = perKw[c.id];
+        if (r == null) continue;
 
-          const { data: prev } = await supabase
-            .from("competitor_rank_history")
-            .select("rank")
-            .eq("user_id", userId)
-            .eq("competitor_id", c.id)
-            .eq("keyword", kw.keyword)
-            .order("recorded_at", { ascending: false })
-            .limit(1);
-          const prevRank = prev?.[0]?.rank ?? null;
-          const wasAhead = prevRank == null || prevRank >= userRank;
-          if (!wasAhead) continue;
-
-          // Skip if an unread alert for this pairing already exists.
-          const { data: existing } = await supabase
-            .from("rank_alerts")
-            .select("id")
-            .eq("user_id", userId)
-            .eq("competitor_id", c.id)
-            .eq("keyword", kw.keyword)
-            .is("read_at", null)
-            .limit(1);
-          if (existing && existing.length > 0) continue;
-
-          await supabase.from("rank_alerts").insert({
-            user_id: userId,
-            competitor_id: c.id,
-            keyword: kw.keyword,
-            competitor_rank: r,
-            user_rank: userRank,
-            source,
-          });
+        if (userRank != null && r < userRank) {
+          beatingCount.set(c.id, (beatingCount.get(c.id) ?? 0) + 1);
         }
+
+        const previous = await prevRankFor(c.id, kw.keyword);
+
+        // 1) Overtake — competitor now ranks better than user, and wasn't previously.
+        if (prefs.overtake_enabled && userRank != null && r < userRank) {
+          const wasAhead = previous == null || previous >= userRank;
+          if (wasAhead && !(await hasRecentAlert(c.id, kw.keyword, "overtake"))) {
+            await supabase.from("rank_alerts").insert({
+              user_id: userId,
+              competitor_id: c.id,
+              keyword: kw.keyword,
+              competitor_rank: r,
+              user_rank: userRank,
+              source,
+              alert_type: "overtake",
+            });
+          }
+        }
+
+        // 2) Improvement — competitor moved up by >= delta positions.
+        if (prefs.improvement_enabled && previous != null && previous - r >= prefs.rank_improvement_delta) {
+          if (!(await hasRecentAlert(c.id, kw.keyword, "improvement"))) {
+            await supabase.from("rank_alerts").insert({
+              user_id: userId,
+              competitor_id: c.id,
+              keyword: kw.keyword,
+              competitor_rank: r,
+              user_rank: userRank ?? 0,
+              source,
+              alert_type: "improvement",
+              rank_delta: previous - r,
+            });
+          }
+        }
+      }
+    }
+
+    // 3) Threat threshold — competitor beating user on >= threshold keywords this run.
+    if (prefs.threat_enabled && prefs.threat_keyword_threshold > 0) {
+      for (const [competitorId, count] of beatingCount.entries()) {
+        if (count < prefs.threat_keyword_threshold) continue;
+        if (await hasRecentAlert(competitorId, null, "threat")) continue;
+        await supabase.from("rank_alerts").insert({
+          user_id: userId,
+          competitor_id: competitorId,
+          keyword: `${count} keywords`,
+          competitor_rank: 0,
+          user_rank: 0,
+          source,
+          alert_type: "threat",
+          rank_delta: count,
+        });
       }
     }
 

@@ -112,6 +112,38 @@ export function NotificationBell() {
             ) : (
               alerts.map((a) => {
                 const isUnread = !a.readAt;
+                const dotColor =
+                  a.alertType === "improvement"
+                    ? "bg-amber-500"
+                    : a.alertType === "threat"
+                      ? "bg-orange-500"
+                      : "bg-destructive";
+                let title: React.ReactNode;
+                let detail: string;
+                if (a.alertType === "threat") {
+                  title = (
+                    <>
+                      <span className="font-medium">{a.competitorName}</span> crossed your threat threshold
+                    </>
+                  );
+                  detail = `Beating you on ${a.rankDelta ?? 0} tracked keywords · ${timeAgo(a.createdAt)}`;
+                } else if (a.alertType === "improvement") {
+                  title = (
+                    <>
+                      <span className="font-medium">{a.competitorName}</span> jumped {a.rankDelta ?? 0} spots on{" "}
+                      <span className="font-medium">"{a.keyword}"</span>
+                    </>
+                  );
+                  detail = `Now #${a.competitorRank} · ${timeAgo(a.createdAt)}`;
+                } else {
+                  title = (
+                    <>
+                      <span className="font-medium">{a.competitorName}</span> overtook you for{" "}
+                      <span className="font-medium">"{a.keyword}"</span>
+                    </>
+                  );
+                  detail = `Now #${a.competitorRank} · you at #${a.userRank} · ${timeAgo(a.createdAt)}`;
+                }
                 return (
                   <div
                     key={a.id}
@@ -119,24 +151,17 @@ export function NotificationBell() {
                       isUnread ? "bg-accent/40" : ""
                     }`}
                   >
-                    <div className="mt-0.5 h-2 w-2 shrink-0 rounded-full bg-destructive" style={{ opacity: isUnread ? 1 : 0 }} />
+                    <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} style={{ opacity: isUnread ? 1 : 0.4 }} />
                     <div className="min-w-0 flex-1">
-                      <div className="text-sm">
-                        <span className="font-medium">{a.competitorName}</span>{" "}
-                        overtook you for{" "}
-                        <span className="font-medium">"{a.keyword}"</span>
-                      </div>
-                      <div className="mt-0.5 text-xs text-muted-foreground">
-                        Now #{a.competitorRank} · you at #{a.userRank} ·{" "}
-                        {timeAgo(a.createdAt)}
-                      </div>
+                      <div className="text-sm">{title}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>
                       <div className="mt-2 flex items-center gap-3">
                         <Link
-                          to="/gmb-analytics"
+                          to="/competitors"
                           onClick={() => setOpen(false)}
                           className="text-xs text-primary hover:underline"
                         >
-                          View rankings
+                          View competitors
                         </Link>
                         {isUnread && (
                           <button
