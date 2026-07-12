@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { generateChangeSuggestions } from "@/lib/insights.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
+import { getCompetitorRanks } from "@/lib/rank-source.functions";
 import { getGmbMetrics, getGmbConnectionStatus } from "@/lib/gmb-oauth.functions";
 import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
@@ -281,6 +282,7 @@ function GmbAnalyticsPage() {
   const [connectBusy, setConnectBusy] = useState(false);
   const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
   const fetchCompetitors = useServerFn(listCompetitors);
+  const fetchCompetitorRanks = useServerFn(getCompetitorRanks);
   const fetchMetrics = useServerFn(getGmbMetrics);
   const fetchGmbStatus = useServerFn(getGmbConnectionStatus);
 
@@ -289,11 +291,46 @@ function GmbAnalyticsPage() {
   const [metricsErr, setMetricsErr] = useState<string | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
 
+  // Live competitor rank lookup state.
+  const [rankSource, setRankSource] = useState<"serpapi" | "dataforseo" | "local_falcon" | null>(null);
+  const [rankData, setRankData] = useState<Record<string, Record<string, number | null>>>({});
+  const [rankErr, setRankErr] = useState<string | null>(null);
+  const [rankLoading, setRankLoading] = useState(false);
+
   useEffect(() => {
     fetchCompetitors()
       .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
+
+  useEffect(() => {
+    if (competitors.length === 0) {
+      setRankData({});
+      setRankErr(null);
+      setRankSource(null);
+      return;
+    }
+    setRankLoading(true);
+    setRankErr(null);
+    fetchCompetitorRanks({
+      data: {
+        keywords: MOCK_KEYWORDS.map((k) => ({ keyword: k.keyword, city: k.city })),
+        competitors: competitors.map((c) => ({
+          id: c.id,
+          name: c.name,
+          gbpUrl: c.gbp_url,
+          placeId: c.place_id,
+        })),
+      },
+    })
+      .then((res) => {
+        setRankSource(res.source);
+        setRankData(res.results);
+        setRankErr(res.error);
+      })
+      .catch((e) => setRankErr(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setRankLoading(false));
+  }, [competitors, fetchCompetitorRanks]);
 
   useEffect(() => {
     let cancelled = false;
@@ -831,24 +868,34 @@ function GmbAnalyticsPage() {
                       <RankPill rank={k.current} />
                     </td>
                     {competitors.map((c) => {
-                      const r = competitorRank(c.place_id ?? c.gbp_url, k.keyword);
-                      const delta = r - k.current;
+                      const r = rankData[k.keyword]?.[c.id] ?? null;
+                      const delta = r != null ? r - k.current : null;
                       return (
                         <td key={c.id} className="px-4 py-3">
-                          <div className="flex items-center gap-2">
-                            <RankPill rank={r} />
-                            <span
-                              className={`text-[11px] ${
-                                delta > 0
-                                  ? "text-emerald-500"
-                                  : delta < 0
-                                    ? "text-destructive"
-                                    : "text-muted-foreground"
-                              }`}
-                            >
-                              {delta > 0 ? `+${delta}` : delta === 0 ? "=" : delta}
+                          {r == null ? (
+                            <span className="text-xs text-muted-foreground">
+                              {rankLoading ? "…" : "—"}
                             </span>
-                          </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <RankPill rank={r} />
+                              <span
+                                className={`text-[11px] ${
+                                  (delta ?? 0) > 0
+                                    ? "text-emerald-500"
+                                    : (delta ?? 0) < 0
+                                      ? "text-destructive"
+                                      : "text-muted-foreground"
+                                }`}
+                              >
+                                {delta! > 0
+                                  ? `+${delta}`
+                                  : delta === 0
+                                    ? "="
+                                    : delta}
+                              </span>
+                            </div>
+                          )}
                         </td>
                       );
                     })}
@@ -857,9 +904,27 @@ function GmbAnalyticsPage() {
               </tbody>
             </table>
             <div className="border-t border-border bg-card/40 px-4 py-2 text-[11px] text-muted-foreground">
-              Positive delta means the competitor ranks worse than you.
-              Ranks are derived from stored GBP identifiers; connect a rank
-              source in Settings → Integrations to replace with live data.
+              {rankSource ? (
+                <>
+                  Live ranks via{" "}
+                  <span className="font-medium text-foreground">
+                    {rankSource === "serpapi"
+                      ? "SerpApi"
+                      : rankSource === "dataforseo"
+                        ? "DataForSEO"
+                        : "Local Falcon"}
+                  </span>
+                  . Positive delta means the competitor ranks worse than you.
+                  {rankErr && (
+                    <span className="ml-2 text-destructive">• {rankErr}</span>
+                  )}
+                </>
+              ) : (
+                <>
+                  {rankErr ??
+                    "Connect a rank source in Settings → Integrations to enable live competitor ranks."}
+                </>
+              )}
             </div>
           </div>
         )}
@@ -984,13 +1049,6 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
   );
 }
 
-function competitorRank(idOrUrl: string, keyword: string): number {
-  let h = 0;
-  const s = `${idOrUrl}::${keyword}`;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  // Weighted toward positions 2–20 so most competitors land on page 1–2
-  return 1 + (h % 20);
-}
 
 function RankPill({ rank }: { rank: number }) {
   return (

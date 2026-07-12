@@ -184,17 +184,9 @@ export const deleteIntegration = createServerFn({ method: "POST" })
  * Never expose the return value to the client.
  */
 export async function getDecryptedIntegration(
-  supabase: {
-    from: (t: string) => {
-      select: (c: string) => {
-        eq: (c: string, v: string) => {
-          eq: (c: string, v: string) => {
-            maybeSingle: () => Promise<{ data: { config: unknown } | null; error: unknown }>;
-          };
-        };
-      };
-    };
-  },
+  // Any Supabase-shaped client (typed or generic) — we only use .from().select().eq().eq().maybeSingle().
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
   userId: string,
   provider: Provider,
 ): Promise<Record<string, string> | null> {
