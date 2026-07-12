@@ -280,14 +280,58 @@ function GmbAnalyticsPage() {
     return { improved, declined, top3, avg: avg.toFixed(1) };
   }, []);
 
-  const activeGrid = useMemo(() => buildGrid(keyword), [keyword]);
+  const activeGrid = useMemo(() => buildGrid(keyword, 0), [keyword]);
+  const previousGrid = useMemo(() => buildGrid(keyword, 1), [keyword]);
   const gridStats = useMemo(() => {
     const ranks = activeGrid.map((c) => c.rank);
+    const prevRanks = previousGrid.map((c) => c.rank);
     const top3 = ranks.filter((r) => r <= 3).length;
-    const avg = (ranks.reduce((a, b) => a + b, 0) / ranks.length).toFixed(1);
+    const prevTop3 = prevRanks.filter((r) => r <= 3).length;
+    const avg = ranks.reduce((a, b) => a + b, 0) / ranks.length;
+    const prevAvg = prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length;
     const share = Math.round((top3 / ranks.length) * 100);
-    return { top3, avg, share };
-  }, [activeGrid]);
+    return {
+      top3,
+      avg: avg.toFixed(1),
+      share,
+      top3Delta: top3 - prevTop3,
+      avgDelta: +(prevAvg - avg).toFixed(1), // positive = improved (lower avg rank)
+    };
+  }, [activeGrid, previousGrid]);
+
+  // AI change suggestions
+  const suggest = useServerFn(generateChangeSuggestions);
+  type Suggestion = {
+    title: string;
+    priority: "high" | "medium" | "low";
+    why: string;
+    how: string;
+    targetKeyword: string | null;
+  };
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [loadingSug, setLoadingSug] = useState(false);
+  async function runSuggestions() {
+    setLoadingSug(true);
+    try {
+      const res = await suggest({
+        data: {
+          businessName: BUSINESS.name,
+          rankings: MOCK_KEYWORDS.map((k) => ({
+            keyword: k.keyword,
+            current: k.current,
+            previous: k.previous,
+            volume: k.volume,
+            city: k.city,
+          })),
+        },
+      });
+      setSuggestions(res.suggestions ?? []);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoadingSug(false);
+    }
+  }
 
   const filteredKw = search.trim()
     ? MOCK_KEYWORDS.filter((k) =>
