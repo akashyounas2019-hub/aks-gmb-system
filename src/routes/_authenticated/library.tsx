@@ -626,6 +626,431 @@ function BulkPanel({
 }
 
 /* -------------------------------------------------------------------------- */
+/* Image edit modal — centralized editor                                      */
+/* -------------------------------------------------------------------------- */
+
+type ImageRow = {
+  id: string;
+  name: string;
+  storage_path: string;
+  lat: number | null;
+  lng: number | null;
+  location_label: string | null;
+};
+type TagRow = { id: string; slug: string; label: string };
+
+async function fetchImageEdit(imageId: string) {
+  const [{ data: img, error: e1 }, { data: allTags, error: e2 }, { data: it, error: e3 }] =
+    await Promise.all([
+      supabase
+        .from("images")
+        .select("id,name,storage_path,lat,lng,location_label")
+        .eq("id", imageId)
+        .single(),
+      supabase.from("tags").select("id,slug,label").order("label"),
+      supabase.from("image_tags").select("tag_id").eq("image_id", imageId),
+    ]);
+  if (e1) throw e1;
+  if (e2) throw e2;
+  if (e3) throw e3;
+  return {
+    image: img as ImageRow,
+    tags: (allTags ?? []) as TagRow[],
+    assignedIds: new Set((it ?? []).map((r) => r.tag_id as string)),
+  };
+}
+
+function ImageEditModal({
+  imageId,
+  onClose,
+  onSaved,
+}: {
+  imageId: string;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const { data, isLoading, refetch } = useQuery({
+    queryKey: ["image-edit", imageId],
+    queryFn: () => fetchImageEdit(imageId),
+  });
+
+  const [name, setName] = useState("");
+  const [assigned, setAssigned] = useState<Set<string>>(new Set());
+  const [newTag, setNewTag] = useState("");
+  const [tagFilter, setTagFilter] = useState("");
+  const [bucket, setBucket] = useState<"raw" | "published" | "geotagged">("raw");
+  const [loc, setLoc] = useState<PickedLocation | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
+
+  useEffect(() => {
+    if (!data) return;
+    setName(data.image.name);
+    setAssigned(new Set(data.assignedIds));
+    const publishedTagIds = new Set(
+      data.tags.filter((t) => t.slug === "published" || t.slug === "posted").map((t) => t.id),
+    );
+    const hasPublished = Array.from(data.assignedIds).some((id) => publishedTagIds.has(id));
+    if (data.image.lat != null && data.image.lng != null) {
+      setBucket("geotagged");
+      setLoc({
+        lat: Number(data.image.lat),
+        lng: Number(data.image.lng),
+        label: data.image.location_label ?? "",
+      });
+    } else if (hasPublished) {
+      setBucket("published");
+    } else {
+      setBucket("raw");
+    }
+  }, [data]);
+
+  // Close on Escape
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const filteredTags = useMemo(() => {
+    const list = data?.tags ?? [];
+    const q = tagFilter.trim().toLowerCase();
+    if (!q) return list;
+    return list.filter(
+      (t) => t.label.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q),
+    );
+  }, [data, tagFilter]);
+
+  function toggleTag(id: string) {
+    setAssigned((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function addCustomTag() {
+    const label = newTag.trim();
+    if (!label) return;
+    const slug = label
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, "-")
+      .replace(/^-+|-+$/g, "");
+    if (!slug) return;
+    // reuse if exists
+    const existing = data?.tags.find((t) => t.slug === slug);
+    if (existing) {
+      toggleTag(existing.id);
+      setNewTag("");
+      return;
+    }
+    const { data: inserted, error } = await supabase
+      .from("tags")
+      .insert({ slug, label, category: "custom" })
+      .select("id,slug,label")
+      .single();
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    if (inserted) {
+      setAssigned((prev) => new Set(prev).add(inserted.id));
+      setNewTag("");
+      refetch();
+    }
+  }
+
+  async function saveAll() {
+    if (!data) return;
+    setSaving(true);
+    try {
+      // 1. Name
+      if (name.trim() && name.trim() !== data.image.name) {
+        const { error } = await supabase
+          .from("images")
+          .update({ name: name.trim() })
+          .eq("id", imageId);
+        if (error) throw error;
+      }
+
+      // 2. Move-to bucket -> lat/lng + published tag management
+      const publishedTag = data.tags.find((t) => t.slug === "published");
+      const nextAssigned = new Set(assigned);
+      const patch: { lat: number | null; lng: number | null; location_label: string | null } = {
+        lat: null,
+        lng: null,
+        location_label: null,
+      };
+      if (bucket === "geotagged") {
+        if (!loc) {
+          toast.error("Pick a location for geo-tagging");
+          setSaving(false);
+          return;
+        }
+        patch.lat = loc.lat;
+        patch.lng = loc.lng;
+        patch.location_label = loc.label ?? null;
+      }
+      if (bucket === "published" && publishedTag) {
+        nextAssigned.add(publishedTag.id);
+      } else if (publishedTag) {
+        nextAssigned.delete(publishedTag.id);
+      }
+      {
+        const { error } = await supabase
+          .from("images")
+          .update(patch as never)
+          .eq("id", imageId);
+        if (error) throw error;
+      }
+
+      // 3. Tags — diff and apply
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      const toAdd = Array.from(nextAssigned).filter((id) => !data.assignedIds.has(id));
+      const toRemove = Array.from(data.assignedIds).filter((id) => !nextAssigned.has(id));
+      if (toRemove.length > 0) {
+        const { error } = await supabase
+          .from("image_tags")
+          .delete()
+          .eq("image_id", imageId)
+          .in("tag_id", toRemove);
+        if (error) throw error;
+      }
+      if (toAdd.length > 0 && uid) {
+        const rows = toAdd.map((tag_id) => ({ image_id: imageId, tag_id, owner_id: uid }));
+        const { error } = await supabase
+          .from("image_tags")
+          .insert(rows as never);
+        if (error) throw error;
+      }
+
+      toast.success("Saved");
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function doDelete() {
+    if (!data) return;
+    setSaving(true);
+    try {
+      await supabase.storage.from("frames").remove([data.image.storage_path]);
+      const { error } = await supabase.from("images").delete().eq("id", imageId);
+      if (error) throw error;
+      toast.success("Deleted");
+      onSaved();
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+        role="dialog"
+        aria-modal="true"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h2 className="text-lg font-medium">Edit image</h2>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded p-1 text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {isLoading || !data ? (
+          <div className="p-10 text-center text-sm text-muted-foreground">Loading…</div>
+        ) : (
+          <div className="grid max-h-[75vh] gap-5 overflow-auto p-5 md:grid-cols-[280px_1fr]">
+            <div>
+              <div className="overflow-hidden rounded-lg border border-border bg-muted">
+                <SignedImage
+                  bucket="frames"
+                  path={data.image.storage_path}
+                  alt={data.image.name}
+                  className="aspect-square w-full object-cover"
+                />
+              </div>
+              <label className="mt-4 block text-xs font-medium text-muted-foreground">Name</label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
+            <div className="space-y-5">
+              {/* Move-to */}
+              <div>
+                <div className="text-xs font-medium text-muted-foreground">Move to</div>
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {(
+                    [
+                      { id: "raw", label: "Raw", icon: ImagesIcon },
+                      { id: "published", label: "Published", icon: CheckCircle2 },
+                      { id: "geotagged", label: "Geo-tagged", icon: MapPin },
+                    ] as const
+                  ).map((opt) => {
+                    const active = bucket === opt.id;
+                    return (
+                      <button
+                        key={opt.id}
+                        type="button"
+                        onClick={() => setBucket(opt.id)}
+                        className={`inline-flex items-center justify-center gap-1.5 rounded-md border px-3 py-2 text-xs font-medium ${
+                          active
+                            ? "border-primary bg-primary/10 text-primary"
+                            : "border-border text-muted-foreground hover:bg-accent"
+                        }`}
+                      >
+                        <opt.icon className="h-3.5 w-3.5" />
+                        {opt.label}
+                      </button>
+                    );
+                  })}
+                </div>
+                {bucket === "geotagged" && (
+                  <div className="mt-3 rounded-lg border border-border p-3">
+                    <LocationPicker value={loc} onChange={setLoc} />
+                  </div>
+                )}
+              </div>
+
+              {/* Tags */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Tags ({assigned.size})
+                  </div>
+                  <input
+                    type="search"
+                    placeholder="Filter…"
+                    value={tagFilter}
+                    onChange={(e) => setTagFilter(e.target.value)}
+                    className="w-40 rounded-md border border-input bg-background/50 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-md border border-border p-2">
+                  {filteredTags.length === 0 ? (
+                    <span className="text-xs text-muted-foreground">No matches</span>
+                  ) : (
+                    filteredTags.map((t) => {
+                      const on = assigned.has(t.id);
+                      return (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTag(t.id)}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                            on
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-border text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          <TagIcon className="h-3 w-3" />
+                          {t.label}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+                <div className="mt-2 flex gap-2">
+                  <input
+                    value={newTag}
+                    onChange={(e) => setNewTag(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault();
+                        addCustomTag();
+                      }
+                    }}
+                    placeholder="Add custom tag…"
+                    className="flex-1 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+                  />
+                  <button
+                    type="button"
+                    onClick={addCustomTag}
+                    className="rounded-md border border-border px-3 py-2 text-xs hover:bg-accent"
+                  >
+                    Add
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div className="flex items-center justify-between gap-2 border-t border-border px-5 py-3">
+          <div>
+            {confirmDelete ? (
+              <div className="flex items-center gap-2">
+                <span className="text-xs text-muted-foreground">Are you sure?</span>
+                <button
+                  onClick={doDelete}
+                  disabled={saving}
+                  className="rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground disabled:opacity-50"
+                >
+                  Delete
+                </button>
+                <button
+                  onClick={() => setConfirmDelete(false)}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs"
+                >
+                  Cancel
+                </button>
+              </div>
+            ) : (
+              <button
+                onClick={() => setConfirmDelete(true)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-2 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete image
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-md border border-border px-4 py-2 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={saveAll}
+              disabled={saving || isLoading}
+              className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            >
+              {saving ? "Saving…" : "Save changes"}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+
+
+/* -------------------------------------------------------------------------- */
 /* Videos panel (integrated video library)                                    */
 /* -------------------------------------------------------------------------- */
 
