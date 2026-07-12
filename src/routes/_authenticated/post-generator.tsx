@@ -574,7 +574,7 @@ function PostGeneratorPage() {
               </label>
               <label className="col-span-2 block">
                 <span className="text-xs text-muted-foreground">
-                  Call-to-action (optional)
+                  Call-to-action hint for AI (optional)
                 </span>
                 <input
                   value={cta}
@@ -585,6 +585,57 @@ function PostGeneratorPage() {
               </label>
             </div>
           </section>
+
+          {/* GMB Call-to-action */}
+          <section className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-medium">GMB call-to-action</div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Google standard
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <label className="block">
+                <span className="text-xs text-muted-foreground">Action</span>
+                <select
+                  value={ctaType}
+                  onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
+                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                >
+                  <option value="none">None</option>
+                  <option value="book">Book</option>
+                  <option value="order">Order online</option>
+                  <option value="shop">Buy</option>
+                  <option value="learn_more">Learn more</option>
+                  <option value="sign_up">Sign up</option>
+                  <option value="call">Call now</option>
+                </select>
+              </label>
+              {ctaType !== "none" && (
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">
+                    {ctaType === "call" ? "Phone number" : "Destination URL"}
+                  </span>
+                  <input
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder={
+                      ctaType === "call"
+                        ? "+971 50 000 0000"
+                        : "https://example.com/book"
+                    }
+                    inputMode={ctaType === "call" ? "tel" : "url"}
+                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                  />
+                </label>
+              )}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              These map to Google Business Profile's standard actions (Book,
+              Order, Buy, Learn more, Sign up, Call).
+            </p>
+          </section>
+
 
           <button
             onClick={handleGenerate}
