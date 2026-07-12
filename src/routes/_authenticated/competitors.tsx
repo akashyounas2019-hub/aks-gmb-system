@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { ExternalLink, Loader2, Pencil, Plus, Target, Trash2, X } from "lucide-react";
+import { ExternalLink, Loader2, Pencil, Plus, RefreshCw, Target, Trash2, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,7 @@ import {
   addCompetitor,
   updateCompetitor,
   deleteCompetitor,
+  refreshCompetitorPlaceId,
 } from "@/lib/competitors.functions";
 
 export const Route = createFileRoute("/_authenticated/competitors")({
@@ -29,6 +30,7 @@ function CompetitorsPage() {
   const add = useServerFn(addCompetitor);
   const update = useServerFn(updateCompetitor);
   const remove = useServerFn(deleteCompetitor);
+  const refreshPlace = useServerFn(refreshCompetitorPlaceId);
 
   const [rows, setRows] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -97,6 +99,17 @@ function CompetitorsPage() {
     await remove({ data: { id: c.id } });
     await refresh();
     toast.message("Removed");
+  }
+
+  async function onRefreshPlace(c: Competitor) {
+    try {
+      const res = await refreshPlace({ data: { id: c.id } });
+      await refresh();
+      if (res.placeId) toast.success(`Place ID resolved: ${res.placeId}`);
+      else toast.message("Could not resolve a Place ID from this URL");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to refresh");
+    }
   }
 
   return (
@@ -240,7 +253,16 @@ function CompetitorsPage() {
                     </a>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {c.place_id ?? "—"}
+                    <div className="flex items-center gap-2">
+                      <span>{c.place_id ?? "—"}</span>
+                      <button
+                        onClick={() => onRefreshPlace(c)}
+                        title="Re-resolve Place ID from URL"
+                        className="rounded-md border border-border bg-card p-1 hover:bg-accent"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </button>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString()}
