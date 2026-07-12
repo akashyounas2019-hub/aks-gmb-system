@@ -19,7 +19,7 @@ import {
   XCircle,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Link as RouterLink } from "@tanstack/react-router";
+
 import { toast } from "sonner";
 
 import { generateChangeSuggestions } from "@/lib/insights.functions";
