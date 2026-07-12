@@ -596,7 +596,7 @@ function GmbAnalyticsPage() {
           </span>
         ) : (
           <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs uppercase tracking-widest text-amber-500">
-            Preview · sample data
+            {usingRealData ? "Live · local snapshots" : "Not connected"}
           </span>
         )}
       </div>
