@@ -1322,6 +1322,7 @@ function CompetitorDrawer({
   rankMatrix,
   onClose,
   fetchHistory,
+  trackedKeywords,
 }: {
   competitor: Competitor;
   stats:
@@ -1339,8 +1340,9 @@ function CompetitorDrawer({
   rankMatrix: RankMatrix;
   onClose: () => void;
   fetchHistory: ReturnType<typeof useServerFn<typeof getCompetitorRankHistory>>;
+  trackedKeywords: TrackedKeyword[];
 }) {
-  const [historyKw, setHistoryKw] = useState(trackedKeywords[0].keyword);
+  const [historyKw, setHistoryKw] = useState(trackedKeywords[0]?.keyword ?? "");
   const [history, setHistory] = useState<Array<{ recordedAt: string; rank: number | null; competitorId: string | null }>>([]);
   const [hLoading, setHLoading] = useState(false);
 
