@@ -204,6 +204,27 @@ function UploadPage() {
         </label>
       </div>
 
+      <div className="mt-6 rounded-lg border border-border bg-card p-4">
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <div className="text-sm font-medium">Geotag frames</div>
+            <div className="text-xs text-muted-foreground">
+              Pick a location (e.g. Al Qusais, Dubai). Every extracted frame gets these coordinates.
+            </div>
+          </div>
+          <label className="flex cursor-pointer items-center gap-2 text-xs">
+            <input
+              type="checkbox"
+              checked={autoGeotag}
+              onChange={(e) => setAutoGeotag(e.target.checked)}
+              className="accent-primary"
+            />
+            Auto-apply on upload
+          </label>
+        </div>
+        <LocationPicker value={location} onChange={setLocation} />
+      </div>
+
       {stage !== "idle" && (
         <div className="mt-8 rounded-lg border border-border bg-card p-4">
           <div className="mb-2 flex justify-between text-sm">
