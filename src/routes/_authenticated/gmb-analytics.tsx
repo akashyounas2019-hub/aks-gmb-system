@@ -934,6 +934,16 @@ function GmbAnalyticsPage() {
         )}
       </section>
 
+      {/* Competitor rank history chart */}
+      {competitors.length > 0 && (
+        <CompetitorRankHistory
+          keywords={MOCK_KEYWORDS.map((k) => ({ keyword: k.keyword, current: k.current }))}
+          competitors={competitors}
+          rankSource={rankSource}
+        />
+      )}
+
+
 
       <div className="mt-6 flex items-start gap-2 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
