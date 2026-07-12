@@ -122,6 +122,11 @@ async function refreshIfNeeded(
     error_description?: string;
   };
   if (!res.ok || !json.access_token) {
+    logGmb("token.refresh.error", ctx.userId, {
+      status: res.status,
+      error: json.error,
+      description: json.error_description,
+    });
     throw new Error(`Refresh failed: ${json.error_description ?? json.error ?? res.statusText}`);
   }
   const expiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString();
@@ -134,10 +139,17 @@ async function refreshIfNeeded(
       token_type: json.token_type ?? tokens.token_type,
     })
     .eq("user_id", ctx.userId);
+  logGmb("token.refresh.ok", ctx.userId, {
+    newAccessToken: mask(json.access_token),
+    expiresAt,
+    scope: json.scope,
+  });
   return json.access_token;
 }
 
-async function callGoogle(accessToken: string, url: string): Promise<unknown> {
+async function callGoogle(accessToken: string, url: string, userId?: string): Promise<unknown> {
+  const t0 = Date.now();
+  const endpoint = url.split("?")[0];
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -148,11 +160,21 @@ async function callGoogle(accessToken: string, url: string): Promise<unknown> {
   } catch {
     body = text;
   }
+  const ms = Date.now() - t0;
   if (!res.ok) {
     const msg =
       (body as { error?: { message?: string } } | null)?.error?.message ??
       (typeof body === "string" ? body : JSON.stringify(body));
+    if (userId) {
+      logGmb("google.error", userId, { endpoint, status: res.status, ms, message: msg });
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(`[gmb] step=google.error endpoint=${endpoint} status=${res.status} ms=${ms} message=${msg}`);
+    }
     throw new Error(`Google API ${res.status}: ${msg}`);
+  }
+  if (userId) {
+    logGmb("google.ok", userId, { endpoint, status: res.status, ms });
   }
   return body;
 }
