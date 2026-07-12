@@ -623,3 +623,215 @@ function BulkPanel({
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Videos panel (integrated video library)                                    */
+/* -------------------------------------------------------------------------- */
+
+type VideoRow = {
+  id: string;
+  original_name: string;
+  duration_seconds: number | null;
+  size_bytes: number | null;
+  frame_count: number;
+  created_at: string;
+  status: string;
+  storage_path: string;
+};
+
+async function fetchVideos(): Promise<VideoRow[]> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select(
+      "id, original_name, duration_seconds, size_bytes, frame_count, created_at, status, storage_path",
+    )
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+function formatBytes(n: number | null | undefined) {
+  if (!n) return "—";
+  const mb = n / (1024 * 1024);
+  if (mb < 1000) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+const STORAGE_QUOTA_BYTES = 1 * 1024 * 1024 * 1024;
+
+function VideosPanel() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: fetchVideos });
+  const [preview, setPreview] = useState<VideoRow | null>(null);
+
+  const totalBytes = (data ?? []).reduce((s, v) => s + (v.size_bytes ?? 0), 0);
+  const usedPct = Math.min(100, (totalBytes / STORAGE_QUOTA_BYTES) * 100);
+
+  const deleteMut = useMutation({
+    mutationFn: async (v: VideoRow) => {
+      const { error: storageErr } = await supabase.storage.from("videos").remove([v.storage_path]);
+      if (storageErr) throw storageErr;
+      const { error } = await supabase.from("videos").delete().eq("id", v.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Video deleted");
+      qc.invalidateQueries({ queryKey: ["videos"] });
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
+  });
+
+  return (
+    <div className="mt-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {data?.length ?? 0} video{(data?.length ?? 0) === 1 ? "" : "s"} uploaded
+        </p>
+        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-3">
+          <div className="flex items-center gap-2 text-sm">
+            <HardDrive className="h-4 w-4 text-primary" />
+            <span className="font-medium">Storage</span>
+            <span className="ml-auto text-muted-foreground">
+              {formatBytes(totalBytes)} / {formatBytes(STORAGE_QUOTA_BYTES)}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-primary transition-all" style={{ width: `${usedPct}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : (data?.length ?? 0) === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <Film className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-3 text-muted-foreground">No videos yet.</p>
+          <Link
+            to="/upload"
+            className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Upload one
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {data!.map((v) => (
+            <VideoCard
+              key={v.id}
+              video={v}
+              onPreview={() => setPreview(v)}
+              onDelete={() => {
+                if (confirm(`Delete "${v.original_name}"? This can't be undone.`)) {
+                  deleteMut.mutate(v);
+                }
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {preview && <VideoPreviewModal video={preview} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+function useVideoUrl(path: string) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.storage
+      .from("videos")
+      .createSignedUrl(path, 60 * 60)
+      .then(({ data }) => {
+        if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  return url;
+}
+
+function VideoCard({
+  video,
+  onPreview,
+  onDelete,
+}: {
+  video: VideoRow;
+  onPreview: () => void;
+  onDelete: () => void;
+}) {
+  const url = useVideoUrl(video.storage_path);
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
+        {url ? (
+          <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+        ) : (
+          <div className="h-full w-full animate-pulse bg-muted" />
+        )}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+          <Play className="h-10 w-10 text-white" />
+        </div>
+      </button>
+      <div className="p-4">
+        <div className="truncate font-medium">{video.original_name}</div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            {video.duration_seconds ? `${Number(video.duration_seconds).toFixed(0)}s` : "—"}
+          </span>
+          <span>{formatBytes(video.size_bytes)}</span>
+          <span className="rounded-full bg-primary/15 px-1.5 text-primary">
+            {video.frame_count} frames
+          </span>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {new Date(video.created_at).toLocaleDateString()}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={onPreview}
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs hover:bg-accent"
+          >
+            <Play className="h-3.5 w-3.5" /> Preview
+          </button>
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoPreviewModal({ video, onClose }: { video: VideoRow; onClose: () => void }) {
+  const url = useVideoUrl(video.storage_path);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-4xl rounded-xl border border-border bg-card p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} className="absolute right-2 top-2 rounded-md p-1 hover:bg-accent">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="truncate pr-8 font-medium">{video.original_name}</div>
+        <div className="mt-3 overflow-hidden rounded-lg bg-black">
+          {url ? (
+            <video src={url} controls autoPlay className="w-full" />
+          ) : (
+            <div className="aspect-video animate-pulse bg-muted" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
