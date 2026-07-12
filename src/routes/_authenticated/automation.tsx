@@ -210,8 +210,23 @@ const CATEGORY_META: Record<AutomationCategory, { label: string; color: string }
 function AutomationPage() {
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplateSerialized[]>([]);
   const [category, setCategory] = useState<AutomationCategory | "all">("all");
   const [editing, setEditing] = useState<AutomationRule | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const allTemplates = useMemo<Template[]>(
+    () =>
+      [
+        ...TEMPLATES,
+        ...customTemplates.map((c) => ({
+          ...c,
+          icon: CATEGORY_ICONS[c.category],
+          tone: CATEGORY_TONES[c.category],
+        })),
+      ],
+    [customTemplates],
+  );
 
   // Load persisted state
   useEffect(() => {
