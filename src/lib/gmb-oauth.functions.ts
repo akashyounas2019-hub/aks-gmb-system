@@ -319,8 +319,10 @@ export const disconnectGmb = createServerFn({ method: "POST" })
           )}`,
           { method: "POST" },
         );
-      } catch {
-        /* ignore */
+      } catch (err) {
+        logGmb("revoke.error", ctx.userId, {
+          message: err instanceof Error ? err.message : String(err),
+        });
       }
     }
     await ctx.supabase.from("gmb_tokens").delete().eq("user_id", ctx.userId);
