@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { MapPin, Tag as TagIcon } from "lucide-react";
+import { toast } from "sonner";
+import { MapPin, Pencil, Tag as TagIcon, Trash2 } from "lucide-react";
+
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -35,7 +37,32 @@ async function fetchLibrary() {
 }
 
 function LibraryPage() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["library"], queryFn: fetchLibrary });
+  const [filter, setFilter] = useState("");
+
+  async function renameImage(id: string, currentName: string) {
+    const next = window.prompt("Rename image", currentName);
+    if (!next || next.trim() === "" || next === currentName) return;
+    const { error } = await supabase.from("images").update({ name: next.trim() }).eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Renamed");
+      qc.invalidateQueries({ queryKey: ["library"] });
+    }
+  }
+
+  async function deleteImage(id: string, path: string) {
+    if (!window.confirm("Delete this image? This cannot be undone.")) return;
+    await supabase.storage.from("frames").remove([path]);
+    const { error } = await supabase.from("images").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Deleted");
+      qc.invalidateQueries({ queryKey: ["library"] });
+    }
+  }
+
   const [filter, setFilter] = useState("");
 
   const filtered = useMemo(() => {
