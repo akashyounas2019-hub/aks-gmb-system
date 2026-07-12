@@ -295,8 +295,12 @@ function LibraryPage() {
         <div className="mt-6">
           <UploadPanel
             showHeader={false}
+            onImageSaved={() => {
+              qc.invalidateQueries({ queryKey: ["library"] });
+            }}
             onComplete={() => {
               qc.invalidateQueries({ queryKey: ["library"] });
+              qc.invalidateQueries({ queryKey: ["videos"] });
               setTab("raw");
             }}
           />

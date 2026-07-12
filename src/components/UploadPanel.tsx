@@ -10,10 +10,11 @@ type Stage = "idle" | "uploading" | "extracting" | "saving" | "done";
 
 export interface UploadPanelProps {
   onComplete?: () => void;
+  onImageSaved?: () => void;
   showHeader?: boolean;
 }
 
-export function UploadPanel({ onComplete, showHeader = true }: UploadPanelProps) {
+export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
   const [stage, setStage] = useState<Stage>("idle");
   const [progress, setProgress] = useState(0);
   const [message, setMessage] = useState("");
@@ -104,6 +105,7 @@ export function UploadPanel({ onComplete, showHeader = true }: UploadPanelProps)
           if (iErr) throw iErr;
           setProgress((i + 1) / frames.length);
           setMessage(`Saved ${i + 1}/${frames.length}`);
+          onImageSaved?.();
         }
 
         setStage("done");
@@ -120,7 +122,7 @@ export function UploadPanel({ onComplete, showHeader = true }: UploadPanelProps)
         setStage("idle");
       }
     },
-    [maxFrames, sampleMs, location, autoGeotag, onComplete],
+    [maxFrames, sampleMs, location, autoGeotag, onComplete, onImageSaved],
   );
 
   return (
