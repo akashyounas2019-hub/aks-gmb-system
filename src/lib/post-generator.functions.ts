@@ -167,6 +167,15 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
       .single();
     if (insErr) throw insErr;
 
+    const GMB_ACTION_MAP: Record<string, string> = {
+      book: "ACTION_TYPE_BOOK",
+      order: "ACTION_TYPE_ORDER",
+      shop: "ACTION_TYPE_SHOP",
+      learn_more: "ACTION_TYPE_LEARN_MORE",
+      sign_up: "ACTION_TYPE_SIGN_UP",
+      call: "ACTION_TYPE_CALL",
+    };
+
     const payload = {
       source: "gmb-rank-pilot",
       target: "ghl-social-planner",
@@ -181,8 +190,17 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
         lat: data.lat ?? null,
         lng: data.lng ?? null,
       },
+      cta:
+        data.ctaType && data.ctaType !== "none"
+          ? {
+              type: data.ctaType,
+              gmb_action_type: GMB_ACTION_MAP[data.ctaType] ?? null,
+              url: data.ctaUrl ?? null,
+            }
+          : null,
       images: imageUrls,
     };
+
 
     let ok = false;
     let providerStatus = 0;
