@@ -13,6 +13,32 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const SCOPE = "https://www.googleapis.com/auth/business.manage";
 const REDIRECT_PATH = "/gmb-oauth-callback";
 
+/**
+ * Structured server-side logger for the GMB sync path. Every line is
+ * prefixed with `[gmb]` and a step tag so the worker log can be grepped
+ * to see exactly what happened: whether tokens loaded, whether a refresh
+ * ran, which account/location was requested, and which Google API call
+ * returned no data. Sensitive values are masked — never log raw tokens
+ * or client secrets.
+ */
+function mask(value: string | null | undefined, keep = 4): string {
+  if (!value) return "<none>";
+  if (value.length <= keep) return "*".repeat(value.length);
+  return `${value.slice(0, keep)}…${value.slice(-2)} (len=${value.length})`;
+}
+function logGmb(step: string, userId: string, payload: Record<string, unknown> = {}) {
+  try {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[gmb] step=${step} user=${userId.slice(0, 8)} ${JSON.stringify(payload)}`,
+    );
+  } catch {
+    // eslint-disable-next-line no-console
+    console.log(`[gmb] step=${step} user=${userId.slice(0, 8)} <unserializable payload>`);
+  }
+}
+
+
 type SupabaseCtx = {
   supabase: ReturnType<typeof getSupabaseType>;
   userId: string;
@@ -38,7 +64,20 @@ async function loadTokens(ctx: SupabaseCtx) {
     .select("*")
     .eq("user_id", ctx.userId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    logGmb("loadTokens.error", ctx.userId, { message: error.message });
+    throw new Error(error.message);
+  }
+  logGmb("loadTokens", ctx.userId, {
+    hasTokens: Boolean(data),
+    accessToken: mask((data?.access_token as string | null) ?? null),
+    refreshToken: mask((data?.refresh_token as string | null) ?? null),
+    expiresAt: data?.expires_at ?? null,
+    accountName: (data?.account_name as string | null) ?? null,
+    locationName: (data?.location_name as string | null) ?? null,
+    locationTitle: (data?.location_title as string | null) ?? null,
+    scope: (data?.scope as string | null) ?? null,
+  });
   return data;
 }
 
@@ -47,7 +86,18 @@ async function refreshIfNeeded(
   tokens: NonNullable<Awaited<ReturnType<typeof loadTokens>>>,
 ): Promise<string> {
   const expMs = new Date(tokens.expires_at as string).getTime();
-  if (expMs - Date.now() > 60_000) return tokens.access_token as string;
+  const secondsToExpiry = Math.round((expMs - Date.now()) / 1000);
+  if (expMs - Date.now() > 60_000) {
+    logGmb("token.reuse", ctx.userId, { secondsToExpiry });
+    return tokens.access_token as string;
+  }
+  logGmb("token.refresh.start", ctx.userId, {
+    secondsToExpiry,
+    hasRefreshToken: Boolean(tokens.refresh_token),
+  });
+  if (!tokens.refresh_token) {
+    throw new Error("Access token expired and no refresh token stored. Reconnect Google.");
+  }
   if (!tokens.refresh_token) {
     throw new Error("Access token expired and no refresh token stored. Reconnect Google.");
   }
@@ -72,6 +122,11 @@ async function refreshIfNeeded(
     error_description?: string;
   };
   if (!res.ok || !json.access_token) {
+    logGmb("token.refresh.error", ctx.userId, {
+      status: res.status,
+      error: json.error,
+      description: json.error_description,
+    });
     throw new Error(`Refresh failed: ${json.error_description ?? json.error ?? res.statusText}`);
   }
   const expiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString();
@@ -84,10 +139,17 @@ async function refreshIfNeeded(
       token_type: json.token_type ?? tokens.token_type,
     })
     .eq("user_id", ctx.userId);
+  logGmb("token.refresh.ok", ctx.userId, {
+    newAccessToken: mask(json.access_token),
+    expiresAt,
+    scope: json.scope,
+  });
   return json.access_token;
 }
 
-async function callGoogle(accessToken: string, url: string): Promise<unknown> {
+async function callGoogle(accessToken: string, url: string, userId?: string): Promise<unknown> {
+  const t0 = Date.now();
+  const endpoint = url.split("?")[0];
   const res = await fetch(url, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
@@ -98,11 +160,21 @@ async function callGoogle(accessToken: string, url: string): Promise<unknown> {
   } catch {
     body = text;
   }
+  const ms = Date.now() - t0;
   if (!res.ok) {
     const msg =
       (body as { error?: { message?: string } } | null)?.error?.message ??
       (typeof body === "string" ? body : JSON.stringify(body));
+    if (userId) {
+      logGmb("google.error", userId, { endpoint, status: res.status, ms, message: msg });
+    } else {
+      // eslint-disable-next-line no-console
+      console.log(`[gmb] step=google.error endpoint=${endpoint} status=${res.status} ms=${ms} message=${msg}`);
+    }
     throw new Error(`Google API ${res.status}: ${msg}`);
+  }
+  if (userId) {
+    logGmb("google.ok", userId, { endpoint, status: res.status, ms });
   }
   return body;
 }
@@ -159,6 +231,12 @@ export const exchangeGmbCode = createServerFn({ method: "POST" })
       error_description?: string;
     };
     if (!res.ok || !json.access_token) {
+      logGmb("exchange.error", ctx.userId, {
+        status: res.status,
+        error: json.error,
+        description: json.error_description,
+        redirectUri,
+      });
       throw new Error(`Token exchange failed: ${json.error_description ?? json.error ?? res.statusText}`);
     }
     const expiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString();
@@ -182,7 +260,17 @@ export const exchangeGmbCode = createServerFn({ method: "POST" })
       },
       { onConflict: "user_id" },
     );
-    if (upsertErr) throw new Error(upsertErr.message);
+    if (upsertErr) {
+      logGmb("exchange.upsert.error", ctx.userId, { message: upsertErr.message });
+      throw new Error(upsertErr.message);
+    }
+    logGmb("exchange.ok", ctx.userId, {
+      accessToken: mask(json.access_token),
+      refreshToken: mask(refreshToken),
+      expiresAt,
+      scope: json.scope,
+      keptExistingLocation: Boolean(existing?.location_name),
+    });
     return { ok: true };
   });
 
@@ -192,8 +280,11 @@ export const getGmbConnectionStatus = createServerFn({ method: "GET" })
   .handler(async ({ context }) => {
     const ctx = context as SupabaseCtx;
     const tokens = await loadTokens(ctx);
-    if (!tokens) return { connected: false as const };
-    return {
+    if (!tokens) {
+      logGmb("status", ctx.userId, { connected: false, reason: "no_tokens" });
+      return { connected: false as const };
+    }
+    const result = {
       connected: true as const,
       accountName: tokens.account_name as string | null,
       locationName: tokens.location_name as string | null,
@@ -201,6 +292,17 @@ export const getGmbConnectionStatus = createServerFn({ method: "GET" })
       expiresAt: tokens.expires_at as string,
       hasRefresh: Boolean(tokens.refresh_token),
     };
+    logGmb("status", ctx.userId, {
+      connected: true,
+      accountName: result.accountName,
+      locationName: result.locationName,
+      locationTitle: result.locationTitle,
+      hasRefresh: result.hasRefresh,
+      // Diagnostic: this is the #1 cause of "still showing dummy data".
+      // If locationName is null the metrics fetch cannot run.
+      needsLocation: !result.locationName,
+    });
+    return result;
   });
 
 export const disconnectGmb = createServerFn({ method: "POST" })
@@ -233,15 +335,24 @@ export const listGmbAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as SupabaseCtx;
+    logGmb("listAccounts.start", ctx.userId);
     const tokens = await loadTokens(ctx);
-    if (!tokens) throw new Error("Not connected to Google");
+    if (!tokens) {
+      logGmb("listAccounts.error", ctx.userId, { reason: "no_tokens" });
+      throw new Error("Not connected to Google");
+    }
     const at = await refreshIfNeeded(ctx, tokens);
 
     const acctResp = (await callGoogle(
       at,
       "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+      ctx.userId,
     )) as { accounts?: Account[] };
     const accounts = acctResp.accounts ?? [];
+    logGmb("listAccounts.accounts", ctx.userId, {
+      count: accounts.length,
+      names: accounts.map((a) => a.name),
+    });
 
     const results = await Promise.all(
       accounts.map(async (acct) => {
@@ -249,21 +360,33 @@ export const listGmbAccounts = createServerFn({ method: "GET" })
           const locResp = (await callGoogle(
             at,
             `https://mybusinessbusinessinformation.googleapis.com/v1/${acct.name}/locations?readMask=name,title,storefrontAddress`,
+            ctx.userId,
           )) as { locations?: Location[] };
+          const locations = (locResp.locations ?? []).map((l) => ({
+            name: l.name,
+            title: l.title ?? l.name,
+          }));
+          logGmb("listAccounts.locations", ctx.userId, {
+            account: acct.name,
+            count: locations.length,
+            titles: locations.map((l) => l.title),
+          });
           return {
             account: acct.name,
             accountLabel: acct.accountName ?? acct.name,
-            locations: (locResp.locations ?? []).map((l) => ({
-              name: l.name,
-              title: l.title ?? l.name,
-            })),
+            locations,
           };
         } catch (err) {
+          const message = err instanceof Error ? err.message : "Failed to list locations";
+          logGmb("listAccounts.locations.error", ctx.userId, {
+            account: acct.name,
+            message,
+          });
           return {
             account: acct.name,
             accountLabel: acct.accountName ?? acct.name,
             locations: [],
-            error: err instanceof Error ? err.message : "Failed to list locations",
+            error: message,
           };
         }
       }),
@@ -286,6 +409,11 @@ export const setGmbLocation = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const ctx = context as SupabaseCtx;
+    logGmb("setLocation.start", ctx.userId, {
+      account: data.account,
+      location: data.location,
+      locationTitle: data.locationTitle,
+    });
     const { error } = await ctx.supabase
       .from("gmb_tokens")
       .update({
@@ -294,7 +422,14 @@ export const setGmbLocation = createServerFn({ method: "POST" })
         location_title: data.locationTitle,
       })
       .eq("user_id", ctx.userId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      logGmb("setLocation.error", ctx.userId, { message: error.message });
+      throw new Error(error.message);
+    }
+    logGmb("setLocation.ok", ctx.userId, {
+      account: data.account,
+      location: data.location,
+    });
     return { ok: true };
   });
 
@@ -314,9 +449,25 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as SupabaseCtx;
+    logGmb("metrics.start", ctx.userId);
     const tokens = await loadTokens(ctx);
-    if (!tokens) throw new Error("Not connected to Google");
-    if (!tokens.location_name) throw new Error("Select a business location first");
+    if (!tokens) {
+      logGmb("metrics.error", ctx.userId, { reason: "no_tokens" });
+      throw new Error("Not connected to Google");
+    }
+    if (!tokens.location_name) {
+      logGmb("metrics.error", ctx.userId, {
+        reason: "no_location_selected",
+        accountName: tokens.account_name,
+        hint: "User must pick a Business Profile location in Settings → Integrations.",
+      });
+      throw new Error("Select a business location first");
+    }
+    logGmb("metrics.location", ctx.userId, {
+      account: tokens.account_name,
+      location: tokens.location_name,
+      locationTitle: tokens.location_title,
+    });
     const at = await refreshIfNeeded(ctx, tokens);
 
     const end = new Date();
@@ -337,7 +488,7 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
       qs.set("dailyRange.end_date.month", String(to.getUTCMonth() + 1));
       qs.set("dailyRange.end_date.day", String(to.getUTCDate()));
       const url = `https://businessprofileperformance.googleapis.com/v1/${tokens!.location_name}:fetchMultiDailyMetricsTimeSeries?${qs.toString()}`;
-      return (await callGoogle(at, url)) as {
+      return (await callGoogle(at, url, ctx.userId)) as {
         multiDailyMetricTimeSeries?: Array<{
           dailyMetricTimeSeries?: Array<{
             dailyMetric?: Metric;
@@ -399,6 +550,22 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
       return Math.round(((cur - prev) / prev) * 100);
     }
 
+    logGmb("metrics.ok", ctx.userId, {
+      location: tokens.location_name,
+      range: `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`,
+      impressions,
+      callClicks: curAgg.totals.CALL_CLICKS,
+      websiteClicks: curAgg.totals.WEBSITE_CLICKS,
+      directionRequests: curAgg.totals.BUSINESS_DIRECTION_REQUESTS,
+      // If everything is 0, Google returned no data — usually means the
+      // Business Profile Performance API isn't enabled for the project, or
+      // the location has no traffic in the last 30 days.
+      allZero:
+        impressions === 0 &&
+        curAgg.totals.CALL_CLICKS === 0 &&
+        curAgg.totals.WEBSITE_CLICKS === 0 &&
+        curAgg.totals.BUSINESS_DIRECTION_REQUESTS === 0,
+    });
     return {
       locationTitle: tokens.location_title as string | null,
       range: {
