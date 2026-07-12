@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { BarChart3, CalendarDays, Film, Images, KeyRound, LogOut, PenSquare, Settings, Target, Upload, Workflow } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { NotificationBell } from "@/components/NotificationBell";
 
 const nav = [
   { to: "/wizard", label: "Pipeline", icon: Workflow },
@@ -58,14 +59,18 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </button>
       </aside>
       <main className="min-w-0 flex-1">
-        <div className="flex items-center justify-between border-b border-border px-4 py-3 md:hidden">
-          <Link to="/" className="font-display">GMB Rank Pilot</Link>
-          <div className="flex gap-2">
-            {nav.map((n) => (
-              <Link key={n.to} to={n.to} className="rounded-md px-2 py-1 text-xs">
-                {n.label}
-              </Link>
-            ))}
+        <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
+          <Link to="/" className="font-display md:hidden">GMB Rank Pilot</Link>
+          <div className="hidden md:block" />
+          <div className="flex items-center gap-2">
+            <div className="flex gap-2 md:hidden">
+              {nav.map((n) => (
+                <Link key={n.to} to={n.to} className="rounded-md px-2 py-1 text-xs">
+                  {n.label}
+                </Link>
+              ))}
+            </div>
+            <NotificationBell />
           </div>
         </div>
         {children}
