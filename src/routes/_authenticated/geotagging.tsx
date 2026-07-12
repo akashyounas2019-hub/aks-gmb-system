@@ -14,6 +14,7 @@ import {
   Loader2,
   Image as ImageIcon,
   Crosshair,
+  Pin,
   X,
 } from "lucide-react";
 
@@ -130,27 +131,46 @@ function GeotaggingPage() {
   const [copied, setCopied] = useState(false);
   const [savingBulk, setSavingBulk] = useState(false);
 
+  // Pinned coordinate (auto-applied to newly uploaded images)
+  const [pinnedCoord, setPinnedCoord] = useState<
+    { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null
+  >(null);
+
+  // Dedicated Home/Office quick pickers
+  const homePlaces = useMemo(() => PLACES.filter((p) => p.type === "home"), []);
+  const officePlaces = useMemo(() => PLACES.filter((p) => p.type === "office"), []);
+  const [homePickId, setHomePickId] = useState<string>(homePlaces[0]?.id ?? "");
+  const [officePickId, setOfficePickId] = useState<string>(officePlaces[0]?.id ?? "");
+
   /* --------------------------- upload handling --------------------------- */
 
-  const addFiles = useCallback((files: FileList | File[]) => {
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) {
-      toast.error("Please choose image files.");
-      return;
-    }
-    setImages((prev) => [
-      ...prev,
-      ...list.map((f) => ({
-        id: crypto.randomUUID(),
-        file: f,
-        previewUrl: URL.createObjectURL(f),
-        lat: null,
-        lng: null,
-        locationLabel: null,
-        status: "pending" as const,
-      })),
-    ]);
-  }, []);
+  const addFiles = useCallback(
+    (files: FileList | File[]) => {
+      const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (list.length === 0) {
+        toast.error("Please choose image files.");
+        return;
+      }
+      setImages((prev) => [
+        ...prev,
+        ...list.map((f) => ({
+          id: crypto.randomUUID(),
+          file: f,
+          previewUrl: URL.createObjectURL(f),
+          lat: pinnedCoord?.lat ?? null,
+          lng: pinnedCoord?.lng ?? null,
+          locationLabel: pinnedCoord?.label ?? null,
+          status: "pending" as const,
+        })),
+      ]);
+      if (pinnedCoord) {
+        toast.success(
+          `Auto-tagged ${list.length} new image${list.length === 1 ? "" : "s"} with ${pinnedCoord.label}.`,
+        );
+      }
+    },
+    [pinnedCoord],
+  );
 
   const removeImage = (id: string) => {
     setImages((prev) => {
@@ -334,6 +354,150 @@ function GeotaggingPage() {
         </div>
       </header>
 
+      {/* Home / Office coordinate picker */}
+      <div className="mb-4 grid gap-3 md:grid-cols-2">
+        {([
+          { kind: "home" as const, list: homePlaces, pickId: homePickId, setPickId: setHomePickId },
+          { kind: "office" as const, list: officePlaces, pickId: officePickId, setPickId: setOfficePickId },
+        ]).map(({ kind, list, pickId, setPickId }) => {
+          const meta = TYPE_META[kind];
+          const Icon = meta.icon;
+          const place = list.find((p) => p.id === pickId) ?? list[0];
+          const isPinned =
+            pinnedCoord?.kind === kind &&
+            place &&
+            pinnedCoord.lat === place.lat &&
+            pinnedCoord.lng === place.lng;
+          return (
+            <div key={kind} className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <span className={`grid h-9 w-9 place-items-center rounded-md ${meta.tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <div className="text-sm font-medium">{meta.label} coordinate</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Pick one, then pin it to auto-tag new uploads.
+                    </div>
+                  </div>
+                </div>
+                {isPinned && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
+                    <Pin className="h-3 w-3" /> Pinned
+                  </span>
+                )}
+              </div>
+              <select
+                value={pickId}
+                onChange={(e) => setPickId(e.target.value)}
+                className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              >
+                {list.map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name} — {p.area}
+                  </option>
+                ))}
+              </select>
+              {place && (
+                <div className="mt-2 rounded-md bg-muted/60 px-2 py-1.5 font-mono text-[11px]">
+                  {place.lat.toFixed(6)}, {place.lng.toFixed(6)}
+                </div>
+              )}
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  onClick={() => {
+                    if (!place) return;
+                    setActivePlace(place);
+                    setCustomLocation(null);
+                  }}
+                  className="flex-1 rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
+                >
+                  Use as active
+                </button>
+                <button
+                  onClick={() => {
+                    if (!place) return;
+                    if (isPinned) {
+                      setPinnedCoord(null);
+                      toast.success(`Unpinned ${meta.label.toLowerCase()} coordinate.`);
+                    } else {
+                      setPinnedCoord({
+                        lat: place.lat,
+                        lng: place.lng,
+                        label: `${place.name}, ${place.area}`,
+                        kind,
+                      });
+                      setActivePlace(place);
+                      setCustomLocation(null);
+                      toast.success(
+                        `Pinned ${meta.label.toLowerCase()} coordinate — new uploads will be auto-tagged.`,
+                      );
+                    }
+                  }}
+                  className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
+                    isPinned
+                      ? "border border-border hover:bg-accent"
+                      : "bg-primary text-primary-foreground hover:opacity-90"
+                  }`}
+                >
+                  <Pin className="h-3.5 w-3.5" />
+                  {isPinned ? "Unpin" : "Pin for new uploads"}
+                </button>
+                <button
+                  onClick={() => {
+                    if (!place) return;
+                    const ids = selected.size ? Array.from(selected) : images.map((i) => i.id);
+                    if (ids.length === 0) {
+                      toast.error("Upload some images first.");
+                      return;
+                    }
+                    setImages((prev) =>
+                      prev.map((img) =>
+                        ids.includes(img.id)
+                          ? {
+                              ...img,
+                              lat: place.lat,
+                              lng: place.lng,
+                              locationLabel: `${place.name}, ${place.area}`,
+                            }
+                          : img,
+                      ),
+                    );
+                    toast.success(
+                      `Applied to ${ids.length} image${ids.length === 1 ? "" : "s"}.`,
+                    );
+                  }}
+                  className="rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
+                >
+                  Apply now
+                </button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Pinned banner */}
+      {pinnedCoord && (
+        <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-primary/40 bg-primary/5 px-4 py-2.5">
+          <Pin className="h-4 w-4 text-primary" />
+          <div className="min-w-0 flex-1 text-xs">
+            <span className="font-medium">New uploads auto-tag:</span>{" "}
+            <span className="text-muted-foreground">{pinnedCoord.label}</span>{" "}
+            <span className="font-mono text-muted-foreground/80">
+              ({pinnedCoord.lat.toFixed(5)}, {pinnedCoord.lng.toFixed(5)})
+            </span>
+          </div>
+          <button
+            onClick={() => setPinnedCoord(null)}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent"
+          >
+            <X className="h-3 w-3" /> Clear
+          </button>
+        </div>
+      )}
+
       {/* Active coordinate strip */}
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
@@ -356,6 +520,23 @@ function GeotaggingPage() {
         >
           {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
           {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          onClick={() => {
+            if (!activeCoord) return;
+            setPinnedCoord({
+              lat: activeCoord.lat,
+              lng: activeCoord.lng,
+              label: activeCoord.label,
+              kind: "custom",
+            });
+            toast.success("Pinned — new uploads will auto-tag with this coordinate.");
+          }}
+          disabled={!activeCoord}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-40"
+        >
+          <Pin className="h-3.5 w-3.5" />
+          Pin
         </button>
         <button
           onClick={applyToSelected}
