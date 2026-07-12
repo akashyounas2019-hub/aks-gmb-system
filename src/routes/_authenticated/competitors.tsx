@@ -1051,6 +1051,15 @@ function CompetitorsPage() {
           trackedKeywords={trackedKeywords}
         />
       )}
+
+      {showKeywordManager && (
+        <TrackedKeywordManager
+          initial={trackedKeywords}
+          isCustom={trackedIsCustom}
+          onClose={() => setShowKeywordManager(false)}
+          onSave={handleSaveTracked}
+        />
+      )}
     </div>
   );
 }
