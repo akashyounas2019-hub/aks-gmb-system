@@ -309,6 +309,8 @@ function GeotaggingPage() {
     saved: images.filter((i) => i.status === "saved").length,
   };
 
+  const expandedCoords = typeFilter === "home" || typeFilter === "office";
+
   return (
     <div className="mx-auto max-w-[1400px] p-6">
       {/* Header */}
@@ -332,319 +334,358 @@ function GeotaggingPage() {
         </div>
       </header>
 
-      <div className="grid gap-6 lg:grid-cols-[360px_1fr]">
-        {/* --------------------------- LEFT: location library --------------------------- */}
-        <aside className="space-y-4">
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="font-display text-base">Location library</h2>
-              <span className="text-xs text-muted-foreground">{filteredPlaces.length}</span>
-            </div>
+      {/* Active coordinate strip */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
+        <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
+          <Crosshair className="h-5 w-5" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <div className="truncate text-sm font-medium">
+            {activeCoord?.label ?? "No location selected"}
+          </div>
+          <div className="font-mono text-xs text-muted-foreground">
+            {activeCoord
+              ? `${activeCoord.lat.toFixed(6)}, ${activeCoord.lng.toFixed(6)}`
+              : "Pick a location to see coordinates"}
+          </div>
+        </div>
+        <button
+          onClick={copyCoord}
+          disabled={!activeCoord}
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-40"
+        >
+          {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+          {copied ? "Copied" : "Copy"}
+        </button>
+        <button
+          onClick={applyToSelected}
+          disabled={!activeCoord || images.length === 0}
+          className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+        >
+          <MapPin className="h-3.5 w-3.5" />
+          Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
+        </button>
+      </div>
 
-            {/* Search */}
-            <div className="relative mb-3">
-              <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
-              <input
-                value={placeSearch}
-                onChange={(e) => setPlaceSearch(e.target.value)}
-                placeholder="Search Al Qusais, Marina…"
-                className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
-              />
-            </div>
+      {/* Horizontal location library */}
+      <div className="mb-6 rounded-xl border border-border bg-card p-4">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <h2 className="font-display text-base">Location library</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+              {filteredPlaces.length}
+            </span>
+          </div>
+          <div className="relative w-full max-w-xs">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-muted-foreground" />
+            <input
+              value={placeSearch}
+              onChange={(e) => setPlaceSearch(e.target.value)}
+              placeholder="Search Al Qusais, Marina…"
+              className="w-full rounded-md border border-input bg-background py-2 pl-8 pr-3 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </div>
+        </div>
 
-            {/* Area filter */}
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Area
-            </div>
-            <div className="mb-3 flex flex-wrap gap-1.5">
-              {(["All", ...AREAS] as const).map((a) => (
+        {/* Property type tabs (horizontal) */}
+        <div className="mb-3 flex flex-wrap gap-2">
+          {(["All", "home", "office", "commercial"] as const).map((t) => {
+            const active = typeFilter === t;
+            const Icon = t === "All" ? MapPin : TYPE_META[t as PlaceType].icon;
+            return (
+              <button
+                key={t}
+                onClick={() => setTypeFilter(t as typeof typeFilter)}
+                className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+                  active
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:bg-accent"
+                }`}
+              >
+                <Icon className="h-3.5 w-3.5" />
+                {t === "All" ? "All" : TYPE_META[t as PlaceType].label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Area filter */}
+        <div className="mb-3 flex flex-wrap gap-1.5">
+          {(["All", ...AREAS] as const).map((a) => (
+            <button
+              key={a}
+              onClick={() => setAreaFilter(a)}
+              className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
+                areaFilter === a
+                  ? "border-primary bg-primary/15 text-primary"
+                  : "border-border text-muted-foreground hover:bg-accent"
+              }`}
+            >
+              {a}
+            </button>
+          ))}
+        </div>
+
+        {/* Place list — expanded coord layout when Home/Office filter active */}
+        {filteredPlaces.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+            No locations match your filters.
+          </div>
+        ) : expandedCoords ? (
+          <div className="grid gap-2 md:grid-cols-2 lg:grid-cols-3">
+            {filteredPlaces.map((p) => {
+              const active = activePlace?.id === p.id && !customLocation;
+              const meta = TYPE_META[p.type];
+              const Icon = meta.icon;
+              return (
                 <button
-                  key={a}
-                  onClick={() => setAreaFilter(a)}
-                  className={`rounded-full border px-2.5 py-0.5 text-xs transition ${
-                    areaFilter === a
-                      ? "border-primary bg-primary/15 text-primary"
-                      : "border-border text-muted-foreground hover:bg-accent"
+                  key={p.id}
+                  onClick={() => {
+                    setActivePlace(p);
+                    setCustomLocation(null);
+                  }}
+                  className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
+                    active
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:bg-accent"
                   }`}
                 >
-                  {a}
+                  <span className={`mt-0.5 grid h-9 w-9 place-items-center rounded-md ${meta.tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{p.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {p.area} · {meta.label}
+                    </span>
+                    {p.address && (
+                      <span className="mt-0.5 block truncate text-[11px] text-muted-foreground/80">
+                        {p.address}
+                      </span>
+                    )}
+                    <span className="mt-1 block rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[11px] text-foreground">
+                      {p.lat.toFixed(6)}, {p.lng.toFixed(6)}
+                    </span>
+                  </span>
                 </button>
-              ))}
-            </div>
-
-            {/* Type filter */}
-            <div className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              Property type
-            </div>
-            <div className="mb-3 grid grid-cols-4 gap-1.5">
-              {(["All", "home", "office", "commercial"] as const).map((t) => {
-                const active = typeFilter === t;
-                const Icon = t === "All" ? MapPin : TYPE_META[t as PlaceType].icon;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setTypeFilter(t as typeof typeFilter)}
-                    className={`flex flex-col items-center gap-1 rounded-md border px-2 py-2 text-[11px] capitalize transition ${
-                      active
-                        ? "border-primary bg-primary/10 text-primary"
-                        : "border-border text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <Icon className="h-3.5 w-3.5" />
-                    {t === "All" ? "All" : TYPE_META[t as PlaceType].label}
-                  </button>
-                );
-              })}
-            </div>
-
-            {/* Place list */}
-            <div className="max-h-[420px] space-y-1 overflow-y-auto pr-1">
-              {filteredPlaces.length === 0 && (
-                <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                  No locations match your filters.
-                </div>
-              )}
-              {filteredPlaces.map((p) => {
-                const active = activePlace?.id === p.id && !customLocation;
-                const meta = TYPE_META[p.type];
-                const Icon = meta.icon;
-                return (
-                  <button
-                    key={p.id}
-                    onClick={() => {
-                      setActivePlace(p);
-                      setCustomLocation(null);
-                    }}
-                    className={`flex w-full items-start gap-3 rounded-md border p-2.5 text-left transition ${
-                      active
-                        ? "border-primary bg-primary/10"
-                        : "border-transparent hover:border-border hover:bg-accent"
-                    }`}
-                  >
-                    <span className={`mt-0.5 grid h-8 w-8 place-items-center rounded-md ${meta.tone}`}>
-                      <Icon className="h-4 w-4" />
-                    </span>
-                    <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-medium">{p.name}</span>
-                      <span className="block truncate text-xs text-muted-foreground">
-                        {p.area} · {meta.label}
-                      </span>
-                      <span className="mt-0.5 block font-mono text-[10px] text-muted-foreground/80">
-                        {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
-                      </span>
-                    </span>
-                  </button>
-                );
-              })}
-            </div>
+              );
+            })}
           </div>
-
-          {/* Custom location via map/search */}
-          <div className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-2 flex items-center justify-between">
-              <h3 className="font-display text-sm">Or pick anywhere</h3>
-              {customLocation && (
+        ) : (
+          <div className="flex gap-2 overflow-x-auto pb-1">
+            {filteredPlaces.map((p) => {
+              const active = activePlace?.id === p.id && !customLocation;
+              const meta = TYPE_META[p.type];
+              const Icon = meta.icon;
+              return (
                 <button
-                  onClick={() => setCustomLocation(null)}
-                  className="text-xs text-muted-foreground hover:text-foreground"
+                  key={p.id}
+                  onClick={() => {
+                    setActivePlace(p);
+                    setCustomLocation(null);
+                  }}
+                  className={`flex min-w-[220px] shrink-0 items-start gap-2 rounded-lg border p-2.5 text-left transition ${
+                    active
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:bg-accent"
+                  }`}
                 >
-                  Clear
+                  <span className={`grid h-8 w-8 shrink-0 place-items-center rounded-md ${meta.tone}`}>
+                    <Icon className="h-4 w-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-sm font-medium">{p.name}</span>
+                    <span className="block truncate text-xs text-muted-foreground">
+                      {p.area} · {meta.label}
+                    </span>
+                    <span className="mt-0.5 block truncate font-mono text-[10px] text-muted-foreground/80">
+                      {p.lat.toFixed(4)}, {p.lng.toFixed(4)}
+                    </span>
+                  </span>
                 </button>
-              )}
-            </div>
+              );
+            })}
+          </div>
+        )}
+
+        {/* Custom location picker */}
+        <details className="mt-4 rounded-lg border border-border">
+          <summary className="cursor-pointer px-3 py-2 text-sm font-medium">
+            Or pick anywhere on the map
+            {customLocation && (
+              <button
+                onClick={(e) => {
+                  e.preventDefault();
+                  setCustomLocation(null);
+                }}
+                className="ml-3 text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear
+              </button>
+            )}
+          </summary>
+          <div className="border-t border-border p-3">
             <LocationPicker value={customLocation} onChange={setCustomLocation} compact />
           </div>
-        </aside>
+        </details>
+      </div>
 
-        {/* --------------------------- RIGHT: images + apply --------------------------- */}
-        <section className="space-y-4">
-          {/* Active coordinate strip */}
-          <div className="flex flex-wrap items-center gap-3 rounded-xl border border-border bg-card p-4">
-            <div className="grid h-11 w-11 shrink-0 place-items-center rounded-lg bg-primary/15 text-primary">
-              <Crosshair className="h-5 w-5" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium">
-                {activeCoord?.label ?? "No location selected"}
-              </div>
-              <div className="font-mono text-xs text-muted-foreground">
-                {activeCoord
-                  ? `${activeCoord.lat.toFixed(6)}, ${activeCoord.lng.toFixed(6)}`
-                  : "Pick a location to see coordinates"}
-              </div>
-            </div>
-            <button
-              onClick={copyCoord}
-              disabled={!activeCoord}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-40"
-            >
-              {copied ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-              {copied ? "Copied" : "Copy"}
-            </button>
-            <button
-              onClick={applyToSelected}
-              disabled={!activeCoord || images.length === 0}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-            >
-              <MapPin className="h-3.5 w-3.5" />
-              Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
-            </button>
+      {/* Images section */}
+      <section className="space-y-4">
+        {/* Dropzone */}
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+          }}
+          onClick={() => inputRef.current?.click()}
+          className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition ${
+            dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"
+          }`}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => e.target.files && addFiles(e.target.files)}
+          />
+          <UploadCloud className="h-8 w-8 text-muted-foreground" />
+          <div className="text-sm font-medium">Drop images here or click to browse</div>
+          <div className="text-xs text-muted-foreground">
+            JPG, PNG, WEBP — bulk upload supported
           </div>
+        </div>
 
-          {/* Dropzone */}
-          <div
-            onDragOver={(e) => {
-              e.preventDefault();
-              setDragOver(true);
-            }}
-            onDragLeave={() => setDragOver(false)}
-            onDrop={(e) => {
-              e.preventDefault();
-              setDragOver(false);
-              if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-            }}
-            onClick={() => inputRef.current?.click()}
-            className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-8 text-center transition ${
-              dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"
-            }`}
-          >
-            <input
-              ref={inputRef}
-              type="file"
-              accept="image/*"
-              multiple
-              hidden
-              onChange={(e) => e.target.files && addFiles(e.target.files)}
-            />
-            <UploadCloud className="h-8 w-8 text-muted-foreground" />
-            <div className="text-sm font-medium">Drop images here or click to browse</div>
-            <div className="text-xs text-muted-foreground">
-              JPG, PNG, WEBP — bulk upload supported
-            </div>
-          </div>
-
-          {/* Toolbar */}
-          {images.length > 0 && (
-            <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
-              <div className="flex items-center gap-3 text-xs text-muted-foreground">
+        {/* Toolbar */}
+        {images.length > 0 && (
+          <div className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-border bg-card px-4 py-2.5">
+            <div className="flex items-center gap-3 text-xs text-muted-foreground">
+              <span>
+                <b className="text-foreground">{images.length}</b> image
+                {images.length === 1 ? "" : "s"}
+              </span>
+              {selected.size > 0 && (
                 <span>
-                  <b className="text-foreground">{images.length}</b> image
-                  {images.length === 1 ? "" : "s"}
+                  <b className="text-foreground">{selected.size}</b> selected
                 </span>
-                {selected.size > 0 && (
-                  <span>
-                    <b className="text-foreground">{selected.size}</b> selected
-                  </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                onClick={selected.size === images.length ? clearSelection : selectAll}
+                className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+              >
+                {selected.size === images.length ? "Clear selection" : "Select all"}
+              </button>
+              <button
+                onClick={saveAll}
+                disabled={savingBulk || readyToSave.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+              >
+                {savingBulk ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <UploadCloud className="h-3.5 w-3.5" />
                 )}
-              </div>
-              <div className="flex flex-wrap items-center gap-2">
-                <button
-                  onClick={selected.size === images.length ? clearSelection : selectAll}
-                  className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
-                >
-                  {selected.size === images.length ? "Clear selection" : "Select all"}
-                </button>
-                <button
-                  onClick={saveAll}
-                  disabled={savingBulk || readyToSave.length === 0}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-                >
-                  {savingBulk ? (
-                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                  ) : (
-                    <UploadCloud className="h-3.5 w-3.5" />
-                  )}
-                  Save {readyToSave.length > 0 ? `${readyToSave.length} ` : ""}to cloud
-                </button>
-              </div>
+                Save {readyToSave.length > 0 ? `${readyToSave.length} ` : ""}to cloud
+              </button>
             </div>
-          )}
+          </div>
+        )}
 
-          {/* Image grid */}
-          {images.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
-              <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
-              No images yet. Upload some to start geotagging.
-            </div>
-          ) : (
-            <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4">
-              {images.map((img) => {
-                const isSelected = selected.has(img.id);
-                return (
-                  <div
-                    key={img.id}
-                    className={`group relative overflow-hidden rounded-xl border bg-card transition ${
-                      isSelected ? "border-primary ring-2 ring-primary/40" : "border-border"
-                    }`}
+        {/* Image grid */}
+        {images.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
+            <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
+            No images yet. Upload some to start geotagging.
+          </div>
+        ) : (
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5">
+            {images.map((img) => {
+              const isSelected = selected.has(img.id);
+              return (
+                <div
+                  key={img.id}
+                  className={`group relative overflow-hidden rounded-xl border bg-card transition ${
+                    isSelected ? "border-primary ring-2 ring-primary/40" : "border-border"
+                  }`}
+                >
+                  <button
+                    onClick={() => toggleSelect(img.id)}
+                    className="relative block aspect-square w-full overflow-hidden"
                   >
-                    <button
-                      onClick={() => toggleSelect(img.id)}
-                      className="relative block aspect-square w-full overflow-hidden"
-                    >
-                      <img
-                        src={img.previewUrl}
-                        alt={img.file.name}
-                        className="h-full w-full object-cover transition group-hover:scale-105"
-                      />
-                      {img.lat !== null && (
-                        <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
-                          <MapPin className="h-3 w-3" />
-                          Tagged
-                        </span>
-                      )}
-                      {img.status === "saved" && (
-                        <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
-                          <Check className="h-3 w-3" /> Saved
-                        </span>
-                      )}
-                      {img.status === "saving" && (
-                        <span className="absolute inset-0 grid place-items-center bg-black/40">
-                          <Loader2 className="h-6 w-6 animate-spin text-white" />
-                        </span>
-                      )}
-                      {isSelected && (
-                        <span className="absolute inset-0 ring-2 ring-inset ring-primary" />
-                      )}
-                    </button>
-                    <div className="space-y-1.5 p-2.5">
-                      <div className="truncate text-xs font-medium" title={img.file.name}>
-                        {img.file.name}
+                    <img
+                      src={img.previewUrl}
+                      alt={img.file.name}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                    {img.lat !== null && (
+                      <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
+                        <MapPin className="h-3 w-3" />
+                        Tagged
+                      </span>
+                    )}
+                    {img.status === "saved" && (
+                      <span className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-500/90 px-2 py-0.5 text-[10px] font-medium text-white">
+                        <Check className="h-3 w-3" /> Saved
+                      </span>
+                    )}
+                    {img.status === "saving" && (
+                      <span className="absolute inset-0 grid place-items-center bg-black/40">
+                        <Loader2 className="h-6 w-6 animate-spin text-white" />
+                      </span>
+                    )}
+                    {isSelected && (
+                      <span className="absolute inset-0 ring-2 ring-inset ring-primary" />
+                    )}
+                  </button>
+                  <div className="space-y-1.5 p-2.5">
+                    <div className="truncate text-xs font-medium" title={img.file.name}>
+                      {img.file.name}
+                    </div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {img.locationLabel ?? "Not tagged"}
+                    </div>
+                    {img.lat !== null && (
+                      <div className="font-mono text-[10px] text-muted-foreground/80">
+                        {img.lat.toFixed(4)}, {img.lng!.toFixed(4)}
                       </div>
-                      <div className="truncate text-[11px] text-muted-foreground">
-                        {img.locationLabel ?? "Not tagged"}
-                      </div>
-                      {img.lat !== null && (
-                        <div className="font-mono text-[10px] text-muted-foreground/80">
-                          {img.lat.toFixed(4)}, {img.lng!.toFixed(4)}
-                        </div>
-                      )}
-                      <div className="flex items-center gap-1.5 pt-1">
-                        <button
-                          onClick={() => applyToTargets([img.id])}
-                          disabled={!activeCoord}
-                          className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
-                        >
-                          Tag
-                        </button>
-                        <button
-                          onClick={() => removeImage(img.id)}
-                          className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                          aria-label="Remove"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 pt-1">
+                      <button
+                        onClick={() => applyToTargets([img.id])}
+                        disabled={!activeCoord}
+                        className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+                      >
+                        Tag
+                      </button>
+                      <button
+                        onClick={() => removeImage(img.id)}
+                        className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Remove"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
                     </div>
                   </div>
-                );
-              })}
-            </div>
-          )}
-        </section>
-      </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </section>
     </div>
   );
 }
+
 
 /* -------------------------------------------------------------------------- */
 /* Small UI bits                                                              */
