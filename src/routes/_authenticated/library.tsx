@@ -297,7 +297,10 @@ function LibraryPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {tab === "videos" ? (
+        <VideosPanel />
+      ) : isLoading ? (
+
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
