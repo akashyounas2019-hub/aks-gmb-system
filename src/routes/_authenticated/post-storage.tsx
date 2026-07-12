@@ -1,6 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import { AppShell } from "@/components/AppShell";
 import {
   Folder,
   FolderPlus,
@@ -16,6 +15,11 @@ import {
 export const Route = createFileRoute("/_authenticated/post-storage")({
   component: PostStoragePage,
 });
+
+export function PostStoragePage() {
+  return <PostStoragePanel />;
+}
+
 
 type PostStatus = "Draft" | "Upcoming" | "Published" | "Live";
 
@@ -67,7 +71,8 @@ const STATUS_STYLES: Record<PostStatus, string> = {
   Live: "bg-primary/15 text-primary border-primary/30",
 };
 
-function PostStoragePage() {
+export function PostStoragePanel() {
+
   const [folders, setFolders] = useState<Folder[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [activeFolder, setActiveFolder] = useState<string | "all" | "unfiled">("all");
@@ -209,8 +214,9 @@ function PostStoragePage() {
   ];
 
   return (
-    <AppShell>
-      <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div>
+      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+
         {/* Header */}
         <div className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between gap-4">
@@ -404,7 +410,9 @@ function PostStoragePage() {
           onConfirm={(when) => schedulePost(scheduling.id, when)}
         />
       )}
-    </AppShell>
+    </div>
+
+
   );
 }
 

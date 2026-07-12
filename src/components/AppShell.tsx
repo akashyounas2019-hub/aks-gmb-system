@@ -8,7 +8,7 @@ import {
   ChevronDown,
 
   Images,
-  Inbox,
+  
   KeyRound,
   LayoutDashboard,
   LogOut,
@@ -54,9 +54,9 @@ const groups: NavGroup[] = [
     label: "Content Writer",
     items: [
       { to: "/post-generator", label: "Post Generator", icon: PenSquare },
-      { to: "/post-storage", label: "Post Storage", icon: Inbox },
     ],
   },
+
   {
     label: "Publishing",
     items: [
