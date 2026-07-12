@@ -636,6 +636,9 @@ function PostGeneratorPage() {
           </section>
         </div>
       </div>
+      )}
+
+
 
       {/* Full gallery modal */}
       {galleryOpen && (
