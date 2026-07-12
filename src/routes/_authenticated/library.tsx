@@ -18,18 +18,20 @@ import {
   HardDrive,
   Images as ImagesIcon,
   CheckCircle2,
+  UploadCloud,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
+import { UploadPanel } from "@/components/UploadPanel";
 
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
 
-type LibraryTab = "raw" | "published" | "geotagged" | "videos";
+type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
 
 
 async function fetchLibrary() {
@@ -164,6 +166,7 @@ function LibraryPage() {
   }
 
   const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
+    { id: "upload", label: "Upload", icon: UploadCloud },
     { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
     { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
