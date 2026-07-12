@@ -147,36 +147,81 @@ async function refreshIfNeeded(
   return json.access_token;
 }
 
-async function callGoogle(accessToken: string, url: string, userId?: string): Promise<unknown> {
-  const t0 = Date.now();
-  const endpoint = url.split("?")[0];
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${accessToken}` },
+// ─── Rate limiter & retry ─────────────────────────────────────────────
+// Google Business Profile APIs have low per-minute quotas. We serialize
+// outbound calls with a minimum spacing and retry on 429/5xx with backoff
+// so bursts (e.g. listing many accounts/locations) stay inside quota.
+const GMB_MIN_INTERVAL_MS = 350; // ~3 req/s ceiling
+const GMB_MAX_RETRIES = 4;
+let gmbNextAllowedAt = 0;
+let gmbChain: Promise<void> = Promise.resolve();
+
+function sleep(ms: number): Promise<void> {
+  return new Promise((r) => setTimeout(r, ms));
+}
+
+function acquireGmbSlot(): Promise<void> {
+  const p = gmbChain.then(async () => {
+    const now = Date.now();
+    const wait = Math.max(0, gmbNextAllowedAt - now);
+    if (wait > 0) await sleep(wait);
+    gmbNextAllowedAt = Date.now() + GMB_MIN_INTERVAL_MS;
   });
-  const text = await res.text();
-  let body: unknown;
-  try {
-    body = text ? JSON.parse(text) : null;
-  } catch {
-    body = text;
-  }
-  const ms = Date.now() - t0;
-  if (!res.ok) {
+  gmbChain = p.catch(() => undefined);
+  return p;
+}
+
+async function callGoogle(accessToken: string, url: string, userId?: string): Promise<unknown> {
+  const endpoint = url.split("?")[0];
+  let attempt = 0;
+  // eslint-disable-next-line no-constant-condition
+  while (true) {
+    await acquireGmbSlot();
+    const t0 = Date.now();
+    const res = await fetch(url, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    const text = await res.text();
+    let body: unknown;
+    try {
+      body = text ? JSON.parse(text) : null;
+    } catch {
+      body = text;
+    }
+    const ms = Date.now() - t0;
+
+    if (res.ok) {
+      if (userId) logGmb("google.ok", userId, { endpoint, status: res.status, ms, attempt });
+      return body;
+    }
+
+    const retriable = res.status === 429 || res.status === 503 || res.status === 500;
+    if (retriable && attempt < GMB_MAX_RETRIES) {
+      const retryAfter = Number(res.headers.get("retry-after"));
+      const backoff = Number.isFinite(retryAfter) && retryAfter > 0
+        ? retryAfter * 1000
+        : Math.min(16_000, 500 * Math.pow(2, attempt)) + Math.floor(Math.random() * 250);
+      if (userId) {
+        logGmb("google.retry", userId, { endpoint, status: res.status, ms, attempt, backoffMs: backoff });
+      }
+      // Push the shared gate out so parallel callers also back off.
+      gmbNextAllowedAt = Math.max(gmbNextAllowedAt, Date.now() + backoff);
+      attempt += 1;
+      await sleep(backoff);
+      continue;
+    }
+
     const msg =
       (body as { error?: { message?: string } } | null)?.error?.message ??
       (typeof body === "string" ? body : JSON.stringify(body));
     if (userId) {
-      logGmb("google.error", userId, { endpoint, status: res.status, ms, message: msg });
+      logGmb("google.error", userId, { endpoint, status: res.status, ms, attempt, message: msg });
     } else {
       // eslint-disable-next-line no-console
       console.log(`[gmb] step=google.error endpoint=${endpoint} status=${res.status} ms=${ms} message=${msg}`);
     }
     throw new Error(`Google API ${res.status}: ${msg}`);
   }
-  if (userId) {
-    logGmb("google.ok", userId, { endpoint, status: res.status, ms });
-  }
-  return body;
 }
 
 // ─── Build authorization URL ──────────────────────────────────────────
