@@ -497,6 +497,172 @@ function CompetitorsPage() {
     await refresh();
     toast.message("Removed");
   }
+
+  /* -------- Export --------------------------------------------- */
+  function buildExportRows() {
+    return filteredRows.map((c) => {
+      const s = stats[c.id];
+      const level = computeThreatLevel(s);
+      const perKeyword = TRACKED_KEYWORDS.map((k) => {
+        const r = rankMatrix[k.keyword]?.[c.id];
+        return r != null ? `${k.keyword}: #${r}` : `${k.keyword}: —`;
+      }).join(" | ");
+      return {
+        name: c.name,
+        url: c.gbp_url,
+        threat: level,
+        avgRank: s?.avgRank != null ? `#${s.avgRank}` : "—",
+        beating: s?.beating ?? 0,
+        behind: s?.behind ?? 0,
+        coverage: s?.coverage ?? 0,
+        notes: c.notes ?? "",
+        perKeyword,
+      };
+    });
+  }
+
+  function exportCsv() {
+    const data = buildExportRows();
+    const esc = (v: unknown) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const meta = [
+      ["Competitor Analysis Export"],
+      [`Generated: ${new Date().toLocaleString()}`],
+      [`Rank source: ${rankSource ?? "none"}`],
+      [],
+      ["Portfolio KPIs"],
+      ["Tracked competitors", portfolio.total],
+      ["Your average rank", `#${portfolio.yourAvg}`],
+      ["Competitor average", portfolio.compAvg != null ? `#${portfolio.compAvg}` : "—"],
+      ["Threats (≥2 keywords beaten)", portfolio.threatCount],
+      ["Total keywords they beat you on", portfolio.totalBeating],
+      ["Total keywords you beat them on", portfolio.totalBehind],
+      [],
+      ["Insights"],
+      ...insights.map((i) => [i.title, i.detail]),
+      [],
+      ["Competitors"],
+      ["Name", "URL", "Threat", "Avg rank", "Beating you", "Behind you", "Coverage", "Notes", "Per-keyword ranks"],
+    ];
+    const body = data.map((r) => [
+      r.name, r.url, r.threat, r.avgRank, r.beating, r.behind, r.coverage, r.notes, r.perKeyword,
+    ]);
+    const csv = [...meta, ...body].map((row) => row.map(esc).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `competitor-analysis-${new Date().toISOString().slice(0, 10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+    toast.success("CSV exported");
+  }
+
+  function exportPdf() {
+    const doc = new jsPDF({ orientation: "landscape", unit: "pt", format: "a4" });
+    const marginX = 40;
+    let y = 40;
+
+    doc.setFontSize(18);
+    doc.text("Competitor Analysis", marginX, y);
+    y += 20;
+    doc.setFontSize(10);
+    doc.setTextColor(120);
+    doc.text(
+      `Generated ${new Date().toLocaleString()} · Rank source: ${rankSource ?? "none"} · ${filteredRows.length} of ${rows.length} competitors`,
+      marginX,
+      y,
+    );
+    doc.setTextColor(0);
+    y += 18;
+
+    // KPI table
+    autoTable(doc, {
+      startY: y,
+      head: [["Portfolio KPI", "Value"]],
+      body: [
+        ["Tracked competitors", String(portfolio.total)],
+        ["Your average rank", `#${portfolio.yourAvg}`],
+        ["Competitor average", portfolio.compAvg != null ? `#${portfolio.compAvg}` : "—"],
+        ["Threats (≥2 keywords beaten)", String(portfolio.threatCount)],
+        ["Keywords they beat you on (total)", String(portfolio.totalBeating)],
+        ["Keywords you beat them on (total)", String(portfolio.totalBehind)],
+      ],
+      theme: "striped",
+      headStyles: { fillColor: [30, 30, 40] },
+      styles: { fontSize: 9 },
+      margin: { left: marginX, right: marginX },
+    });
+
+    // Insights
+    // @ts-expect-error autotable adds lastAutoTable
+    y = (doc.lastAutoTable?.finalY ?? y) + 24;
+    doc.setFontSize(13);
+    doc.text("Insights", marginX, y);
+    y += 6;
+    if (insights.length === 0) {
+      y += 14;
+      doc.setFontSize(10);
+      doc.setTextColor(120);
+      doc.text("No insights yet — add competitors and refresh ranks.", marginX, y);
+      doc.setTextColor(0);
+    } else {
+      autoTable(doc, {
+        startY: y + 4,
+        head: [["Signal", "Detail"]],
+        body: insights.map((i) => [i.title, i.detail]),
+        theme: "grid",
+        headStyles: { fillColor: [30, 30, 40] },
+        styles: { fontSize: 9, cellWidth: "wrap" },
+        columnStyles: { 0: { cellWidth: 220 }, 1: { cellWidth: "auto" } },
+        margin: { left: marginX, right: marginX },
+      });
+    }
+
+    // Competitors table
+    // @ts-expect-error autotable adds lastAutoTable
+    y = (doc.lastAutoTable?.finalY ?? y) + 24;
+    doc.setFontSize(13);
+    doc.text("Competitors", marginX, y);
+    const exportRows = buildExportRows();
+    autoTable(doc, {
+      startY: y + 8,
+      head: [["Name", "Threat", "Avg rank", "Beating", "Behind", "Coverage", "URL"]],
+      body: exportRows.map((r) => [r.name, r.threat, r.avgRank, String(r.beating), String(r.behind), String(r.coverage), r.url]),
+      theme: "striped",
+      headStyles: { fillColor: [30, 30, 40] },
+      styles: { fontSize: 8, overflow: "linebreak" },
+      columnStyles: { 6: { cellWidth: 200 } },
+      margin: { left: marginX, right: marginX },
+    });
+
+    // Per-keyword rank matrix
+    // @ts-expect-error autotable adds lastAutoTable
+    y = (doc.lastAutoTable?.finalY ?? y) + 24;
+    doc.setFontSize(13);
+    doc.text("Rank matrix", marginX, y);
+    autoTable(doc, {
+      startY: y + 8,
+      head: [["Keyword", "You", ...filteredRows.map((c) => (c.name.length > 14 ? c.name.slice(0, 12) + "…" : c.name))]],
+      body: TRACKED_KEYWORDS.map((k) => [
+        k.keyword,
+        `#${k.userRank}`,
+        ...filteredRows.map((c) => {
+          const r = rankMatrix[k.keyword]?.[c.id];
+          return r != null ? `#${r}` : "—";
+        }),
+      ]),
+      theme: "grid",
+      headStyles: { fillColor: [30, 30, 40] },
+      styles: { fontSize: 8 },
+      margin: { left: marginX, right: marginX },
+    });
+
+    doc.save(`competitor-analysis-${new Date().toISOString().slice(0, 10)}.pdf`);
+    toast.success("PDF exported");
+  }
   async function onRefreshPlace(c: Competitor) {
     try {
       const res = await refreshPlace({ data: { id: c.id } });
