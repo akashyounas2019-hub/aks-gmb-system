@@ -278,6 +278,14 @@ function GmbAnalyticsPage() {
   const [search, setSearch] = useState("");
   const [gmb, setGmb] = useState(() => readGmbConnection());
   const [connectBusy, setConnectBusy] = useState(false);
+  const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
+  const fetchCompetitors = useServerFn(listCompetitors);
+
+  useEffect(() => {
+    fetchCompetitors()
+      .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
+      .catch(() => setCompetitors([]));
+  }, [fetchCompetitors]);
 
   useEffect(() => {
     const sync = () => setGmb(readGmbConnection());
