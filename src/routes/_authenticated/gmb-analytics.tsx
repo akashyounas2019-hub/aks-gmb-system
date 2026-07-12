@@ -484,31 +484,43 @@ function GmbAnalyticsPage() {
     toast.message("Disconnected");
   }
 
-  const summary = useMemo(() => {
-    const improved = MOCK_KEYWORDS.filter((k) => k.previous > k.current).length;
-    const declined = MOCK_KEYWORDS.filter((k) => k.previous < k.current).length;
-    const top3 = MOCK_KEYWORDS.filter((k) => k.current <= 3).length;
-    const avg =
-      MOCK_KEYWORDS.reduce((s, k) => s + k.current, 0) / MOCK_KEYWORDS.length;
-    return { improved, declined, top3, avg: avg.toFixed(1) };
-  }, []);
+  // Real data if available, else MOCK. Powers every keyword-driven UI section.
+  const keywordRows: KeywordRow[] = realKeywords ?? MOCK_KEYWORDS;
+  const usingRealData = realKeywords !== null;
 
-  const activeGrid = useMemo(() => buildGrid(keyword, 0), [keyword]);
-  const previousGrid = useMemo(() => buildGrid(keyword, 1), [keyword]);
+  const summary = useMemo(() => {
+    const improved = keywordRows.filter((k) => k.previous > k.current).length;
+    const declined = keywordRows.filter((k) => k.previous < k.current).length;
+    const top3 = keywordRows.filter((k) => k.current <= 3).length;
+    const avg =
+      keywordRows.length > 0
+        ? keywordRows.reduce((s, k) => s + k.current, 0) / keywordRows.length
+        : 0;
+    return { improved, declined, top3, avg: avg.toFixed(1) };
+  }, [keywordRows]);
+
+  const activeGrid = useMemo(
+    () => (realCurrentGrid && realCurrentGrid.length > 0 ? realCurrentGrid : buildGrid(keyword, 0)),
+    [keyword, realCurrentGrid],
+  );
+  const previousGrid = useMemo(
+    () => (realPreviousGrid && realPreviousGrid.length > 0 ? realPreviousGrid : buildGrid(keyword, 1)),
+    [keyword, realPreviousGrid],
+  );
   const gridStats = useMemo(() => {
     const ranks = activeGrid.map((c) => c.rank);
     const prevRanks = previousGrid.map((c) => c.rank);
     const top3 = ranks.filter((r) => r <= 3).length;
     const prevTop3 = prevRanks.filter((r) => r <= 3).length;
-    const avg = ranks.reduce((a, b) => a + b, 0) / ranks.length;
-    const prevAvg = prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length;
-    const share = Math.round((top3 / ranks.length) * 100);
+    const avg = ranks.length > 0 ? ranks.reduce((a, b) => a + b, 0) / ranks.length : 0;
+    const prevAvg = prevRanks.length > 0 ? prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length : 0;
+    const share = ranks.length > 0 ? Math.round((top3 / ranks.length) * 100) : 0;
     return {
       top3,
       avg: avg.toFixed(1),
       share,
       top3Delta: top3 - prevTop3,
-      avgDelta: +(prevAvg - avg).toFixed(1), // positive = improved (lower avg rank)
+      avgDelta: +(prevAvg - avg).toFixed(1),
     };
   }, [activeGrid, previousGrid]);
 
@@ -529,7 +541,7 @@ function GmbAnalyticsPage() {
       const res = await suggest({
         data: {
           businessName: BUSINESS.name,
-          rankings: MOCK_KEYWORDS.map((k) => ({
+          rankings: keywordRows.map((k) => ({
             keyword: k.keyword,
             current: k.current,
             previous: k.previous,
@@ -547,10 +559,11 @@ function GmbAnalyticsPage() {
   }
 
   const filteredKw = search.trim()
-    ? MOCK_KEYWORDS.filter((k) =>
+    ? keywordRows.filter((k) =>
         k.keyword.toLowerCase().includes(search.trim().toLowerCase()),
       )
-    : MOCK_KEYWORDS;
+    : keywordRows;
+
 
   return (
     <div
