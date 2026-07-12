@@ -656,6 +656,133 @@ function PostGeneratorPage() {
           </div>
         </div>
       )}
+
+      {/* Preview & confirm modal */}
+      {previewOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+          onClick={() => !sending && setPreviewOpen(false)}
+        >
+          <div
+            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <div>
+                <div className="text-sm font-medium">Preview & confirm</div>
+                <div className="text-xs text-muted-foreground">
+                  Exactly what will be sent to {networks.join(", ") || "no networks"}
+                  {scheduledAt ? ` at ${new Date(scheduledAt).toLocaleString()}` : " right now"}.
+                </div>
+              </div>
+              <button
+                onClick={() => !sending && setPreviewOpen(false)}
+                className="rounded p-1 hover:bg-accent disabled:opacity-40"
+                disabled={sending}
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <div className="flex-1 space-y-4 overflow-y-auto p-5">
+              {/* Mock GMB card */}
+              <div className="rounded-lg border border-border bg-card p-4">
+                <div className="flex items-center gap-3">
+                  <div className="h-9 w-9 rounded-full bg-primary/15" />
+                  <div>
+                    <div className="text-sm font-semibold">
+                      {businessName || "Your Business"}
+                    </div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {location?.label ?? "No location set"} · now
+                    </div>
+                  </div>
+                </div>
+                <div
+                  className="mt-3 whitespace-pre-wrap text-sm leading-relaxed"
+                  dir={language === "ar" ? "rtl" : "ltr"}
+                >
+                  {caption}
+                </div>
+                {Array.from(selectedImages).length > 0 && (
+                  <div
+                    className={`mt-3 grid gap-1 ${
+                      selectedImages.size === 1
+                        ? "grid-cols-1"
+                        : selectedImages.size === 2
+                          ? "grid-cols-2"
+                          : "grid-cols-2 sm:grid-cols-3"
+                    }`}
+                  >
+                    {Array.from(selectedImages).map((id) => {
+                      const img = images.find((i) => i.id === id);
+                      if (!img) return null;
+                      return (
+                        <SignedImage
+                          key={id}
+                          bucket="frames"
+                          path={img.storage_path}
+                          alt={img.name}
+                          className="aspect-square w-full rounded object-cover"
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+
+              <div className="grid gap-2 text-xs sm:grid-cols-2">
+                <InfoRow label="Networks" value={networks.join(", ") || "—"} />
+                <InfoRow
+                  label="Schedule"
+                  value={
+                    scheduledAt
+                      ? new Date(scheduledAt).toLocaleString()
+                      : "Send immediately"
+                  }
+                />
+                <InfoRow label="Primary keyword" value={manualKw[0] ?? "—"} />
+                <InfoRow label="GHL Location" value={ghlLocationId || "default"} />
+              </div>
+            </div>
+            <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+              <button
+                onClick={() => setPreviewOpen(false)}
+                disabled={sending}
+                className="rounded-lg border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-40"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={async () => {
+                  await handleSend();
+                  setPreviewOpen(false);
+                }}
+                disabled={sending || !caption.trim() || networks.length === 0}
+                className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Confirm & {scheduledAt ? "schedule" : "send"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-card/50 p-2">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 truncate">{value}</div>
     </div>
   );
 }
