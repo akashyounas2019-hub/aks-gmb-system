@@ -21,6 +21,7 @@ import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
 import { Route as AuthenticatedGmbOauthCallbackRouteImport } from './routes/_authenticated/gmb-oauth-callback'
 import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
 import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
@@ -94,6 +95,11 @@ const AuthenticatedGmbAnalyticsRoute =
     path: '/gmb-analytics',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedCompetitorsRoute =
   AuthenticatedCompetitorsRouteImport.update({
     id: '/competitors',
@@ -159,6 +165,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
@@ -182,6 +189,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
+  '/dashboard': typeof AuthenticatedDashboardRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
@@ -207,6 +215,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/competitors': typeof AuthenticatedCompetitorsRoute
+  '/_authenticated/dashboard': typeof AuthenticatedDashboardRoute
   '/_authenticated/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/_authenticated/gmb-oauth-callback': typeof AuthenticatedGmbOauthCallbackRoute
   '/_authenticated/keywords': typeof AuthenticatedKeywordsRoute
@@ -232,6 +241,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/calendar'
     | '/competitors'
+    | '/dashboard'
     | '/gmb-analytics'
     | '/gmb-oauth-callback'
     | '/keywords'
@@ -255,6 +265,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/calendar'
     | '/competitors'
+    | '/dashboard'
     | '/gmb-analytics'
     | '/gmb-oauth-callback'
     | '/keywords'
@@ -279,6 +290,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/_authenticated/calendar'
     | '/_authenticated/competitors'
+    | '/_authenticated/dashboard'
     | '/_authenticated/gmb-analytics'
     | '/_authenticated/gmb-oauth-callback'
     | '/_authenticated/keywords'
@@ -388,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/gmb-analytics'
       fullPath: '/gmb-analytics'
       preLoaderRoute: typeof AuthenticatedGmbAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/competitors': {
@@ -504,6 +523,7 @@ const AuthenticatedSettingsRouteWithChildren =
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCompetitorsRoute: typeof AuthenticatedCompetitorsRoute
+  AuthenticatedDashboardRoute: typeof AuthenticatedDashboardRoute
   AuthenticatedGmbAnalyticsRoute: typeof AuthenticatedGmbAnalyticsRoute
   AuthenticatedGmbOauthCallbackRoute: typeof AuthenticatedGmbOauthCallbackRoute
   AuthenticatedKeywordsRoute: typeof AuthenticatedKeywordsRoute
@@ -518,6 +538,7 @@ interface AuthenticatedRouteRouteChildren {
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCompetitorsRoute: AuthenticatedCompetitorsRoute,
+  AuthenticatedDashboardRoute: AuthenticatedDashboardRoute,
   AuthenticatedGmbAnalyticsRoute: AuthenticatedGmbAnalyticsRoute,
   AuthenticatedGmbOauthCallbackRoute: AuthenticatedGmbOauthCallbackRoute,
   AuthenticatedKeywordsRoute: AuthenticatedKeywordsRoute,
