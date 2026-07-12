@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDownRight,
@@ -299,6 +299,9 @@ function GmbAnalyticsPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [metricsErr, setMetricsErr] = useState<string | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
+  // OAuth is complete but no Business Profile location has been selected yet.
+  const [needsLocation, setNeedsLocation] = useState(false);
+  const navigate = useNavigate();
 
   // Live competitor rank lookup state.
   const [rankSource, setRankSource] = useState<"serpapi" | "dataforseo" | "local_falcon" | null>(null);
@@ -350,13 +353,25 @@ function GmbAnalyticsPage() {
     async function run() {
       try {
         const s = await fetchGmbStatus();
-        if (!s.connected || !s.locationName) {
+        if (!s.connected) {
           if (!cancelled) {
             setMetrics(null);
             setMetricsErr(null);
+            setNeedsLocation(false);
           }
           return;
         }
+        if (!s.locationName) {
+          // OAuth done but no location selected → this is the #1 reason
+          // the dashboard shows sample data even though "connected".
+          if (!cancelled) {
+            setMetrics(null);
+            setMetricsErr(null);
+            setNeedsLocation(true);
+          }
+          return;
+        }
+        if (!cancelled) setNeedsLocation(false);
         setLoadingMetrics(true);
         setMetricsErr(null);
         const m = await fetchMetrics();
@@ -384,22 +399,14 @@ function GmbAnalyticsPage() {
     };
   }, []);
 
-  async function handleConnect() {
+  function handleConnect() {
+    // Real Google OAuth is driven from Settings → Integrations (needs the
+    // user's OAuth client credentials + a Business Profile location pick).
+    // Sending them there is the only path that yields live data.
     setConnectBusy(true);
-    try {
-      await new Promise((r) => setTimeout(r, 600));
-      writeGmbConnection({
-        connected: true,
-        accountName: "Pearl Home Cleaning",
-        locationName: "Downtown Dubai",
-        connectedAt: new Date().toISOString(),
-      });
-      toast.success(gmb.connected ? "Reconnected" : "Connected");
-    } finally {
-      setConnectBusy(false);
-    }
+    navigate({ to: "/settings/integrations" });
   }
-  function handleDisconnect() {
+  async function handleDisconnect() {
     writeGmbConnection({ connected: false });
     toast.message("Disconnected");
   }
@@ -565,7 +572,22 @@ function GmbAnalyticsPage() {
         )}
       </div>
 
-
+      {needsLocation && (
+        <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
+          <div>
+            <div className="font-medium text-amber-200">Google is connected — pick a business location to load live data</div>
+            <div className="mt-0.5 text-xs text-amber-200/80">
+              OAuth succeeded, but no Business Profile location is selected yet. Until you pick one, the dashboard keeps showing sample data.
+            </div>
+          </div>
+          <Link
+            to="/settings/integrations"
+            className="rounded-lg bg-amber-500 px-3 py-2 text-xs font-semibold text-black hover:opacity-90"
+          >
+            Choose location →
+          </Link>
+        </div>
+      )}
 
       {/* Business card */}
       <div className="mt-6 rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 p-5">
