@@ -655,7 +655,12 @@ function PostGeneratorPage() {
         <div className="space-y-4">
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-sm font-medium">Caption</div>
+              <div>
+                <div className="text-sm font-medium">Post body</div>
+                <div className="text-[11px] text-muted-foreground">
+                  This is what will be posted. Max {CAPTION_LIMIT} characters.
+                </div>
+              </div>
               <button
                 onClick={copyOut}
                 disabled={!caption}
@@ -669,10 +674,34 @@ function PostGeneratorPage() {
               onChange={(e) => setCaption(e.target.value)}
               rows={16}
               dir={language === "ar" ? "rtl" : "ltr"}
+              aria-invalid={captionOver}
               placeholder="Click Generate with AI to draft a post, then edit here."
-              className="w-full rounded border border-border bg-background p-3 text-sm"
+              className={`w-full rounded border bg-background p-3 text-sm outline-none transition ${
+                captionOver
+                  ? "border-red-500 text-red-600 focus:ring-2 focus:ring-red-500/40"
+                  : "border-border focus:ring-2 focus:ring-primary/40"
+              }`}
             />
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
+                {captionOver
+                  ? `Post body exceeds the ${CAPTION_LIMIT}-character limit. Trim ${captionLen - CAPTION_LIMIT} character${captionLen - CAPTION_LIMIT === 1 ? "" : "s"} to send.`
+                  : "Google Business Profile allows up to 1,500 characters per post."}
+              </span>
+              <span
+                className={`font-mono tabular-nums ${
+                  captionOver
+                    ? "font-semibold text-red-500"
+                    : captionLen > CAPTION_LIMIT - 100
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {captionLen}/{CAPTION_LIMIT}
+              </span>
+            </div>
           </section>
+
 
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Publish</div>
