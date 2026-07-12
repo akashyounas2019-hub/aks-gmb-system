@@ -126,6 +126,8 @@ function GeotaggingPage() {
   const [images, setImages] = useState<LocalImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
+  const [step, setStep] = useState<1 | 2 | 3 | 4>(1);
+  const [openSection, setOpenSection] = useState<"quick" | "library" | "map">("quick");
 
   const [areaFilter, setAreaFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<PlaceType | "All">("All");
