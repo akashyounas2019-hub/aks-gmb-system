@@ -316,11 +316,56 @@ export type Database = {
           },
         ]
       }
+      keyword_folders: {
+        Row: {
+          color: string | null
+          created_at: string
+          description: string | null
+          id: string
+          name: string
+          owner_id: string
+          parent_id: string | null
+          position: number
+          updated_at: string
+        }
+        Insert: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name: string
+          owner_id: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Update: {
+          color?: string | null
+          created_at?: string
+          description?: string | null
+          id?: string
+          name?: string
+          owner_id?: string
+          parent_id?: string | null
+          position?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "keyword_folders_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       keywords: {
         Row: {
           cluster: string | null
           cpc: number | null
           created_at: string
+          folder_id: string | null
           id: string
           intent: string | null
           keyword_difficulty: number | null
@@ -333,6 +378,7 @@ export type Database = {
           cluster?: string | null
           cpc?: number | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           intent?: string | null
           keyword_difficulty?: number | null
@@ -345,6 +391,7 @@ export type Database = {
           cluster?: string | null
           cpc?: number | null
           created_at?: string
+          folder_id?: string | null
           id?: string
           intent?: string | null
           keyword_difficulty?: number | null
@@ -353,7 +400,15 @@ export type Database = {
           source?: string | null
           volume?: number | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "keywords_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "keyword_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       location_history: {
         Row: {
