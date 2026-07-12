@@ -20,6 +20,7 @@ import {
   saveIntegration,
   deleteIntegration,
 } from "@/lib/user-integrations.functions";
+import { PROVIDER_RULES, validateField, type ProviderId } from "@/lib/user-integrations.validation";
 
 export const Route = createFileRoute("/_authenticated/settings/integrations")({
   component: IntegrationsPage,
