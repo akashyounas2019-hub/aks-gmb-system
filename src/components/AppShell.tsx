@@ -1,8 +1,9 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { Film, Images, LogOut, Upload } from "lucide-react";
+import { Film, Images, LogOut, Upload, Workflow } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 const nav = [
+  { to: "/wizard", label: "Pipeline", icon: Workflow },
   { to: "/upload", label: "Upload", icon: Upload },
   { to: "/library", label: "Library", icon: Images },
   { to: "/videos", label: "Videos", icon: Film },
