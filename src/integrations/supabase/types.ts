@@ -14,6 +14,30 @@ export type Database = {
   }
   public: {
     Tables: {
+      image_keywords: {
+        Row: {
+          created_at: string
+          image_id: string
+          is_primary: boolean
+          keyword_id: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          image_id: string
+          is_primary?: boolean
+          keyword_id: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          image_id?: string
+          is_primary?: boolean
+          keyword_id?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
       image_tags: {
         Row: {
           created_at: string
@@ -112,6 +136,135 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      keywords: {
+        Row: {
+          cluster: string | null
+          cpc: number | null
+          created_at: string
+          id: string
+          intent: string | null
+          keyword_difficulty: number | null
+          owner_id: string
+          phrase: string
+          source: string | null
+          volume: number | null
+        }
+        Insert: {
+          cluster?: string | null
+          cpc?: number | null
+          created_at?: string
+          id?: string
+          intent?: string | null
+          keyword_difficulty?: number | null
+          owner_id: string
+          phrase: string
+          source?: string | null
+          volume?: number | null
+        }
+        Update: {
+          cluster?: string | null
+          cpc?: number | null
+          created_at?: string
+          id?: string
+          intent?: string | null
+          keyword_difficulty?: number | null
+          owner_id?: string
+          phrase?: string
+          source?: string | null
+          volume?: number | null
+        }
+        Relationships: []
+      }
+      location_history: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          last_used_at: string
+          lat: number
+          lng: number
+          owner_id: string
+          place_id: string | null
+          used_count: number
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          last_used_at?: string
+          lat: number
+          lng: number
+          owner_id: string
+          place_id?: string | null
+          used_count?: number
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          last_used_at?: string
+          lat?: number
+          lng?: number
+          owner_id?: string
+          place_id?: string | null
+          used_count?: number
+        }
+        Relationships: []
+      }
+      social_posts: {
+        Row: {
+          caption: string
+          created_at: string
+          error: string | null
+          ghl_location_id: string | null
+          id: string
+          image_ids: string[]
+          lat: number | null
+          lng: number | null
+          location_label: string | null
+          owner_id: string
+          primary_keyword_id: string | null
+          provider_response: Json | null
+          scheduled_at: string | null
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          caption: string
+          created_at?: string
+          error?: string | null
+          ghl_location_id?: string | null
+          id?: string
+          image_ids?: string[]
+          lat?: number | null
+          lng?: number | null
+          location_label?: string | null
+          owner_id: string
+          primary_keyword_id?: string | null
+          provider_response?: Json | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          caption?: string
+          created_at?: string
+          error?: string | null
+          ghl_location_id?: string | null
+          id?: string
+          image_ids?: string[]
+          lat?: number | null
+          lng?: number | null
+          location_label?: string | null
+          owner_id?: string
+          primary_keyword_id?: string | null
+          provider_response?: Json | null
+          scheduled_at?: string | null
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
       }
       tags: {
         Row: {
