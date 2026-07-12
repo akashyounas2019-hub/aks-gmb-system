@@ -1073,4 +1073,246 @@ function RankPill({ rank }: { rank: number }) {
       #{rank}
     </span>
   );
+
+type CompetitorLite = { id: string; name: string; gbp_url: string; place_id: string | null };
+
+const HISTORY_COLORS = ["#3b82f6", "#f97316", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#f43f5e"];
+
+function CompetitorRankHistory({
+  keywords,
+  competitors,
+  rankSource,
+}: {
+  keywords: Array<{ keyword: string; current: number }>;
+  competitors: CompetitorLite[];
+  rankSource: "serpapi" | "dataforseo" | "local_falcon" | null;
+}) {
+  const [selected, setSelected] = useState<string>(keywords[0]?.keyword ?? "");
+  const [rows, setRows] = useState<
+    Array<{ competitorId: string | null; rank: number | null; recordedAt: string }>
+  >([]);
+  const [loading, setLoading] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
+  const fetchHistory = useServerFn(getCompetitorRankHistory);
+
+  useEffect(() => {
+    if (!selected) return;
+    setLoading(true);
+    setErr(null);
+    fetchHistory({ data: { keyword: selected, days: 30 } })
+      .then((r) => setRows(r))
+      .catch((e) => setErr(e instanceof Error ? e.message : "Failed"))
+      .finally(() => setLoading(false));
+  }, [selected, fetchHistory, competitors.length, rankSource]);
+
+  const currentUserRank = keywords.find((k) => k.keyword === selected)?.current ?? null;
+
+  // Group rows into buckets keyed by day (YYYY-MM-DD), value per series.
+  const chartData = useMemo(() => {
+    const byDay = new Map<string, Record<string, number | null>>();
+    for (const r of rows) {
+      const day = r.recordedAt.slice(0, 10);
+      const bucket = byDay.get(day) ?? {};
+      const key = r.competitorId ?? "you";
+      // last value of the day wins
+      bucket[key] = r.rank;
+      byDay.set(day, bucket);
+    }
+    return [...byDay.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([day, vals]) => ({ day, ...vals }));
+  }, [rows]);
+
+  // Latest resolved values (from history) for delta summary.
+  const latestByCompetitor = useMemo(() => {
+    const out: Record<string, number | null> = {};
+    for (const r of rows) {
+      if (r.rank == null) continue;
+      const key = r.competitorId ?? "you";
+      out[key] = r.rank;
+    }
+    return out;
+  }, [rows]);
+
+  const hasData = chartData.length > 0;
+
+  return (
+    <section className="mt-10">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Rank history</h2>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Your rank vs. tracked competitors over the last 30 days
+            {rankSource ? (
+              <>
+                {" "}
+                • source:{" "}
+                <span className="font-medium text-foreground">
+                  {rankSource === "serpapi"
+                    ? "SerpApi"
+                    : rankSource === "dataforseo"
+                      ? "DataForSEO"
+                      : "Local Falcon"}
+                </span>
+              </>
+            ) : null}
+            .
+          </p>
+        </div>
+        <select
+          value={selected}
+          onChange={(e) => setSelected(e.target.value)}
+          className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+        >
+          {keywords.map((k) => (
+            <option key={k.keyword} value={k.keyword}>
+              {k.keyword}
+            </option>
+          ))}
+        </select>
+      </div>
+
+      <div className="rounded-xl border border-border bg-card p-4">
+        {loading ? (
+          <div className="flex h-72 items-center justify-center text-sm text-muted-foreground">
+            <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading history…
+          </div>
+        ) : err ? (
+          <div className="flex h-72 items-center justify-center text-sm text-destructive">
+            {err}
+          </div>
+        ) : !hasData ? (
+          <div className="flex h-72 items-center justify-center text-center text-sm text-muted-foreground">
+            No history yet. Once a rank source is connected, snapshots are
+            recorded each time the dashboard loads competitor ranks.
+          </div>
+        ) : (
+          <RankHistoryChart
+            data={chartData}
+            competitors={competitors}
+          />
+        )}
+
+        {hasData && (
+          <div className="mt-4 flex flex-wrap gap-x-4 gap-y-2 border-t border-border pt-3 text-xs">
+            <span className="flex items-center gap-1.5">
+              <span
+                className="inline-block h-2.5 w-2.5 rounded-full"
+                style={{ backgroundColor: "#22c55e" }}
+              />
+              <span className="text-muted-foreground">You</span>
+              {currentUserRank != null && (
+                <span className="font-medium text-foreground">#{currentUserRank}</span>
+              )}
+            </span>
+            {competitors.map((c, i) => {
+              const latest = latestByCompetitor[c.id] ?? null;
+              const delta =
+                latest != null && currentUserRank != null ? latest - currentUserRank : null;
+              return (
+                <span key={c.id} className="flex items-center gap-1.5">
+                  <span
+                    className="inline-block h-2.5 w-2.5 rounded-full"
+                    style={{ backgroundColor: HISTORY_COLORS[i % HISTORY_COLORS.length] }}
+                  />
+                  <span className="max-w-[140px] truncate text-muted-foreground" title={c.name}>
+                    {c.name}
+                  </span>
+                  {latest != null && (
+                    <span className="font-medium text-foreground">#{latest}</span>
+                  )}
+                  {delta != null && (
+                    <span
+                      className={
+                        delta > 0
+                          ? "text-emerald-500"
+                          : delta < 0
+                            ? "text-destructive"
+                            : "text-muted-foreground"
+                      }
+                    >
+                      {delta > 0 ? `+${delta}` : delta === 0 ? "=" : delta}
+                    </span>
+                  )}
+                </span>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </section>
+  );
 }
+
+function RankHistoryChart({
+  data,
+  competitors,
+}: {
+  data: Array<Record<string, string | number | null>>;
+  competitors: CompetitorLite[];
+}) {
+  // Lazy import so recharts doesn't bloat the initial route bundle unnecessarily.
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const {
+    ResponsiveContainer,
+    LineChart,
+    Line,
+    XAxis,
+    YAxis,
+    Tooltip,
+    CartesianGrid,
+  } = require("recharts");
+  return (
+    <div className="h-72 w-full">
+      <ResponsiveContainer width="100%" height="100%">
+        <LineChart data={data} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
+          <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+          <XAxis dataKey="day" stroke="hsl(var(--muted-foreground))" fontSize={11} />
+          <YAxis
+            reversed
+            allowDecimals={false}
+            domain={[1, "auto"]}
+            stroke="hsl(var(--muted-foreground))"
+            fontSize={11}
+            label={{
+              value: "Rank",
+              angle: -90,
+              position: "insideLeft",
+              style: { fill: "hsl(var(--muted-foreground))", fontSize: 11 },
+            }}
+          />
+          <Tooltip
+            contentStyle={{
+              backgroundColor: "hsl(var(--card))",
+              border: "1px solid hsl(var(--border))",
+              borderRadius: 8,
+              fontSize: 12,
+            }}
+          />
+          <Line
+            type="monotone"
+            dataKey="you"
+            name="You"
+            stroke="#22c55e"
+            strokeWidth={2}
+            dot={{ r: 3 }}
+            connectNulls
+          />
+          {competitors.map((c, i) => (
+            <Line
+              key={c.id}
+              type="monotone"
+              dataKey={c.id}
+              name={c.name}
+              stroke={HISTORY_COLORS[i % HISTORY_COLORS.length]}
+              strokeWidth={2}
+              dot={{ r: 3 }}
+              connectNulls
+            />
+          ))}
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
+  );
+}
+
