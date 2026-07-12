@@ -64,14 +64,57 @@ function IntegrationsPage() {
   const [showSecret, setShowSecret] = useState(false);
   const [savingCreds, setSavingCreds] = useState(false);
 
+  // Real OAuth connection state
+  type ServerConn = {
+    connected: boolean;
+    accountName?: string | null;
+    locationName?: string | null;
+    locationTitle?: string | null;
+    expiresAt?: string;
+    hasRefresh?: boolean;
+  };
+  const [serverConn, setServerConn] = useState<ServerConn>({ connected: false });
+  const [accounts, setAccounts] = useState<
+    Array<{ account: string; accountLabel: string; locations: Array<{ name: string; title: string }>; error?: string }>
+  >([]);
+  const [loadingAccounts, setLoadingAccounts] = useState(false);
+  const [savingLoc, setSavingLoc] = useState(false);
+
   const fetchStatus = useServerFn(getGmbCredentialsStatus);
   const saveCreds = useServerFn(saveGmbCredentials);
   const removeCreds = useServerFn(clearGmbCredentials);
+  const getAuthUrl = useServerFn(getGmbAuthUrl);
+  const fetchConn = useServerFn(getGmbConnectionStatus);
+  const fetchAccounts = useServerFn(listGmbAccounts);
+  const chooseLocation = useServerFn(setGmbLocation);
+  const revoke = useServerFn(disconnectGmb);
+
+  const syncConn = useCallback(async () => {
+    try {
+      const s = await fetchConn();
+      setServerConn(s);
+      // keep the local-storage flag in sync so gmb-analytics reflects reality
+      writeGmbConnection(
+        s.connected
+          ? {
+              connected: true,
+              accountName: s.accountName ?? "Google Business Profile",
+              locationName: s.locationTitle ?? s.locationName ?? "Location",
+              connectedAt: new Date().toISOString(),
+            }
+          : { connected: false },
+      );
+      setGmb(readGmbConnection());
+    } catch {
+      setServerConn({ connected: false });
+    }
+  }, [fetchConn]);
 
   useEffect(() => {
     setGmb(readGmbConnection());
     fetchStatus().then(setCredStatus).catch(() => setCredStatus({ configured: false }));
-  }, [fetchStatus]);
+    syncConn();
+  }, [fetchStatus, syncConn]);
 
   async function connect() {
     if (!credStatus?.configured) {
@@ -81,29 +124,53 @@ function IntegrationsPage() {
     }
     setBusy(true);
     try {
-      // With user-supplied OAuth credentials configured, mark the account
-      // as live-connected. The GMB API fetch will use these credentials
-      // server-side once the OAuth redirect handshake is completed.
-      await new Promise((r) => setTimeout(r, 500));
-      const next: GmbConn = {
-        connected: true,
-        accountName: "Google Business Profile",
-        locationName: "Primary location",
-        connectedAt: new Date().toISOString(),
-      };
-      writeGmbConnection(next);
-      setGmb(next);
-      toast.success("Connected — live data enabled");
-    } finally {
+      const { url } = await getAuthUrl({ data: { origin: window.location.origin } });
+      window.location.href = url;
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to start OAuth");
       setBusy(false);
     }
   }
 
-  function disconnect() {
+  async function disconnect() {
+    try {
+      await revoke({});
+    } catch {
+      /* ignore revoke errors */
+    }
     writeGmbConnection({ connected: false });
     setGmb({ connected: false });
+    setServerConn({ connected: false });
+    setAccounts([]);
     toast.message("Disconnected");
   }
+
+  async function loadAccountsList() {
+    setLoadingAccounts(true);
+    try {
+      const rows = await fetchAccounts();
+      setAccounts(rows);
+      if (rows.length === 0) toast.message("No Business Profile accounts found on this Google account.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load accounts");
+    } finally {
+      setLoadingAccounts(false);
+    }
+  }
+
+  async function pickLocation(account: string, loc: { name: string; title: string }) {
+    setSavingLoc(true);
+    try {
+      await chooseLocation({ data: { account, location: loc.name, locationTitle: loc.title } });
+      toast.success(`Selected ${loc.title}`);
+      await syncConn();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save location");
+    } finally {
+      setSavingLoc(false);
+    }
+  }
+
 
   async function submitCreds(e: React.FormEvent) {
     e.preventDefault();
