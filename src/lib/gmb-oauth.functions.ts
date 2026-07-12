@@ -231,6 +231,12 @@ export const exchangeGmbCode = createServerFn({ method: "POST" })
       error_description?: string;
     };
     if (!res.ok || !json.access_token) {
+      logGmb("exchange.error", ctx.userId, {
+        status: res.status,
+        error: json.error,
+        description: json.error_description,
+        redirectUri,
+      });
       throw new Error(`Token exchange failed: ${json.error_description ?? json.error ?? res.statusText}`);
     }
     const expiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString();
@@ -254,7 +260,17 @@ export const exchangeGmbCode = createServerFn({ method: "POST" })
       },
       { onConflict: "user_id" },
     );
-    if (upsertErr) throw new Error(upsertErr.message);
+    if (upsertErr) {
+      logGmb("exchange.upsert.error", ctx.userId, { message: upsertErr.message });
+      throw new Error(upsertErr.message);
+    }
+    logGmb("exchange.ok", ctx.userId, {
+      accessToken: mask(json.access_token),
+      refreshToken: mask(refreshToken),
+      expiresAt,
+      scope: json.scope,
+      keptExistingLocation: Boolean(existing?.location_name),
+    });
     return { ok: true };
   });
 
