@@ -93,7 +93,7 @@ export async function executeAutomation(automation: AutomationRow, supabase: Cli
         const { count } = await supabase
           .from("rank_alerts")
           .select("*", { count: "exact", head: true })
-          .eq("owner_id", automation.owner_id);
+          .eq("user_id", automation.owner_id);
         output = { alerts_reviewed: count ?? 0 };
         break;
       }
