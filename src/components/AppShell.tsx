@@ -52,9 +52,15 @@ const groups: NavGroup[] = [
     ],
   },
   {
-    label: "Publishing",
+    label: "Content Writer",
     items: [
       { to: "/post-generator", label: "Post Generator", icon: PenSquare },
+      { to: "/post-storage", label: "Post Storage", icon: Inbox },
+    ],
+  },
+  {
+    label: "Publishing",
+    items: [
       { to: "/calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
