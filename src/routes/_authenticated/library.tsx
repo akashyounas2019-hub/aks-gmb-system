@@ -1,7 +1,9 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
-import { MapPin, Tag as TagIcon } from "lucide-react";
+import { toast } from "sonner";
+import { MapPin, Pencil, Tag as TagIcon, Trash2 } from "lucide-react";
+
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -35,8 +37,32 @@ async function fetchLibrary() {
 }
 
 function LibraryPage() {
+  const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["library"], queryFn: fetchLibrary });
   const [filter, setFilter] = useState("");
+
+  async function renameImage(id: string, currentName: string) {
+    const next = window.prompt("Rename image", currentName);
+    if (!next || next.trim() === "" || next === currentName) return;
+    const { error } = await supabase.from("images").update({ name: next.trim() }).eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Renamed");
+      qc.invalidateQueries({ queryKey: ["library"] });
+    }
+  }
+
+  async function deleteImage(id: string, path: string) {
+    if (!window.confirm("Delete this image? This cannot be undone.")) return;
+    await supabase.storage.from("frames").remove([path]);
+    const { error } = await supabase.from("images").delete().eq("id", id);
+    if (error) toast.error(error.message);
+    else {
+      toast.success("Deleted");
+      qc.invalidateQueries({ queryKey: ["library"] });
+    }
+  }
+
 
   const filtered = useMemo(() => {
     if (!data) return [];
@@ -102,7 +128,32 @@ function LibraryPage() {
                     alt={img.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
+                  <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        renameImage(img.id, img.name);
+                      }}
+                      aria-label="Rename"
+                      className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        deleteImage(img.id, img.storage_path);
+                      }}
+                      aria-label="Delete"
+                      className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
                 </div>
+
                 <div className="p-3">
                   <div className="truncate text-sm font-medium">{img.name}</div>
                   <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">

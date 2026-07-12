@@ -191,11 +191,56 @@ function ImageDetail() {
                 </option>
               ))}
             </select>
+
+            <div className="mt-3 grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                step="any"
+                placeholder="Latitude"
+                defaultValue={image.lat ?? ""}
+                onBlur={async (e) => {
+                  const lat = e.target.value ? Number(e.target.value) : null;
+                  await supabase.from("images").update({ lat }).eq("id", imageId);
+                  qc.invalidateQueries({ queryKey: ["image", imageId] });
+                }}
+                className="rounded-md border border-input bg-background/50 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary"
+              />
+              <input
+                type="number"
+                step="any"
+                placeholder="Longitude"
+                defaultValue={image.lng ?? ""}
+                onBlur={async (e) => {
+                  const lng = e.target.value ? Number(e.target.value) : null;
+                  await supabase.from("images").update({ lng }).eq("id", imageId);
+                  qc.invalidateQueries({ queryKey: ["image", imageId] });
+                }}
+                className="rounded-md border border-input bg-background/50 px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary"
+              />
+            </div>
+
             {image.lat && image.lng && (
-              <p className="mt-2 flex items-center gap-1 text-xs text-primary">
-                <MapPin className="h-3 w-3" />
-                {Number(image.lat).toFixed(5)}, {Number(image.lng).toFixed(5)}
-              </p>
+              <div className="mt-3 space-y-2">
+                <p className="flex items-center gap-1 text-xs text-primary">
+                  <MapPin className="h-3 w-3" />
+                  {Number(image.lat).toFixed(5)}, {Number(image.lng).toFixed(5)}
+                </p>
+                <div className="overflow-hidden rounded-md border border-border">
+                  <iframe
+                    title="Geotag map"
+                    className="h-48 w-full"
+                    src={`https://www.openstreetmap.org/export/embed.html?bbox=${Number(image.lng) - 0.005},${Number(image.lat) - 0.003},${Number(image.lng) + 0.005},${Number(image.lat) + 0.003}&layer=mapnik&marker=${image.lat},${image.lng}`}
+                  />
+                </div>
+                <a
+                  href={`https://www.google.com/maps?q=${image.lat},${image.lng}`}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-xs text-primary hover:underline"
+                >
+                  Open in Google Maps →
+                </a>
+              </div>
             )}
           </section>
 

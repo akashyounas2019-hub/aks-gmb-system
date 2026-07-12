@@ -119,7 +119,7 @@ function UploadPage() {
   );
 
   return (
-    <div className="mx-auto max-w-3xl p-6 md:p-10">
+    <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
       <h1 className="text-3xl">Upload a video</h1>
       <p className="mt-1 text-sm text-muted-foreground">
         Extraction runs entirely in your browser. Nothing leaves your machine until
