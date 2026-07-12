@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated/wizard'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
@@ -30,6 +31,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const AuthenticatedWizardRoute = AuthenticatedWizardRouteImport.update({
+  id: '/wizard',
+  path: '/wizard',
+  getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
   id: '/videos',
@@ -59,6 +65,7 @@ export interface FileRoutesByFullPath {
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
+  '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
 }
 export interface FileRoutesByTo {
@@ -67,6 +74,7 @@ export interface FileRoutesByTo {
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
+  '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
 }
 export interface FileRoutesById {
@@ -77,6 +85,7 @@ export interface FileRoutesById {
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
+  '/_authenticated/wizard': typeof AuthenticatedWizardRoute
   '/_authenticated/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
 }
 export interface FileRouteTypes {
@@ -87,9 +96,17 @@ export interface FileRouteTypes {
     | '/library'
     | '/upload'
     | '/videos'
+    | '/wizard'
     | '/library/$imageId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/auth' | '/library' | '/upload' | '/videos' | '/library/$imageId'
+  to:
+    | '/'
+    | '/auth'
+    | '/library'
+    | '/upload'
+    | '/videos'
+    | '/wizard'
+    | '/library/$imageId'
   id:
     | '__root__'
     | '/'
@@ -98,6 +115,7 @@ export interface FileRouteTypes {
     | '/_authenticated/library'
     | '/_authenticated/upload'
     | '/_authenticated/videos'
+    | '/_authenticated/wizard'
     | '/_authenticated/library/$imageId'
   fileRoutesById: FileRoutesById
 }
@@ -129,6 +147,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/_authenticated/wizard': {
+      id: '/_authenticated/wizard'
+      path: '/wizard'
+      fullPath: '/wizard'
+      preLoaderRoute: typeof AuthenticatedWizardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/videos': {
       id: '/_authenticated/videos'
@@ -176,12 +201,14 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
+  AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
+  AuthenticatedWizardRoute: AuthenticatedWizardRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
@@ -195,3 +222,13 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
+
+import type { getRouter } from './router.tsx'
+import type { startInstance } from './start.ts'
+declare module '@tanstack/react-start' {
+  interface Register {
+    ssr: true
+    router: Awaited<ReturnType<typeof getRouter>>
+    config: Awaited<ReturnType<typeof startInstance.getOptions>>
+  }
+}
