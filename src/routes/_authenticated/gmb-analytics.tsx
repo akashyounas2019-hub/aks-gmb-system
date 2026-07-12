@@ -35,6 +35,7 @@ import { generateChangeSuggestions } from "@/lib/insights.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
 import { getCompetitorRanks, getCompetitorRankHistory } from "@/lib/rank-source.functions";
 import { getGmbMetrics, getGmbConnectionStatus } from "@/lib/gmb-oauth.functions";
+import { getRankGrid, refreshRankGrid } from "@/lib/rank-grid.functions";
 import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
