@@ -1,14 +1,12 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import type { SupabaseClient } from "@supabase/supabase-js";
+import type { Database } from "@/integrations/supabase/types";
 
 export type AppRole = "admin" | "moderator" | "user";
 export type Member = { userId: string; email: string; roles: AppRole[]; isSelf: boolean };
 
-async function isAdmin(
-  supabase: { from: (t: "user_roles") => { select: (c: string) => { eq: (col: string, val: string) => { eq: (col: string, val: string) => { maybeSingle: () => Promise<{ data: unknown; error: unknown }> } } } } },
-  userId: string,
-) {
-  // Query user_roles directly — RLS lets users read their own roles.
+async function isAdmin(supabase: SupabaseClient<Database>, userId: string) {
   const { data } = await supabase
     .from("user_roles")
     .select("role")
