@@ -13,6 +13,7 @@ import {
   Plus,
   ChevronDown,
   CheckCircle2,
+  Eye,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -71,6 +72,8 @@ function PostGeneratorPage() {
   const [cta, setCta] = useState("");
   const [ghlLocationId, setGhlLocationId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
+  const [networks, setNetworks] = useState<Array<"gmb" | "facebook" | "instagram" | "linkedin" | "twitter">>(["gmb"]);
+  const [previewOpen, setPreviewOpen] = useState(false);
 
   const [caption, setCaption] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -193,7 +196,7 @@ function PostGeneratorPage() {
           scheduledAt: scheduledAt
             ? new Date(scheduledAt).toISOString()
             : undefined,
-          networks: ["gmb"],
+          networks: networks.length ? networks : ["gmb"],
         },
       });
       toast.success(
