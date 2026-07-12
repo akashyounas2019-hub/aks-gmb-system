@@ -248,7 +248,8 @@ function LibraryPage() {
       </div>
 
 
-      {selectMode && (
+      {tab !== "videos" && selectMode && (
+
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           <span className="text-sm">
             <strong>{selected.size}</strong> selected
