@@ -1,17 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDownRight,
   ArrowUpRight,
   Eye,
   Info,
+  Lightbulb,
+  Loader2,
   MapPin,
   Minus,
   Phone,
   Search,
+  Sparkles,
   Star,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { generateChangeSuggestions } from "@/lib/insights.functions";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
   component: GmbAnalyticsPage,
