@@ -639,6 +639,22 @@ function AutomationPage() {
           onUpdateConfig={(patch) => updateConfig(editing.id, patch)}
         />
       )}
+
+      {creating && (
+        <NewAutomationModal
+          onClose={() => setCreating(false)}
+          onCreate={(tpl) => {
+            setCustomTemplates((prev) => [tpl, ...prev]);
+            const fullTpl: Template = {
+              ...tpl,
+              icon: CATEGORY_ICONS[tpl.category],
+              tone: CATEGORY_TONES[tpl.category],
+            };
+            addRule(fullTpl);
+            setCreating(false);
+          }}
+        />
+      )}
     </div>
   );
 }
