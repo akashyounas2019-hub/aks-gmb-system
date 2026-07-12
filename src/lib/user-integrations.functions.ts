@@ -116,13 +116,26 @@ export const saveIntegration = createServerFn({ method: "POST" })
     if (!ALLOWED_PROVIDERS.includes(data.provider as Provider)) {
       throw new Error("Unsupported provider");
     }
+    const provider = data.provider as Provider;
+    const rules = PROVIDER_RULES[provider];
     const cleaned: Record<string, string> = {};
-    for (const [k, v] of Object.entries(data.config)) {
-      const val = String(v ?? "").trim();
-      if (val.length > 0) cleaned[k] = val;
+    const errors: string[] = [];
+    for (const [k, rule] of Object.entries(rules)) {
+      const raw = String(data.config?.[k] ?? "");
+      const err = validateField(rule, raw);
+      if (err) {
+        errors.push(err);
+        continue;
+      }
+      const trimmed = raw.trim();
+      if (trimmed) cleaned[k] = trimmed;
     }
-    if (Object.keys(cleaned).length === 0) throw new Error("Provide at least one field");
-    return { provider: data.provider as Provider, config: cleaned };
+    // Reject unknown keys so callers can't smuggle extra fields into storage.
+    for (const k of Object.keys(data.config ?? {})) {
+      if (!(k in rules)) errors.push(`Unknown field "${k}".`);
+    }
+    if (errors.length > 0) throw new Error(errors.join(" "));
+    return { provider, config: cleaned };
   })
   .handler(async ({ data, context }) => {
     const { encryptSecret, maskValue } = await import("@/lib/integrations-crypto.server");
