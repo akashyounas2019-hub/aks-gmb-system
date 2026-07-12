@@ -1338,6 +1338,178 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 /* ---------- Detail drawer ---------- */
+function TrackedKeywordManager({
+  initial,
+  isCustom,
+  onClose,
+  onSave,
+}: {
+  initial: TrackedKeyword[];
+  isCustom: boolean;
+  onClose: () => void;
+  onSave: (rows: TrackedKeyword[]) => Promise<void> | void;
+}) {
+  const [rows, setRows] = useState<TrackedKeyword[]>(initial);
+  const [saving, setSaving] = useState(false);
+
+  function update(i: number, patch: Partial<TrackedKeyword>) {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function removeRow(i: number) {
+    setRows((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function addRow() {
+    setRows((prev) => [
+      ...prev,
+      { keyword: "", city: "", userRank: 20, volume: 0, category: "Residential" },
+    ]);
+  }
+
+  async function submit() {
+    const cleaned = rows
+      .map((r) => ({ ...r, keyword: r.keyword.trim() }))
+      .filter((r) => r.keyword.length > 0);
+    setSaving(true);
+    try {
+      await onSave(cleaned);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-border bg-card p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Tracked keywords</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {isCustom
+                ? "Your saved keyword universe. Powers rank probes and reports."
+                : "Starter set shown until you save your own. Edits are stored per user."}
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-border">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-card text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Keyword</th>
+                <th className="px-3 py-2">City</th>
+                <th className="px-3 py-2 w-20">Your rank</th>
+                <th className="px-3 py-2 w-24">Volume</th>
+                <th className="px-3 py-2 w-32">Category</th>
+                <th className="px-3 py-2 w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-border">
+                  <td className="px-2 py-1">
+                    <input
+                      value={r.keyword}
+                      onChange={(e) => update(i, { keyword: e.target.value })}
+                      placeholder="e.g. deep cleaning dubai"
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      value={r.city}
+                      onChange={(e) => update(i, { city: e.target.value })}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={r.userRank}
+                      onChange={(e) => update(i, { userRank: Number(e.target.value) || 20 })}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.volume}
+                      onChange={(e) => update(i, { volume: Number(e.target.value) || 0 })}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <select
+                      value={r.category}
+                      onChange={(e) =>
+                        update(i, { category: e.target.value as TrackedKeyword["category"] })
+                      }
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    >
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Specialty">Specialty</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <button
+                      onClick={() => removeRow(i)}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-red-500"
+                      title="Remove"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    No keywords yet. Add your first one below.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            onClick={addRow}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add row
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CompetitorDrawer({
   competitor,
   stats,
