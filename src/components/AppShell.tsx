@@ -11,6 +11,7 @@ import {
   KeyRound,
   LayoutDashboard,
   LogOut,
+  MapPin,
   Palette,
   PenSquare,
   Settings as SettingsIcon,
@@ -37,6 +38,7 @@ const groups: NavGroup[] = [
       { to: "/upload", label: "Upload", icon: Upload },
       { to: "/library", label: "Library", icon: Images },
       { to: "/videos", label: "Videos", icon: Film },
+      { to: "/geotagging", label: "Geotagging", icon: MapPin },
     ],
   },
   {
