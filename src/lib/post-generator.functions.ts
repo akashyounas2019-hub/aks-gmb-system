@@ -221,3 +221,113 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
 
     return { postId: inserted.id, status: data.scheduledAt ? "queued" : "sent" };
   });
+
+/* ------------------------------------------------------------------ */
+/*  List social posts (for calendar / history view)                    */
+/* ------------------------------------------------------------------ */
+
+export const listSocialPosts = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { data, error } = await supabase
+      .from("social_posts")
+      .select(
+        "id,caption,status,scheduled_at,created_at,updated_at,error,image_ids,location_label,ghl_location_id",
+      )
+      .eq("owner_id", userId)
+      .order("scheduled_at", { ascending: false, nullsFirst: false })
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) throw error;
+    return { posts: data ?? [] };
+  });
+
+/* ------------------------------------------------------------------ */
+/*  Retry a failed / queued social post                                */
+/* ------------------------------------------------------------------ */
+
+const RetryInput = z.object({ postId: z.string().uuid() });
+
+export const retrySocialPost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((data: unknown) => RetryInput.parse(data))
+  .handler(async ({ data, context }) => {
+    const webhook = process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
+    if (!webhook) throw new Error("No webhook configured.");
+    const { supabase, userId } = context;
+
+    const { data: post, error } = await supabase
+      .from("social_posts")
+      .select("*")
+      .eq("id", data.postId)
+      .eq("owner_id", userId)
+      .single();
+    if (error || !post) throw new Error("Post not found");
+
+    // Re-sign image URLs
+    const imageUrls: Array<{ id: string; url: string; name: string }> = [];
+    if (post.image_ids?.length) {
+      const { data: rows } = await supabase
+        .from("images")
+        .select("id,name,storage_path")
+        .in("id", post.image_ids)
+        .eq("owner_id", userId);
+      for (const row of rows ?? []) {
+        const { data: signed } = await supabase.storage
+          .from("frames")
+          .createSignedUrl(row.storage_path, 60 * 60 * 24);
+        if (signed?.signedUrl)
+          imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
+      }
+    }
+
+    const payload = {
+      source: "gmb-rank-pilot",
+      target: "ghl-social-planner",
+      post_id: post.id,
+      caption: post.caption,
+      ghl_location_id: post.ghl_location_id,
+      scheduled_at: post.scheduled_at,
+      location: {
+        label: post.location_label,
+        lat: post.lat,
+        lng: post.lng,
+      },
+      images: imageUrls,
+      retry: true,
+    };
+
+    let ok = false;
+    let providerStatus = 0;
+    let errorText: string | null = null;
+    try {
+      const res = await fetch(webhook, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      providerStatus = res.status;
+      ok = res.ok;
+      if (!res.ok) errorText = (await res.text()).slice(0, 500);
+    } catch (err) {
+      errorText = err instanceof Error ? err.message : "network error";
+    }
+
+    await supabase
+      .from("social_posts")
+      .update({
+        status: ok ? (post.scheduled_at ? "queued" : "sent") : "failed",
+        provider_response: { status: providerStatus, ok, retry: true },
+        error: errorText,
+        updated_at: new Date().toISOString(),
+      } as never)
+      .eq("id", post.id);
+
+    if (!ok)
+      throw new Error(
+        `Webhook responded ${providerStatus}: ${errorText ?? "unknown error"}`,
+      );
+
+    return { ok: true, postId: post.id };
+  });
