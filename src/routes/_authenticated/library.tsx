@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { MapPin, Pencil, Tag as TagIcon, Trash2, CheckSquare, Square, X } from "lucide-react";
+import { MapPin, Pencil, Tag as TagIcon, Trash2, CheckSquare, Square, X, Loader2, Sparkles } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
+import { autoTagImages } from "@/lib/image-tagging.functions";
 
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
@@ -53,6 +55,27 @@ function LibraryPage() {
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
+  const [autoTagging, setAutoTagging] = useState(false);
+  const autoTag = useServerFn(autoTagImages);
+
+  async function runAutoTag() {
+    if (selected.size === 0) return;
+    setAutoTagging(true);
+    try {
+      const res = await autoTag({
+        data: { imageIds: Array.from(selected), overwrite: false },
+      });
+      toast.success(
+        `Auto-tagged ${res.tagged} image(s). Skipped ${res.skipped}, failed ${res.failed}.`,
+      );
+      qc.invalidateQueries({ queryKey: ["library"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Auto-tag failed");
+    } finally {
+      setAutoTagging(false);
+    }
+  }
+
 
   async function renameImage(id: string, currentName: string) {
     const next = window.prompt("Rename image", currentName);
@@ -169,6 +192,18 @@ function LibraryPage() {
               className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
             >
               Geotag
+            </button>
+            <button
+              disabled={selected.size === 0 || autoTagging}
+              onClick={runAutoTag}
+              className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+            >
+              {autoTagging ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : (
+                <Sparkles className="h-3 w-3" />
+              )}
+              Auto-tag with AI
             </button>
           </div>
         </div>

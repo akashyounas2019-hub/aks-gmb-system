@@ -19,6 +19,7 @@ import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authen
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
 import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -72,6 +73,11 @@ const AuthenticatedGmbAnalyticsRoute =
     path: '/gmb-analytics',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
 const AuthenticatedLibraryImageIdRoute =
   AuthenticatedLibraryImageIdRouteImport.update({
     id: '/$imageId',
@@ -82,6 +88,7 @@ const AuthenticatedLibraryImageIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
@@ -94,6 +101,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/calendar': typeof AuthenticatedCalendarRoute
   '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
@@ -108,6 +116,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/_authenticated/keywords': typeof AuthenticatedKeywordsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
@@ -122,6 +131,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/calendar'
     | '/gmb-analytics'
     | '/keywords'
     | '/library'
@@ -134,6 +144,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/calendar'
     | '/gmb-analytics'
     | '/keywords'
     | '/library'
@@ -147,6 +158,7 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/calendar'
     | '/_authenticated/gmb-analytics'
     | '/_authenticated/keywords'
     | '/_authenticated/library'
@@ -235,6 +247,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedGmbAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/library/$imageId': {
       id: '/_authenticated/library/$imageId'
       path: '/$imageId'
@@ -257,6 +276,7 @@ const AuthenticatedLibraryRouteWithChildren =
   AuthenticatedLibraryRoute._addFileChildren(AuthenticatedLibraryRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedGmbAnalyticsRoute: typeof AuthenticatedGmbAnalyticsRoute
   AuthenticatedKeywordsRoute: typeof AuthenticatedKeywordsRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
@@ -267,6 +287,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedGmbAnalyticsRoute: AuthenticatedGmbAnalyticsRoute,
   AuthenticatedKeywordsRoute: AuthenticatedKeywordsRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,

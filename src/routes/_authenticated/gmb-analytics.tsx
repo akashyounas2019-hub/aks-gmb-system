@@ -1,17 +1,24 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useServerFn } from "@tanstack/react-start";
 import {
   ArrowDownRight,
   ArrowUpRight,
   Eye,
   Info,
+  Lightbulb,
+  Loader2,
   MapPin,
   Minus,
   Phone,
   Search,
+  Sparkles,
   Star,
   TrendingUp,
 } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { toast } from "sonner";
+
+import { generateChangeSuggestions } from "@/lib/insights.functions";
 
 export const Route = createFileRoute("/_authenticated/gmb-analytics")({
   component: GmbAnalyticsPage,
@@ -49,17 +56,25 @@ function seededRandom(seed: number) {
   };
 }
 
-function buildGrid(keyword: string): { lat: number; lng: number; rank: number }[] {
-  const rand = seededRandom(
-    keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0),
-  );
+function buildGrid(
+  keyword: string,
+  weekOffset = 0,
+): { lat: number; lng: number; rank: number }[] {
+  const seed =
+    keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0) +
+    weekOffset * 137;
+  const rand = seededRandom(seed);
+  const drift = weekOffset === 0 ? 0 : -0.6; // this week trends slightly better than last
   const cells: { lat: number; lng: number; rank: number }[] = [];
   for (let r = 0; r < GRID_SIZE; r++) {
     for (let c = 0; c < GRID_SIZE; c++) {
       const dx = c - (GRID_SIZE - 1) / 2;
       const dy = r - (GRID_SIZE - 1) / 2;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const rank = Math.max(1, Math.min(20, Math.round(dist * 2.4 + rand() * 4)));
+      const rank = Math.max(
+        1,
+        Math.min(20, Math.round(dist * 2.4 + rand() * 4 + drift)),
+      );
       cells.push({
         lat: BUSINESS.lat + dy * GRID_STEP_DEG,
         lng: BUSINESS.lng + dx * GRID_STEP_DEG,
@@ -265,14 +280,58 @@ function GmbAnalyticsPage() {
     return { improved, declined, top3, avg: avg.toFixed(1) };
   }, []);
 
-  const activeGrid = useMemo(() => buildGrid(keyword), [keyword]);
+  const activeGrid = useMemo(() => buildGrid(keyword, 0), [keyword]);
+  const previousGrid = useMemo(() => buildGrid(keyword, 1), [keyword]);
   const gridStats = useMemo(() => {
     const ranks = activeGrid.map((c) => c.rank);
+    const prevRanks = previousGrid.map((c) => c.rank);
     const top3 = ranks.filter((r) => r <= 3).length;
-    const avg = (ranks.reduce((a, b) => a + b, 0) / ranks.length).toFixed(1);
+    const prevTop3 = prevRanks.filter((r) => r <= 3).length;
+    const avg = ranks.reduce((a, b) => a + b, 0) / ranks.length;
+    const prevAvg = prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length;
     const share = Math.round((top3 / ranks.length) * 100);
-    return { top3, avg, share };
-  }, [activeGrid]);
+    return {
+      top3,
+      avg: avg.toFixed(1),
+      share,
+      top3Delta: top3 - prevTop3,
+      avgDelta: +(prevAvg - avg).toFixed(1), // positive = improved (lower avg rank)
+    };
+  }, [activeGrid, previousGrid]);
+
+  // AI change suggestions
+  const suggest = useServerFn(generateChangeSuggestions);
+  type Suggestion = {
+    title: string;
+    priority: "high" | "medium" | "low";
+    why: string;
+    how: string;
+    targetKeyword: string | null;
+  };
+  const [suggestions, setSuggestions] = useState<Suggestion[] | null>(null);
+  const [loadingSug, setLoadingSug] = useState(false);
+  async function runSuggestions() {
+    setLoadingSug(true);
+    try {
+      const res = await suggest({
+        data: {
+          businessName: BUSINESS.name,
+          rankings: MOCK_KEYWORDS.map((k) => ({
+            keyword: k.keyword,
+            current: k.current,
+            previous: k.previous,
+            volume: k.volume,
+            city: k.city,
+          })),
+        },
+      });
+      setSuggestions(res.suggestions ?? []);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed");
+    } finally {
+      setLoadingSug(false);
+    }
+  }
 
   const filteredKw = search.trim()
     ? MOCK_KEYWORDS.filter((k) =>
@@ -362,8 +421,20 @@ function GmbAnalyticsPage() {
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
           <HeatMap keyword={keyword} />
           <div className="space-y-3">
-            <StatCard label="Cells in top 3" value={`${gridStats.top3}/49`} tone="good" />
-            <StatCard label="Avg. rank in grid" value={gridStats.avg} />
+            <StatCard
+              label="Cells in top 3"
+              value={`${gridStats.top3}/49`}
+              tone="good"
+              delta={gridStats.top3Delta}
+              deltaLabel="vs last week"
+            />
+            <StatCard
+              label="Avg. rank in grid"
+              value={gridStats.avg}
+              delta={gridStats.avgDelta}
+              deltaLabel="vs last week"
+              deltaInvert
+            />
             <StatCard label="Local visibility share" value={`${gridStats.share}%`} />
             <div className="rounded-xl border border-border bg-card p-4 text-xs text-muted-foreground">
               <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
@@ -371,10 +442,73 @@ function GmbAnalyticsPage() {
               </div>
               Each circle is a ranking probe at that lat/lng for the selected
               keyword. Green = top 3, amber = 4–10, red = off page 1. The blue
-              dot is your business location.
+              dot is your business location. Deltas compare this week's grid to
+              last week's snapshot.
             </div>
           </div>
         </div>
+      </section>
+
+      {/* AI Change Suggestions */}
+      <section className="mt-10 rounded-2xl border border-border bg-gradient-to-br from-primary/5 to-card p-5">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-lg font-semibold">
+              <Lightbulb className="h-5 w-5 text-primary" /> AI Change
+              Suggestions
+            </h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Prioritized actions based on your rankings and recent post
+              activity.
+            </p>
+          </div>
+          <button
+            onClick={runSuggestions}
+            disabled={loadingSug}
+            className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {loadingSug ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Sparkles className="h-4 w-4" />
+            )}
+            {suggestions ? "Regenerate" : "Generate suggestions"}
+          </button>
+        </div>
+        {suggestions && (
+          <div className="mt-4 grid gap-3 md:grid-cols-2">
+            {suggestions.length === 0 ? (
+              <div className="col-span-full rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                No suggestions returned. Try again.
+              </div>
+            ) : (
+              suggestions.map((s, i) => (
+                <div
+                  key={i}
+                  className="rounded-xl border border-border bg-card p-4"
+                >
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="font-medium">{s.title}</div>
+                    <PriorityBadge priority={s.priority} />
+                  </div>
+                  {s.targetKeyword && (
+                    <div className="mt-1 text-[11px] uppercase tracking-widest text-primary">
+                      → {s.targetKeyword}
+                    </div>
+                  )}
+                  <div className="mt-2 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">Why:</span>{" "}
+                    {s.why}
+                  </div>
+                  <div className="mt-1 text-xs text-muted-foreground">
+                    <span className="font-medium text-foreground">How:</span>{" "}
+                    {s.how}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        )}
       </section>
 
       {/* Keyword table */}
@@ -462,11 +596,19 @@ function StatCard({
   label,
   value,
   tone,
+  delta,
+  deltaLabel,
+  deltaInvert,
 }: {
   label: string;
   value: string | number;
   tone?: "good";
+  delta?: number;
+  deltaLabel?: string;
+  deltaInvert?: boolean;
 }) {
+  const showDelta = typeof delta === "number" && delta !== 0;
+  const positive = deltaInvert ? (delta ?? 0) > 0 : (delta ?? 0) > 0;
   return (
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="text-xs uppercase tracking-widest text-muted-foreground">
@@ -477,7 +619,42 @@ function StatCard({
       >
         {value}
       </div>
+      {showDelta && (
+        <div
+          className={`mt-1 inline-flex items-center gap-1 text-xs ${
+            positive ? "text-emerald-500" : "text-red-500"
+          }`}
+        >
+          {positive ? (
+            <ArrowUpRight className="h-3 w-3" />
+          ) : (
+            <ArrowDownRight className="h-3 w-3" />
+          )}
+          {delta! > 0 ? "+" : ""}
+          {delta}
+          {deltaLabel ? ` ${deltaLabel}` : ""}
+        </div>
+      )}
     </div>
+  );
+}
+
+function PriorityBadge({
+  priority,
+}: {
+  priority: "high" | "medium" | "low";
+}) {
+  const map = {
+    high: "bg-red-500/15 text-red-500 border-red-500/30",
+    medium: "bg-amber-500/15 text-amber-500 border-amber-500/30",
+    low: "bg-blue-500/15 text-blue-500 border-blue-500/30",
+  } as const;
+  return (
+    <span
+      className={`shrink-0 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${map[priority] ?? map.low}`}
+    >
+      {priority}
+    </span>
   );
 }
 
