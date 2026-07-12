@@ -1232,3 +1232,129 @@ function DeltaChip({ delta }: { delta: number | null }) {
     </span>
   );
 }
+
+function AlertSettingsSection() {
+  const load = useServerFn(getAlertSettings);
+  const save = useServerFn(updateAlertSettings);
+  const [settings, setSettings] = useState<AlertSettings | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    load()
+      .then((s) => setSettings(s))
+      .catch(() => setSettings({
+        threatKeywordThreshold: 2,
+        rankImprovementDelta: 3,
+        overtakeEnabled: true,
+        threatEnabled: true,
+        improvementEnabled: true,
+      }));
+  }, [load]);
+
+  async function patch(next: Partial<AlertSettings>) {
+    if (!settings) return;
+    const merged = { ...settings, ...next };
+    setSettings(merged);
+    setSaving(true);
+    try {
+      await save({ data: next });
+      toast.success("Alert preferences saved");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  if (!settings) return null;
+
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2">
+          <Bell className="h-4 w-4 text-primary" />
+          <h2 className="text-base font-semibold">Alert notifications</h2>
+        </div>
+        {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
+      </div>
+      <p className="mb-4 text-xs text-muted-foreground">
+        Fire notifications automatically when a competitor becomes a threat or gains ground on tracked keywords.
+      </p>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background/40 p-4">
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Overtake alerts</span>
+            <input
+              type="checkbox"
+              checked={settings.overtakeEnabled}
+              onChange={(e) => patch({ overtakeEnabled: e.target.checked })}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Alert whenever a competitor moves ahead of you on any tracked keyword.
+          </p>
+        </div>
+
+        <div className="rounded-xl border border-border bg-background/40 p-4">
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Threat threshold</span>
+            <input
+              type="checkbox"
+              checked={settings.threatEnabled}
+              onChange={(e) => patch({ threatEnabled: e.target.checked })}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
+          <p className="mt-2 text-xs text-muted-foreground">Notify me when a competitor beats me on</p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={50}
+              disabled={!settings.threatEnabled}
+              value={settings.threatKeywordThreshold}
+              onChange={(e) => {
+                const n = Math.max(1, Math.min(50, Number(e.target.value) || 1));
+                setSettings({ ...settings, threatKeywordThreshold: n });
+              }}
+              onBlur={() => patch({ threatKeywordThreshold: settings.threatKeywordThreshold })}
+              className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm disabled:opacity-50"
+            />
+            <span className="text-xs text-muted-foreground">or more keywords</span>
+          </div>
+        </div>
+
+        <div className="rounded-xl border border-border bg-background/40 p-4">
+          <label className="flex items-center justify-between gap-2">
+            <span className="text-sm font-medium">Rank improvement</span>
+            <input
+              type="checkbox"
+              checked={settings.improvementEnabled}
+              onChange={(e) => patch({ improvementEnabled: e.target.checked })}
+              className="h-4 w-4 accent-primary"
+            />
+          </label>
+          <p className="mt-2 text-xs text-muted-foreground">Alert when a competitor jumps up by</p>
+          <div className="mt-2 flex items-center gap-2">
+            <input
+              type="number"
+              min={1}
+              max={50}
+              disabled={!settings.improvementEnabled}
+              value={settings.rankImprovementDelta}
+              onChange={(e) => {
+                const n = Math.max(1, Math.min(50, Number(e.target.value) || 1));
+                setSettings({ ...settings, rankImprovementDelta: n });
+              }}
+              onBlur={() => patch({ rankImprovementDelta: settings.rankImprovementDelta })}
+              className="w-16 rounded-md border border-border bg-background px-2 py-1 text-sm disabled:opacity-50"
+            />
+            <span className="text-xs text-muted-foreground">or more positions</span>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}
