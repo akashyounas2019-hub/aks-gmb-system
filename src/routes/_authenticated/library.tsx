@@ -98,16 +98,6 @@ function LibraryPage() {
   }
 
 
-  async function renameImage(id: string, currentName: string) {
-    const next = window.prompt("Rename image", currentName);
-    if (!next || next.trim() === "" || next === currentName) return;
-    const { error } = await supabase.from("images").update({ name: next.trim() }).eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Renamed");
-      qc.invalidateQueries({ queryKey: ["library"] });
-    }
-  }
 
   async function deleteImage(id: string, path: string) {
     if (!window.confirm("Delete this image? This cannot be undone.")) return;
