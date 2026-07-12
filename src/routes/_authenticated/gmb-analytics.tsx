@@ -152,14 +152,26 @@ function loadMaps(): Promise<void> {
 }
 
 /* ---------- HEAT MAP -------------------------------------------------- */
-function HeatMap({ keyword }: { keyword: string }) {
+function HeatMap({
+  keyword,
+  cells,
+  center,
+}: {
+  keyword: string;
+  cells?: { lat: number; lng: number; rank: number }[];
+  center?: { lat: number; lng: number };
+}) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<any>(null);
   const overlaysRef = useRef<any[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const grid = useMemo(() => buildGrid(keyword), [keyword]);
+  const grid = useMemo(
+    () => (cells && cells.length > 0 ? cells : buildGrid(keyword)),
+    [keyword, cells],
+  );
+  const mapCenter = center ?? BUSINESS;
 
   useEffect(() => {
     let cancelled = false;
@@ -168,7 +180,7 @@ function HeatMap({ keyword }: { keyword: string }) {
         if (cancelled || !containerRef.current) return;
         const g = (window as any).google;
         mapRef.current = new g.maps.Map(containerRef.current, {
-          center: BUSINESS,
+          center: mapCenter,
           zoom: 12,
           disableDefaultUI: true,
           zoomControl: true,
@@ -181,7 +193,9 @@ function HeatMap({ keyword }: { keyword: string }) {
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
