@@ -19,7 +19,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Target,
-  Upload,
+  
   User,
   Users,
   Workflow,
@@ -38,7 +38,7 @@ const groups: NavGroup[] = [
     items: [
       { to: "/automation", label: "Automation", icon: Zap },
       { to: "/wizard", label: "Pipeline", icon: Workflow },
-      { to: "/upload", label: "Upload", icon: Upload },
+      
       { to: "/library", label: "Image Library", icon: Images },
       { to: "/geotagging", label: "Geotagging", icon: MapPin },
     ],

@@ -18,18 +18,20 @@ import {
   HardDrive,
   Images as ImagesIcon,
   CheckCircle2,
+  UploadCloud,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
+import { UploadPanel } from "@/components/UploadPanel";
 
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
 
-type LibraryTab = "raw" | "published" | "geotagged" | "videos";
+type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
 
 
 async function fetchLibrary() {
@@ -164,6 +166,7 @@ function LibraryPage() {
   }
 
   const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
+    { id: "upload", label: "Upload", icon: UploadCloud },
     { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
     { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
@@ -180,7 +183,7 @@ function LibraryPage() {
           </p>
         </div>
 
-        {tab !== "videos" && (
+        {tab !== "videos" && tab !== "upload" && (
           <div className="flex items-center gap-2">
             <input
               type="search"
@@ -239,7 +242,7 @@ function LibraryPage() {
       </div>
 
 
-      {tab !== "videos" && selectMode && (
+      {tab !== "videos" && tab !== "upload" && selectMode && (
 
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           <span className="text-sm">
@@ -288,7 +291,17 @@ function LibraryPage() {
         </div>
       )}
 
-      {tab === "videos" ? (
+      {tab === "upload" ? (
+        <div className="mt-6">
+          <UploadPanel
+            showHeader={false}
+            onComplete={() => {
+              qc.invalidateQueries({ queryKey: ["library"] });
+              setTab("raw");
+            }}
+          />
+        </div>
+      ) : tab === "videos" ? (
         <VideosPanel />
       ) : isLoading ? (
 
@@ -296,12 +309,12 @@ function LibraryPage() {
       ) : filtered.length === 0 ? (
         <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
           <p className="text-muted-foreground">No frames yet.</p>
-          <Link
-            to="/upload"
+          <button
+            onClick={() => setTab("upload")}
             className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
           >
             Upload a video
-          </Link>
+          </button>
         </div>
       ) : (
         <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
