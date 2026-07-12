@@ -249,7 +249,7 @@ function IntegrationsPage() {
             )}
           </div>
           <div className="flex gap-2">
-            {gmb.connected ? (
+            {serverConn.connected ? (
               <>
                 <button
                   onClick={connect}
@@ -272,11 +272,72 @@ function IntegrationsPage() {
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 <Plug className="h-4 w-4" />
-                {busy ? "Connecting…" : "Connect"}
+                {busy ? "Redirecting…" : "Connect with Google"}
               </button>
             )}
           </div>
         </div>
+
+        {/* Account / location picker */}
+        {serverConn.connected && (
+          <div className="mt-5 rounded-xl border border-border bg-background/50 p-4">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-sm font-medium">Business location</div>
+                <p className="mt-0.5 text-xs text-muted-foreground">
+                  Choose which Business Profile location powers analytics. Requires the
+                  Business Profile APIs enabled in your Google Cloud project.
+                </p>
+              </div>
+              <button
+                onClick={loadAccountsList}
+                disabled={loadingAccounts}
+                className="rounded-lg border border-border bg-card px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                {loadingAccounts ? <Loader2 className="h-3 w-3 animate-spin" /> : "Load accounts"}
+              </button>
+            </div>
+            {accounts.length > 0 && (
+              <div className="mt-3 space-y-3">
+                {accounts.map((a) => (
+                  <div key={a.account} className="rounded-lg border border-border p-3">
+                    <div className="text-xs font-medium">{a.accountLabel}</div>
+                    {a.error ? (
+                      <div className="mt-1 text-xs text-destructive">{a.error}</div>
+                    ) : a.locations.length === 0 ? (
+                      <div className="mt-1 text-xs text-muted-foreground">No locations on this account.</div>
+                    ) : (
+                      <ul className="mt-2 space-y-1">
+                        {a.locations.map((l) => {
+                          const active = serverConn.locationName === l.name;
+                          return (
+                            <li key={l.name} className="flex items-center justify-between gap-2 text-sm">
+                              <div className="min-w-0">
+                                <div className="truncate">{l.title}</div>
+                                <div className="truncate font-mono text-[10px] text-muted-foreground">{l.name}</div>
+                              </div>
+                              <button
+                                onClick={() => pickLocation(a.account, l)}
+                                disabled={savingLoc || active}
+                                className={`rounded-md border px-2 py-1 text-xs ${
+                                  active
+                                    ? "border-emerald-500/40 bg-emerald-500/10 text-emerald-500"
+                                    : "border-border bg-card hover:bg-accent"
+                                }`}
+                              >
+                                {active ? "Selected" : "Use this"}
+                              </button>
+                            </li>
+                          );
+                        })}
+                      </ul>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
 
         {/* OAuth credentials block */}
         <div className="mt-5 rounded-xl border border-border bg-background/50 p-4">
