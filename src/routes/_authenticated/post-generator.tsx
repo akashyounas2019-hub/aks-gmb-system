@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import {
   Copy,
   Send,
@@ -84,6 +84,18 @@ function PostGeneratorPage() {
   const [caption, setCaption] = useState("");
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
+
+  const [ctaType, setCtaType] = useState<
+    "none" | "book" | "order" | "shop" | "learn_more" | "sign_up" | "call"
+  >("none");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const CAPTION_LIMIT = 1500;
+  const captionLen = caption.length;
+  const captionOver = captionLen > CAPTION_LIMIT;
+
 
   async function reloadImages() {
     const { data } = await supabase
@@ -188,6 +200,18 @@ function PostGeneratorPage() {
       toast.error("Nothing to send");
       return;
     }
+    if (captionOver) {
+      toast.error(`Post body exceeds ${CAPTION_LIMIT} characters (${captionLen}).`);
+      return;
+    }
+    if (ctaType !== "none" && ctaType !== "call" && !ctaUrl.trim()) {
+      toast.error("Add a URL for the selected call-to-action");
+      return;
+    }
+    if (ctaType === "call" && !ctaUrl.trim()) {
+      toast.error("Add a phone number for the Call CTA");
+      return;
+    }
     setSending(true);
     try {
       const res = await send({
@@ -203,6 +227,8 @@ function PostGeneratorPage() {
             ? new Date(scheduledAt).toISOString()
             : undefined,
           networks: networks.length ? networks : ["gmb"],
+          ctaType,
+          ctaUrl: ctaUrl.trim() || undefined,
         },
       });
       toast.success(
@@ -218,6 +244,47 @@ function PostGeneratorPage() {
       setSending(false);
     }
   }
+
+  async function uploadManualImages(files: FileList | File[]) {
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!list.length) {
+      toast.error("Please choose image files");
+      return;
+    }
+    setUploading(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      setUploading(false);
+      toast.error("Not signed in");
+      return;
+    }
+    let ok = 0;
+    let fail = 0;
+    for (const file of list) {
+      try {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${userId}/post-generator/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("frames")
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        const { error: dbErr } = await supabase
+          .from("images")
+          .insert({ owner_id: userId, storage_path: path, name: file.name } as any);
+        if (dbErr) throw dbErr;
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setUploading(false);
+    if (ok) toast.success(`Uploaded ${ok} image${ok === 1 ? "" : "s"}`);
+    if (fail) toast.error(`${fail} upload${fail === 1 ? "" : "s"} failed`);
+    await reloadImages();
+    if (uploadRef.current) uploadRef.current.value = "";
+  }
+
 
   async function copyOut() {
     await navigator.clipboard.writeText(caption);
@@ -395,16 +462,40 @@ function PostGeneratorPage() {
                   available)
                 </span>
               </div>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showPosted}
+                    onChange={(e) => setShowPosted(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Show posted
+                </label>
                 <input
-                  type="checkbox"
-                  checked={showPosted}
-                  onChange={(e) => setShowPosted(e.target.checked)}
-                  className="h-3.5 w-3.5"
+                  ref={uploadRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => e.target.files && uploadManualImages(e.target.files)}
                 />
-                Show posted
-              </label>
+                <button
+                  type="button"
+                  onClick={() => uploadRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  {uploading ? "Uploading…" : "Upload"}
+                </button>
+              </div>
             </div>
+
             {previewImages.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                 {images.length === 0
@@ -483,7 +574,7 @@ function PostGeneratorPage() {
               </label>
               <label className="col-span-2 block">
                 <span className="text-xs text-muted-foreground">
-                  Call-to-action (optional)
+                  Call-to-action hint for AI (optional)
                 </span>
                 <input
                   value={cta}
@@ -494,6 +585,57 @@ function PostGeneratorPage() {
               </label>
             </div>
           </section>
+
+          {/* GMB Call-to-action */}
+          <section className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-medium">GMB call-to-action</div>
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Google standard
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-3 text-sm">
+              <label className="block">
+                <span className="text-xs text-muted-foreground">Action</span>
+                <select
+                  value={ctaType}
+                  onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
+                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                >
+                  <option value="none">None</option>
+                  <option value="book">Book</option>
+                  <option value="order">Order online</option>
+                  <option value="shop">Buy</option>
+                  <option value="learn_more">Learn more</option>
+                  <option value="sign_up">Sign up</option>
+                  <option value="call">Call now</option>
+                </select>
+              </label>
+              {ctaType !== "none" && (
+                <label className="block">
+                  <span className="text-xs text-muted-foreground">
+                    {ctaType === "call" ? "Phone number" : "Destination URL"}
+                  </span>
+                  <input
+                    value={ctaUrl}
+                    onChange={(e) => setCtaUrl(e.target.value)}
+                    placeholder={
+                      ctaType === "call"
+                        ? "+971 50 000 0000"
+                        : "https://example.com/book"
+                    }
+                    inputMode={ctaType === "call" ? "tel" : "url"}
+                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                  />
+                </label>
+              )}
+            </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              These map to Google Business Profile's standard actions (Book,
+              Order, Buy, Learn more, Sign up, Call).
+            </p>
+          </section>
+
 
           <button
             onClick={handleGenerate}
@@ -513,7 +655,12 @@ function PostGeneratorPage() {
         <div className="space-y-4">
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-2 flex items-center justify-between">
-              <div className="text-sm font-medium">Caption</div>
+              <div>
+                <div className="text-sm font-medium">Post body</div>
+                <div className="text-[11px] text-muted-foreground">
+                  This is what will be posted. Max {CAPTION_LIMIT} characters.
+                </div>
+              </div>
               <button
                 onClick={copyOut}
                 disabled={!caption}
@@ -527,10 +674,34 @@ function PostGeneratorPage() {
               onChange={(e) => setCaption(e.target.value)}
               rows={16}
               dir={language === "ar" ? "rtl" : "ltr"}
+              aria-invalid={captionOver}
               placeholder="Click Generate with AI to draft a post, then edit here."
-              className="w-full rounded border border-border bg-background p-3 text-sm"
+              className={`w-full rounded border bg-background p-3 text-sm outline-none transition ${
+                captionOver
+                  ? "border-red-500 text-red-600 focus:ring-2 focus:ring-red-500/40"
+                  : "border-border focus:ring-2 focus:ring-primary/40"
+              }`}
             />
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
+                {captionOver
+                  ? `Post body exceeds the ${CAPTION_LIMIT}-character limit. Trim ${captionLen - CAPTION_LIMIT} character${captionLen - CAPTION_LIMIT === 1 ? "" : "s"} to send.`
+                  : "Google Business Profile allows up to 1,500 characters per post."}
+              </span>
+              <span
+                className={`font-mono tabular-nums ${
+                  captionOver
+                    ? "font-semibold text-red-500"
+                    : captionLen > CAPTION_LIMIT - 100
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {captionLen}/{CAPTION_LIMIT}
+              </span>
+            </div>
           </section>
+
 
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Publish</div>
@@ -609,14 +780,15 @@ function PostGeneratorPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setPreviewOpen(true)}
-                  disabled={!caption.trim()}
+                  disabled={!caption.trim() || captionOver}
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
                 >
                   <Eye className="h-4 w-4" /> Preview
                 </button>
                 <button
                   onClick={() => setPreviewOpen(true)}
-                  disabled={sending || !caption.trim() || networks.length === 0}
+                  disabled={sending || !caption.trim() || captionOver || networks.length === 0}
+
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
                   {sending ? (
@@ -801,7 +973,7 @@ function PostGeneratorPage() {
                   await handleSend();
                   setPreviewOpen(false);
                 }}
-                disabled={sending || !caption.trim() || networks.length === 0}
+                disabled={sending || !caption.trim() || captionOver || networks.length === 0}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {sending ? (
