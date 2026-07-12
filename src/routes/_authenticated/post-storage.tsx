@@ -214,8 +214,9 @@ export function PostStoragePanel() {
   ];
 
   return (
-    <AppShell>
-      <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+    <div>
+      <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
+
         {/* Header */}
         <div className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between gap-4">
