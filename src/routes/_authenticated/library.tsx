@@ -189,27 +189,64 @@ function LibraryPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <input
-            type="search"
-            placeholder="Search name, tag, or venue"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            onClick={() => {
-              setSelectMode((s) => !s);
-              clearSelection();
-            }}
-            className={`rounded-md border px-3 py-2 text-sm ${
-              selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
-            }`}
-          >
-            {selectMode ? "Done" : "Select"}
-          </button>
-        </div>
+        {tab !== "videos" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Search name, tag, or venue"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              onClick={() => {
+                setSelectMode((s) => !s);
+                clearSelection();
+              }}
+              className={`rounded-md border px-3 py-2 text-sm ${
+                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
+              }`}
+            >
+              {selectMode ? "Done" : "Select"}
+            </button>
+          </div>
+        )}
       </div>
+
+      {/* Horizontal tabs */}
+      <div className="mt-6 border-b border-border">
+        <nav role="tablist" aria-label="Library sections" className="-mb-px flex flex-wrap gap-1 overflow-x-auto">
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setTab(t.id);
+                  clearSelection();
+                  setSelectMode(false);
+                }}
+                className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+                {t.count !== undefined && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
 
       {selectMode && (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
