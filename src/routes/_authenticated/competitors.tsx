@@ -55,7 +55,7 @@ import {
   updateAlertSettings,
   type AlertSettings,
 } from "@/lib/alert-settings.functions";
-import { Bell } from "lucide-react";
+import { Bell, Filter, Search } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/competitors")({
   component: CompetitorsPage,
@@ -78,15 +78,33 @@ const TRACKED_KEYWORDS: Array<{
   city: string;
   userRank: number;
   volume: number;
+  category: "Residential" | "Commercial" | "Specialty";
 }> = [
-  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900 },
-  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600 },
-  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720 },
-  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990 },
-  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480 },
-  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590 },
-  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300 },
+  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900, category: "Residential" },
+  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600, category: "Residential" },
+  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720, category: "Residential" },
+  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990, category: "Specialty" },
+  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480, category: "Specialty" },
+  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590, category: "Residential" },
+  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300, category: "Commercial" },
 ];
+
+const KEYWORD_CATEGORIES = ["Residential", "Commercial", "Specialty"] as const;
+type KeywordCategory = (typeof KEYWORD_CATEGORIES)[number];
+type ThreatLevel = "high" | "medium" | "low" | "none";
+
+function computeThreatLevel(stats: { beating: number } | undefined): ThreatLevel {
+  if (!stats) return "none";
+  if (stats.beating >= 3) return "high";
+  if (stats.beating >= 1) return "medium";
+  return "low";
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  serpapi: "SerpApi",
+  dataforseo: "DataForSEO",
+  local_falcon: "Local Falcon",
+};
 
 type RankMatrix = Record<string, Record<string, number | null>>;
 
@@ -171,6 +189,12 @@ function CompetitorsPage() {
   const [busy, setBusy] = useState(false);
 
   const [selected, setSelected] = useState<Competitor | null>(null);
+
+  // Filters
+  const [query, setQuery] = useState("");
+  const [threatFilter, setThreatFilter] = useState<Set<ThreatLevel>>(new Set());
+  const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<Set<KeywordCategory>>(new Set());
 
   async function refresh() {
     setLoading(true);
@@ -304,6 +328,50 @@ function CompetitorsPage() {
       contested,
     };
   }, [rows, stats]);
+
+  /* -------- Filtering ------------------------------------------- */
+  const filteredRows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    const catSet = categoryFilter;
+    const threatSet = threatFilter;
+    return rows.filter((c) => {
+      // Text search — name, notes, URL
+      if (q) {
+        const hay = `${c.name} ${c.notes ?? ""} ${c.gbp_url}`.toLowerCase();
+        if (!hay.includes(q)) return false;
+      }
+      // Threat level
+      if (threatSet.size > 0) {
+        const level = computeThreatLevel(stats[c.id]);
+        if (!threatSet.has(level)) return false;
+      }
+      // Provider — only meaningful when a source is active. When "all", let everything through.
+      if (providerFilter !== "all") {
+        if (!rankSource || rankSource !== providerFilter) return false;
+      }
+      // Keyword category — require competitor to have at least one resolved rank in a selected category
+      if (catSet.size > 0) {
+        const hasHit = TRACKED_KEYWORDS.some(
+          (k) => catSet.has(k.category) && rankMatrix[k.keyword]?.[c.id] != null,
+        );
+        if (!hasHit) return false;
+      }
+      return true;
+    });
+  }, [rows, query, threatFilter, providerFilter, categoryFilter, stats, rankSource, rankMatrix]);
+
+  const activeFilterCount =
+    (query.trim() ? 1 : 0) +
+    threatFilter.size +
+    (providerFilter !== "all" ? 1 : 0) +
+    categoryFilter.size;
+
+  function clearFilters() {
+    setQuery("");
+    setThreatFilter(new Set());
+    setProviderFilter("all");
+    setCategoryFilter(new Set());
+  }
 
   /* -------- Head-to-head chart data ----------------------------- */
   const chartData = useMemo(
@@ -658,7 +726,13 @@ function CompetitorsPage() {
       {/* Cards grid */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">Competitor roster</h2>
+          <div>
+            <h2 className="text-base font-semibold">Competitor roster</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Showing {filteredRows.length} of {rows.length} competitor{rows.length === 1 ? "" : "s"}
+              {activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied`}
+            </p>
+          </div>
           {ranksLoading && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" /> refreshing ranks…
@@ -666,15 +740,57 @@ function CompetitorsPage() {
           )}
         </div>
 
+        {rows.length > 0 && (
+          <FilterBar
+            query={query}
+            onQuery={setQuery}
+            threatFilter={threatFilter}
+            onToggleThreat={(t: ThreatLevel) =>
+              setThreatFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(t)) next.delete(t);
+                else next.add(t);
+                return next;
+              })
+            }
+            providerFilter={providerFilter}
+            onProvider={setProviderFilter}
+            activeProvider={rankSource}
+            categoryFilter={categoryFilter}
+            onToggleCategory={(c: KeywordCategory) =>
+              setCategoryFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(c)) next.delete(c);
+                else next.add(c);
+                return next;
+              })
+            }
+            activeCount={activeFilterCount}
+            onClear={clearFilters}
+          />
+        )}
+
         {loading ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center">
             <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState onAdd={openAdd} />
+        ) : filteredRows.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center">
+            <Filter className="mx-auto h-6 w-6 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium">No competitors match your filters</p>
+            <p className="mt-1 text-xs text-muted-foreground">Try loosening the filters or clearing the search.</p>
+            <button
+              onClick={clearFilters}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              <X className="h-3 w-3" /> Clear all filters
+            </button>
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((c) => (
+            {filteredRows.map((c) => (
               <CompetitorCard
                 key={c.id}
                 competitor={c}
@@ -1356,5 +1472,135 @@ function AlertSettingsSection() {
         </div>
       </div>
     </section>
+  );
+}
+
+function FilterBar({
+  query,
+  onQuery,
+  threatFilter,
+  onToggleThreat,
+  providerFilter,
+  onProvider,
+  activeProvider,
+  categoryFilter,
+  onToggleCategory,
+  activeCount,
+  onClear,
+}: {
+  query: string;
+  onQuery: (v: string) => void;
+  threatFilter: Set<ThreatLevel>;
+  onToggleThreat: (t: ThreatLevel) => void;
+  providerFilter: string;
+  onProvider: (v: string) => void;
+  activeProvider: string | null;
+  categoryFilter: Set<KeywordCategory>;
+  onToggleCategory: (c: KeywordCategory) => void;
+  activeCount: number;
+  onClear: () => void;
+}) {
+  const threatOptions: Array<{ id: ThreatLevel; label: string; cls: string }> = [
+    { id: "high", label: "High threat", cls: "border-red-500/40 bg-red-500/10 text-red-400" },
+    { id: "medium", label: "Watch", cls: "border-amber-500/40 bg-amber-500/10 text-amber-400" },
+    { id: "low", label: "Contained", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" },
+    { id: "none", label: "No data", cls: "border-border bg-muted/40 text-muted-foreground" },
+  ];
+
+  return (
+    <div className="mb-4 rounded-2xl border border-border bg-card/50 p-4">
+      <div className="flex flex-wrap items-center gap-3">
+        {/* Search */}
+        <div className="relative flex-1 min-w-[220px]">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            value={query}
+            onChange={(e) => onQuery(e.target.value)}
+            placeholder="Search by name, notes, or URL…"
+            className="w-full rounded-lg border border-border bg-background py-2 pl-9 pr-8 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          />
+          {query && (
+            <button
+              onClick={() => onQuery("")}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:text-foreground"
+              aria-label="Clear search"
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+
+        {/* Provider */}
+        <div className="flex items-center gap-2">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Provider</span>
+          <select
+            value={providerFilter}
+            onChange={(e) => onProvider(e.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary focus:ring-2 focus:ring-primary/20"
+          >
+            <option value="all">Any provider</option>
+            <option value="serpapi">SerpApi</option>
+            <option value="dataforseo">DataForSEO</option>
+            <option value="local_falcon">Local Falcon</option>
+          </select>
+          {activeProvider && (
+            <span className="rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-primary">
+              Active: {PROVIDER_LABELS[activeProvider] ?? activeProvider}
+            </span>
+          )}
+        </div>
+
+        {activeCount > 0 && (
+          <button
+            onClick={onClear}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            <X className="h-3 w-3" /> Clear ({activeCount})
+          </button>
+        )}
+      </div>
+
+      <div className="mt-3 flex flex-wrap gap-4">
+        {/* Threat chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Threat</span>
+          {threatOptions.map((opt) => {
+            const on = threatFilter.has(opt.id);
+            return (
+              <button
+                key={opt.id}
+                onClick={() => onToggleThreat(opt.id)}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  on ? opt.cls : "border-border bg-background text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {opt.label}
+              </button>
+            );
+          })}
+        </div>
+
+        {/* Category chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-xs uppercase tracking-widest text-muted-foreground">Keyword</span>
+          {KEYWORD_CATEGORIES.map((cat) => {
+            const on = categoryFilter.has(cat);
+            return (
+              <button
+                key={cat}
+                onClick={() => onToggleCategory(cat)}
+                className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
+                  on
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-background text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
   );
 }
