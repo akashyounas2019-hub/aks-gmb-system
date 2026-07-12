@@ -55,7 +55,15 @@ import {
   updateAlertSettings,
   type AlertSettings,
 } from "@/lib/alert-settings.functions";
-import { Bell, Filter, Search } from "lucide-react";
+import { Bell, Filter, Search, Download, FileText, FileSpreadsheet } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 
 export const Route = createFileRoute("/_authenticated/competitors")({
   component: CompetitorsPage,
