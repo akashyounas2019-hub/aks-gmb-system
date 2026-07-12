@@ -16,6 +16,7 @@ import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedPostStorageRouteImport } from './routes/_authenticated/post-storage'
 import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
 import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
@@ -70,6 +71,12 @@ const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPostStorageRoute =
+  AuthenticatedPostStorageRouteImport.update({
+    id: '/post-storage',
+    path: '/post-storage',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedPostGeneratorRoute =
   AuthenticatedPostGeneratorRouteImport.update({
     id: '/post-generator',
@@ -192,6 +199,7 @@ export interface FileRoutesByFullPath {
   '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
+  '/post-storage': typeof AuthenticatedPostStorageRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
@@ -219,6 +227,7 @@ export interface FileRoutesByTo {
   '/keywords': typeof AuthenticatedKeywordsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
+  '/post-storage': typeof AuthenticatedPostStorageRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
@@ -248,6 +257,7 @@ export interface FileRoutesById {
   '/_authenticated/keywords': typeof AuthenticatedKeywordsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
   '/_authenticated/post-generator': typeof AuthenticatedPostGeneratorRoute
+  '/_authenticated/post-storage': typeof AuthenticatedPostStorageRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
@@ -277,6 +287,7 @@ export interface FileRouteTypes {
     | '/keywords'
     | '/library'
     | '/post-generator'
+    | '/post-storage'
     | '/settings'
     | '/upload'
     | '/videos'
@@ -304,6 +315,7 @@ export interface FileRouteTypes {
     | '/keywords'
     | '/library'
     | '/post-generator'
+    | '/post-storage'
     | '/settings'
     | '/upload'
     | '/videos'
@@ -332,6 +344,7 @@ export interface FileRouteTypes {
     | '/_authenticated/keywords'
     | '/_authenticated/library'
     | '/_authenticated/post-generator'
+    | '/_authenticated/post-storage'
     | '/_authenticated/settings'
     | '/_authenticated/upload'
     | '/_authenticated/videos'
@@ -402,6 +415,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/post-storage': {
+      id: '/_authenticated/post-storage'
+      path: '/post-storage'
+      fullPath: '/post-storage'
+      preLoaderRoute: typeof AuthenticatedPostStorageRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/post-generator': {
@@ -591,6 +611,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedKeywordsRoute: typeof AuthenticatedKeywordsRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
   AuthenticatedPostGeneratorRoute: typeof AuthenticatedPostGeneratorRoute
+  AuthenticatedPostStorageRoute: typeof AuthenticatedPostStorageRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
@@ -608,6 +629,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedKeywordsRoute: AuthenticatedKeywordsRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
   AuthenticatedPostGeneratorRoute: AuthenticatedPostGeneratorRoute,
+  AuthenticatedPostStorageRoute: AuthenticatedPostStorageRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
