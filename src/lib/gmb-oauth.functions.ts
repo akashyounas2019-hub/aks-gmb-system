@@ -13,6 +13,32 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 const SCOPE = "https://www.googleapis.com/auth/business.manage";
 const REDIRECT_PATH = "/gmb-oauth-callback";
 
+/**
+ * Structured server-side logger for the GMB sync path. Every line is
+ * prefixed with `[gmb]` and a step tag so the worker log can be grepped
+ * to see exactly what happened: whether tokens loaded, whether a refresh
+ * ran, which account/location was requested, and which Google API call
+ * returned no data. Sensitive values are masked — never log raw tokens
+ * or client secrets.
+ */
+function mask(value: string | null | undefined, keep = 4): string {
+  if (!value) return "<none>";
+  if (value.length <= keep) return "*".repeat(value.length);
+  return `${value.slice(0, keep)}…${value.slice(-2)} (len=${value.length})`;
+}
+function logGmb(step: string, userId: string, payload: Record<string, unknown> = {}) {
+  try {
+    // eslint-disable-next-line no-console
+    console.log(
+      `[gmb] step=${step} user=${userId.slice(0, 8)} ${JSON.stringify(payload)}`,
+    );
+  } catch {
+    // eslint-disable-next-line no-console
+    console.log(`[gmb] step=${step} user=${userId.slice(0, 8)} <unserializable payload>`);
+  }
+}
+
+
 type SupabaseCtx = {
   supabase: ReturnType<typeof getSupabaseType>;
   userId: string;
