@@ -119,10 +119,27 @@ function LibraryPage() {
     }
   }
 
+  function imageBucket(img: { id: string; lat: number | null; lng: number | null }): LibraryTab {
+    if (img.lat != null && img.lng != null) return "geotagged";
+    const tags = data?.tagMap.get(img.id) ?? [];
+    if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
+    return "raw";
+  }
+
+  const counts = useMemo(() => {
+    const c = { raw: 0, published: 0, geotagged: 0 };
+    for (const i of data?.images ?? []) {
+      c[imageBucket(i)]++;
+    }
+    return c;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
+      if (imageBucket(i) !== tab) return false;
       if (!q) return true;
       if (i.name.toLowerCase().includes(q)) return true;
       const venue = i.venue_id ? data.venueMap.get(i.venue_id) : undefined;
@@ -132,7 +149,9 @@ function LibraryPage() {
         return true;
       return false;
     });
-  }, [data, filter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, filter, tab]);
+
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
