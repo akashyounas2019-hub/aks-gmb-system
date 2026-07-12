@@ -508,6 +508,20 @@ function GeotaggingPage() {
         )}
       </section>
 
+      {/* Validation notice */}
+      {step < 4 && !canNext && (
+        <div className="mt-6 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+          <span aria-hidden>⚠</span>
+          <span>
+            {step === 1
+              ? "Upload at least one image to continue."
+              : step === 2
+                ? "Choose a location (Quick pick, Library, or Map) to continue."
+                : "Tag at least one image to continue."}
+          </span>
+        </div>
+      )}
+
       {/* Wizard nav */}
       <div className="mt-6 flex items-center justify-between gap-3">
         <button
@@ -524,7 +538,17 @@ function GeotaggingPage() {
           <button
             onClick={gotoNext}
             disabled={!canNext}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+            aria-disabled={!canNext}
+            title={
+              !canNext
+                ? step === 1
+                  ? "Upload at least one image"
+                  : step === 2
+                    ? "Choose a location first"
+                    : "Tag at least one image"
+                : undefined
+            }
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
           >
             Continue <ChevronRight className="h-4 w-4" />
           </button>
