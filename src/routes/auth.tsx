@@ -75,6 +75,8 @@ function AuthPage() {
             : "Sign up to start extracting frames."}
         </p>
 
+        {/* Google sign-in temporarily hidden during system development.
+            To re-enable: uncomment the button + divider below and keep `handleGoogle` above.
         <button
           onClick={handleGoogle}
           disabled={loading}
@@ -92,6 +94,8 @@ function AuthPage() {
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
           <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
         </div>
+        */}
+        <div className="mt-6" />
 
         <form onSubmit={handleEmail} className="space-y-3">
           <div>
