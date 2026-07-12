@@ -777,7 +777,16 @@ function GmbAnalyticsPage() {
           <div>
             <h2 className="text-lg font-semibold">Local visibility heat map</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Geo-grid ranks across a 7×7 grid centered on your business.
+              Geo-grid ranks across a 7×7 grid centered on your business.{" "}
+              {usingRealData ? (
+                <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                  Live · from your keywords
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Sample data
+                </span>
+              )}
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
@@ -792,6 +801,15 @@ function GmbAnalyticsPage() {
                 </option>
               ))}
             </select>
+            <button
+              onClick={handleRefreshGrid}
+              disabled={refreshingGrid}
+              className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              title="Recompute geo-grid ranks for all tracked keywords"
+            >
+              {refreshingGrid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              Refresh grid
+            </button>
             <div className="flex gap-3 text-xs">
               <LegendSwatch color={rankColor(1)} label="1–3" />
               <LegendSwatch color={rankColor(5)} label="4–10" />
