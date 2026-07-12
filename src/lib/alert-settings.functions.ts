@@ -55,7 +55,14 @@ export const updateAlertSettings = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const row: Record<string, unknown> = { user_id: userId };
+    const row: {
+      user_id: string;
+      threat_keyword_threshold?: number;
+      rank_improvement_delta?: number;
+      overtake_enabled?: boolean;
+      threat_enabled?: boolean;
+      improvement_enabled?: boolean;
+    } = { user_id: userId };
     if (data.threatKeywordThreshold != null) row.threat_keyword_threshold = data.threatKeywordThreshold;
     if (data.rankImprovementDelta != null) row.rank_improvement_delta = data.rankImprovementDelta;
     if (data.overtakeEnabled != null) row.overtake_enabled = data.overtakeEnabled;
