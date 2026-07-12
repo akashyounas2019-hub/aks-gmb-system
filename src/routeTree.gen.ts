@@ -21,7 +21,13 @@ import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticate
 import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
 import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
+import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
+import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
+import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
+import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -85,10 +91,46 @@ const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
   path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSettingsTeamRoute =
+  AuthenticatedSettingsTeamRouteImport.update({
+    id: '/team',
+    path: '/team',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsSecurityRoute =
+  AuthenticatedSettingsSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsProfileRoute =
+  AuthenticatedSettingsProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsNotificationsRoute =
+  AuthenticatedSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsIntegrationsRoute =
   AuthenticatedSettingsIntegrationsRouteImport.update({
     id: '/integrations',
     path: '/integrations',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsGeneralRoute =
+  AuthenticatedSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsAppearanceRoute =
+  AuthenticatedSettingsAppearanceRouteImport.update({
+    id: '/appearance',
+    path: '/appearance',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedLibraryImageIdRoute =
@@ -111,7 +153,13 @@ export interface FileRoutesByFullPath {
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
+  '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
+  '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/settings/team': typeof AuthenticatedSettingsTeamRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -126,7 +174,13 @@ export interface FileRoutesByTo {
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
+  '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/settings/profile': typeof AuthenticatedSettingsProfileRoute
+  '/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/settings/team': typeof AuthenticatedSettingsTeamRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -143,7 +197,13 @@ export interface FileRoutesById {
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
   '/_authenticated/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
+  '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
+  '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
+  '/_authenticated/settings/profile': typeof AuthenticatedSettingsProfileRoute
+  '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
+  '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -160,7 +220,13 @@ export interface FileRouteTypes {
     | '/videos'
     | '/wizard'
     | '/library/$imageId'
+    | '/settings/appearance'
+    | '/settings/general'
     | '/settings/integrations'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/security'
+    | '/settings/team'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -175,7 +241,13 @@ export interface FileRouteTypes {
     | '/videos'
     | '/wizard'
     | '/library/$imageId'
+    | '/settings/appearance'
+    | '/settings/general'
     | '/settings/integrations'
+    | '/settings/notifications'
+    | '/settings/profile'
+    | '/settings/security'
+    | '/settings/team'
   id:
     | '__root__'
     | '/'
@@ -191,7 +263,13 @@ export interface FileRouteTypes {
     | '/_authenticated/videos'
     | '/_authenticated/wizard'
     | '/_authenticated/library/$imageId'
+    | '/_authenticated/settings/appearance'
+    | '/_authenticated/settings/general'
     | '/_authenticated/settings/integrations'
+    | '/_authenticated/settings/notifications'
+    | '/_authenticated/settings/profile'
+    | '/_authenticated/settings/security'
+    | '/_authenticated/settings/team'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -286,11 +364,53 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedCalendarRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/settings/team': {
+      id: '/_authenticated/settings/team'
+      path: '/team'
+      fullPath: '/settings/team'
+      preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/security': {
+      id: '/_authenticated/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthenticatedSettingsSecurityRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/profile': {
+      id: '/_authenticated/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/notifications': {
+      id: '/_authenticated/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/integrations': {
       id: '/_authenticated/settings/integrations'
       path: '/integrations'
       fullPath: '/settings/integrations'
       preLoaderRoute: typeof AuthenticatedSettingsIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/general': {
+      id: '/_authenticated/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/appearance': {
+      id: '/_authenticated/settings/appearance'
+      path: '/appearance'
+      fullPath: '/settings/appearance'
+      preLoaderRoute: typeof AuthenticatedSettingsAppearanceRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/library/$imageId': {
@@ -315,12 +435,25 @@ const AuthenticatedLibraryRouteWithChildren =
   AuthenticatedLibraryRoute._addFileChildren(AuthenticatedLibraryRouteChildren)
 
 interface AuthenticatedSettingsRouteChildren {
+  AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
+  AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
+  AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
+  AuthenticatedSettingsProfileRoute: typeof AuthenticatedSettingsProfileRoute
+  AuthenticatedSettingsSecurityRoute: typeof AuthenticatedSettingsSecurityRoute
+  AuthenticatedSettingsTeamRoute: typeof AuthenticatedSettingsTeamRoute
 }
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
+  AuthenticatedSettingsAppearanceRoute: AuthenticatedSettingsAppearanceRoute,
+  AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsIntegrationsRoute:
     AuthenticatedSettingsIntegrationsRoute,
+  AuthenticatedSettingsNotificationsRoute:
+    AuthenticatedSettingsNotificationsRoute,
+  AuthenticatedSettingsProfileRoute: AuthenticatedSettingsProfileRoute,
+  AuthenticatedSettingsSecurityRoute: AuthenticatedSettingsSecurityRoute,
+  AuthenticatedSettingsTeamRoute: AuthenticatedSettingsTeamRoute,
 }
 
 const AuthenticatedSettingsRouteWithChildren =
