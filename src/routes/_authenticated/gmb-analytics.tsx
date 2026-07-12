@@ -24,7 +24,7 @@ import { toast } from "sonner";
 
 import { generateChangeSuggestions } from "@/lib/insights.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
-import { getCompetitorRanks } from "@/lib/rank-source.functions";
+import { getCompetitorRanks, getCompetitorRankHistory } from "@/lib/rank-source.functions";
 import { getGmbMetrics, getGmbConnectionStatus } from "@/lib/gmb-oauth.functions";
 import { readGmbConnection, writeGmbConnection } from "./settings.integrations";
 
@@ -314,7 +314,11 @@ function GmbAnalyticsPage() {
     setRankErr(null);
     fetchCompetitorRanks({
       data: {
-        keywords: MOCK_KEYWORDS.map((k) => ({ keyword: k.keyword, city: k.city })),
+        keywords: MOCK_KEYWORDS.map((k) => ({
+          keyword: k.keyword,
+          city: k.city,
+          userRank: k.current,
+        })),
         competitors: competitors.map((c) => ({
           id: c.id,
           name: c.name,
