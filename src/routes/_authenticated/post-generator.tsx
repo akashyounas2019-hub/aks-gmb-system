@@ -462,16 +462,40 @@ function PostGeneratorPage() {
                   available)
                 </span>
               </div>
-              <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <div className="flex items-center gap-3">
+                <label className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <input
+                    type="checkbox"
+                    checked={showPosted}
+                    onChange={(e) => setShowPosted(e.target.checked)}
+                    className="h-3.5 w-3.5"
+                  />
+                  Show posted
+                </label>
                 <input
-                  type="checkbox"
-                  checked={showPosted}
-                  onChange={(e) => setShowPosted(e.target.checked)}
-                  className="h-3.5 w-3.5"
+                  ref={uploadRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => e.target.files && uploadManualImages(e.target.files)}
                 />
-                Show posted
-              </label>
+                <button
+                  type="button"
+                  onClick={() => uploadRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs font-medium hover:bg-accent disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <Plus className="h-3.5 w-3.5" />
+                  )}
+                  {uploading ? "Uploading…" : "Upload"}
+                </button>
+              </div>
             </div>
+
             {previewImages.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                 {images.length === 0
