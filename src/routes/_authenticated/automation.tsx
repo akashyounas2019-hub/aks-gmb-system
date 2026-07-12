@@ -179,6 +179,22 @@ type ActivityEntry = {
 
 const STORAGE_KEY_RULES = "automation.rules.v1";
 const STORAGE_KEY_ACTIVITY = "automation.activity.v1";
+const STORAGE_KEY_CUSTOM = "automation.customTemplates.v1";
+
+const CATEGORY_ICONS: Record<AutomationCategory, typeof Zap> = {
+  geotagging: MapPin,
+  content: PenSquare,
+  monitoring: Target,
+  media: Images,
+};
+const CATEGORY_TONES: Record<AutomationCategory, string> = {
+  geotagging: "bg-emerald-500/15 text-emerald-500",
+  content: "bg-violet-500/15 text-violet-500",
+  monitoring: "bg-rose-500/15 text-rose-500",
+  media: "bg-sky-500/15 text-sky-500",
+};
+
+type CustomTemplateSerialized = Omit<Template, "icon" | "tone"> & { custom: true };
 
 const CATEGORY_META: Record<AutomationCategory, { label: string; color: string }> = {
   geotagging: { label: "Geotagging", color: "text-emerald-500" },
@@ -194,16 +210,33 @@ const CATEGORY_META: Record<AutomationCategory, { label: string; color: string }
 function AutomationPage() {
   const [rules, setRules] = useState<AutomationRule[]>([]);
   const [activity, setActivity] = useState<ActivityEntry[]>([]);
+  const [customTemplates, setCustomTemplates] = useState<CustomTemplateSerialized[]>([]);
   const [category, setCategory] = useState<AutomationCategory | "all">("all");
   const [editing, setEditing] = useState<AutomationRule | null>(null);
+  const [creating, setCreating] = useState(false);
+
+  const allTemplates = useMemo<Template[]>(
+    () =>
+      [
+        ...TEMPLATES,
+        ...customTemplates.map((c) => ({
+          ...c,
+          icon: CATEGORY_ICONS[c.category],
+          tone: CATEGORY_TONES[c.category],
+        })),
+      ],
+    [customTemplates],
+  );
 
   // Load persisted state
   useEffect(() => {
     try {
       const r = localStorage.getItem(STORAGE_KEY_RULES);
       const a = localStorage.getItem(STORAGE_KEY_ACTIVITY);
+      const c = localStorage.getItem(STORAGE_KEY_CUSTOM);
       if (r) setRules(JSON.parse(r));
       if (a) setActivity(JSON.parse(a));
+      if (c) setCustomTemplates(JSON.parse(c));
     } catch {
       /* noop */
     }
@@ -216,10 +249,13 @@ function AutomationPage() {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY_ACTIVITY, JSON.stringify(activity.slice(0, 50)));
   }, [activity]);
+  useEffect(() => {
+    localStorage.setItem(STORAGE_KEY_CUSTOM, JSON.stringify(customTemplates));
+  }, [customTemplates]);
 
   const filteredTemplates = useMemo(
-    () => (category === "all" ? TEMPLATES : TEMPLATES.filter((t) => t.category === category)),
-    [category],
+    () => (category === "all" ? allTemplates : allTemplates.filter((t) => t.category === category)),
+    [category, allTemplates],
   );
 
   const stats = {
@@ -329,11 +365,17 @@ function AutomationPage() {
             Turn repetitive tasks into scheduled or event-driven rules.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap items-center gap-2">
           <StatChip label="Automations" value={stats.total} />
           <StatChip label="Active" value={stats.active} tone="primary" />
           <StatChip label="Runs" value={stats.runs} tone="success" />
           <StatChip label="Errors" value={stats.errors} tone={stats.errors ? "danger" : undefined} />
+          <button
+            onClick={() => setCreating(true)}
+            className="ml-2 inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground shadow-sm hover:opacity-90"
+          >
+            <Plus className="h-4 w-4" /> Add New Automation
+          </button>
         </div>
       </header>
 
@@ -451,7 +493,7 @@ function AutomationPage() {
             ) : (
               <div className="space-y-2">
                 {rules.map((r) => {
-                  const tpl = TEMPLATES.find((t) => t.id === r.templateId);
+                  const tpl = allTemplates.find((t) => t.id === r.templateId);
                   if (!tpl) return null;
                   const Icon = tpl.icon;
                   return (
@@ -584,7 +626,7 @@ function AutomationPage() {
       {editing && (
         <ConfigureModal
           rule={editing}
-          template={TEMPLATES.find((t) => t.id === editing.templateId)!}
+          template={allTemplates.find((t) => t.id === editing.templateId)!}
           onClose={() => setEditing(null)}
           onSave={(patch) => {
             setRules((prev) =>
@@ -595,6 +637,22 @@ function AutomationPage() {
             toast.success("Automation updated.");
           }}
           onUpdateConfig={(patch) => updateConfig(editing.id, patch)}
+        />
+      )}
+
+      {creating && (
+        <NewAutomationModal
+          onClose={() => setCreating(false)}
+          onCreate={(tpl) => {
+            setCustomTemplates((prev) => [tpl, ...prev]);
+            const fullTpl: Template = {
+              ...tpl,
+              icon: CATEGORY_ICONS[tpl.category],
+              tone: CATEGORY_TONES[tpl.category],
+            };
+            addRule(fullTpl);
+            setCreating(false);
+          }}
         />
       )}
     </div>
@@ -777,6 +835,191 @@ function ConfigureModal({
             className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
           >
             Save changes
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function NewAutomationModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (tpl: CustomTemplateSerialized) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<AutomationCategory>("content");
+  const [triggerKind, setTriggerKind] = useState<Trigger["kind"]>("schedule");
+  const [cron, setCron] = useState("0 9 * * 1");
+  const [triggerLabel, setTriggerLabel] = useState("Mondays at 9:00 AM");
+  const [event, setEvent] = useState("image.uploaded");
+  const [actionsText, setActionsText] = useState("Step 1, Step 2, Step 3");
+
+  function submit() {
+    if (!name.trim()) {
+      toast.error("Give your automation a name.");
+      return;
+    }
+    let trigger: Trigger;
+    if (triggerKind === "schedule") {
+      trigger = { kind: "schedule", cron: cron.trim() || "0 9 * * *", label: triggerLabel.trim() || cron };
+    } else if (triggerKind === "event") {
+      trigger = { kind: "event", event: event.trim() || "custom.event", label: `Event: ${event.trim()}` };
+    } else {
+      trigger = { kind: "manual", label: "Manual runs only" };
+    }
+    const actions = actionsText
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+    const tpl: CustomTemplateSerialized = {
+      custom: true,
+      id: `custom-${crypto.randomUUID()}`,
+      name: name.trim(),
+      description: description.trim() || "Custom automation",
+      category,
+      trigger,
+      actions: actions.length ? actions : ["Run custom workflow"],
+    };
+    onCreate(tpl);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              New automation
+            </div>
+            <h3 className="mt-0.5 font-display text-lg">Create a custom workflow</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Define your own trigger and actions.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
+            Close
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Refresh competitor snapshots"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Description</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder="What does this automation do?"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Category</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as AutomationCategory)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            >
+              {(Object.keys(CATEGORY_META) as AutomationCategory[]).map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_META[c].label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium">Trigger</span>
+            <div className="mb-2 flex gap-1">
+              {(["schedule", "event", "manual"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setTriggerKind(k)}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs capitalize transition ${
+                    triggerKind === k
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+            {triggerKind === "schedule" && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={cron}
+                  onChange={(e) => setCron(e.target.value)}
+                  placeholder="Cron (e.g. 0 9 * * 1)"
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+                <input
+                  value={triggerLabel}
+                  onChange={(e) => setTriggerLabel(e.target.value)}
+                  placeholder="Human label"
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            )}
+            {triggerKind === "event" && (
+              <input
+                value={event}
+                onChange={(e) => setEvent(e.target.value)}
+                placeholder="Event name (e.g. image.uploaded)"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+            )}
+            {triggerKind === "manual" && (
+              <p className="text-xs text-muted-foreground">
+                This automation will only run when triggered manually.
+              </p>
+            )}
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Actions</span>
+            <input
+              value={actionsText}
+              onChange={(e) => setActionsText(e.target.value)}
+              placeholder="Comma-separated steps"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-3.5 w-3.5" /> Create automation
           </button>
         </div>
       </div>
