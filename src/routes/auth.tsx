@@ -27,13 +27,25 @@ function AuthPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const { error } = await supabase.auth.signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
           options: { emailRedirectTo: window.location.origin },
         });
         if (error) throw error;
-        toast.success("Check your inbox to confirm your email.");
+        if (data.session) {
+          toast.success("Account created.");
+          navigate({ to: "/upload" });
+        } else {
+          // Fallback: try immediate sign-in (auto-confirm enabled server-side)
+          const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+          if (signInError) {
+            toast.success("Account created. Please sign in.");
+            setMode("signin");
+          } else {
+            navigate({ to: "/upload" });
+          }
+        }
       } else {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
