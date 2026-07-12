@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, ShieldCheck, XCircle } from "lucide-react";
+import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -8,6 +8,11 @@ import {
   saveGmbCredentials,
   clearGmbCredentials,
 } from "@/lib/gmb-credentials.functions";
+import {
+  listIntegrations,
+  saveIntegration,
+  deleteIntegration,
+} from "@/lib/user-integrations.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/integrations")({
   component: IntegrationsPage,
