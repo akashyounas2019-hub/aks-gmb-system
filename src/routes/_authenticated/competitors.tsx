@@ -221,6 +221,36 @@ function CompetitorsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load user-managed tracked keywords once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetchTracked()
+      .then((r) => {
+        if (cancelled) return;
+        if (r.rows.length > 0) setTrackedKeywords(r.rows);
+        setTrackedIsCustom(r.isCustom);
+      })
+      .catch((e) => {
+        console.error("[competitors] tracked keywords load failed", e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTracked]);
+
+  async function handleSaveTracked(next: TrackedKeyword[]) {
+    try {
+      await persistTracked({ data: { rows: next } });
+      setTrackedKeywords(next.length > 0 ? next : STARTER_TRACKED_KEYWORDS);
+      setTrackedIsCustom(next.length > 0);
+      toast.success("Tracked keywords saved");
+      setShowKeywordManager(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    }
+  }
+
+
   // Fetch live rank matrix whenever the competitor list changes.
   useEffect(() => {
     if (rows.length === 0) {
