@@ -101,6 +101,17 @@ function CompetitorsPage() {
     toast.message("Removed");
   }
 
+  async function onRefreshPlace(c: Competitor) {
+    try {
+      const res = await refreshPlace({ data: { id: c.id } });
+      await refresh();
+      if (res.placeId) toast.success(`Place ID resolved: ${res.placeId}`);
+      else toast.message("Could not resolve a Place ID from this URL");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to refresh");
+    }
+  }
+
   return (
     <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
       <div className="flex flex-wrap items-center justify-between gap-3">
