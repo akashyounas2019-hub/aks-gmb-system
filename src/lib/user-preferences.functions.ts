@@ -33,11 +33,13 @@ export const savePreferences = createServerFn({ method: "POST" })
   .inputValidator((input: PrefsPatch) => input)
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const row: Record<string, unknown> = { owner_id: userId };
-    if (data.theme !== undefined) row.theme = data.theme;
-    if (data.general !== undefined) row.general = data.general;
-    if (data.notifications !== undefined) row.notifications = data.notifications;
-    if (data.appearance !== undefined) row.appearance = data.appearance;
+    const row = {
+      owner_id: userId,
+      ...(data.theme !== undefined ? { theme: data.theme } : {}),
+      ...(data.general !== undefined ? { general: data.general as never } : {}),
+      ...(data.notifications !== undefined ? { notifications: data.notifications as never } : {}),
+      ...(data.appearance !== undefined ? { appearance: data.appearance as never } : {}),
+    };
     const { error } = await supabase
       .from("user_preferences")
       .upsert(row, { onConflict: "owner_id" });
