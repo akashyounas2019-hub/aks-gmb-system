@@ -92,26 +92,42 @@ export const sendImagesToGhl = createServerFn({ method: "POST" })
         contact_id: data.extra?.contactId ?? null,
       };
 
-      try {
-        const res = await fetch(webhookUrl, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(payload),
-        });
-        results.push({
-          imageId: img.id,
-          ok: res.ok,
-          status: res.status,
-          error: res.ok ? undefined : (await res.text()).slice(0, 200),
-        });
-      } catch (err) {
-        results.push({
-          imageId: img.id,
-          ok: false,
-          status: 0,
-          error: err instanceof Error ? err.message : "network error",
-        });
+      // Option A: direct GHL inbound webhook.
+      // Option B: n8n workflow relay (fires in parallel if N8N_WEBHOOK_URL is set).
+      const targets: Array<{ label: "ghl" | "n8n"; url: string }> = [
+        { label: "ghl", url: webhookUrl },
+      ];
+      if (process.env.N8N_WEBHOOK_URL) {
+        targets.push({ label: "n8n", url: process.env.N8N_WEBHOOK_URL });
       }
+
+      const perTarget = await Promise.all(
+        targets.map(async (t) => {
+          try {
+            const res = await fetch(t.url, {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({ ...payload, _target: t.label }),
+            });
+            return {
+              imageId: img.id,
+              target: t.label,
+              ok: res.ok,
+              status: res.status,
+              error: res.ok ? undefined : (await res.text()).slice(0, 200),
+            };
+          } catch (err) {
+            return {
+              imageId: img.id,
+              target: t.label,
+              ok: false,
+              status: 0,
+              error: err instanceof Error ? err.message : "network error",
+            };
+          }
+        }),
+      );
+      results.push(...perTarget);
     }
 
     return {
