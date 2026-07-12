@@ -8,7 +8,7 @@ import {
   ChevronDown,
 
   Images,
-  Inbox,
+  
   KeyRound,
   LayoutDashboard,
   LogOut,
