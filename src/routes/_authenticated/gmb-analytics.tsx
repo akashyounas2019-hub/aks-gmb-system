@@ -467,6 +467,9 @@ function GmbAnalyticsPage() {
             require a Google Cloud OAuth client with the Business Profile API enabled.
           </div>
         )}
+      </div>
+
+
 
       {/* Business card */}
       <div className="mt-6 rounded-2xl border border-border bg-gradient-to-br from-card to-card/50 p-5">
