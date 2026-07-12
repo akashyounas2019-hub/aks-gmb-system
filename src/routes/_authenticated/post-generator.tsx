@@ -85,6 +85,18 @@ function PostGeneratorPage() {
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
 
+  const [ctaType, setCtaType] = useState<
+    "none" | "book" | "order" | "shop" | "learn_more" | "sign_up" | "call"
+  >("none");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [uploading, setUploading] = useState(false);
+  const uploadRef = useRef<HTMLInputElement>(null);
+
+  const CAPTION_LIMIT = 1500;
+  const captionLen = caption.length;
+  const captionOver = captionLen > CAPTION_LIMIT;
+
+
   async function reloadImages() {
     const { data } = await supabase
       .from("images")
