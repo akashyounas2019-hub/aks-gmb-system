@@ -1035,6 +1035,7 @@ function CompetitorsPage() {
           rankMatrix={rankMatrix}
           onClose={() => setSelected(null)}
           fetchHistory={fetchHistory}
+          trackedKeywords={trackedKeywords}
         />
       )}
     </div>
