@@ -274,6 +274,39 @@ const DARK_MAP_STYLE: any[] = [
 function GmbAnalyticsPage() {
   const [keyword, setKeyword] = useState(MOCK_KEYWORDS[0].keyword);
   const [search, setSearch] = useState("");
+  const [gmb, setGmb] = useState(() => readGmbConnection());
+  const [connectBusy, setConnectBusy] = useState(false);
+
+  useEffect(() => {
+    const sync = () => setGmb(readGmbConnection());
+    sync();
+    window.addEventListener("gmb-connection-changed", sync);
+    window.addEventListener("storage", sync);
+    return () => {
+      window.removeEventListener("gmb-connection-changed", sync);
+      window.removeEventListener("storage", sync);
+    };
+  }, []);
+
+  async function handleConnect() {
+    setConnectBusy(true);
+    try {
+      await new Promise((r) => setTimeout(r, 600));
+      writeGmbConnection({
+        connected: true,
+        accountName: "Pearl Home Cleaning",
+        locationName: "Downtown Dubai",
+        connectedAt: new Date().toISOString(),
+      });
+      toast.success(gmb.connected ? "Reconnected" : "Connected");
+    } finally {
+      setConnectBusy(false);
+    }
+  }
+  function handleDisconnect() {
+    writeGmbConnection({ connected: false });
+    toast.message("Disconnected");
+  }
 
   const summary = useMemo(() => {
     const improved = MOCK_KEYWORDS.filter((k) => k.previous > k.current).length;
