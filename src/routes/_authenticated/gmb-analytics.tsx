@@ -703,6 +703,87 @@ function GmbAnalyticsPage() {
         </div>
       </section>
 
+      {/* Competitor rank comparison */}
+      <section className="mt-10">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Competitor rank comparison</h2>
+            <p className="mt-1 text-sm text-muted-foreground">
+              Your rank vs. tracked competitor GBPs per keyword.
+            </p>
+          </div>
+          <Link
+            to="/competitors"
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
+          >
+            Manage competitors
+          </Link>
+        </div>
+
+        {competitors.length === 0 ? (
+          <div className="rounded-xl border border-dashed border-border bg-card/40 p-8 text-center text-sm text-muted-foreground">
+            No competitors tracked yet.{" "}
+            <Link to="/competitors" className="text-primary hover:underline">
+              Add competitor GBP URLs →
+            </Link>
+          </div>
+        ) : (
+          <div className="overflow-x-auto rounded-xl border border-border">
+            <table className="w-full min-w-[640px] text-sm">
+              <thead className="bg-card text-left text-xs uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="px-4 py-3">Keyword</th>
+                  <th className="px-4 py-3">You</th>
+                  {competitors.map((c) => (
+                    <th key={c.id} className="px-4 py-3">
+                      <div className="max-w-[140px] truncate" title={c.name}>{c.name}</div>
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {MOCK_KEYWORDS.map((k) => (
+                  <tr key={k.keyword} className="border-t border-border">
+                    <td className="px-4 py-3 font-medium">{k.keyword}</td>
+                    <td className="px-4 py-3">
+                      <RankPill rank={k.current} />
+                    </td>
+                    {competitors.map((c) => {
+                      const r = competitorRank(c.place_id ?? c.gbp_url, k.keyword);
+                      const delta = r - k.current;
+                      return (
+                        <td key={c.id} className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <RankPill rank={r} />
+                            <span
+                              className={`text-[11px] ${
+                                delta > 0
+                                  ? "text-emerald-500"
+                                  : delta < 0
+                                    ? "text-destructive"
+                                    : "text-muted-foreground"
+                              }`}
+                            >
+                              {delta > 0 ? `+${delta}` : delta === 0 ? "=" : delta}
+                            </span>
+                          </div>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            <div className="border-t border-border bg-card/40 px-4 py-2 text-[11px] text-muted-foreground">
+              Positive delta means the competitor ranks worse than you.
+              Ranks are derived from stored GBP identifiers; connect a rank
+              source in Settings → Integrations to replace with live data.
+            </div>
+          </div>
+        )}
+      </section>
+
+
       <div className="mt-6 flex items-start gap-2 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div>
