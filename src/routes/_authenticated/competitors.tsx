@@ -253,7 +253,16 @@ function CompetitorsPage() {
                     </a>
                   </td>
                   <td className="px-4 py-3 font-mono text-xs text-muted-foreground">
-                    {c.place_id ?? "—"}
+                    <div className="flex items-center gap-2">
+                      <span>{c.place_id ?? "—"}</span>
+                      <button
+                        onClick={() => onRefreshPlace(c)}
+                        title="Re-resolve Place ID from URL"
+                        className="rounded-md border border-border bg-card p-1 hover:bg-accent"
+                      >
+                        <RefreshCw className="h-3 w-3" />
+                      </button>
+                    </div>
                   </td>
                   <td className="px-4 py-3 text-xs text-muted-foreground">
                     {new Date(c.created_at).toLocaleDateString()}
