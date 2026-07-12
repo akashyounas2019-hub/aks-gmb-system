@@ -58,7 +58,7 @@ import {
 import {
   listTrackedKeywords,
   saveTrackedKeywords,
-  STARTER_trackedKeywords,
+  STARTER_TRACKED_KEYWORDS,
   type TrackedKeyword,
 } from "@/lib/tracked-keywords.functions";
 import { Bell, Filter, Search, Download, FileText, FileSpreadsheet } from "lucide-react";
@@ -86,7 +86,7 @@ type Competitor = {
 };
 
 // Keyword universe is loaded per-user from the `tracked_keywords` table.
-// STARTER_trackedKeywords is only used as the initial render seed until the
+// STARTER_TRACKED_KEYWORDS is only used as the initial render seed until the
 // server responds; users edit their own list from the Manage keywords panel.
 
 const KEYWORD_CATEGORIES = ["Residential", "Commercial", "Specialty"] as const;
