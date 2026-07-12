@@ -488,7 +488,7 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
       qs.set("dailyRange.end_date.month", String(to.getUTCMonth() + 1));
       qs.set("dailyRange.end_date.day", String(to.getUTCDate()));
       const url = `https://businessprofileperformance.googleapis.com/v1/${tokens!.location_name}:fetchMultiDailyMetricsTimeSeries?${qs.toString()}`;
-      return (await callGoogle(at, url)) as {
+      return (await callGoogle(at, url, ctx.userId)) as {
         multiDailyMetricTimeSeries?: Array<{
           dailyMetricTimeSeries?: Array<{
             dailyMetric?: Metric;
