@@ -239,7 +239,41 @@ function PostGeneratorPage() {
         </div>
       </div>
 
+      {/* Top tabs */}
+      <div className="mt-6 border-b border-border">
+        <nav role="tablist" aria-label="Post generator sections" className="-mb-px flex flex-wrap gap-1 overflow-x-auto">
+          {[
+            { id: "compose" as const, label: "Compose", icon: PenSquare },
+            { id: "storage" as const, label: "Post Storage", icon: Inbox },
+          ].map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(t.id)}
+                className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {tab === "storage" ? (
+        <div className="mt-6">
+          <PostStoragePanel />
+        </div>
+      ) : (
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+
         {/* Left column — inputs */}
         <div className="space-y-6">
           {/* Keywords — manual first, CSV import as dropdown */}
