@@ -172,15 +172,23 @@ function LibraryPage() {
     setSelected(new Set());
   }
 
+  const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
+    { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
+    { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
+    { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
+    { id: "videos", label: "Videos", icon: Film },
+  ];
+
   return (
     <div className="p-6 md:p-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl">Library</h1>
+          <h1 className="text-3xl">Image Library</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {data?.images.length ?? 0} extracted frames
           </p>
         </div>
+
         <div className="flex items-center gap-2">
           <input
             type="search"
