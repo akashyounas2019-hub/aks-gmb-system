@@ -780,14 +780,15 @@ function PostGeneratorPage() {
               <div className="grid grid-cols-2 gap-2">
                 <button
                   onClick={() => setPreviewOpen(true)}
-                  disabled={!caption.trim()}
+                  disabled={!caption.trim() || captionOver}
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
                 >
                   <Eye className="h-4 w-4" /> Preview
                 </button>
                 <button
                   onClick={() => setPreviewOpen(true)}
-                  disabled={sending || !caption.trim() || networks.length === 0}
+                  disabled={sending || !caption.trim() || captionOver || networks.length === 0}
+
                   className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
                   {sending ? (
