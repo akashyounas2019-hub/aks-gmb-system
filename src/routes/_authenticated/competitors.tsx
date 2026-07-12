@@ -55,6 +55,12 @@ import {
   updateAlertSettings,
   type AlertSettings,
 } from "@/lib/alert-settings.functions";
+import {
+  listTrackedKeywords,
+  saveTrackedKeywords,
+  STARTER_TRACKED_KEYWORDS,
+  type TrackedKeyword,
+} from "@/lib/tracked-keywords.functions";
 import { Bell, Filter, Search, Download, FileText, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -79,23 +85,9 @@ type Competitor = {
   updated_at: string;
 };
 
-// Keyword universe used for competitor rank probing. Kept in sync with the
-// GMB Analytics screen so both surfaces reason about the same terms.
-const TRACKED_KEYWORDS: Array<{
-  keyword: string;
-  city: string;
-  userRank: number;
-  volume: number;
-  category: "Residential" | "Commercial" | "Specialty";
-}> = [
-  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900, category: "Residential" },
-  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600, category: "Residential" },
-  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720, category: "Residential" },
-  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990, category: "Specialty" },
-  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480, category: "Specialty" },
-  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590, category: "Residential" },
-  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300, category: "Commercial" },
-];
+// Keyword universe is loaded per-user from the `tracked_keywords` table.
+// STARTER_TRACKED_KEYWORDS is only used as the initial render seed until the
+// server responds; users edit their own list from the Manage keywords panel.
 
 const KEYWORD_CATEGORIES = ["Residential", "Commercial", "Specialty"] as const;
 type KeywordCategory = (typeof KEYWORD_CATEGORIES)[number];
@@ -181,6 +173,14 @@ function CompetitorsPage() {
   const refreshPlace = useServerFn(refreshCompetitorPlaceId);
   const fetchRanks = useServerFn(getCompetitorRanks);
   const fetchHistory = useServerFn(getCompetitorRankHistory);
+  const fetchTracked = useServerFn(listTrackedKeywords);
+  const persistTracked = useServerFn(saveTrackedKeywords);
+
+  const [trackedKeywords, setTrackedKeywords] =
+    useState<TrackedKeyword[]>(STARTER_TRACKED_KEYWORDS);
+  const [trackedIsCustom, setTrackedIsCustom] = useState(false);
+  const [showKeywordManager, setShowKeywordManager] = useState(false);
+
 
   const [rows, setRows] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -221,6 +221,36 @@ function CompetitorsPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Load user-managed tracked keywords once on mount.
+  useEffect(() => {
+    let cancelled = false;
+    fetchTracked()
+      .then((r) => {
+        if (cancelled) return;
+        if (r.rows.length > 0) setTrackedKeywords(r.rows);
+        setTrackedIsCustom(r.isCustom);
+      })
+      .catch((e) => {
+        console.error("[competitors] tracked keywords load failed", e);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchTracked]);
+
+  async function handleSaveTracked(next: TrackedKeyword[]) {
+    try {
+      await persistTracked({ data: { rows: next } });
+      setTrackedKeywords(next.length > 0 ? next : STARTER_TRACKED_KEYWORDS);
+      setTrackedIsCustom(next.length > 0);
+      toast.success("Tracked keywords saved");
+      setShowKeywordManager(false);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    }
+  }
+
+
   // Fetch live rank matrix whenever the competitor list changes.
   useEffect(() => {
     if (rows.length === 0) {
@@ -233,7 +263,7 @@ function CompetitorsPage() {
     setRanksLoading(true);
     fetchRanks({
       data: {
-        keywords: TRACKED_KEYWORDS.map((k) => ({
+        keywords: trackedKeywords.map((k) => ({
           keyword: k.keyword,
           city: k.city,
           userRank: k.userRank,
@@ -284,7 +314,7 @@ function CompetitorsPage() {
       let behind = 0;
       let tied = 0;
       let top3 = 0;
-      for (const k of TRACKED_KEYWORDS) {
+      for (const k of trackedKeywords) {
         const r = rankMatrix[k.keyword]?.[c.id];
         if (r == null) continue;
         sum += r;
@@ -324,7 +354,7 @@ function CompetitorsPage() {
       contested += s.coverage;
     }
     const yourAvg =
-      TRACKED_KEYWORDS.reduce((a, b) => a + b.userRank, 0) / TRACKED_KEYWORDS.length;
+      trackedKeywords.reduce((a, b) => a + b.userRank, 0) / trackedKeywords.length;
     const compAvg = ranks.length > 0 ? ranks.reduce((a, b) => a + b, 0) / ranks.length : null;
     return {
       total: rows.length,
@@ -359,7 +389,7 @@ function CompetitorsPage() {
       }
       // Keyword category — require competitor to have at least one resolved rank in a selected category
       if (catSet.size > 0) {
-        const hasHit = TRACKED_KEYWORDS.some(
+        const hasHit = trackedKeywords.some(
           (k) => catSet.has(k.category) && rankMatrix[k.keyword]?.[c.id] != null,
         );
         if (!hasHit) return false;
@@ -425,7 +455,7 @@ function CompetitorsPage() {
     }
 
     // Keyword-level SOS
-    const contested = TRACKED_KEYWORDS.map((k) => {
+    const contested = trackedKeywords.map((k) => {
       const compRanks = rows
         .map((c) => rankMatrix[k.keyword]?.[c.id])
         .filter((r): r is number => typeof r === "number");
@@ -503,7 +533,7 @@ function CompetitorsPage() {
     return filteredRows.map((c) => {
       const s = stats[c.id];
       const level = computeThreatLevel(s);
-      const perKeyword = TRACKED_KEYWORDS.map((k) => {
+      const perKeyword = trackedKeywords.map((k) => {
         const r = rankMatrix[k.keyword]?.[c.id];
         return r != null ? `${k.keyword}: #${r}` : `${k.keyword}: —`;
       }).join(" | ");
@@ -646,7 +676,7 @@ function CompetitorsPage() {
     autoTable(doc, {
       startY: y + 8,
       head: [["Keyword", "You", ...filteredRows.map((c) => (c.name.length > 14 ? c.name.slice(0, 12) + "…" : c.name))]],
-      body: TRACKED_KEYWORDS.map((k) => [
+      body: trackedKeywords.map((k) => [
         k.keyword,
         `#${k.userRank}`,
         ...filteredRows.map((c) => {
@@ -713,6 +743,19 @@ function CompetitorsPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <button
+            onClick={() => setShowKeywordManager(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted"
+            title="Manage tracked keywords"
+          >
+            <Target className="h-4 w-4" />
+            Keywords
+            {trackedIsCustom ? null : (
+              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-500">
+                Starter
+              </span>
+            )}
+          </button>
+          <button
             onClick={openAdd}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
@@ -727,7 +770,7 @@ function CompetitorsPage() {
           icon={<Target className="h-4 w-4" />}
           label="Tracked competitors"
           value={portfolio.total.toString()}
-          hint={`across ${TRACKED_KEYWORDS.length} keywords`}
+          hint={`across ${trackedKeywords.length} keywords`}
         />
         <KpiCard
           icon={<Award className="h-4 w-4" />}
@@ -1005,6 +1048,16 @@ function CompetitorsPage() {
           rankMatrix={rankMatrix}
           onClose={() => setSelected(null)}
           fetchHistory={fetchHistory}
+          trackedKeywords={trackedKeywords}
+        />
+      )}
+
+      {showKeywordManager && (
+        <TrackedKeywordManager
+          initial={trackedKeywords}
+          isCustom={trackedIsCustom}
+          onClose={() => setShowKeywordManager(false)}
+          onSave={handleSaveTracked}
         />
       )}
     </div>
@@ -1285,12 +1338,185 @@ function EmptyState({ onAdd }: { onAdd: () => void }) {
 }
 
 /* ---------- Detail drawer ---------- */
+function TrackedKeywordManager({
+  initial,
+  isCustom,
+  onClose,
+  onSave,
+}: {
+  initial: TrackedKeyword[];
+  isCustom: boolean;
+  onClose: () => void;
+  onSave: (rows: TrackedKeyword[]) => Promise<void> | void;
+}) {
+  const [rows, setRows] = useState<TrackedKeyword[]>(initial);
+  const [saving, setSaving] = useState(false);
+
+  function update(i: number, patch: Partial<TrackedKeyword>) {
+    setRows((prev) => prev.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
+  }
+  function removeRow(i: number) {
+    setRows((prev) => prev.filter((_, idx) => idx !== i));
+  }
+  function addRow() {
+    setRows((prev) => [
+      ...prev,
+      { keyword: "", city: "", userRank: 20, volume: 0, category: "Residential" },
+    ]);
+  }
+
+  async function submit() {
+    const cleaned = rows
+      .map((r) => ({ ...r, keyword: r.keyword.trim() }))
+      .filter((r) => r.keyword.length > 0);
+    setSaving(true);
+    try {
+      await onSave(cleaned);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-3xl rounded-2xl border border-border bg-card p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between">
+          <div>
+            <h2 className="text-lg font-semibold">Tracked keywords</h2>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              {isCustom
+                ? "Your saved keyword universe. Powers rank probes and reports."
+                : "Starter set shown until you save your own. Edits are stored per user."}
+            </p>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 hover:bg-muted">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[55vh] overflow-y-auto rounded-xl border border-border">
+          <table className="w-full text-xs">
+            <thead className="sticky top-0 bg-card text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2">Keyword</th>
+                <th className="px-3 py-2">City</th>
+                <th className="px-3 py-2 w-20">Your rank</th>
+                <th className="px-3 py-2 w-24">Volume</th>
+                <th className="px-3 py-2 w-32">Category</th>
+                <th className="px-3 py-2 w-8"></th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r, i) => (
+                <tr key={i} className="border-t border-border">
+                  <td className="px-2 py-1">
+                    <input
+                      value={r.keyword}
+                      onChange={(e) => update(i, { keyword: e.target.value })}
+                      placeholder="e.g. deep cleaning dubai"
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      value={r.city}
+                      onChange={(e) => update(i, { city: e.target.value })}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={r.userRank}
+                      onChange={(e) => update(i, { userRank: Number(e.target.value) || 20 })}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <input
+                      type="number"
+                      min={0}
+                      value={r.volume}
+                      onChange={(e) => update(i, { volume: Number(e.target.value) || 0 })}
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    />
+                  </td>
+                  <td className="px-2 py-1">
+                    <select
+                      value={r.category}
+                      onChange={(e) =>
+                        update(i, { category: e.target.value as TrackedKeyword["category"] })
+                      }
+                      className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                    >
+                      <option value="Residential">Residential</option>
+                      <option value="Commercial">Commercial</option>
+                      <option value="Specialty">Specialty</option>
+                    </select>
+                  </td>
+                  <td className="px-2 py-1 text-right">
+                    <button
+                      onClick={() => removeRow(i)}
+                      className="rounded-md p-1 text-muted-foreground hover:bg-muted hover:text-red-500"
+                      title="Remove"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </td>
+                </tr>
+              ))}
+              {rows.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-3 py-6 text-center text-xs text-muted-foreground">
+                    No keywords yet. Add your first one below.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="mt-3 flex items-center justify-between">
+          <button
+            onClick={addRow}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-muted"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add row
+          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={onClose}
+              className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-muted"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={submit}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Save
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function CompetitorDrawer({
   competitor,
   stats,
   rankMatrix,
   onClose,
   fetchHistory,
+  trackedKeywords,
 }: {
   competitor: Competitor;
   stats:
@@ -1308,8 +1534,9 @@ function CompetitorDrawer({
   rankMatrix: RankMatrix;
   onClose: () => void;
   fetchHistory: ReturnType<typeof useServerFn<typeof getCompetitorRankHistory>>;
+  trackedKeywords: TrackedKeyword[];
 }) {
-  const [historyKw, setHistoryKw] = useState(TRACKED_KEYWORDS[0].keyword);
+  const [historyKw, setHistoryKw] = useState(trackedKeywords[0]?.keyword ?? "");
   const [history, setHistory] = useState<Array<{ recordedAt: string; rank: number | null; competitorId: string | null }>>([]);
   const [hLoading, setHLoading] = useState(false);
 
@@ -1377,7 +1604,7 @@ function CompetitorDrawer({
           {/* Snapshot */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <SnapStat label="Avg rank" value={stats?.avgRank != null ? `#${stats.avgRank}` : "—"} tone="neutral" />
-            <SnapStat label="Coverage" value={`${stats?.coverage ?? 0}/${TRACKED_KEYWORDS.length}`} tone="neutral" />
+            <SnapStat label="Coverage" value={`${stats?.coverage ?? 0}/${trackedKeywords.length}`} tone="neutral" />
             <SnapStat label="Beats you" value={stats?.beating ?? 0} tone="bad" />
             <SnapStat label="Top 3" value={stats?.top3 ?? 0} tone="good" />
           </div>
@@ -1396,7 +1623,7 @@ function CompetitorDrawer({
                   </tr>
                 </thead>
                 <tbody>
-                  {TRACKED_KEYWORDS.map((k) => {
+                  {trackedKeywords.map((k) => {
                     const them = rankMatrix[k.keyword]?.[competitor.id] ?? null;
                     const delta = them != null ? them - k.userRank : null;
                     return (
@@ -1424,7 +1651,7 @@ function CompetitorDrawer({
                 onChange={(e) => setHistoryKw(e.target.value)}
                 className="rounded-lg border border-border bg-card px-2 py-1 text-xs outline-none"
               >
-                {TRACKED_KEYWORDS.map((k) => (
+                {trackedKeywords.map((k) => (
                   <option key={k.keyword} value={k.keyword}>
                     {k.keyword}
                   </option>

@@ -753,6 +753,45 @@ export type Database = {
         }
         Relationships: []
       }
+      tracked_keywords: {
+        Row: {
+          category: string
+          city: string
+          created_at: string
+          id: string
+          owner_id: string
+          phrase: string
+          sort_index: number
+          updated_at: string
+          user_rank: number
+          volume: number
+        }
+        Insert: {
+          category?: string
+          city?: string
+          created_at?: string
+          id?: string
+          owner_id: string
+          phrase: string
+          sort_index?: number
+          updated_at?: string
+          user_rank?: number
+          volume?: number
+        }
+        Update: {
+          category?: string
+          city?: string
+          created_at?: string
+          id?: string
+          owner_id?: string
+          phrase?: string
+          sort_index?: number
+          updated_at?: string
+          user_rank?: number
+          volume?: number
+        }
+        Relationships: []
+      }
       user_integrations: {
         Row: {
           config: Json
