@@ -42,7 +42,7 @@ export const Route = createFileRoute("/_authenticated/gmb-analytics")({
   component: GmbAnalyticsPage,
 });
 
-/* ---------- MOCK DATA ----------------------------------------------- */
+/* ---------- TYPES --------------------------------------------------- */
 type KeywordRow = {
   keyword: string;
   current: number;
@@ -51,15 +51,6 @@ type KeywordRow = {
   city: string;
 };
 
-const MOCK_KEYWORDS: KeywordRow[] = [
-  { keyword: "deep cleaning dubai", current: 3, previous: 7, volume: 2900, city: "Downtown Dubai" },
-  { keyword: "sofa cleaning near me", current: 5, previous: 4, volume: 1600, city: "Al Qusais" },
-  { keyword: "move in cleaning dubai", current: 12, previous: 18, volume: 720, city: "Dubai Marina" },
-  { keyword: "carpet cleaning service", current: 8, previous: 8, volume: 990, city: "Business Bay" },
-  { keyword: "post construction cleaning", current: 2, previous: 6, volume: 480, city: "JLT" },
-  { keyword: "villa deep cleaning", current: 14, previous: 11, volume: 590, city: "Al Barsha" },
-  { keyword: "office cleaning dubai", current: 4, previous: 9, volume: 1300, city: "Deira" },
-];
 
 // Business center = Dubai Downtown-ish
 const BUSINESS = { lat: 25.2048, lng: 55.2708, name: "Pearl Home Cleaning" };
@@ -300,7 +291,7 @@ const DARK_MAP_STYLE: any[] = [
 
 /* ---------- PAGE ---------------------------------------------------- */
 function GmbAnalyticsPage() {
-  const [keyword, setKeyword] = useState(MOCK_KEYWORDS[0].keyword);
+  const [keyword, setKeyword] = useState<string>("");
   const [search, setSearch] = useState("");
   const [gmb, setGmb] = useState(() => readGmbConnection());
   const [connectBusy, setConnectBusy] = useState(false);
@@ -370,8 +361,8 @@ function GmbAnalyticsPage() {
           setRealCenter(null);
         }
       })
-      .catch(() => {
-        /* fall back to MOCK */
+      .catch((e) => {
+        console.error("[gmb-analytics] rank grid load failed", e);
       });
     return () => {
       cancelled = true;
@@ -503,9 +494,10 @@ function GmbAnalyticsPage() {
     toast.message("Disconnected");
   }
 
-  // Real data if available, else MOCK. Powers every keyword-driven UI section.
-  const keywordRows: KeywordRow[] = realKeywords ?? MOCK_KEYWORDS;
-  const usingRealData = realKeywords !== null;
+  // Live data only — empty when the user hasn't tracked keywords yet.
+  const keywordRows: KeywordRow[] = realKeywords ?? [];
+  const usingRealData = realKeywords !== null && realKeywords.length > 0;
+
 
   const summary = useMemo(() => {
     const improved = keywordRows.filter((k) => k.previous > k.current).length;
@@ -604,7 +596,7 @@ function GmbAnalyticsPage() {
           </span>
         ) : (
           <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-3 py-1 text-xs uppercase tracking-widest text-amber-500">
-            Preview · sample data
+            {usingRealData ? "Live · local snapshots" : "Not connected"}
           </span>
         )}
       </div>
@@ -671,8 +663,9 @@ function GmbAnalyticsPage() {
         </div>
         {!gmb.connected && (
           <div className="mt-3 text-xs text-muted-foreground">
-            Metrics below are sample data until GMB is connected. Live insights
-            require a Google Cloud OAuth client with the Business Profile API enabled.
+            Connect a Google Cloud OAuth client with the Business Profile API for
+            official GMB insights. Rank tracking below uses your own snapshots
+            from the Keywords page.
           </div>
         )}
       </div>
@@ -682,7 +675,7 @@ function GmbAnalyticsPage() {
           <div>
             <div className="font-medium text-amber-200">Google is connected — pick a business location to load live data</div>
             <div className="mt-0.5 text-xs text-amber-200/80">
-              OAuth succeeded, but no Business Profile location is selected yet. Until you pick one, the dashboard keeps showing sample data.
+              OAuth succeeded, but no Business Profile location is selected yet. Pick one to start pulling live GMB insights.
             </div>
           </div>
           <Link
