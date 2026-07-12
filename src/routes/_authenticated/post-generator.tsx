@@ -200,6 +200,18 @@ function PostGeneratorPage() {
       toast.error("Nothing to send");
       return;
     }
+    if (captionOver) {
+      toast.error(`Post body exceeds ${CAPTION_LIMIT} characters (${captionLen}).`);
+      return;
+    }
+    if (ctaType !== "none" && ctaType !== "call" && !ctaUrl.trim()) {
+      toast.error("Add a URL for the selected call-to-action");
+      return;
+    }
+    if (ctaType === "call" && !ctaUrl.trim()) {
+      toast.error("Add a phone number for the Call CTA");
+      return;
+    }
     setSending(true);
     try {
       const res = await send({
@@ -215,6 +227,8 @@ function PostGeneratorPage() {
             ? new Date(scheduledAt).toISOString()
             : undefined,
           networks: networks.length ? networks : ["gmb"],
+          ctaType,
+          ctaUrl: ctaUrl.trim() || undefined,
         },
       });
       toast.success(
@@ -230,6 +244,47 @@ function PostGeneratorPage() {
       setSending(false);
     }
   }
+
+  async function uploadManualImages(files: FileList | File[]) {
+    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+    if (!list.length) {
+      toast.error("Please choose image files");
+      return;
+    }
+    setUploading(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) {
+      setUploading(false);
+      toast.error("Not signed in");
+      return;
+    }
+    let ok = 0;
+    let fail = 0;
+    for (const file of list) {
+      try {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${userId}/post-generator/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("frames")
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        const { error: dbErr } = await supabase
+          .from("images")
+          .insert({ owner_id: userId, storage_path: path, name: file.name } as any);
+        if (dbErr) throw dbErr;
+        ok++;
+      } catch {
+        fail++;
+      }
+    }
+    setUploading(false);
+    if (ok) toast.success(`Uploaded ${ok} image${ok === 1 ? "" : "s"}`);
+    if (fail) toast.error(`${fail} upload${fail === 1 ? "" : "s"} failed`);
+    await reloadImages();
+    if (uploadRef.current) uploadRef.current.value = "";
+  }
+
 
   async function copyOut() {
     await navigator.clipboard.writeText(caption);
