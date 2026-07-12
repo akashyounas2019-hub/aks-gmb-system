@@ -1,6 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import {
+  listWebhooks,
+  upsertWebhook as upsertWebhookFn,
+  deleteWebhook as deleteWebhookFn,
+  recordWebhookFire,
+} from "@/lib/webhooks.functions";
 import {
   Webhook,
   Plus,
@@ -86,13 +93,41 @@ type N8nPipeline = {
   runs: number;
 };
 
-const WEBHOOKS_KEY = "app.webhooks.v1";
+// Pipelines and deliveries are UI-only scratchpad state (not in DB scope yet).
 const DELIVERIES_KEY = "app.webhooks.deliveries.v1";
 const PIPELINES_KEY = "app.n8n.pipelines.v1";
 
 /* -------------------------------------------------------------------------- */
 /* Page                                                                       */
 /* -------------------------------------------------------------------------- */
+
+type DbWebhook = {
+  id: string;
+  name: string;
+  url: string;
+  events: string[];
+  secret: string | null;
+  enabled: boolean;
+  last_fired_at: string | null;
+  last_status: number | null;
+  created_at: string;
+};
+
+function fromDb(r: DbWebhook): WebhookRow {
+  return {
+    id: r.id,
+    name: r.name,
+    url: r.url,
+    events: r.events as WebhookEvent[],
+    headerName: undefined,
+    headerValue: r.secret ?? undefined,
+    enabled: r.enabled,
+    createdAt: r.created_at,
+    lastDeliveryAt: r.last_fired_at ?? undefined,
+    lastStatus: r.last_status,
+    deliveries: 0,
+  };
+}
 
 function WebhooksPage() {
   const [tab, setTab] = useState<"webhooks" | "pipelines" | "activity">("webhooks");
@@ -104,19 +139,25 @@ function WebhooksPage() {
   const [editingPipeline, setEditingPipeline] = useState<N8nPipeline | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
 
+  const load = useServerFn(listWebhooks);
+  const save = useServerFn(upsertWebhookFn);
+  const remove = useServerFn(deleteWebhookFn);
+  const markFire = useServerFn(recordWebhookFire);
+
   useEffect(() => {
+    load()
+      .then((rows) => setWebhooks((rows as unknown as DbWebhook[]).map(fromDb)))
+      .catch((e) => toast.error(e instanceof Error ? e.message : "Failed to load webhooks"));
     try {
-      const w = localStorage.getItem(WEBHOOKS_KEY);
       const d = localStorage.getItem(DELIVERIES_KEY);
       const p = localStorage.getItem(PIPELINES_KEY);
-      if (w) setWebhooks(JSON.parse(w));
       if (d) setDeliveries(JSON.parse(d));
       if (p) setPipelines(JSON.parse(p));
     } catch {
       /* noop */
     }
-  }, []);
-  useEffect(() => localStorage.setItem(WEBHOOKS_KEY, JSON.stringify(webhooks)), [webhooks]);
+  }, [load]);
+
   useEffect(
     () => localStorage.setItem(DELIVERIES_KEY, JSON.stringify(deliveries.slice(0, 80))),
     [deliveries],
@@ -130,15 +171,36 @@ function WebhooksPage() {
     failures: deliveries.filter((d) => d.status === "error").length,
   };
 
-  function upsertWebhook(row: WebhookRow) {
+  async function upsertWebhook(row: WebhookRow) {
+    // Optimistic
     setWebhooks((prev) => {
       const exists = prev.some((w) => w.id === row.id);
       return exists ? prev.map((w) => (w.id === row.id ? row : w)) : [row, ...prev];
     });
+    try {
+      const saved = await save({
+        data: {
+          id: row.id,
+          name: row.name,
+          url: row.url,
+          events: row.events,
+          secret: row.headerValue ?? null,
+          enabled: row.enabled,
+        },
+      });
+      setWebhooks((prev) => prev.map((w) => (w.id === row.id ? fromDb(saved as unknown as DbWebhook) : w)));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not save webhook");
+    }
   }
 
-  function removeWebhook(id: string) {
+  async function removeWebhook(id: string) {
     setWebhooks((prev) => prev.filter((w) => w.id !== id));
+    try {
+      await remove({ data: { id } });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not delete webhook");
+    }
   }
 
   function upsertPipeline(row: N8nPipeline) {
