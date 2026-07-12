@@ -134,7 +134,7 @@ export function PostStoragePanel() {
       parentId: newFolderParent,
       createdAt: new Date().toISOString(),
     };
-    setFolders((prev) => [...prev, f]);
+    persistFolders([...folders, f]);
     setNewFolderName("");
     setNewFolderParent(null);
     setCreatingFolder(false);
@@ -142,25 +142,49 @@ export function PostStoragePanel() {
 
   function deleteFolder(id: string) {
     if (!confirm("Delete this folder? Posts inside will be moved to Unfiled.")) return;
-    setFolders((prev) => prev.filter((f) => f.id !== id && f.parentId !== id));
+    persistFolders(folders.filter((f) => f.id !== id && f.parentId !== id));
+    // Reassign posts in this folder to unfiled (persist each)
+    posts
+      .filter((p) => p.folderId === id)
+      .forEach((p) => {
+        saveDraftFn({ data: { id: p.id, folderId: null } }).catch(() => {});
+      });
     setPosts((prev) => prev.map((p) => (p.folderId === id ? { ...p, folderId: null } : p)));
     if (activeFolder === id) setActiveFolder("all");
   }
 
-  function createPost() {
-    const p: Post = {
-      id: `p-${Date.now()}`,
+  async function createPost() {
+    const now = new Date().toISOString();
+    const draft: Post = {
+      id: crypto.randomUUID(),
       folderId: activeFolder !== "all" && activeFolder !== "unfiled" ? activeFolder : null,
       title: "Untitled post",
       body: "",
       status: "Draft",
       scheduledAt: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: now,
+      updatedAt: now,
       tags: [],
     };
-    setPosts((prev) => [p, ...prev]);
-    setSelectedPost(p);
+    setPosts((prev) => [draft, ...prev]);
+    setSelectedPost(draft);
+    try {
+      const saved = await saveDraftFn({
+        data: {
+          id: draft.id,
+          folderId: draft.folderId,
+          title: draft.title,
+          body: draft.body,
+          status: draft.status,
+          scheduledAt: draft.scheduledAt,
+          tags: draft.tags,
+        },
+      });
+      setPosts((prev) => prev.map((p) => (p.id === draft.id ? saved : p)));
+      setSelectedPost((s) => (s?.id === draft.id ? saved : s));
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Could not create post");
+    }
   }
 
   function updatePost(id: string, patch: Partial<Post>) {
@@ -170,12 +194,26 @@ export function PostStoragePanel() {
       ),
     );
     if (selectedPost?.id === id) setSelectedPost((s) => (s ? { ...s, ...patch } : s));
+    saveDraftFn({
+      data: {
+        id,
+        ...(patch.folderId !== undefined ? { folderId: patch.folderId } : {}),
+        ...(patch.title !== undefined ? { title: patch.title } : {}),
+        ...(patch.body !== undefined ? { body: patch.body } : {}),
+        ...(patch.status !== undefined ? { status: patch.status } : {}),
+        ...(patch.scheduledAt !== undefined ? { scheduledAt: patch.scheduledAt } : {}),
+        ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
+      },
+    }).catch((e) => toast.error(e instanceof Error ? e.message : "Could not save post"));
   }
 
   function deletePost(id: string) {
     if (!confirm("Delete this post?")) return;
     setPosts((prev) => prev.filter((p) => p.id !== id));
     if (selectedPost?.id === id) setSelectedPost(null);
+    removeDraftFn({ data: { id } }).catch((e) =>
+      toast.error(e instanceof Error ? e.message : "Could not delete post"),
+    );
   }
 
   function schedulePost(id: string, when: string) {
