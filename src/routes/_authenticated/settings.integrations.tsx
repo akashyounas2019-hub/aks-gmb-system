@@ -306,6 +306,233 @@ function IntegrationsPage() {
           </Link>
         </div>
       </div>
+
+      {/* GHL */}
+      <ProviderCard
+        provider="ghl"
+        title="GoHighLevel (GHL)"
+        description="Direct API access for contacts, opportunities, and posting. Paste your Private Integration Token."
+        icon={<Webhook className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "Private Integration Token", secret: true, placeholder: "pit-••••••••••••••••" },
+          { key: "location_id", label: "Location ID", secret: false, placeholder: "ABC123..." },
+        ]}
+        docsUrl="https://highlevel.stoplight.io/docs/integrations/"
+      />
+
+      {/* Rank sources */}
+      <div>
+        <h3 className="text-lg font-semibold">Rank sources</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Configure one or more rank-tracking providers. Keys are stored server-side with RLS.
+        </p>
+      </div>
+
+      <ProviderCard
+        provider="dataforseo"
+        title="DataForSEO"
+        description="SERP + rank tracking. Uses HTTP Basic auth (login + password)."
+        icon={<BarChart3 className="h-6 w-6" />}
+        fields={[
+          { key: "login", label: "Login (email)", secret: false, placeholder: "you@example.com" },
+          { key: "password", label: "API password", secret: true, placeholder: "••••••••" },
+        ]}
+        docsUrl="https://app.dataforseo.com/api-access"
+      />
+
+      <ProviderCard
+        provider="serpapi"
+        title="SerpApi"
+        description="Google SERP scraping. Uses a single API key."
+        icon={<Search className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "••••••••••••••••" },
+        ]}
+        docsUrl="https://serpapi.com/manage-api-key"
+      />
+
+      <ProviderCard
+        provider="local_falcon"
+        title="Local Falcon"
+        description="Geo-grid local rank tracking. Uses an API key."
+        icon={<Radar className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "••••••••••••••••" },
+        ]}
+        docsUrl="https://www.localfalcon.com/api"
+      />
+    </div>
+  );
+}
+
+type FieldDef = { key: string; label: string; secret: boolean; placeholder?: string };
+
+type ProviderCardProps = {
+  provider: "ghl" | "dataforseo" | "serpapi" | "local_falcon";
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  fields: FieldDef[];
+  docsUrl?: string;
+};
+
+function ProviderCard({ provider, title, description, icon, fields, docsUrl }: ProviderCardProps) {
+  const fetchAll = useServerFn(listIntegrations);
+  const save = useServerFn(saveIntegration);
+  const remove = useServerFn(deleteIntegration);
+
+  const [configured, setConfigured] = useState<null | { masked: Record<string, string>; updatedAt: string }>(null);
+  const [open, setOpen] = useState(false);
+  const [values, setValues] = useState<Record<string, string>>({});
+  const [reveal, setReveal] = useState<Record<string, boolean>>({});
+  const [busy, setBusy] = useState(false);
+
+  async function refresh() {
+    try {
+      const all = await fetchAll();
+      const mine = all.find((r) => r.provider === provider);
+      setConfigured(mine ? { masked: mine.masked, updatedAt: mine.updatedAt } : null);
+    } catch {
+      setConfigured(null);
+    }
+  }
+
+  useEffect(() => {
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  async function onSave(e: React.FormEvent) {
+    e.preventDefault();
+    setBusy(true);
+    try {
+      await save({ data: { provider, config: values } });
+      setValues({});
+      setOpen(false);
+      await refresh();
+      toast.success(`${title} saved`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function onRemove() {
+    if (!confirm(`Remove ${title} credentials?`)) return;
+    await remove({ data: { provider } });
+    await refresh();
+    toast.message("Removed");
+  }
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
+          {icon}
+        </div>
+        <div className="flex-1 min-w-[220px]">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold">{title}</h3>
+            {configured ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                <CheckCircle2 className="h-3 w-3" /> Configured
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <XCircle className="h-3 w-3" /> Not configured
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+          {configured && (
+            <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
+              {Object.entries(configured.masked).map(([k, v]) => (
+                <div key={k}><span className="text-foreground">{k}:</span> <span className="font-mono">{v}</span></div>
+              ))}
+              <div>Updated {new Date(configured.updatedAt).toLocaleString()}</div>
+            </div>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
+          >
+            {configured ? "Update" : "Add API"}
+          </button>
+          {configured && (
+            <button
+              onClick={onRemove}
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive hover:bg-destructive/20"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      </div>
+
+      {open && (
+        <form onSubmit={onSave} className="mt-4 space-y-3">
+          {fields.map((f) => (
+            <label key={f.key} className="block">
+              <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">{f.label}</span>
+              <div className="relative">
+                <input
+                  type={f.secret && !reveal[f.key] ? "password" : "text"}
+                  autoComplete="off"
+                  spellCheck={false}
+                  value={values[f.key] ?? ""}
+                  onChange={(e) => setValues((v) => ({ ...v, [f.key]: e.target.value }))}
+                  placeholder={f.placeholder}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 text-sm font-mono"
+                  required
+                />
+                {f.secret && (
+                  <button
+                    type="button"
+                    onClick={() => setReveal((r) => ({ ...r, [f.key]: !r[f.key] }))}
+                    className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
+                    aria-label={reveal[f.key] ? "Hide" : "Show"}
+                  >
+                    {reveal[f.key] ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                )}
+              </div>
+            </label>
+          ))}
+          <div className="flex items-center gap-2">
+            <button
+              type="submit"
+              disabled={busy}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              Save securely
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
+            >
+              Cancel
+            </button>
+            {docsUrl && (
+              <a
+                href={docsUrl}
+                target="_blank"
+                rel="noreferrer"
+                className="ml-auto inline-flex items-center gap-1 text-xs text-primary hover:underline"
+              >
+                Get key <ExternalLink className="h-3 w-3" />
+              </a>
+            )}
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            Values are stored server-side with row-level security scoped to your user.
+          </p>
+        </form>
+      )}
     </div>
   );
 }
