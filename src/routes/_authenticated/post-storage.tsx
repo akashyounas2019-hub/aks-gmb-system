@@ -71,7 +71,8 @@ const STATUS_STYLES: Record<PostStatus, string> = {
   Live: "bg-primary/15 text-primary border-primary/30",
 };
 
-function PostStoragePage() {
+export function PostStoragePanel() {
+
   const [folders, setFolders] = useState<Folder[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
   const [activeFolder, setActiveFolder] = useState<string | "all" | "unfiled">("all");
