@@ -71,6 +71,48 @@ export type Database = {
         }
         Relationships: []
       }
+      gmb_tokens: {
+        Row: {
+          access_token: string
+          account_name: string | null
+          created_at: string
+          expires_at: string
+          location_name: string | null
+          location_title: string | null
+          refresh_token: string | null
+          scope: string | null
+          token_type: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          access_token: string
+          account_name?: string | null
+          created_at?: string
+          expires_at: string
+          location_name?: string | null
+          location_title?: string | null
+          refresh_token?: string | null
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          access_token?: string
+          account_name?: string | null
+          created_at?: string
+          expires_at?: string
+          location_name?: string | null
+          location_title?: string | null
+          refresh_token?: string | null
+          scope?: string | null
+          token_type?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       image_keywords: {
         Row: {
           created_at: string
