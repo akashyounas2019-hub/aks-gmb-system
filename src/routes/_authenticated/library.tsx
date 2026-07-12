@@ -2,11 +2,11 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { MapPin, Pencil, Tag as TagIcon, Trash2 } from "lucide-react";
-
+import { MapPin, Pencil, Tag as TagIcon, Trash2, CheckSquare, Square, X } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
+import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
@@ -36,10 +36,23 @@ async function fetchLibrary() {
   return { images: images ?? [], venueMap, tagMap };
 }
 
+async function fetchKeywords() {
+  const { data, error } = await supabase
+    .from("keywords")
+    .select("id, phrase, volume, cluster")
+    .order("volume", { ascending: false, nullsFirst: false })
+    .limit(500);
+  if (error) throw error;
+  return data ?? [];
+}
+
 function LibraryPage() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["library"], queryFn: fetchLibrary });
   const [filter, setFilter] = useState("");
+  const [selectMode, setSelectMode] = useState(false);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
 
   async function renameImage(id: string, currentName: string) {
     const next = window.prompt("Rename image", currentName);
@@ -63,7 +76,6 @@ function LibraryPage() {
     }
   }
 
-
   const filtered = useMemo(() => {
     if (!data) return [];
     const q = filter.toLowerCase();
@@ -79,23 +91,88 @@ function LibraryPage() {
     });
   }, [data, filter]);
 
+  function toggleSelect(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  function selectAll() {
+    setSelected(new Set(filtered.map((i) => i.id)));
+  }
+  function clearSelection() {
+    setSelected(new Set());
+  }
+
   return (
     <div className="p-6 md:p-10">
-      <div className="flex items-center justify-between gap-4">
+      <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl">Library</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {data?.images.length ?? 0} extracted frames
           </p>
         </div>
-        <input
-          type="search"
-          placeholder="Search name, tag, or venue"
-          value={filter}
-          onChange={(e) => setFilter(e.target.value)}
-          className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-        />
+        <div className="flex items-center gap-2">
+          <input
+            type="search"
+            placeholder="Search name, tag, or venue"
+            value={filter}
+            onChange={(e) => setFilter(e.target.value)}
+            className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            onClick={() => {
+              setSelectMode((s) => !s);
+              clearSelection();
+            }}
+            className={`rounded-md border px-3 py-2 text-sm ${
+              selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
+            }`}
+          >
+            {selectMode ? "Done" : "Select"}
+          </button>
+        </div>
       </div>
+
+      {selectMode && (
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
+          <span className="text-sm">
+            <strong>{selected.size}</strong> selected
+          </span>
+          <button
+            onClick={selectAll}
+            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            Select all ({filtered.length})
+          </button>
+          <button
+            onClick={clearSelection}
+            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            Clear
+          </button>
+          <div className="ml-auto flex gap-2">
+            <button
+              disabled={selected.size === 0}
+              onClick={() => setBulkPanel("keywords")}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            >
+              Assign keywords
+            </button>
+            <button
+              disabled={selected.size === 0}
+              onClick={() => setBulkPanel("geotag")}
+              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+            >
+              Geotag
+            </button>
+          </div>
+        </div>
+      )}
 
       {isLoading ? (
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
@@ -114,12 +191,21 @@ function LibraryPage() {
           {filtered.map((img) => {
             const tags = data!.tagMap.get(img.id) ?? [];
             const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
+            const isSelected = selected.has(img.id);
+            const CardTag: any = selectMode ? "div" : Link;
+            const linkProps = selectMode
+              ? {}
+              : { to: "/library/$imageId", params: { imageId: img.id } };
             return (
-              <Link
+              <CardTag
                 key={img.id}
-                to="/library/$imageId"
-                params={{ imageId: img.id }}
-                className="group overflow-hidden rounded-xl border border-border bg-card transition hover:border-primary/50"
+                {...linkProps}
+                onClick={selectMode ? () => toggleSelect(img.id) : undefined}
+                className={`group relative overflow-hidden rounded-xl border bg-card transition ${
+                  isSelected
+                    ? "border-primary ring-2 ring-primary"
+                    : "border-border hover:border-primary/50"
+                } ${selectMode ? "cursor-pointer" : ""}`}
               >
                 <div className="relative aspect-video overflow-hidden">
                   <SignedImage
@@ -128,30 +214,41 @@ function LibraryPage() {
                     alt={img.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
-                  <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        renameImage(img.id, img.name);
-                      }}
-                      aria-label="Rename"
-                      className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        deleteImage(img.id, img.storage_path);
-                      }}
-                      aria-label="Delete"
-                      className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" />
-                    </button>
-                  </div>
+                  {selectMode && (
+                    <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
+                      {isSelected ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </div>
+                  )}
+                  {!selectMode && (
+                    <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          renameImage(img.id, img.name);
+                        }}
+                        aria-label="Rename"
+                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteImage(img.id, img.storage_path);
+                        }}
+                        aria-label="Delete"
+                        className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3">
@@ -160,6 +257,11 @@ function LibraryPage() {
                     {venue && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
                         <MapPin className="h-3 w-3" /> {venue}
+                      </span>
+                    )}
+                    {(img.lat != null && img.lng != null && !venue) && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                        <MapPin className="h-3 w-3" /> Geotagged
                       </span>
                     )}
                     {tags.slice(0, 3).map((t) => (
@@ -173,11 +275,225 @@ function LibraryPage() {
                     ))}
                   </div>
                 </div>
-              </Link>
+              </CardTag>
             );
           })}
         </div>
       )}
+
+      {bulkPanel && (
+        <BulkPanel
+          mode={bulkPanel}
+          imageIds={Array.from(selected)}
+          onClose={() => setBulkPanel(null)}
+          onDone={() => {
+            setBulkPanel(null);
+            clearSelection();
+            setSelectMode(false);
+            qc.invalidateQueries({ queryKey: ["library"] });
+          }}
+        />
+      )}
+    </div>
+  );
+}
+
+function BulkPanel({
+  mode,
+  imageIds,
+  onClose,
+  onDone,
+}: {
+  mode: "keywords" | "geotag";
+  imageIds: string[];
+  onClose: () => void;
+  onDone: () => void;
+}) {
+  const { data: keywords } = useQuery({
+    queryKey: ["keywords-picker"],
+    queryFn: fetchKeywords,
+    enabled: mode === "keywords",
+  });
+  const [kwFilter, setKwFilter] = useState("");
+  const [pickedKw, setPickedKw] = useState<Set<string>>(new Set());
+  const [primaryKw, setPrimaryKw] = useState<string | null>(null);
+  const [loc, setLoc] = useState<PickedLocation | null>(null);
+  const [saving, setSaving] = useState(false);
+
+  const filteredKw = useMemo(() => {
+    if (!keywords) return [];
+    const q = kwFilter.toLowerCase();
+    if (!q) return keywords;
+    return keywords.filter(
+      (k) =>
+        k.phrase.toLowerCase().includes(q) ||
+        (k.cluster ?? "").toLowerCase().includes(q),
+    );
+  }, [keywords, kwFilter]);
+
+  async function saveKeywords() {
+    if (pickedKw.size === 0) {
+      toast.error("Pick at least one keyword");
+      return;
+    }
+    setSaving(true);
+    const { data: userData } = await supabase.auth.getUser();
+    const uid = userData.user?.id;
+    if (!uid) {
+      setSaving(false);
+      toast.error("Not signed in");
+      return;
+    }
+    const rows = imageIds.flatMap((imageId) =>
+      Array.from(pickedKw).map((keywordId) => ({
+        owner_id: uid,
+        image_id: imageId,
+        keyword_id: keywordId,
+        is_primary: keywordId === primaryKw,
+      })),
+    );
+    const { error } = await supabase
+      .from("image_keywords")
+      .upsert(rows, { onConflict: "image_id,keyword_id" });
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`Assigned ${pickedKw.size} keyword(s) to ${imageIds.length} image(s)`);
+      onDone();
+    }
+  }
+
+  async function saveGeotag() {
+    if (!loc) {
+      toast.error("Pick a location");
+      return;
+    }
+    setSaving(true);
+    const { error } = await supabase
+      .from("images")
+      .update({ lat: loc.lat, lng: loc.lng, location_label: loc.label } as any)
+      .in("id", imageIds);
+    setSaving(false);
+    if (error) toast.error(error.message);
+    else {
+      toast.success(`Geotagged ${imageIds.length} image(s)`);
+      onDone();
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-4 md:items-center">
+      <div className="w-full max-w-lg overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <h2 className="text-lg font-medium">
+            {mode === "keywords" ? "Assign keywords" : "Geotag"} ·{" "}
+            <span className="text-muted-foreground">{imageIds.length} images</span>
+          </h2>
+          <button
+            onClick={onClose}
+            className="rounded p-1 text-muted-foreground hover:bg-accent"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="max-h-[70vh] space-y-3 overflow-auto p-5">
+          {mode === "keywords" ? (
+            <>
+              <input
+                type="search"
+                placeholder="Filter keywords…"
+                value={kwFilter}
+                onChange={(e) => setKwFilter(e.target.value)}
+                className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              {(!keywords || keywords.length === 0) ? (
+                <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+                  No keywords yet.{" "}
+                  <Link to="/keywords" className="text-primary underline">
+                    Import from Semrush
+                  </Link>
+                </div>
+              ) : (
+                <div className="max-h-80 space-y-1 overflow-auto">
+                  {filteredKw.map((k) => {
+                    const picked = pickedKw.has(k.id);
+                    return (
+                      <label
+                        key={k.id}
+                        className={`flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm ${
+                          picked ? "border-primary bg-primary/5" : "border-border"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={picked}
+                          onChange={() => {
+                            setPickedKw((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(k.id)) {
+                                next.delete(k.id);
+                                if (primaryKw === k.id) setPrimaryKw(null);
+                              } else next.add(k.id);
+                              return next;
+                            });
+                          }}
+                          className="h-4 w-4"
+                        />
+                        <span className="flex-1 truncate">{k.phrase}</span>
+                        {k.volume != null && (
+                          <span className="text-xs text-muted-foreground">
+                            {k.volume}/mo
+                          </span>
+                        )}
+                        {picked && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.preventDefault();
+                              setPrimaryKw(primaryKw === k.id ? null : k.id);
+                            }}
+                            className={`rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                              primaryKw === k.id
+                                ? "bg-primary text-primary-foreground"
+                                : "border border-border text-muted-foreground"
+                            }`}
+                          >
+                            Primary
+                          </button>
+                        )}
+                      </label>
+                    );
+                  })}
+                </div>
+              )}
+            </>
+          ) : (
+            <>
+              <p className="text-sm text-muted-foreground">
+                Pick a location to attach lat/lng to all selected frames.
+              </p>
+              <LocationPicker value={loc} onChange={setLoc} />
+            </>
+          )}
+        </div>
+
+        <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-4 py-2 text-sm"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={mode === "keywords" ? saveKeywords : saveGeotag}
+            disabled={saving}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
+          >
+            {saving ? "Saving…" : "Save"}
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
