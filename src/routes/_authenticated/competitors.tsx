@@ -55,6 +55,12 @@ import {
   updateAlertSettings,
   type AlertSettings,
 } from "@/lib/alert-settings.functions";
+import {
+  listTrackedKeywords,
+  saveTrackedKeywords,
+  STARTER_TRACKED_KEYWORDS,
+  type TrackedKeyword,
+} from "@/lib/tracked-keywords.functions";
 import { Bell, Filter, Search, Download, FileText, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
