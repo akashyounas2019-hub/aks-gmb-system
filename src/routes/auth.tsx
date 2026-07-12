@@ -60,19 +60,22 @@ function AuthPage() {
 
   async function handleGoogle() {
     setLoading(true);
-    const result = await lovable.auth.signInWithOAuth("google", {
-      redirect_uri: window.location.origin,
-    });
-    if (result.error) {
-      toast.error(result.error.message ?? "Google sign-in failed");
+    try {
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+      });
+      if (result.error) {
+        toast.error(result.error.message ?? "Google sign-in failed");
+        setLoading(false);
+        return;
+      }
+      if (result.redirected) return;
+      navigate({ to: "/upload" });
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Google sign-in failed");
       setLoading(false);
-      return;
     }
-    if (result.redirected) return;
-    navigate({ to: "/upload" });
   }
-  // Referenced only from the commented-out Google button; keep the function alive.
-  void handleGoogle;
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-hero-gradient px-4">
@@ -89,8 +92,6 @@ function AuthPage() {
             : "Sign up to start extracting frames."}
         </p>
 
-        {/* Google sign-in temporarily hidden during system development.
-            To re-enable: uncomment the button + divider below and keep `handleGoogle` above.
         <button
           onClick={handleGoogle}
           disabled={loading}
@@ -108,8 +109,6 @@ function AuthPage() {
         <div className="my-4 flex items-center gap-3 text-xs text-muted-foreground">
           <span className="h-px flex-1 bg-border" /> or <span className="h-px flex-1 bg-border" />
         </div>
-        */}
-        <div className="mt-6" />
 
         <form onSubmit={handleEmail} className="space-y-3">
           <div>
