@@ -210,5 +210,14 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
         `Webhook responded ${providerStatus}: ${errorText ?? "unknown error"}`,
       );
 
+    // Mark images as posted so they don't get selected again
+    if (data.imageIds.length) {
+      await supabase
+        .from("images")
+        .update({ posted_at: new Date().toISOString() } as any)
+        .in("id", data.imageIds)
+        .eq("owner_id", userId);
+    }
+
     return { postId: inserted.id, status: data.scheduledAt ? "queued" : "sent" };
   });
