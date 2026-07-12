@@ -745,7 +745,7 @@ function CompetitorsPage() {
             query={query}
             onQuery={setQuery}
             threatFilter={threatFilter}
-            onToggleThreat={(t) =>
+            onToggleThreat={(t: ThreatLevel) =>
               setThreatFilter((prev) => {
                 const next = new Set(prev);
                 if (next.has(t)) next.delete(t);
