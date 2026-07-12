@@ -767,7 +767,7 @@ function GmbAnalyticsPage() {
               onChange={(e) => setKeyword(e.target.value)}
               className="rounded-lg border border-border bg-card px-3 py-2 text-sm outline-none"
             >
-              {MOCK_KEYWORDS.map((k) => (
+              {keywordRows.map((k) => (
                 <option key={k.keyword} value={k.keyword}>
                   {k.keyword}
                 </option>
@@ -982,7 +982,7 @@ function GmbAnalyticsPage() {
                 </tr>
               </thead>
               <tbody>
-                {MOCK_KEYWORDS.map((k) => (
+                {keywordRows.map((k) => (
                   <tr key={k.keyword} className="border-t border-border">
                     <td className="px-4 py-3 font-medium">{k.keyword}</td>
                     <td className="px-4 py-3">
