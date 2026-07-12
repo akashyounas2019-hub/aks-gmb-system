@@ -15,7 +15,9 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated/wizard'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
+import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
 import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 
 const AuthRoute = AuthRouteImport.update({
@@ -47,11 +49,23 @@ const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
   path: '/upload',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedPostGeneratorRoute =
+  AuthenticatedPostGeneratorRouteImport.update({
+    id: '/post-generator',
+    path: '/post-generator',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
   id: '/library',
   path: '/library',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedGmbAnalyticsRoute =
+  AuthenticatedGmbAnalyticsRouteImport.update({
+    id: '/gmb-analytics',
+    path: '/gmb-analytics',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedLibraryImageIdRoute =
   AuthenticatedLibraryImageIdRouteImport.update({
     id: '/$imageId',
@@ -62,7 +76,9 @@ const AuthenticatedLibraryImageIdRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
+  '/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
@@ -71,7 +87,9 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/library': typeof AuthenticatedLibraryRouteWithChildren
+  '/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
@@ -82,7 +100,9 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
+  '/_authenticated/gmb-analytics': typeof AuthenticatedGmbAnalyticsRoute
   '/_authenticated/library': typeof AuthenticatedLibraryRouteWithChildren
+  '/_authenticated/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
@@ -93,7 +113,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/gmb-analytics'
     | '/library'
+    | '/post-generator'
     | '/upload'
     | '/videos'
     | '/wizard'
@@ -102,7 +124,9 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/gmb-analytics'
     | '/library'
+    | '/post-generator'
     | '/upload'
     | '/videos'
     | '/wizard'
@@ -112,7 +136,9 @@ export interface FileRouteTypes {
     | '/'
     | '/_authenticated'
     | '/auth'
+    | '/_authenticated/gmb-analytics'
     | '/_authenticated/library'
+    | '/_authenticated/post-generator'
     | '/_authenticated/upload'
     | '/_authenticated/videos'
     | '/_authenticated/wizard'
@@ -169,11 +195,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedUploadRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/post-generator': {
+      id: '/_authenticated/post-generator'
+      path: '/post-generator'
+      fullPath: '/post-generator'
+      preLoaderRoute: typeof AuthenticatedPostGeneratorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/library': {
       id: '/_authenticated/library'
       path: '/library'
       fullPath: '/library'
       preLoaderRoute: typeof AuthenticatedLibraryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/gmb-analytics': {
+      id: '/_authenticated/gmb-analytics'
+      path: '/gmb-analytics'
+      fullPath: '/gmb-analytics'
+      preLoaderRoute: typeof AuthenticatedGmbAnalyticsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/library/$imageId': {
@@ -198,14 +238,18 @@ const AuthenticatedLibraryRouteWithChildren =
   AuthenticatedLibraryRoute._addFileChildren(AuthenticatedLibraryRouteChildren)
 
 interface AuthenticatedRouteRouteChildren {
+  AuthenticatedGmbAnalyticsRoute: typeof AuthenticatedGmbAnalyticsRoute
   AuthenticatedLibraryRoute: typeof AuthenticatedLibraryRouteWithChildren
+  AuthenticatedPostGeneratorRoute: typeof AuthenticatedPostGeneratorRoute
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
+  AuthenticatedGmbAnalyticsRoute: AuthenticatedGmbAnalyticsRoute,
   AuthenticatedLibraryRoute: AuthenticatedLibraryRouteWithChildren,
+  AuthenticatedPostGeneratorRoute: AuthenticatedPostGeneratorRoute,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
