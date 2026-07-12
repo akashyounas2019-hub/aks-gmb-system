@@ -156,60 +156,76 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </div>
             </div>
           ))}
+          {/* Settings — in main nav, click label to open main settings, chevron to expand */}
+          <div>
+            <div
+              className={`flex items-center rounded-md ${
+                settingsActive ? "bg-primary/15 text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <Link
+                to="/settings/general"
+                className={`flex flex-1 items-center gap-3 rounded-md px-3 py-2 text-sm ${
+                  settingsActive
+                    ? "text-primary"
+                    : "hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                <SettingsIcon className="h-4 w-4" />
+                Settings
+              </Link>
+              <button
+                type="button"
+                onClick={() => setSettingsOpen((v) => !v)}
+                aria-expanded={settingsOpen}
+                aria-controls="sidebar-settings-submenu"
+                aria-label={settingsOpen ? "Collapse settings" : "Expand settings"}
+                className={`mr-1 grid h-8 w-8 place-items-center rounded-md ${
+                  settingsActive
+                    ? "text-primary hover:bg-primary/10"
+                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                }`}
+              >
+                <ChevronDown
+                  className={`h-4 w-4 transition-transform ${
+                    settingsOpen ? "rotate-180" : ""
+                  }`}
+                />
+              </button>
+            </div>
+
+            {settingsOpen && (
+              <div
+                id="sidebar-settings-submenu"
+                className="mt-1 space-y-0.5 border-l border-border/60 pl-2"
+              >
+                {settingsChildren.map((s) => {
+                  const active = isActive(s.to);
+                  return (
+                    <Link
+                      key={s.to}
+                      to={s.to}
+                      className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${
+                        active
+                          ? "bg-primary/10 text-primary"
+                          : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                      }`}
+                    >
+                      <s.icon className="h-3.5 w-3.5" />
+                      {s.label}
+                    </Link>
+                  );
+                })}
+              </div>
+            )}
+          </div>
         </nav>
 
-        {/* Settings — collapsible drop-up (anchored to bottom) */}
+        {/* Sticky footer — Sign Out only */}
         <div className="border-t border-border/60 px-3 py-3">
           <button
-            type="button"
-            onClick={() => setSettingsOpen((v) => !v)}
-            aria-expanded={settingsOpen}
-            aria-controls="sidebar-settings-submenu"
-            className={`flex w-full items-center justify-between gap-3 rounded-md px-3 py-2 text-sm ${
-              settingsActive
-                ? "bg-primary/15 text-primary"
-                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-            }`}
-          >
-            <span className="flex items-center gap-3">
-              <SettingsIcon className="h-4 w-4" />
-              Settings
-            </span>
-            <ChevronDown
-              className={`h-4 w-4 transition-transform ${
-                settingsOpen ? "rotate-180" : ""
-              }`}
-            />
-          </button>
-
-          {settingsOpen && (
-            <div
-              id="sidebar-settings-submenu"
-              className="mt-1 space-y-0.5 border-l border-border/60 pl-2"
-            >
-              {settingsChildren.map((s) => {
-                const active = isActive(s.to);
-                return (
-                  <Link
-                    key={s.to}
-                    to={s.to}
-                    className={`flex items-center gap-2 rounded-md px-3 py-1.5 text-xs ${
-                      active
-                        ? "bg-primary/10 text-primary"
-                        : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                    }`}
-                  >
-                    <s.icon className="h-3.5 w-3.5" />
-                    {s.label}
-                  </Link>
-                );
-              })}
-            </div>
-          )}
-
-          <button
             onClick={signOut}
-            className="mt-2 flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
+            className="flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <LogOut className="h-4 w-4" /> Sign out
           </button>
