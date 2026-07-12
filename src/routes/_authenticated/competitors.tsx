@@ -726,7 +726,13 @@ function CompetitorsPage() {
       {/* Cards grid */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
-          <h2 className="text-base font-semibold">Competitor roster</h2>
+          <div>
+            <h2 className="text-base font-semibold">Competitor roster</h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Showing {filteredRows.length} of {rows.length} competitor{rows.length === 1 ? "" : "s"}
+              {activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied`}
+            </p>
+          </div>
           {ranksLoading && (
             <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
               <Loader2 className="h-3 w-3 animate-spin" /> refreshing ranks…
@@ -734,15 +740,57 @@ function CompetitorsPage() {
           )}
         </div>
 
+        {rows.length > 0 && (
+          <FilterBar
+            query={query}
+            onQuery={setQuery}
+            threatFilter={threatFilter}
+            onToggleThreat={(t) =>
+              setThreatFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(t)) next.delete(t);
+                else next.add(t);
+                return next;
+              })
+            }
+            providerFilter={providerFilter}
+            onProvider={setProviderFilter}
+            activeProvider={rankSource}
+            categoryFilter={categoryFilter}
+            onToggleCategory={(c) =>
+              setCategoryFilter((prev) => {
+                const next = new Set(prev);
+                if (next.has(c)) next.delete(c);
+                else next.add(c);
+                return next;
+              })
+            }
+            activeCount={activeFilterCount}
+            onClear={clearFilters}
+          />
+        )}
+
         {loading ? (
           <div className="rounded-2xl border border-border bg-card p-12 text-center">
             <Loader2 className="mx-auto h-6 w-6 animate-spin text-muted-foreground" />
           </div>
         ) : rows.length === 0 ? (
           <EmptyState onAdd={openAdd} />
+        ) : filteredRows.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center">
+            <Filter className="mx-auto h-6 w-6 text-muted-foreground" />
+            <p className="mt-3 text-sm font-medium">No competitors match your filters</p>
+            <p className="mt-1 text-xs text-muted-foreground">Try loosening the filters or clearing the search.</p>
+            <button
+              onClick={clearFilters}
+              className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              <X className="h-3 w-3" /> Clear all filters
+            </button>
+          </div>
         ) : (
           <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
-            {rows.map((c) => (
+            {filteredRows.map((c) => (
               <CompetitorCard
                 key={c.id}
                 competitor={c}
