@@ -299,6 +299,9 @@ function GmbAnalyticsPage() {
   const [metrics, setMetrics] = useState<Metrics | null>(null);
   const [metricsErr, setMetricsErr] = useState<string | null>(null);
   const [loadingMetrics, setLoadingMetrics] = useState(false);
+  // OAuth is complete but no Business Profile location has been selected yet.
+  const [needsLocation, setNeedsLocation] = useState(false);
+  const navigate = useNavigate();
 
   // Live competitor rank lookup state.
   const [rankSource, setRankSource] = useState<"serpapi" | "dataforseo" | "local_falcon" | null>(null);
