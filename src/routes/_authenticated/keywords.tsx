@@ -163,6 +163,8 @@ function KeywordsPage() {
     folder?: KFolder;
   } | null>(null);
   const [enriching, setEnriching] = useState(false);
+  const [activeTab, setActiveTab] = useState<"research" | "library">("research");
+  const [researchQuery, setResearchQuery] = useState("");
 
   const semrushRef = useRef<HTMLInputElement>(null);
   const genericRef = useRef<HTMLInputElement>(null);
