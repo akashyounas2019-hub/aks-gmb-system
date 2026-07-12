@@ -635,7 +635,6 @@ type ImageRow = {
   storage_path: string;
   lat: number | null;
   lng: number | null;
-  location_label: string | null;
 };
 type TagRow = { id: string; slug: string; label: string };
 
@@ -644,7 +643,7 @@ async function fetchImageEdit(imageId: string) {
     await Promise.all([
       supabase
         .from("images")
-        .select("id,name,storage_path,lat,lng,location_label")
+        .select("id,name,storage_path,lat,lng")
         .eq("id", imageId)
         .single(),
       supabase.from("tags").select("id,slug,label").order("label"),
