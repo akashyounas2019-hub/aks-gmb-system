@@ -243,6 +243,7 @@ function WebhooksPage() {
             : w,
         ),
       );
+      markFire({ data: { id: row.id, status: res.status } }).catch(() => {});
       if (res.ok) toast.success(`Delivered to ${row.name}`);
       else toast.error(`${row.name} responded ${res.status}`);
     } catch (err) {
