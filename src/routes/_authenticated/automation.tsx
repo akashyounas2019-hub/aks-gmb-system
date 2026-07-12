@@ -841,3 +841,188 @@ function ConfigureModal({
     </div>
   );
 }
+
+function NewAutomationModal({
+  onClose,
+  onCreate,
+}: {
+  onClose: () => void;
+  onCreate: (tpl: CustomTemplateSerialized) => void;
+}) {
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [category, setCategory] = useState<AutomationCategory>("content");
+  const [triggerKind, setTriggerKind] = useState<Trigger["kind"]>("schedule");
+  const [cron, setCron] = useState("0 9 * * 1");
+  const [triggerLabel, setTriggerLabel] = useState("Mondays at 9:00 AM");
+  const [event, setEvent] = useState("image.uploaded");
+  const [actionsText, setActionsText] = useState("Step 1, Step 2, Step 3");
+
+  function submit() {
+    if (!name.trim()) {
+      toast.error("Give your automation a name.");
+      return;
+    }
+    let trigger: Trigger;
+    if (triggerKind === "schedule") {
+      trigger = { kind: "schedule", cron: cron.trim() || "0 9 * * *", label: triggerLabel.trim() || cron };
+    } else if (triggerKind === "event") {
+      trigger = { kind: "event", event: event.trim() || "custom.event", label: `Event: ${event.trim()}` };
+    } else {
+      trigger = { kind: "manual", label: "Manual runs only" };
+    }
+    const actions = actionsText
+      .split(",")
+      .map((a) => a.trim())
+      .filter(Boolean);
+    const tpl: CustomTemplateSerialized = {
+      custom: true,
+      id: `custom-${crypto.randomUUID()}`,
+      name: name.trim(),
+      description: description.trim() || "Custom automation",
+      category,
+      trigger,
+      actions: actions.length ? actions : ["Run custom workflow"],
+    };
+    onCreate(tpl);
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 grid place-items-center bg-background/80 p-4 backdrop-blur"
+      onClick={onClose}
+    >
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-card p-5 shadow-xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div>
+            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              New automation
+            </div>
+            <h3 className="mt-0.5 font-display text-lg">Create a custom workflow</h3>
+            <p className="mt-0.5 text-xs text-muted-foreground">
+              Define your own trigger and actions.
+            </p>
+          </div>
+          <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
+            Close
+          </button>
+        </div>
+
+        <div className="space-y-3">
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Name</span>
+            <input
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g. Refresh competitor snapshots"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Description</span>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={2}
+              placeholder="What does this automation do?"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Category</span>
+            <select
+              value={category}
+              onChange={(e) => setCategory(e.target.value as AutomationCategory)}
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            >
+              {(Object.keys(CATEGORY_META) as AutomationCategory[]).map((c) => (
+                <option key={c} value={c}>
+                  {CATEGORY_META[c].label}
+                </option>
+              ))}
+            </select>
+          </label>
+
+          <div>
+            <span className="mb-1 block text-xs font-medium">Trigger</span>
+            <div className="mb-2 flex gap-1">
+              {(["schedule", "event", "manual"] as const).map((k) => (
+                <button
+                  key={k}
+                  type="button"
+                  onClick={() => setTriggerKind(k)}
+                  className={`flex-1 rounded-md border px-2 py-1.5 text-xs capitalize transition ${
+                    triggerKind === k
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {k}
+                </button>
+              ))}
+            </div>
+            {triggerKind === "schedule" && (
+              <div className="grid gap-2 sm:grid-cols-2">
+                <input
+                  value={cron}
+                  onChange={(e) => setCron(e.target.value)}
+                  placeholder="Cron (e.g. 0 9 * * 1)"
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+                <input
+                  value={triggerLabel}
+                  onChange={(e) => setTriggerLabel(e.target.value)}
+                  placeholder="Human label"
+                  className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                />
+              </div>
+            )}
+            {triggerKind === "event" && (
+              <input
+                value={event}
+                onChange={(e) => setEvent(e.target.value)}
+                placeholder="Event name (e.g. image.uploaded)"
+                className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+              />
+            )}
+            {triggerKind === "manual" && (
+              <p className="text-xs text-muted-foreground">
+                This automation will only run when triggered manually.
+              </p>
+            )}
+          </div>
+
+          <label className="block">
+            <span className="mb-1 block text-xs font-medium">Actions</span>
+            <input
+              value={actionsText}
+              onChange={(e) => setActionsText(e.target.value)}
+              placeholder="Comma-separated steps"
+              className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+            />
+          </label>
+        </div>
+
+        <div className="mt-5 flex items-center justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={submit}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            <Plus className="h-3.5 w-3.5" /> Create automation
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
