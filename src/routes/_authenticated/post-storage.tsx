@@ -73,7 +73,9 @@ export function PostStoragePanel() {
             { id: `f-${Date.now()}-c`, name: "Campaigns", parentId: null, createdAt: new Date().toISOString() },
           ];
           setFolders(seed);
-          saveFoldersFn({ data: { folders: seed } }).catch(() => {});
+          saveFoldersFn({ data: { folders: seed } }).catch((e) =>
+            toast.error(e instanceof Error ? e.message : "Failed to seed folders"),
+          );
         } else {
           setFolders(rows);
         }
@@ -147,7 +149,9 @@ export function PostStoragePanel() {
     posts
       .filter((p) => p.folderId === id)
       .forEach((p) => {
-        saveDraftFn({ data: { id: p.id, folderId: null } }).catch(() => {});
+        saveDraftFn({ data: { id: p.id, folderId: null } }).catch((e) =>
+          toast.error(e instanceof Error ? e.message : "Failed to move post to Unfiled"),
+        );
       });
     setPosts((prev) => prev.map((p) => (p.folderId === id ? { ...p, folderId: null } : p)));
     if (activeFolder === id) setActiveFolder("all");
