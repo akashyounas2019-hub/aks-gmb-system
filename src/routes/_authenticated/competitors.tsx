@@ -85,23 +85,9 @@ type Competitor = {
   updated_at: string;
 };
 
-// Keyword universe used for competitor rank probing. Kept in sync with the
-// GMB Analytics screen so both surfaces reason about the same terms.
-const TRACKED_KEYWORDS: Array<{
-  keyword: string;
-  city: string;
-  userRank: number;
-  volume: number;
-  category: "Residential" | "Commercial" | "Specialty";
-}> = [
-  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900, category: "Residential" },
-  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600, category: "Residential" },
-  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720, category: "Residential" },
-  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990, category: "Specialty" },
-  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480, category: "Specialty" },
-  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590, category: "Residential" },
-  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300, category: "Commercial" },
-];
+// Keyword universe is loaded per-user from the `tracked_keywords` table.
+// STARTER_TRACKED_KEYWORDS is only used as the initial render seed until the
+// server responds; users edit their own list from the Manage keywords panel.
 
 const KEYWORD_CATEGORIES = ["Residential", "Commercial", "Specialty"] as const;
 type KeywordCategory = (typeof KEYWORD_CATEGORIES)[number];
