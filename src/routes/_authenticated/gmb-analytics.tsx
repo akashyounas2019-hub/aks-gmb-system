@@ -675,7 +675,7 @@ function GmbAnalyticsPage() {
           <div>
             <div className="font-medium text-amber-200">Google is connected — pick a business location to load live data</div>
             <div className="mt-0.5 text-xs text-amber-200/80">
-              OAuth succeeded, but no Business Profile location is selected yet. Until you pick one, the dashboard keeps showing sample data.
+              OAuth succeeded, but no Business Profile location is selected yet. Pick one to start pulling live GMB insights.
             </div>
           </div>
           <Link
