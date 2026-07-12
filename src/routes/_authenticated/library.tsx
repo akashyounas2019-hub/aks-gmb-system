@@ -119,12 +119,13 @@ function LibraryPage() {
     }
   }
 
-  function imageBucket(img: { id: string; lat: number | null; lng: number | null }): LibraryTab {
+  function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
     if (img.lat != null && img.lng != null) return "geotagged";
     const tags = data?.tagMap.get(img.id) ?? [];
     if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
     return "raw";
   }
+
 
   const counts = useMemo(() => {
     const c: Record<"raw" | "published" | "geotagged", number> = { raw: 0, published: 0, geotagged: 0 };
