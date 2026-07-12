@@ -173,6 +173,14 @@ function CompetitorsPage() {
   const refreshPlace = useServerFn(refreshCompetitorPlaceId);
   const fetchRanks = useServerFn(getCompetitorRanks);
   const fetchHistory = useServerFn(getCompetitorRankHistory);
+  const fetchTracked = useServerFn(listTrackedKeywords);
+  const persistTracked = useServerFn(saveTrackedKeywords);
+
+  const [trackedKeywords, setTrackedKeywords] =
+    useState<TrackedKeyword[]>(STARTER_TRACKED_KEYWORDS);
+  const [trackedIsCustom, setTrackedIsCustom] = useState(false);
+  const [showKeywordManager, setShowKeywordManager] = useState(false);
+
 
   const [rows, setRows] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
