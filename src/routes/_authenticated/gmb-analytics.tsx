@@ -291,7 +291,7 @@ const DARK_MAP_STYLE: any[] = [
 
 /* ---------- PAGE ---------------------------------------------------- */
 function GmbAnalyticsPage() {
-  const [keyword, setKeyword] = useState(MOCK_KEYWORDS[0].keyword);
+  const [keyword, setKeyword] = useState<string>("");
   const [search, setSearch] = useState("");
   const [gmb, setGmb] = useState(() => readGmbConnection());
   const [connectBusy, setConnectBusy] = useState(false);
