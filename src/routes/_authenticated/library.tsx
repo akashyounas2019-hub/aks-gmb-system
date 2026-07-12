@@ -1,12 +1,14 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useServerFn } from "@tanstack/react-start";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { MapPin, Pencil, Tag as TagIcon, Trash2, CheckSquare, Square, X } from "lucide-react";
+import { MapPin, Pencil, Tag as TagIcon, Trash2, CheckSquare, Square, X, Loader2, Sparkles } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
+import { autoTagImages } from "@/lib/image-tagging.functions";
 
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
