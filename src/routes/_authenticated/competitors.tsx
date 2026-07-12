@@ -190,6 +190,12 @@ function CompetitorsPage() {
 
   const [selected, setSelected] = useState<Competitor | null>(null);
 
+  // Filters
+  const [query, setQuery] = useState("");
+  const [threatFilter, setThreatFilter] = useState<Set<ThreatLevel>>(new Set());
+  const [providerFilter, setProviderFilter] = useState<string>("all");
+  const [categoryFilter, setCategoryFilter] = useState<Set<KeywordCategory>>(new Set());
+
   async function refresh() {
     setLoading(true);
     try {
