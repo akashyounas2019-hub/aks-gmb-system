@@ -69,12 +69,9 @@ export async function executeAutomation(automation: AutomationRow, supabase: Cli
         break;
       }
       case "rank_refresh": {
-        // Count keywords eligible for a refresh cycle.
-        const { count } = await supabase
-          .from("keywords")
-          .select("*", { count: "exact", head: true })
-          .eq("owner_id", automation.owner_id);
-        output = { keywords: count ?? 0, note: "rank_refresh scheduled" };
+        const { refreshUserRankGrid } = await import("./rank-grid.server");
+        const res = await refreshUserRankGrid(supabase, automation.owner_id);
+        output = { keywords: res.keywords, snapshots: res.snapshots };
         break;
       }
       case "auto_publish": {
