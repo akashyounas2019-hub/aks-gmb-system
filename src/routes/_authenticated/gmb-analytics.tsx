@@ -1049,13 +1049,6 @@ function LegendSwatch({ color, label }: { color: string; label: string }) {
   );
 }
 
-function competitorRank(idOrUrl: string, keyword: string): number {
-  let h = 0;
-  const s = `${idOrUrl}::${keyword}`;
-  for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
-  // Weighted toward positions 2–20 so most competitors land on page 1–2
-  return 1 + (h % 20);
-}
 
 function RankPill({ rank }: { rank: number }) {
   return (
