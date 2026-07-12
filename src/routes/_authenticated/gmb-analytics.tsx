@@ -494,9 +494,10 @@ function GmbAnalyticsPage() {
     toast.message("Disconnected");
   }
 
-  // Real data if available, else MOCK. Powers every keyword-driven UI section.
-  const keywordRows: KeywordRow[] = realKeywords ?? MOCK_KEYWORDS;
-  const usingRealData = realKeywords !== null;
+  // Live data only — empty when the user hasn't tracked keywords yet.
+  const keywordRows: KeywordRow[] = realKeywords ?? [];
+  const usingRealData = realKeywords !== null && realKeywords.length > 0;
+
 
   const summary = useMemo(() => {
     const improved = keywordRows.filter((k) => k.previous > k.current).length;
