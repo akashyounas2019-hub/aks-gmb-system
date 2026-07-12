@@ -235,7 +235,7 @@ function HeatMap({
     }
     // Business marker
     const biz = new g.maps.Marker({
-      position: BUSINESS,
+      position: mapCenter,
       map: mapRef.current,
       title: BUSINESS.name,
       icon: {
@@ -796,7 +796,11 @@ function GmbAnalyticsPage() {
         </div>
 
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_260px]">
-          <HeatMap keyword={keyword} />
+          <HeatMap
+            keyword={keyword}
+            cells={realCurrentGrid ?? undefined}
+            center={realCenter ?? undefined}
+          />
           <div className="space-y-3">
             <StatCard
               label="Cells in top 3"
