@@ -281,12 +281,47 @@ function GmbAnalyticsPage() {
   const [connectBusy, setConnectBusy] = useState(false);
   const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
   const fetchCompetitors = useServerFn(listCompetitors);
+  const fetchMetrics = useServerFn(getGmbMetrics);
+  const fetchGmbStatus = useServerFn(getGmbConnectionStatus);
+
+  type Metrics = Awaited<ReturnType<typeof getGmbMetrics>>;
+  const [metrics, setMetrics] = useState<Metrics | null>(null);
+  const [metricsErr, setMetricsErr] = useState<string | null>(null);
+  const [loadingMetrics, setLoadingMetrics] = useState(false);
 
   useEffect(() => {
     fetchCompetitors()
       .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
+
+  useEffect(() => {
+    let cancelled = false;
+    async function run() {
+      try {
+        const s = await fetchGmbStatus();
+        if (!s.connected || !s.locationName) {
+          if (!cancelled) {
+            setMetrics(null);
+            setMetricsErr(null);
+          }
+          return;
+        }
+        setLoadingMetrics(true);
+        setMetricsErr(null);
+        const m = await fetchMetrics();
+        if (!cancelled) setMetrics(m);
+      } catch (e) {
+        if (!cancelled) setMetricsErr(e instanceof Error ? e.message : "Failed to load GMB metrics");
+      } finally {
+        if (!cancelled) setLoadingMetrics(false);
+      }
+    }
+    run();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchGmbStatus, fetchMetrics, gmb.connected]);
 
   useEffect(() => {
     const sync = () => setGmb(readGmbConnection());
