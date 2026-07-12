@@ -14,7 +14,198 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      image_tags: {
+        Row: {
+          created_at: string
+          image_id: string
+          owner_id: string
+          tag_id: string
+        }
+        Insert: {
+          created_at?: string
+          image_id: string
+          owner_id: string
+          tag_id: string
+        }
+        Update: {
+          created_at?: string
+          image_id?: string
+          owner_id?: string
+          tag_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_tags_image_id_fkey"
+            columns: ["image_id"]
+            isOneToOne: false
+            referencedRelation: "images"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "image_tags_tag_id_fkey"
+            columns: ["tag_id"]
+            isOneToOne: false
+            referencedRelation: "tags"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      images: {
+        Row: {
+          created_at: string
+          height: number | null
+          id: string
+          lat: number | null
+          lng: number | null
+          name: string
+          owner_id: string
+          sharpness_score: number | null
+          storage_path: string
+          timestamp_seconds: number | null
+          venue_id: string | null
+          video_id: string | null
+          width: number | null
+        }
+        Insert: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name: string
+          owner_id: string
+          sharpness_score?: number | null
+          storage_path: string
+          timestamp_seconds?: number | null
+          venue_id?: string | null
+          video_id?: string | null
+          width?: number | null
+        }
+        Update: {
+          created_at?: string
+          height?: number | null
+          id?: string
+          lat?: number | null
+          lng?: number | null
+          name?: string
+          owner_id?: string
+          sharpness_score?: number | null
+          storage_path?: string
+          timestamp_seconds?: number | null
+          venue_id?: string | null
+          video_id?: string | null
+          width?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "images_venue_id_fkey"
+            columns: ["venue_id"]
+            isOneToOne: false
+            referencedRelation: "venues"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "images_video_id_fkey"
+            columns: ["video_id"]
+            isOneToOne: false
+            referencedRelation: "videos"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      tags: {
+        Row: {
+          category: string | null
+          created_at: string
+          id: string
+          label: string
+          slug: string
+        }
+        Insert: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          label: string
+          slug: string
+        }
+        Update: {
+          category?: string | null
+          created_at?: string
+          id?: string
+          label?: string
+          slug?: string
+        }
+        Relationships: []
+      }
+      venues: {
+        Row: {
+          address: string | null
+          category: string | null
+          created_at: string
+          id: string
+          lat: number
+          lng: number
+          name: string
+          place_id: string | null
+        }
+        Insert: {
+          address?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          lat: number
+          lng: number
+          name: string
+          place_id?: string | null
+        }
+        Update: {
+          address?: string | null
+          category?: string | null
+          created_at?: string
+          id?: string
+          lat?: number
+          lng?: number
+          name?: string
+          place_id?: string | null
+        }
+        Relationships: []
+      }
+      videos: {
+        Row: {
+          created_at: string
+          duration_seconds: number | null
+          frame_count: number
+          id: string
+          original_name: string
+          owner_id: string
+          size_bytes: number | null
+          status: string
+          storage_path: string
+        }
+        Insert: {
+          created_at?: string
+          duration_seconds?: number | null
+          frame_count?: number
+          id?: string
+          original_name: string
+          owner_id: string
+          size_bytes?: number | null
+          status?: string
+          storage_path: string
+        }
+        Update: {
+          created_at?: string
+          duration_seconds?: number | null
+          frame_count?: number
+          id?: string
+          original_name?: string
+          owner_id?: string
+          size_bytes?: number | null
+          status?: string
+          storage_path?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
