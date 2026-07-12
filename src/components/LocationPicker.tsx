@@ -152,8 +152,7 @@ export function LocationPicker({
         .from("location_history")
         .update({
           last_used_at: new Date().toISOString(),
-          used_count: (history.find((h) => h.id === existing.id)?.used_count ??
-            0) + 1,
+          used_count: (existing.used_count ?? 0) + 1,
         } as any)
         .eq("id", existing.id);
     } else {
@@ -167,7 +166,7 @@ export function LocationPicker({
     }
     const { data } = await supabase
       .from("location_history")
-      .select("id,label,lat,lng,place_id")
+      .select("id,label,lat,lng,place_id,used_count")
       .order("last_used_at", { ascending: false })
       .limit(8);
     setHistory((data ?? []) as HistoryRow[]);
