@@ -138,7 +138,7 @@ function LibraryPage() {
 
 
   const filtered = useMemo(() => {
-    if (!data) return [];
+    if (!data || tab === "videos") return [];
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
       if (imageBucket(i) !== tab) return false;
@@ -153,6 +153,7 @@ function LibraryPage() {
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, filter, tab]);
+
 
 
   function toggleSelect(id: string) {
