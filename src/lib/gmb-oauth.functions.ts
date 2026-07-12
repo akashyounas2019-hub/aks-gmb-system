@@ -550,6 +550,22 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
       return Math.round(((cur - prev) / prev) * 100);
     }
 
+    logGmb("metrics.ok", ctx.userId, {
+      location: tokens.location_name,
+      range: `${start.toISOString().slice(0, 10)} → ${end.toISOString().slice(0, 10)}`,
+      impressions,
+      callClicks: curAgg.totals.CALL_CLICKS,
+      websiteClicks: curAgg.totals.WEBSITE_CLICKS,
+      directionRequests: curAgg.totals.BUSINESS_DIRECTION_REQUESTS,
+      // If everything is 0, Google returned no data — usually means the
+      // Business Profile Performance API isn't enabled for the project, or
+      // the location has no traffic in the last 30 days.
+      allZero:
+        impressions === 0 &&
+        curAgg.totals.CALL_CLICKS === 0 &&
+        curAgg.totals.WEBSITE_CLICKS === 0 &&
+        curAgg.totals.BUSINESS_DIRECTION_REQUESTS === 0,
+    });
     return {
       locationTitle: tokens.location_title as string | null,
       range: {
