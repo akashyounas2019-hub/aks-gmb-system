@@ -355,6 +355,50 @@ export type Database = {
         }
         Relationships: []
       }
+      rank_alerts: {
+        Row: {
+          competitor_id: string
+          competitor_rank: number
+          created_at: string
+          id: string
+          keyword: string
+          read_at: string | null
+          source: string
+          user_id: string
+          user_rank: number
+        }
+        Insert: {
+          competitor_id: string
+          competitor_rank: number
+          created_at?: string
+          id?: string
+          keyword: string
+          read_at?: string | null
+          source: string
+          user_id: string
+          user_rank: number
+        }
+        Update: {
+          competitor_id?: string
+          competitor_rank?: number
+          created_at?: string
+          id?: string
+          keyword?: string
+          read_at?: string | null
+          source?: string
+          user_id?: string
+          user_rank?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rank_alerts_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       social_posts: {
         Row: {
           caption: string
