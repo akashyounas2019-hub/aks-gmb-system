@@ -12,6 +12,7 @@ import {
   LayoutDashboard,
   LogOut,
   MapPin,
+  Zap,
   Palette,
   PenSquare,
   Settings as SettingsIcon,
