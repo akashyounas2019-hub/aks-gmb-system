@@ -184,66 +184,49 @@ function PostStoragePage() {
     setScheduling(null);
   }
 
+  const folderPath = (id: string): string => {
+    const parts: string[] = [];
+    let cur = folders.find((f) => f.id === id);
+    while (cur) {
+      parts.unshift(cur.name);
+      cur = cur.parentId ? folders.find((f) => f.id === cur!.parentId) : undefined;
+    }
+    return parts.join(" / ");
+  };
+
+  const folderTabs: { key: string; label: string; count: number }[] = [
+    { key: "all", label: "All posts", count: posts.length },
+    {
+      key: "unfiled",
+      label: "Unfiled",
+      count: posts.filter((p) => p.folderId === null).length,
+    },
+    ...folders.map((f) => ({
+      key: f.id,
+      label: folderPath(f.id),
+      count: posts.filter((p) => p.folderId === f.id).length,
+    })),
+  ];
+
   return (
     <AppShell>
-      <div className="flex h-[calc(100vh-3.5rem)]">
-        {/* Folder sidebar */}
-        <aside className="w-64 shrink-0 border-r border-border bg-card/40 flex flex-col">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Folders
-            </span>
-            <button
-              onClick={() => setCreatingFolder(true)}
-              className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-              title="New folder"
-            >
-              <FolderPlus className="h-4 w-4" />
-            </button>
-          </div>
-          <div className="flex-1 overflow-y-auto p-2 text-sm space-y-0.5">
-            <FolderRow
-              label={`All posts`}
-              count={posts.length}
-              active={activeFolder === "all"}
-              onClick={() => setActiveFolder("all")}
-            />
-            <FolderRow
-              label="Unfiled"
-              count={posts.filter((p) => p.folderId === null).length}
-              active={activeFolder === "unfiled"}
-              onClick={() => setActiveFolder("unfiled")}
-            />
-            <div className="my-2 border-t border-border/60" />
-            {rootFolders.map((f) => (
-              <FolderTreeNode
-                key={f.id}
-                folder={f}
-                depth={0}
-                childrenOf={childrenOf}
-                posts={posts}
-                activeFolder={activeFolder}
-                setActiveFolder={setActiveFolder}
-                onDelete={deleteFolder}
-                onAddChild={(parentId) => {
-                  setNewFolderParent(parentId);
-                  setCreatingFolder(true);
-                }}
-              />
-            ))}
-          </div>
-        </aside>
-
-        {/* Main */}
-        <div className="flex-1 min-w-0 flex flex-col">
-          <div className="border-b border-border px-6 py-4">
-            <div className="flex items-center justify-between gap-4">
-              <div>
-                <h1 className="font-display text-2xl">Post Storage</h1>
-                <p className="text-sm text-muted-foreground">
-                  Save, organize, and schedule your generated posts.
-                </p>
-              </div>
+      <div className="flex h-[calc(100vh-3.5rem)] flex-col">
+        {/* Header */}
+        <div className="border-b border-border px-6 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div>
+              <h1 className="font-display text-2xl">Post Storage</h1>
+              <p className="text-sm text-muted-foreground">
+                Save, organize, and schedule your generated posts.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => setCreatingFolder(true)}
+                className="inline-flex items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-accent"
+              >
+                <FolderPlus className="h-4 w-4" /> New folder
+              </button>
               <button
                 onClick={createPost}
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
@@ -251,33 +234,82 @@ function PostStoragePage() {
                 <Plus className="h-4 w-4" /> New post
               </button>
             </div>
+          </div>
+        </div>
 
-            <div className="mt-4 flex flex-wrap items-center gap-2">
-              {(["All", "Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => setStatusFilter(s)}
-                  className={`rounded-full border px-3 py-1 text-xs ${
-                    statusFilter === s
-                      ? "bg-primary/15 text-primary border-primary/30"
-                      : "border-border text-muted-foreground hover:text-foreground"
-                  }`}
-                >
-                  {s} <span className="opacity-60">· {counts[s]}</span>
-                </button>
-              ))}
-              <div className="ml-auto relative">
-                <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <input
-                  value={query}
-                  onChange={(e) => setQuery(e.target.value)}
-                  placeholder="Search posts…"
-                  className="rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm w-64 focus:outline-none focus:ring-1 focus:ring-primary"
-                />
-              </div>
+        {/* Folder tabs (horizontal) */}
+        <div className="border-b border-border bg-card/40 px-6">
+          <nav
+            role="tablist"
+            aria-label="Folders"
+            className="flex gap-1 overflow-x-auto"
+          >
+            {folderTabs.map((t) => {
+              const active = activeFolder === t.key;
+              const isFolder = t.key !== "all" && t.key !== "unfiled";
+              return (
+                <div key={t.key} className="group relative flex items-center">
+                  <button
+                    role="tab"
+                    aria-selected={active}
+                    onClick={() => setActiveFolder(t.key as typeof activeFolder)}
+                    className={`-mb-px flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm transition ${
+                      active
+                        ? "border-primary text-foreground"
+                        : "border-transparent text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    <Folder className="h-3.5 w-3.5" />
+                    {t.label}
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] text-muted-foreground">
+                      {t.count}
+                    </span>
+                  </button>
+                  {isFolder && (
+                    <button
+                      onClick={() => deleteFolder(t.key)}
+                      title="Delete folder"
+                      className="mr-1 hidden rounded p-1 text-muted-foreground hover:bg-accent hover:text-destructive group-hover:inline-flex"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  )}
+                </div>
+              );
+            })}
+          </nav>
+        </div>
+
+        {/* Filter row */}
+        <div className="border-b border-border px-6 py-3">
+          <div className="flex flex-wrap items-center gap-2">
+            {(["All", "Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
+              <button
+                key={s}
+                onClick={() => setStatusFilter(s)}
+                className={`rounded-full border px-3 py-1 text-xs ${
+                  statusFilter === s
+                    ? "bg-primary/15 text-primary border-primary/30"
+                    : "border-border text-muted-foreground hover:text-foreground"
+                }`}
+              >
+                {s} <span className="opacity-60">· {counts[s]}</span>
+              </button>
+            ))}
+            <div className="ml-auto relative">
+              <Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={query}
+                onChange={(e) => setQuery(e.target.value)}
+                placeholder="Search posts…"
+                className="w-64 rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-primary"
+              />
             </div>
           </div>
+        </div>
 
+        {/* Body */}
+        <div className="flex-1 min-w-0 flex flex-col">
           <div className="flex-1 min-h-0 flex">
             <div className="flex-1 overflow-y-auto p-6">
               {filteredPosts.length === 0 ? (
