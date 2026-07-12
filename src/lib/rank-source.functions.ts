@@ -113,7 +113,7 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator(
     (data: {
-      keywords: Array<{ keyword: string; city?: string }>;
+      keywords: Array<{ keyword: string; city?: string; userRank?: number | null }>;
       competitors: Array<{ id: string; name: string; gbpUrl: string; placeId: string | null }>;
       defaultLocation?: string;
     }) =>
@@ -124,6 +124,7 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
               z.object({
                 keyword: z.string().trim().min(1).max(200),
                 city: z.string().trim().max(120).optional(),
+                userRank: z.number().int().min(1).max(500).nullable().optional(),
               }),
             )
             .min(1)
@@ -177,6 +178,14 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
 
     const results: Record<string, Record<string, number | null>> = {};
     let firstError: string | null = null;
+    const snapshots: Array<{
+      user_id: string;
+      competitor_id: string | null;
+      keyword: string;
+      city: string | null;
+      rank: number | null;
+      source: string;
+    }> = [];
 
     for (const kw of data.keywords) {
       const location = kw.city ?? data.defaultLocation ?? "";
@@ -194,14 +203,73 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
 
       const perKw: Record<string, number | null> = {};
       for (const c of data.competitors) {
-        perKw[c.id] = matchRank(places, {
+        const r = matchRank(places, {
           placeId: c.placeId,
           name: c.name,
           gbpUrl: c.gbpUrl,
         });
+        perKw[c.id] = r;
+        snapshots.push({
+          user_id: userId,
+          competitor_id: c.id,
+          keyword: kw.keyword,
+          city: kw.city ?? null,
+          rank: r,
+          source,
+        });
       }
       results[kw.keyword] = perKw;
+
+      if (typeof kw.userRank === "number") {
+        snapshots.push({
+          user_id: userId,
+          competitor_id: null,
+          keyword: kw.keyword,
+          city: kw.city ?? null,
+          rank: kw.userRank,
+          source,
+        });
+      }
+    }
+
+    if (snapshots.length > 0) {
+      await supabase.from("competitor_rank_history").insert(snapshots);
     }
 
     return { source, error: firstError, results };
   });
+
+export const getCompetitorRankHistory = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator(
+    (data: { keyword: string; days?: number }) =>
+      z
+        .object({
+          keyword: z.string().trim().min(1).max(200),
+          days: z.number().int().min(1).max(365).optional(),
+        })
+        .parse(data),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const days = data.days ?? 30;
+    const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
+
+    const { data: rows, error } = await supabase
+      .from("competitor_rank_history")
+      .select("competitor_id, rank, recorded_at, source")
+      .eq("user_id", userId)
+      .eq("keyword", data.keyword)
+      .gte("recorded_at", since)
+      .order("recorded_at", { ascending: true });
+
+    if (error) throw new Error(error.message);
+
+    return (rows ?? []).map((r) => ({
+      competitorId: r.competitor_id as string | null,
+      rank: r.rank as number | null,
+      recordedAt: r.recorded_at as string,
+      source: r.source as string,
+    }));
+  });
+

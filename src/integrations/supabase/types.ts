@@ -14,6 +14,47 @@ export type Database = {
   }
   public: {
     Tables: {
+      competitor_rank_history: {
+        Row: {
+          city: string | null
+          competitor_id: string | null
+          id: string
+          keyword: string
+          rank: number | null
+          recorded_at: string
+          source: string
+          user_id: string
+        }
+        Insert: {
+          city?: string | null
+          competitor_id?: string | null
+          id?: string
+          keyword: string
+          rank?: number | null
+          recorded_at?: string
+          source: string
+          user_id: string
+        }
+        Update: {
+          city?: string | null
+          competitor_id?: string | null
+          id?: string
+          keyword?: string
+          rank?: number | null
+          recorded_at?: string
+          source?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "competitor_rank_history_competitor_id_fkey"
+            columns: ["competitor_id"]
+            isOneToOne: false
+            referencedRelation: "competitors"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       competitors: {
         Row: {
           created_at: string
