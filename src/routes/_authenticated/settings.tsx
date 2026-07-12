@@ -23,23 +23,31 @@ const submenu = [
 function SettingsLayout() {
   const location = useLocation();
   return (
-    <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
+    <div className="w-full px-6 py-6 md:px-10 md:py-10">
       <div className="mb-6 flex items-center gap-2">
         <SettingsIcon className="h-5 w-5 text-primary" />
         <h1 className="text-3xl">Settings</h1>
       </div>
-      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-        <nav className="space-y-1">
+
+      {/* Horizontal tab bar */}
+      <div className="mb-6 border-b border-border">
+        <nav
+          role="tablist"
+          aria-label="Settings sections"
+          className="-mb-px flex flex-wrap gap-1 overflow-x-auto"
+        >
           {submenu.map((item) => {
             const active = location.pathname.startsWith(item.to);
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-2 rounded-md px-3 py-2 text-sm ${
+                role="tab"
+                aria-selected={active}
+                className={`group inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
                   active
-                    ? "bg-primary/15 text-primary"
-                    : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
                 }`}
               >
                 <item.icon className="h-4 w-4" />
@@ -48,9 +56,10 @@ function SettingsLayout() {
             );
           })}
         </nav>
-        <div className="min-w-0">
-          <Outlet />
-        </div>
+      </div>
+
+      <div className="w-full min-w-0">
+        <Outlet />
       </div>
     </div>
   );
