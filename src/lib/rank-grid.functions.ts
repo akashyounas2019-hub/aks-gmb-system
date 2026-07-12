@@ -64,7 +64,7 @@ export const getRankGrid = createServerFn({ method: "POST" })
       const buckets = byPhrase.get(p)!;
       const key = s.checked_at;
       if (!buckets.has(key)) buckets.set(key, []);
-      buckets.get(key)!.push({ lat: s.lat, lng: s.lng, rank: s.rank });
+      buckets.get(key)!.push({ lat: s.lat, lng: s.lng, rank: s.rank ?? 20 });
     }
 
     const centerRank = (cells: RankGridCell[]): number => {
