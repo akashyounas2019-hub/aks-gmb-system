@@ -78,15 +78,33 @@ const TRACKED_KEYWORDS: Array<{
   city: string;
   userRank: number;
   volume: number;
+  category: "Residential" | "Commercial" | "Specialty";
 }> = [
-  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900 },
-  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600 },
-  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720 },
-  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990 },
-  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480 },
-  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590 },
-  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300 },
+  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900, category: "Residential" },
+  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600, category: "Residential" },
+  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720, category: "Residential" },
+  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990, category: "Specialty" },
+  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480, category: "Specialty" },
+  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590, category: "Residential" },
+  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300, category: "Commercial" },
 ];
+
+const KEYWORD_CATEGORIES = ["Residential", "Commercial", "Specialty"] as const;
+type KeywordCategory = (typeof KEYWORD_CATEGORIES)[number];
+type ThreatLevel = "high" | "medium" | "low" | "none";
+
+function computeThreatLevel(stats: { beating: number } | undefined): ThreatLevel {
+  if (!stats) return "none";
+  if (stats.beating >= 3) return "high";
+  if (stats.beating >= 1) return "medium";
+  return "low";
+}
+
+const PROVIDER_LABELS: Record<string, string> = {
+  serpapi: "SerpApi",
+  dataforseo: "DataForSEO",
+  local_falcon: "Local Falcon",
+};
 
 type RankMatrix = Record<string, Record<string, number | null>>;
 
