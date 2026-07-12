@@ -409,6 +409,11 @@ export const setGmbLocation = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const ctx = context as SupabaseCtx;
+    logGmb("setLocation.start", ctx.userId, {
+      account: data.account,
+      location: data.location,
+      locationTitle: data.locationTitle,
+    });
     const { error } = await ctx.supabase
       .from("gmb_tokens")
       .update({
@@ -417,7 +422,14 @@ export const setGmbLocation = createServerFn({ method: "POST" })
         location_title: data.locationTitle,
       })
       .eq("user_id", ctx.userId);
-    if (error) throw new Error(error.message);
+    if (error) {
+      logGmb("setLocation.error", ctx.userId, { message: error.message });
+      throw new Error(error.message);
+    }
+    logGmb("setLocation.ok", ctx.userId, {
+      account: data.account,
+      location: data.location,
+    });
     return { ok: true };
   });
 
@@ -437,9 +449,25 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as SupabaseCtx;
+    logGmb("metrics.start", ctx.userId);
     const tokens = await loadTokens(ctx);
-    if (!tokens) throw new Error("Not connected to Google");
-    if (!tokens.location_name) throw new Error("Select a business location first");
+    if (!tokens) {
+      logGmb("metrics.error", ctx.userId, { reason: "no_tokens" });
+      throw new Error("Not connected to Google");
+    }
+    if (!tokens.location_name) {
+      logGmb("metrics.error", ctx.userId, {
+        reason: "no_location_selected",
+        accountName: tokens.account_name,
+        hint: "User must pick a Business Profile location in Settings → Integrations.",
+      });
+      throw new Error("Select a business location first");
+    }
+    logGmb("metrics.location", ctx.userId, {
+      account: tokens.account_name,
+      location: tokens.location_name,
+      locationTitle: tokens.location_title,
+    });
     const at = await refreshIfNeeded(ctx, tokens);
 
     const end = new Date();
