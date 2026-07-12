@@ -355,6 +355,11 @@ function GmbAnalyticsPage() {
               city: "",
             })),
           );
+          // If the currently selected keyword isn't in the real set, snap to first.
+          if (!r.keywords.some((k) => k.phrase === keyword)) {
+            const first = r.keywords[0]?.phrase;
+            if (first) setKeyword(first);
+          }
           setRealCurrentGrid(r.current);
           setRealPreviousGrid(r.previous);
           setRealCenter(r.center);
