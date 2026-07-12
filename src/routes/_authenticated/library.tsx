@@ -356,9 +356,9 @@ function LibraryPage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
-                          renameImage(img.id, img.name);
+                          setEditingId(img.id);
                         }}
-                        aria-label="Rename"
+                        aria-label="Edit"
                         className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
                       >
                         <Pencil className="h-3.5 w-3.5" />
