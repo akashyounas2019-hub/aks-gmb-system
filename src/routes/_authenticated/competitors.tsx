@@ -757,7 +757,7 @@ function CompetitorsPage() {
             onProvider={setProviderFilter}
             activeProvider={rankSource}
             categoryFilter={categoryFilter}
-            onToggleCategory={(c) =>
+            onToggleCategory={(c: KeywordCategory) =>
               setCategoryFilter((prev) => {
                 const next = new Set(prev);
                 if (next.has(c)) next.delete(c);
