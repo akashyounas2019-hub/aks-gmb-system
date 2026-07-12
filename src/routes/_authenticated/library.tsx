@@ -75,6 +75,7 @@ function LibraryPage() {
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
   const [autoTagging, setAutoTagging] = useState(false);
   const [tab, setTab] = useState<LibraryTab>("raw");
+  const [editingId, setEditingId] = useState<string | null>(null);
   const autoTag = useServerFn(autoTagImages);
 
 
