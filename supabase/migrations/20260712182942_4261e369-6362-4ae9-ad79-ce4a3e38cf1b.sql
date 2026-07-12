@@ -1,0 +1,1 @@
+ALTER TABLE public.images ADD COLUMN IF NOT EXISTS posted_at TIMESTAMPTZ; CREATE INDEX IF NOT EXISTS images_posted_at_idx ON public.images(posted_at);
