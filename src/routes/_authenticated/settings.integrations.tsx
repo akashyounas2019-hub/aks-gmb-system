@@ -471,6 +471,11 @@ function IntegrationsPage() {
         docsUrl="https://highlevel.stoplight.io/docs/integrations/"
       />
 
+      {/* n8n */}
+      <N8nIntegrationCard />
+
+
+
       {/* Rank sources */}
       <div>
         <h3 className="text-lg font-semibold">Rank sources</h3>
@@ -515,6 +520,234 @@ function IntegrationsPage() {
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* n8n integration card                                                       */
+/* -------------------------------------------------------------------------- */
+
+const N8N_STORAGE_KEY = "n8n_integration_v1";
+
+type N8nConfig = {
+  webhookUrl: string;
+  authHeader: string;
+  authToken: string;
+  enabled: boolean;
+  updatedAt?: string;
+};
+
+function readN8n(): N8nConfig {
+  if (typeof window === "undefined")
+    return { webhookUrl: "", authHeader: "", authToken: "", enabled: false };
+  try {
+    const raw = localStorage.getItem(N8N_STORAGE_KEY);
+    if (!raw) return { webhookUrl: "", authHeader: "", authToken: "", enabled: false };
+    return JSON.parse(raw);
+  } catch {
+    return { webhookUrl: "", authHeader: "", authToken: "", enabled: false };
+  }
+}
+
+function N8nIntegrationCard() {
+  const [cfg, setCfg] = useState<N8nConfig>({
+    webhookUrl: "",
+    authHeader: "",
+    authToken: "",
+    enabled: false,
+  });
+  const [showToken, setShowToken] = useState(false);
+  const [testing, setTesting] = useState(false);
+
+  useEffect(() => {
+    setCfg(readN8n());
+  }, []);
+
+  function save(next: N8nConfig) {
+    const withStamp = { ...next, updatedAt: new Date().toISOString() };
+    localStorage.setItem(N8N_STORAGE_KEY, JSON.stringify(withStamp));
+    setCfg(withStamp);
+  }
+
+  async function testHook() {
+    if (!cfg.webhookUrl) {
+      toast.error("Add a webhook URL first.");
+      return;
+    }
+    setTesting(true);
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (cfg.authHeader && cfg.authToken) headers[cfg.authHeader] = cfg.authToken;
+      const res = await fetch(cfg.webhookUrl, {
+        method: "POST",
+        headers,
+        body: JSON.stringify({
+          event: "test.ping",
+          source: "gmb-rank-pilot",
+          sentAt: new Date().toISOString(),
+        }),
+      });
+      if (!res.ok) throw new Error(`Webhook returned ${res.status}`);
+      toast.success("Test payload delivered to n8n.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to reach n8n");
+    } finally {
+      setTesting(false);
+    }
+  }
+
+  function disconnect() {
+    if (!confirm("Remove n8n webhook configuration?")) return;
+    localStorage.removeItem(N8N_STORAGE_KEY);
+    setCfg({ webhookUrl: "", authHeader: "", authToken: "", enabled: false });
+    toast.message("n8n disconnected");
+  }
+
+  const connected = Boolean(cfg.webhookUrl);
+
+  return (
+    <div className="rounded-2xl border border-border bg-card p-5">
+      <div className="flex flex-wrap items-start gap-4">
+        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-primary/15 text-primary">
+          <Webhook className="h-6 w-6" />
+        </div>
+        <div className="min-w-[220px] flex-1">
+          <div className="flex items-center gap-2">
+            <h3 className="text-base font-semibold">n8n Workflows</h3>
+            {connected && cfg.enabled ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
+                <CheckCircle2 className="h-3 w-3" /> Active
+              </span>
+            ) : connected ? (
+              <span className="inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-amber-500">
+                Paused
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                <XCircle className="h-3 w-3" /> Not connected
+              </span>
+            )}
+          </div>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Forward app events — new posts, competitor alerts, rank changes, geotag runs — to an
+            n8n workflow via webhook. Paste the URL from your n8n{" "}
+            <span className="font-mono text-xs">Webhook</span> trigger node.
+          </p>
+        </div>
+        <div className="flex gap-2">
+          {connected && (
+            <>
+              <button
+                onClick={testHook}
+                disabled={testing}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              >
+                {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send test"}
+              </button>
+              <button
+                onClick={() => save({ ...cfg, enabled: !cfg.enabled })}
+                className={`rounded-lg px-3 py-2 text-sm ${
+                  cfg.enabled
+                    ? "border border-border bg-card hover:bg-accent"
+                    : "bg-primary text-primary-foreground hover:opacity-90"
+                }`}
+              >
+                {cfg.enabled ? "Pause" : "Enable"}
+              </button>
+              <button
+                onClick={disconnect}
+                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive hover:bg-destructive/20"
+              >
+                Disconnect
+              </button>
+            </>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 grid gap-3 md:grid-cols-2">
+        <label className="block md:col-span-2">
+          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+            Webhook URL
+          </span>
+          <input
+            type="url"
+            spellCheck={false}
+            autoComplete="off"
+            placeholder="https://your-n8n.example.com/webhook/abc123"
+            value={cfg.webhookUrl}
+            onChange={(e) => setCfg({ ...cfg, webhookUrl: e.target.value })}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+            Auth header name (optional)
+          </span>
+          <input
+            type="text"
+            spellCheck={false}
+            placeholder="X-N8N-Signature"
+            value={cfg.authHeader}
+            onChange={(e) => setCfg({ ...cfg, authHeader: e.target.value })}
+            className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
+          />
+        </label>
+        <label className="block">
+          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+            Auth token (optional)
+          </span>
+          <div className="relative">
+            <input
+              type={showToken ? "text" : "password"}
+              spellCheck={false}
+              autoComplete="off"
+              placeholder="••••••••••••"
+              value={cfg.authToken}
+              onChange={(e) => setCfg({ ...cfg, authToken: e.target.value })}
+              className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 font-mono text-sm"
+            />
+            <button
+              type="button"
+              onClick={() => setShowToken((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
+              aria-label={showToken ? "Hide" : "Show"}
+            >
+              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          </div>
+        </label>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-2">
+        <button
+          onClick={() => save({ ...cfg, enabled: cfg.enabled || Boolean(cfg.webhookUrl) })}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
+          <ShieldCheck className="h-4 w-4" />
+          Save n8n configuration
+        </button>
+        <Link
+          to="/settings/webhooks"
+          className="text-xs text-primary hover:underline"
+        >
+          Manage all webhooks →
+        </Link>
+        <a
+          href="https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/"
+          target="_blank"
+          rel="noreferrer"
+          className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+        >
+          n8n Webhook docs <ExternalLink className="h-3 w-3" />
+        </a>
+      </div>
+      <p className="mt-2 text-[11px] text-muted-foreground">
+        Stored locally on this device. For production pipelines, add the URL as a project secret
+        instead.
+      </p>
+    </div>
+  );
+}
+
 
 type FieldDef = { key: string; label: string; secret: boolean; placeholder?: string };
 

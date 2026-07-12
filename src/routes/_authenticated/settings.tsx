@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation, redirect } from "@tanstack/react-router";
-import { Bell, Cable, Palette, Settings as SettingsIcon, ShieldCheck, User, Users } from "lucide-react";
+import { Bell, Cable, Palette, Settings as SettingsIcon, ShieldCheck, User, Users, Webhook } from "lucide-react";
 
 export const Route = createFileRoute("/_authenticated/settings")({
   component: SettingsLayout,
@@ -14,6 +14,7 @@ const submenu = [
   { to: "/settings/general", label: "General", icon: SettingsIcon },
   { to: "/settings/profile", label: "Profile", icon: User },
   { to: "/settings/integrations", label: "Integrations", icon: Cable },
+  { to: "/settings/webhooks", label: "Webhooks", icon: Webhook },
   { to: "/settings/notifications", label: "Notifications", icon: Bell },
   { to: "/settings/appearance", label: "Appearance", icon: Palette },
   { to: "/settings/team", label: "Team", icon: Users },
