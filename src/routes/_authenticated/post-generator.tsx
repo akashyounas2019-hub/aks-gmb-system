@@ -973,7 +973,7 @@ function PostGeneratorPage() {
                   await handleSend();
                   setPreviewOpen(false);
                 }}
-                disabled={sending || !caption.trim() || networks.length === 0}
+                disabled={sending || !caption.trim() || captionOver || networks.length === 0}
                 className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
                 {sending ? (
