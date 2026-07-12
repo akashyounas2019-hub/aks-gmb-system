@@ -1,9 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
-import { MapPin, Pencil, Tag as TagIcon, Trash2, CheckSquare, Square, X, Loader2, Sparkles } from "lucide-react";
+import {
+  MapPin,
+  Pencil,
+  Tag as TagIcon,
+  Trash2,
+  CheckSquare,
+  Square,
+  X,
+  Loader2,
+  Sparkles,
+  Film,
+  Play,
+  HardDrive,
+  Images as ImagesIcon,
+  CheckCircle2,
+} from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -13,6 +28,9 @@ import { autoTagImages } from "@/lib/image-tagging.functions";
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
+
+type LibraryTab = "raw" | "published" | "geotagged" | "videos";
+
 
 async function fetchLibrary() {
   const { data: images, error } = await supabase
@@ -56,7 +74,9 @@ function LibraryPage() {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
   const [autoTagging, setAutoTagging] = useState(false);
+  const [tab, setTab] = useState<LibraryTab>("raw");
   const autoTag = useServerFn(autoTagImages);
+
 
   async function runAutoTag() {
     if (selected.size === 0) return;
@@ -99,10 +119,29 @@ function LibraryPage() {
     }
   }
 
+  function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
+    if (img.lat != null && img.lng != null) return "geotagged";
+    const tags = data?.tagMap.get(img.id) ?? [];
+    if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
+    return "raw";
+  }
+
+
+  const counts = useMemo(() => {
+    const c: Record<"raw" | "published" | "geotagged", number> = { raw: 0, published: 0, geotagged: 0 };
+    for (const i of data?.images ?? []) {
+      c[imageBucket(i)]++;
+    }
+    return c;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data]);
+
+
   const filtered = useMemo(() => {
-    if (!data) return [];
+    if (!data || tab === "videos") return [];
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
+      if (imageBucket(i) !== tab) return false;
       if (!q) return true;
       if (i.name.toLowerCase().includes(q)) return true;
       const venue = i.venue_id ? data.venueMap.get(i.venue_id) : undefined;
@@ -112,7 +151,10 @@ function LibraryPage() {
         return true;
       return false;
     });
-  }, [data, filter]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [data, filter, tab]);
+
+
 
   function toggleSelect(id: string) {
     setSelected((prev) => {
@@ -130,38 +172,84 @@ function LibraryPage() {
     setSelected(new Set());
   }
 
+  const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
+    { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
+    { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
+    { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
+    { id: "videos", label: "Videos", icon: Film },
+  ];
+
   return (
     <div className="p-6 md:p-10">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl">Library</h1>
+          <h1 className="text-3xl">Image Library</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             {data?.images.length ?? 0} extracted frames
           </p>
         </div>
-        <div className="flex items-center gap-2">
-          <input
-            type="search"
-            placeholder="Search name, tag, or venue"
-            value={filter}
-            onChange={(e) => setFilter(e.target.value)}
-            className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            onClick={() => {
-              setSelectMode((s) => !s);
-              clearSelection();
-            }}
-            className={`rounded-md border px-3 py-2 text-sm ${
-              selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
-            }`}
-          >
-            {selectMode ? "Done" : "Select"}
-          </button>
-        </div>
+
+        {tab !== "videos" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Search name, tag, or venue"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              onClick={() => {
+                setSelectMode((s) => !s);
+                clearSelection();
+              }}
+              className={`rounded-md border px-3 py-2 text-sm ${
+                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
+              }`}
+            >
+              {selectMode ? "Done" : "Select"}
+            </button>
+          </div>
+        )}
       </div>
 
-      {selectMode && (
+      {/* Horizontal tabs */}
+      <div className="mt-6 border-b border-border">
+        <nav role="tablist" aria-label="Library sections" className="-mb-px flex flex-wrap gap-1 overflow-x-auto">
+          {tabs.map((t) => {
+            const active = tab === t.id;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => {
+                  setTab(t.id);
+                  clearSelection();
+                  setSelectMode(false);
+                }}
+                className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                <t.icon className="h-4 w-4" />
+                {t.label}
+                {t.count !== undefined && (
+                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                    {t.count}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+
+      {tab !== "videos" && selectMode && (
+
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           <span className="text-sm">
             <strong>{selected.size}</strong> selected
@@ -209,7 +297,10 @@ function LibraryPage() {
         </div>
       )}
 
-      {isLoading ? (
+      {tab === "videos" ? (
+        <VideosPanel />
+      ) : isLoading ? (
+
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
@@ -532,3 +623,215 @@ function BulkPanel({
     </div>
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Videos panel (integrated video library)                                    */
+/* -------------------------------------------------------------------------- */
+
+type VideoRow = {
+  id: string;
+  original_name: string;
+  duration_seconds: number | null;
+  size_bytes: number | null;
+  frame_count: number;
+  created_at: string;
+  status: string;
+  storage_path: string;
+};
+
+async function fetchVideos(): Promise<VideoRow[]> {
+  const { data, error } = await supabase
+    .from("videos")
+    .select(
+      "id, original_name, duration_seconds, size_bytes, frame_count, created_at, status, storage_path",
+    )
+    .order("created_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
+}
+
+function formatBytes(n: number | null | undefined) {
+  if (!n) return "—";
+  const mb = n / (1024 * 1024);
+  if (mb < 1000) return `${mb.toFixed(1)} MB`;
+  return `${(mb / 1024).toFixed(2)} GB`;
+}
+
+const STORAGE_QUOTA_BYTES = 1 * 1024 * 1024 * 1024;
+
+function VideosPanel() {
+  const qc = useQueryClient();
+  const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: fetchVideos });
+  const [preview, setPreview] = useState<VideoRow | null>(null);
+
+  const totalBytes = (data ?? []).reduce((s, v) => s + (v.size_bytes ?? 0), 0);
+  const usedPct = Math.min(100, (totalBytes / STORAGE_QUOTA_BYTES) * 100);
+
+  const deleteMut = useMutation({
+    mutationFn: async (v: VideoRow) => {
+      const { error: storageErr } = await supabase.storage.from("videos").remove([v.storage_path]);
+      if (storageErr) throw storageErr;
+      const { error } = await supabase.from("videos").delete().eq("id", v.id);
+      if (error) throw error;
+    },
+    onSuccess: () => {
+      toast.success("Video deleted");
+      qc.invalidateQueries({ queryKey: ["videos"] });
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
+  });
+
+  return (
+    <div className="mt-6">
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
+        <p className="text-sm text-muted-foreground">
+          {data?.length ?? 0} video{(data?.length ?? 0) === 1 ? "" : "s"} uploaded
+        </p>
+        <div className="w-full max-w-sm rounded-xl border border-border bg-card p-3">
+          <div className="flex items-center gap-2 text-sm">
+            <HardDrive className="h-4 w-4 text-primary" />
+            <span className="font-medium">Storage</span>
+            <span className="ml-auto text-muted-foreground">
+              {formatBytes(totalBytes)} / {formatBytes(STORAGE_QUOTA_BYTES)}
+            </span>
+          </div>
+          <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div className="h-full bg-primary transition-all" style={{ width: `${usedPct}%` }} />
+          </div>
+        </div>
+      </div>
+
+      {isLoading ? (
+        <div className="text-sm text-muted-foreground">Loading…</div>
+      ) : (data?.length ?? 0) === 0 ? (
+        <div className="rounded-2xl border border-dashed border-border p-10 text-center">
+          <Film className="mx-auto h-8 w-8 text-muted-foreground" />
+          <p className="mt-3 text-muted-foreground">No videos yet.</p>
+          <Link
+            to="/upload"
+            className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+          >
+            Upload one
+          </Link>
+        </div>
+      ) : (
+        <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {data!.map((v) => (
+            <VideoCard
+              key={v.id}
+              video={v}
+              onPreview={() => setPreview(v)}
+              onDelete={() => {
+                if (confirm(`Delete "${v.original_name}"? This can't be undone.`)) {
+                  deleteMut.mutate(v);
+                }
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {preview && <VideoPreviewModal video={preview} onClose={() => setPreview(null)} />}
+    </div>
+  );
+}
+
+function useVideoUrl(path: string) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.storage
+      .from("videos")
+      .createSignedUrl(path, 60 * 60)
+      .then(({ data }) => {
+        if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  return url;
+}
+
+function VideoCard({
+  video,
+  onPreview,
+  onDelete,
+}: {
+  video: VideoRow;
+  onPreview: () => void;
+  onDelete: () => void;
+}) {
+  const url = useVideoUrl(video.storage_path);
+  return (
+    <div className="overflow-hidden rounded-xl border border-border bg-card">
+      <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
+        {url ? (
+          <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+        ) : (
+          <div className="h-full w-full animate-pulse bg-muted" />
+        )}
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+          <Play className="h-10 w-10 text-white" />
+        </div>
+      </button>
+      <div className="p-4">
+        <div className="truncate font-medium">{video.original_name}</div>
+        <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span>
+            {video.duration_seconds ? `${Number(video.duration_seconds).toFixed(0)}s` : "—"}
+          </span>
+          <span>{formatBytes(video.size_bytes)}</span>
+          <span className="rounded-full bg-primary/15 px-1.5 text-primary">
+            {video.frame_count} frames
+          </span>
+        </div>
+        <div className="mt-1 text-xs text-muted-foreground">
+          {new Date(video.created_at).toLocaleDateString()}
+        </div>
+        <div className="mt-3 flex gap-2">
+          <button
+            onClick={onPreview}
+            className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-border py-1.5 text-xs hover:bg-accent"
+          >
+            <Play className="h-3.5 w-3.5" /> Preview
+          </button>
+          <button
+            onClick={onDelete}
+            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function VideoPreviewModal({ video, onClose }: { video: VideoRow; onClose: () => void }) {
+  const url = useVideoUrl(video.storage_path);
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="relative w-full max-w-4xl rounded-xl border border-border bg-card p-4"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <button onClick={onClose} className="absolute right-2 top-2 rounded-md p-1 hover:bg-accent">
+          <X className="h-4 w-4" />
+        </button>
+        <div className="truncate pr-8 font-medium">{video.original_name}</div>
+        <div className="mt-3 overflow-hidden rounded-lg bg-black">
+          {url ? (
+            <video src={url} controls autoPlay className="w-full" />
+          ) : (
+            <div className="aspect-video animate-pulse bg-muted" />
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
