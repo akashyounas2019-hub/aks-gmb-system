@@ -743,6 +743,19 @@ function CompetitorsPage() {
             </DropdownMenuContent>
           </DropdownMenu>
           <button
+            onClick={() => setShowKeywordManager(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm font-medium hover:bg-muted"
+            title="Manage tracked keywords"
+          >
+            <Target className="h-4 w-4" />
+            Keywords
+            {trackedIsCustom ? null : (
+              <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-amber-500">
+                Starter
+              </span>
+            )}
+          </button>
+          <button
             onClick={openAdd}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
