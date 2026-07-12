@@ -1,13 +1,20 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
   getGmbCredentialsStatus,
   saveGmbCredentials,
   clearGmbCredentials,
 } from "@/lib/gmb-credentials.functions";
+import {
+  getGmbAuthUrl,
+  getGmbConnectionStatus,
+  disconnectGmb,
+  listGmbAccounts,
+  setGmbLocation,
+} from "@/lib/gmb-oauth.functions";
 import {
   listIntegrations,
   saveIntegration,
