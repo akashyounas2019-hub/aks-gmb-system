@@ -694,6 +694,24 @@ function CompetitorsPage() {
               <Zap className="h-3 w-3" /> Live · {rankSource}
             </span>
           )}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                disabled={rows.length === 0}
+                className="inline-flex items-center gap-2 rounded-lg border border-border bg-background px-4 py-2 text-sm font-medium hover:bg-accent disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                <Download className="h-4 w-4" /> Export
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={exportPdf}>
+                <FileText className="mr-2 h-4 w-4" /> Download PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={exportCsv}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" /> Download CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           <button
             onClick={openAdd}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
