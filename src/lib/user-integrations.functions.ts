@@ -9,11 +9,7 @@ const ALLOWED_PROVIDERS = [
 ] as const;
 type Provider = (typeof ALLOWED_PROVIDERS)[number];
 
-function mask(v: string | undefined): string | undefined {
-  if (!v) return undefined;
-  if (v.length <= 8) return "••••";
-  return `${v.slice(0, 4)}…${v.slice(-4)}`;
-}
+type StoredField = { c: string; m: string };
 
 export const listIntegrations = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
@@ -25,16 +21,21 @@ export const listIntegrations = createServerFn({ method: "GET" })
       .eq("user_id", userId);
     if (error) throw new Error(error.message);
     return (data ?? []).map((row) => {
-      const cfg = (row.config ?? {}) as Record<string, string>;
+      const cfg = (row.config ?? {}) as Record<string, unknown>;
       const masked: Record<string, string> = {};
       for (const [k, v] of Object.entries(cfg)) {
-        masked[k] = mask(String(v)) ?? "";
+        if (v && typeof v === "object" && "m" in (v as object)) {
+          masked[k] = (v as StoredField).m;
+        } else if (typeof v === "string") {
+          // Legacy plaintext row — display generic mask.
+          masked[k] = "••••";
+        }
       }
       return {
         provider: row.provider as Provider,
         updatedAt: row.updated_at,
         masked,
-        keys: Object.keys(cfg),
+        keys: Object.keys(masked),
       };
     });
   });
@@ -54,12 +55,19 @@ export const saveIntegration = createServerFn({ method: "POST" })
     return { provider: data.provider as Provider, config: cleaned };
   })
   .handler(async ({ data, context }) => {
+    const { encryptSecret, maskValue } = await import("@/lib/integrations-crypto.server");
     const { supabase, userId } = context;
+
+    const encrypted: Record<string, StoredField> = {};
+    for (const [k, v] of Object.entries(data.config)) {
+      encrypted[k] = { c: encryptSecret(v), m: maskValue(v) };
+    }
+
     const { error } = await supabase.from("user_integrations").upsert(
       {
         user_id: userId,
         provider: data.provider,
-        config: data.config,
+        config: encrypted,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id,provider" },
@@ -86,3 +94,44 @@ export const deleteIntegration = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { ok: true };
   });
+
+/**
+ * Server-only helper for other server functions that need plaintext credentials
+ * (e.g. to call GHL / DataForSEO / SerpApi / Local Falcon on the user's behalf).
+ * Never expose the return value to the client.
+ */
+export async function getDecryptedIntegration(
+  supabase: {
+    from: (t: string) => {
+      select: (c: string) => {
+        eq: (c: string, v: string) => {
+          eq: (c: string, v: string) => {
+            maybeSingle: () => Promise<{ data: { config: unknown } | null; error: unknown }>;
+          };
+        };
+      };
+    };
+  },
+  userId: string,
+  provider: Provider,
+): Promise<Record<string, string> | null> {
+  const { decryptSecret } = await import("@/lib/integrations-crypto.server");
+  const { data, error } = await supabase
+    .from("user_integrations")
+    .select("config")
+    .eq("user_id", userId)
+    .eq("provider", provider)
+    .maybeSingle();
+  if (error) throw new Error(String(error));
+  if (!data) return null;
+  const cfg = (data.config ?? {}) as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(cfg)) {
+    if (v && typeof v === "object" && "c" in (v as object)) {
+      out[k] = decryptSecret((v as StoredField).c);
+    } else if (typeof v === "string") {
+      out[k] = v; // legacy plaintext
+    }
+  }
+  return out;
+}
