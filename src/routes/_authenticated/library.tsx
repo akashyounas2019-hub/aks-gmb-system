@@ -778,10 +778,9 @@ function ImageEditModal({
       // 2. Move-to bucket -> lat/lng + published tag management
       const publishedTag = data.tags.find((t) => t.slug === "published");
       const nextAssigned = new Set(assigned);
-      const patch: { lat: number | null; lng: number | null; location_label: string | null } = {
+      const patch: { lat: number | null; lng: number | null } = {
         lat: null,
         lng: null,
-        location_label: null,
       };
       if (bucket === "geotagged") {
         if (!loc) {
@@ -791,7 +790,6 @@ function ImageEditModal({
         }
         patch.lat = loc.lat;
         patch.lng = loc.lng;
-        patch.location_label = loc.label ?? null;
       }
       if (bucket === "published" && publishedTag) {
         nextAssigned.add(publishedTag.id);
