@@ -63,7 +63,6 @@ function LibraryPage() {
     }
   }
 
-  const [filter, setFilter] = useState("");
 
   const filtered = useMemo(() => {
     if (!data) return [];
