@@ -353,13 +353,25 @@ function GmbAnalyticsPage() {
     async function run() {
       try {
         const s = await fetchGmbStatus();
-        if (!s.connected || !s.locationName) {
+        if (!s.connected) {
           if (!cancelled) {
             setMetrics(null);
             setMetricsErr(null);
+            setNeedsLocation(false);
           }
           return;
         }
+        if (!s.locationName) {
+          // OAuth done but no location selected → this is the #1 reason
+          // the dashboard shows sample data even though "connected".
+          if (!cancelled) {
+            setMetrics(null);
+            setMetricsErr(null);
+            setNeedsLocation(true);
+          }
+          return;
+        }
+        if (!cancelled) setNeedsLocation(false);
         setLoadingMetrics(true);
         setMetricsErr(null);
         const m = await fetchMetrics();
@@ -387,22 +399,14 @@ function GmbAnalyticsPage() {
     };
   }, []);
 
-  async function handleConnect() {
+  function handleConnect() {
+    // Real Google OAuth is driven from Settings → Integrations (needs the
+    // user's OAuth client credentials + a Business Profile location pick).
+    // Sending them there is the only path that yields live data.
     setConnectBusy(true);
-    try {
-      await new Promise((r) => setTimeout(r, 600));
-      writeGmbConnection({
-        connected: true,
-        accountName: "Pearl Home Cleaning",
-        locationName: "Downtown Dubai",
-        connectedAt: new Date().toISOString(),
-      });
-      toast.success(gmb.connected ? "Reconnected" : "Connected");
-    } finally {
-      setConnectBusy(false);
-    }
+    navigate({ to: "/settings/integrations" });
   }
-  function handleDisconnect() {
+  async function handleDisconnect() {
     writeGmbConnection({ connected: false });
     toast.message("Disconnected");
   }
