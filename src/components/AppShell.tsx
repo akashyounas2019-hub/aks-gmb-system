@@ -38,8 +38,7 @@ const groups: NavGroup[] = [
     items: [
       { to: "/wizard", label: "Pipeline", icon: Workflow },
       { to: "/upload", label: "Upload", icon: Upload },
-      { to: "/library", label: "Library", icon: Images },
-      { to: "/videos", label: "Videos", icon: Film },
+      { to: "/library", label: "Image Library", icon: Images },
       { to: "/geotagging", label: "Geotagging", icon: MapPin },
     ],
   },
