@@ -335,15 +335,24 @@ export const listGmbAccounts = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const ctx = context as SupabaseCtx;
+    logGmb("listAccounts.start", ctx.userId);
     const tokens = await loadTokens(ctx);
-    if (!tokens) throw new Error("Not connected to Google");
+    if (!tokens) {
+      logGmb("listAccounts.error", ctx.userId, { reason: "no_tokens" });
+      throw new Error("Not connected to Google");
+    }
     const at = await refreshIfNeeded(ctx, tokens);
 
     const acctResp = (await callGoogle(
       at,
       "https://mybusinessaccountmanagement.googleapis.com/v1/accounts",
+      ctx.userId,
     )) as { accounts?: Account[] };
     const accounts = acctResp.accounts ?? [];
+    logGmb("listAccounts.accounts", ctx.userId, {
+      count: accounts.length,
+      names: accounts.map((a) => a.name),
+    });
 
     const results = await Promise.all(
       accounts.map(async (acct) => {
@@ -351,21 +360,33 @@ export const listGmbAccounts = createServerFn({ method: "GET" })
           const locResp = (await callGoogle(
             at,
             `https://mybusinessbusinessinformation.googleapis.com/v1/${acct.name}/locations?readMask=name,title,storefrontAddress`,
+            ctx.userId,
           )) as { locations?: Location[] };
+          const locations = (locResp.locations ?? []).map((l) => ({
+            name: l.name,
+            title: l.title ?? l.name,
+          }));
+          logGmb("listAccounts.locations", ctx.userId, {
+            account: acct.name,
+            count: locations.length,
+            titles: locations.map((l) => l.title),
+          });
           return {
             account: acct.name,
             accountLabel: acct.accountName ?? acct.name,
-            locations: (locResp.locations ?? []).map((l) => ({
-              name: l.name,
-              title: l.title ?? l.name,
-            })),
+            locations,
           };
         } catch (err) {
+          const message = err instanceof Error ? err.message : "Failed to list locations";
+          logGmb("listAccounts.locations.error", ctx.userId, {
+            account: acct.name,
+            message,
+          });
           return {
             account: acct.name,
             accountLabel: acct.accountName ?? acct.name,
             locations: [],
-            error: err instanceof Error ? err.message : "Failed to list locations",
+            error: message,
           };
         }
       }),
