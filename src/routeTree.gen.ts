@@ -27,6 +27,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAutomationRouteImport } from './routes/_authenticated/automation'
+import { Route as AuthenticatedSocialLinkedinRouteImport } from './routes/_authenticated/social.linkedin'
 import { Route as AuthenticatedSocialInstagramRouteImport } from './routes/_authenticated/social.instagram'
 import { Route as AuthenticatedSocialFacebookRouteImport } from './routes/_authenticated/social.facebook'
 import { Route as AuthenticatedSettingsWebhooksRouteImport } from './routes/_authenticated/settings.webhooks'
@@ -134,6 +135,12 @@ const AuthenticatedAutomationRoute = AuthenticatedAutomationRouteImport.update({
   path: '/automation',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSocialLinkedinRoute =
+  AuthenticatedSocialLinkedinRouteImport.update({
+    id: '/social/linkedin',
+    path: '/social/linkedin',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSocialInstagramRoute =
   AuthenticatedSocialInstagramRouteImport.update({
     id: '/social/instagram',
@@ -236,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/social/facebook': typeof AuthenticatedSocialFacebookRoute
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
+  '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesByTo {
@@ -267,6 +275,7 @@ export interface FileRoutesByTo {
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/social/facebook': typeof AuthenticatedSocialFacebookRoute
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
+  '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesById {
@@ -300,6 +309,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/_authenticated/social/facebook': typeof AuthenticatedSocialFacebookRoute
   '/_authenticated/social/instagram': typeof AuthenticatedSocialInstagramRoute
+  '/_authenticated/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRouteTypes {
@@ -333,6 +343,7 @@ export interface FileRouteTypes {
     | '/settings/webhooks'
     | '/social/facebook'
     | '/social/instagram'
+    | '/social/linkedin'
     | '/api/public/hooks/run-automations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -364,6 +375,7 @@ export interface FileRouteTypes {
     | '/settings/webhooks'
     | '/social/facebook'
     | '/social/instagram'
+    | '/social/linkedin'
     | '/api/public/hooks/run-automations'
   id:
     | '__root__'
@@ -396,6 +408,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/webhooks'
     | '/_authenticated/social/facebook'
     | '/_authenticated/social/instagram'
+    | '/_authenticated/social/linkedin'
     | '/api/public/hooks/run-automations'
   fileRoutesById: FileRoutesById
 }
@@ -532,6 +545,13 @@ declare module '@tanstack/react-router' {
       path: '/automation'
       fullPath: '/automation'
       preLoaderRoute: typeof AuthenticatedAutomationRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/social/linkedin': {
+      id: '/_authenticated/social/linkedin'
+      path: '/social/linkedin'
+      fullPath: '/social/linkedin'
+      preLoaderRoute: typeof AuthenticatedSocialLinkedinRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/social/instagram': {
@@ -679,6 +699,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
   AuthenticatedSocialFacebookRoute: typeof AuthenticatedSocialFacebookRoute
   AuthenticatedSocialInstagramRoute: typeof AuthenticatedSocialInstagramRoute
+  AuthenticatedSocialLinkedinRoute: typeof AuthenticatedSocialLinkedinRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -699,6 +720,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
   AuthenticatedSocialFacebookRoute: AuthenticatedSocialFacebookRoute,
   AuthenticatedSocialInstagramRoute: AuthenticatedSocialInstagramRoute,
+  AuthenticatedSocialLinkedinRoute: AuthenticatedSocialLinkedinRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
