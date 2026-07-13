@@ -66,6 +66,32 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in.");
 
+      // Image path — upload directly, no frame extraction.
+      if (item.file.type.startsWith("image/")) {
+        patchItem(item.id, { stage: "uploading", message: "Uploading image…", progress: 0.2 });
+        const ext = item.file.name.split(".").pop() || "jpg";
+        const imgPath = `${userId}/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("frames")
+          .upload(imgPath, item.file, { contentType: item.file.type, upsert: false });
+        if (upErr) throw upErr;
+
+        patchItem(item.id, { stage: "saving", message: "Saving…", progress: 0.7 });
+        const baseName = item.file.name.replace(/\.[^.]+$/, "");
+        const { error: iErr } = await supabase.from("images").insert({
+          owner_id: userId,
+          storage_path: imgPath,
+          name: baseName || item.file.name,
+          lat: autoGeotag && location ? location.lat : null,
+          lng: autoGeotag && location ? location.lng : null,
+        });
+        if (iErr) throw iErr;
+        onImageSaved?.();
+        patchItem(item.id, { stage: "done", progress: 1, message: "Uploaded" });
+        onComplete?.();
+        return;
+      }
+
       patchItem(item.id, { stage: "extracting", message: "Analyzing video…", progress: 0 });
       const { frames, durationSeconds } = await extractSharpFrames(item.file, {
         sampleEveryMs: sampleMs,
@@ -174,8 +200,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
     const arr = Array.from(files);
     const valid: QueueItem[] = [];
     for (const file of arr) {
-      if (!file.type.startsWith("video/")) {
-        toast.error(`Skipped ${file.name}: not a video`);
+      if (!file.type.startsWith("video/") && !file.type.startsWith("image/")) {
+        toast.error(`Skipped ${file.name}: not an image or video`);
         continue;
       }
       valid.push({
@@ -240,15 +266,15 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       >
         <UploadCloud className="h-10 w-10 text-primary" />
         <div className="mt-4 text-lg font-medium">
-          Drop videos here, or click to browse
+          Drop images or videos here, or click to browse
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
-          MP4, MOV, WebM · queue multiple files · up to a few hundred MB each
+          Images (JPG, PNG, WebP…) upload directly · Videos (MP4, MOV, WebM) extract sharp frames · queue multiple files
         </div>
         <input
           ref={inputRef}
           type="file"
-          accept="video/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => {
