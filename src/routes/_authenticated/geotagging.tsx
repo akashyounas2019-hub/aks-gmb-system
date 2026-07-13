@@ -419,13 +419,16 @@ function GeotaggingPage() {
     applyToTargets(ids);
   };
 
-  const updateImageMeta = (id: string, patch: Partial<Pick<LocalImage, "title" | "description">>) => {
+  const updateImageMeta = (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
+  ) => {
     setImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...patch } : img)));
   };
 
   const applyMetaToTargets = (
     ids: string[],
-    patch: Partial<Pick<LocalImage, "title" | "description">>,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
   ) => {
     if (ids.length === 0) return;
     setImages((prev) =>
