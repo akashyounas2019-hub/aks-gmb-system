@@ -50,6 +50,7 @@ type Keyword = {
   cluster: string | null;
   source: string | null;
   folder_id: string | null;
+  tracked?: boolean | null;
   created_at: string;
 };
 
