@@ -128,10 +128,10 @@ export async function embedGps(
 
     if (title) {
       // Windows-aware title tag (what File Explorer / geoimgr call "Title").
+      // NOTE: do NOT also write XPSubject here — geoimgr and some readers
+      // surface XPSubject as the Description, which would clobber the real
+      // description with the title.
       zeroth[piexif.ImageIFD.XPTitle] = toXpBytes(title);
-      // XPSubject is a secondary Windows tag some readers also expose as Title.
-      const XPSubject = 0x9c9f;
-      zeroth[XPSubject] = toXpBytes(title);
     }
     if (description) {
       // Standard EXIF "ImageDescription" is what geoimgr and most readers
