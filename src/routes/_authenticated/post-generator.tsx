@@ -625,6 +625,110 @@ export function PostGeneratorPage({
             )}
           </section>
 
+          {/* Hashtags & Mentions — social platforms only */}
+          {isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                Hashtags &amp; mentions
+                <span className="text-xs text-muted-foreground">
+                  ({hashtags.length} tags · {mentions.length} mentions)
+                </span>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Hashtags</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={hashtagInput}
+                      onChange={(e) => setHashtagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " " || e.key === ",") {
+                          e.preventDefault();
+                          addHashtag(hashtagInput);
+                        }
+                      }}
+                      placeholder="marketing, socialmedia (Enter or space to add)"
+                      className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={() => addHashtag(hashtagInput)}
+                      className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                  {hashtags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {hashtags.map((h) => (
+                        <span
+                          key={h}
+                          className="inline-flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-600 dark:text-sky-400"
+                        >
+                          #{h}
+                          <button
+                            onClick={() => removeHashtag(h)}
+                            className="ml-0.5 rounded-full hover:bg-sky-500/20"
+                            aria-label={`Remove #${h}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Mentions</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={mentionInput}
+                      onChange={(e) => setMentionInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " " || e.key === ",") {
+                          e.preventDefault();
+                          addMention(mentionInput);
+                        }
+                      }}
+                      placeholder={`@handle (${defaultPlatform === "instagram" ? "Instagram" : "Facebook"} account)`}
+                      className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={() => addMention(mentionInput)}
+                      className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                  {mentions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {mentions.map((m) => (
+                        <span
+                          key={m}
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400"
+                        >
+                          @{m}
+                          <button
+                            onClick={() => removeMention(m)}
+                            className="ml-0.5 rounded-full hover:bg-emerald-500/20"
+                            aria-label={`Remove @${m}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Hashtags and mentions are appended to the generated post automatically.
+              </p>
+            </section>
+          )}
+
+
+
           {/* Images picker — preview + View all */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
