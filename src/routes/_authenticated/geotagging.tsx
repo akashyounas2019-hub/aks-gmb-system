@@ -550,7 +550,7 @@ function GeotaggingPage() {
       const tagged = await embedGps(img.file, img.lat, img.lng, {
         title: img.title,
         description: img.description,
-        keywords: img.locationLabel ? [img.locationLabel] : [],
+        keywords: mergeKeywordSet(img.keywords, img.locationLabel),
       });
       const url = URL.createObjectURL(tagged);
       const a = document.createElement("a");
