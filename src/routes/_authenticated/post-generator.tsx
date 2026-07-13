@@ -47,9 +47,12 @@ type ImageRow = {
   name: string;
   storage_path: string;
   posted_at: string | null;
+  lat: number | null;
+  lng: number | null;
 };
 
 const PREVIEW_COUNT = 8;
+
 
 function PostGeneratorPage() {
   const compose = useServerFn(composePost);
