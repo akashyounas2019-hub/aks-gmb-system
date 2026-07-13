@@ -1036,11 +1036,17 @@ function ImageThumb({
         alt={img.name}
         className="aspect-square w-full object-cover"
       />
+      {img.lat != null && img.lng != null && (
+        <div className="absolute left-1 top-1">
+          <GeoTaggedBadge lat={img.lat} lng={img.lng} compact />
+        </div>
+      )}
       {active && (
         <div className="absolute right-1 top-1 rounded-full bg-primary px-1.5 py-0.5 text-[10px] font-bold text-primary-foreground">
           ✓
         </div>
       )}
+
       {posted && (
         <div className="absolute inset-x-0 bottom-0 flex items-center justify-center gap-1 bg-emerald-600/85 py-0.5 text-[10px] font-medium text-white">
           <CheckCircle2 className="h-3 w-3" /> Posted
