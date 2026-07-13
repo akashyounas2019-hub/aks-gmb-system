@@ -16,8 +16,10 @@ import {
   Eye,
   PenSquare,
   Inbox,
+  Save,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
+import { upsertDraft } from "@/lib/post-drafts.functions";
 
 import { toast } from "sonner";
 
@@ -58,7 +60,9 @@ const PREVIEW_COUNT = 8;
 function PostGeneratorPage() {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
+  const saveDraft = useServerFn(upsertDraft);
   const [tab, setTab] = useState<"compose" | "storage">("compose");
+  const [saving, setSaving] = useState(false);
 
 
   // Keywords — manual list is primary; CSV imports come from the `keywords` table
@@ -248,6 +252,36 @@ function PostGeneratorPage() {
       setSending(false);
     }
   }
+
+  async function handleSaveDraft() {
+    if (!caption.trim()) {
+      toast.error("Nothing to save");
+      return;
+    }
+    setSaving(true);
+    try {
+      const title =
+        (manualKw[0] ?? businessName ?? caption.slice(0, 60).trim()) || "Untitled draft";
+      await saveDraft({
+        data: {
+          title,
+          body: caption,
+          status: "Draft",
+          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          tags: manualKw.slice(0, 8),
+        },
+      });
+      toast.success("Draft saved to Post Storage");
+      setCaption("");
+      setSelectedImages(new Set());
+      setTab("storage");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
 
   async function uploadManualImages(files: FileList | File[]) {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
@@ -781,13 +815,21 @@ function PostGeneratorPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPreviewOpen(true)}
                   disabled={!caption.trim() || captionOver}
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
                 >
                   <Eye className="h-4 w-4" /> Preview
+                </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={saving || !caption.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save
                 </button>
                 <button
                   onClick={() => setPreviewOpen(true)}
