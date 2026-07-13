@@ -1162,6 +1162,48 @@ function KeywordsPage() {
           </div>
         </div>
 
+        {/* Import sets — allow moving a whole import set to a folder */}
+        {activeTab === "library" && imports.length > 0 && (
+          <div className="mb-5 rounded-xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <FileUp className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Import sets</h3>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {imports.length}
+                </span>
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                Rename a set or move all of its keywords into a folder.
+              </span>
+            </div>
+            <ul className="divide-y divide-border/60">
+              {imports.map((imp) => (
+                <ImportRow
+                  key={imp.id}
+                  imp={imp}
+                  folders={folders}
+                  folderById={folderById}
+                  expanded={expandedImports.has(imp.id)}
+                  onToggleExpanded={() =>
+                    setExpandedImports((prev) => {
+                      const n = new Set(prev);
+                      if (n.has(imp.id)) n.delete(imp.id);
+                      else n.add(imp.id);
+                      return n;
+                    })
+                  }
+                  editing={editingImportId === imp.id}
+                  onStartEdit={() => setEditingImportId(imp.id)}
+                  onStopEdit={() => setEditingImportId(null)}
+                  onRename={(name: string) => renameImport(imp.id, name)}
+                  onMove={(fid: string | null) => moveImportSet(imp, fid)}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
+
         {/* KPI strip */}
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
           <Kpi
