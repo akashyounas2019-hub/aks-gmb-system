@@ -151,6 +151,9 @@ export async function embedGps(
       // description — never overload it with the title.
       zeroth[piexif.ImageIFD.ImageDescription] = description;
       zeroth[piexif.ImageIFD.XPComment] = toXpBytes(description);
+      // Some readers surface XPSubject as description; keep it in sync so
+      // description stays consistent across every viewer.
+      zeroth[0x9c9f] = toXpBytes(description);
       // UserComment is prefixed with an 8-byte character-code header.
       const prefix = [0x55, 0x4e, 0x49, 0x43, 0x4f, 0x44, 0x45, 0x00]; // "UNICODE\0"
       const body: number[] = [];
@@ -159,6 +162,14 @@ export async function embedGps(
         body.push(code & 0xff, (code >> 8) & 0xff);
       }
       exifIfd[piexif.ExifIFD.UserComment] = [...prefix, ...body];
+    } else {
+      // No description provided — strip stale description-family tags so a
+      // re-tag can't leave an outdated caption behind or let an old value
+      // bleed back into the title on the next read.
+      delete zeroth[piexif.ImageIFD.ImageDescription];
+      delete zeroth[piexif.ImageIFD.XPComment];
+      delete zeroth[0x9c9f];
+      delete exifIfd[piexif.ExifIFD.UserComment];
     }
     if (keywords.length > 0) {
       // Windows convention: keywords joined by "; ".
