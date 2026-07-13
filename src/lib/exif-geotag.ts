@@ -262,6 +262,7 @@ export type ExifMetaSource =
   | "XPComment"
   | "XPSubject"
   | "XPKeywords"
+  | "UserComment"
   | null;
 
 export type ExifMetaResult = {
@@ -281,10 +282,49 @@ export type ExifMetaResult = {
     XPComment: string;
     XPSubject: string;
     XPKeywords: string;
+    UserComment: string;
   };
   /** Diagnostic notes from the consistency check. */
   warnings: string[];
 };
+
+/**
+ * Decode a UserComment byte array. The tag has an 8-byte character-code
+ * prefix (ASCII "ASCII\0\0\0", "UNICODE\0", "JIS\0\0\0\0\0", or all-zero
+ * for undefined). Only ASCII and UNICODE (UTF-16LE) are common in the wild.
+ */
+function fromUserComment(raw: unknown): string {
+  if (raw == null) return "";
+  const bytes = Array.isArray(raw)
+    ? (raw as number[])
+    : typeof raw === "string"
+      ? Array.from(raw, (c) => c.charCodeAt(0))
+      : Array.from(raw as ArrayLike<number>);
+  if (bytes.length <= 8) return "";
+  const prefix = String.fromCharCode(...bytes.slice(0, 8));
+  const body = bytes.slice(8);
+  if (prefix.startsWith("UNICODE")) {
+    const out: string[] = [];
+    for (let i = 0; i + 1 < body.length; i += 2) {
+      const code = body[i] | (body[i + 1] << 8);
+      if (code === 0) break;
+      out.push(String.fromCharCode(code));
+    }
+    return out.join("").trim();
+  }
+  if (prefix.startsWith("ASCII")) {
+    return String.fromCharCode(...body).replace(/\0+$/g, "").trim();
+  }
+  // Undefined / JIS — best-effort: try ASCII interpretation of printable bytes.
+  const ascii = body.filter((b) => b >= 0x20 && b < 0x7f);
+  return ascii.length > body.length / 2
+    ? String.fromCharCode(...ascii).trim()
+    : "";
+}
+
+function splitKeywordString(s: string): string[] {
+  return s.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean);
+}
 
 /**
  * Read title/description/keywords from a JPEG with source tracking.
@@ -297,14 +337,18 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     description: "",
     keywords: [],
     sources: { title: null, description: null, keywords: null },
-    raw: { XPTitle: "", ImageDescription: "", XPComment: "", XPSubject: "", XPKeywords: "" },
+    raw: { XPTitle: "", ImageDescription: "", XPComment: "", XPSubject: "", XPKeywords: "", UserComment: "" },
     warnings: [],
   };
   if (!isJpeg(file)) return empty;
   try {
     const dataUrl = await fileToDataUrl(file);
-    const exif = piexif.load(dataUrl) as { "0th"?: Record<number, unknown> };
+    const exif = piexif.load(dataUrl) as {
+      "0th"?: Record<number, unknown>;
+      Exif?: Record<number, unknown>;
+    };
     const zeroth = exif["0th"] ?? {};
+    const exifIfd = exif.Exif ?? {};
     const XPSubjectTag = 0x9c9f;
 
     const XPTitle = fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]).trim();
@@ -313,8 +357,9 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     const XPComment = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]).trim();
     const XPSubject = fromXpBytes(zeroth[XPSubjectTag]).trim();
     const XPKeywords = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]).trim();
+    const UserComment = fromUserComment(exifIfd[piexif.ExifIFD.UserComment]);
 
-    const raw = { XPTitle, ImageDescription, XPComment, XPSubject, XPKeywords };
+    const raw = { XPTitle, ImageDescription, XPComment, XPSubject, XPKeywords, UserComment };
 
     let title = XPTitle;
     let titleSource: ExifMetaSource = XPTitle ? "XPTitle" : null;
@@ -356,10 +401,26 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
       );
     }
 
-    const keywords = XPKeywords
-      ? XPKeywords.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
-      : [];
-    const keywordsSource: ExifMetaSource = keywords.length > 0 ? "XPKeywords" : null;
+    // Keywords: XPKeywords is canonical. Fall back to UserComment if it looks
+    // like a delimited list (multiple items separated by ; or ,) and isn't
+    // just the description echoed back.
+    let keywords: string[] = [];
+    let keywordsSource: ExifMetaSource = null;
+    if (XPKeywords) {
+      keywords = splitKeywordString(XPKeywords);
+      if (keywords.length > 0) keywordsSource = "XPKeywords";
+    }
+    if (keywords.length === 0 && UserComment) {
+      const uc = splitKeywordString(UserComment);
+      const looksLikeList = uc.length > 1 && UserComment !== description;
+      if (looksLikeList) {
+        keywords = uc;
+        keywordsSource = "UserComment";
+        warnings.push(
+          "Keywords recovered from UserComment (no XPKeywords present).",
+        );
+      }
+    }
 
     return {
       title,

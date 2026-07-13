@@ -107,6 +107,29 @@ const TYPE_META: Record<PlaceType, { label: string; icon: typeof Home; tone: str
 
 const AREAS = Array.from(new Set(PLACES.map((p) => p.area))).sort();
 
+/** De-duplicate a keyword list (case-insensitive) and optionally seed it with
+ *  the current location label so venue-scoped auto-tags survive alongside
+ *  user-provided keywords. */
+function mergeKeywordSet(
+  existing: string[] | undefined,
+  locationLabel?: string | null,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    const key = v.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(v);
+  };
+  (existing ?? []).forEach(push);
+  if (locationLabel) push(locationLabel);
+  return out;
+}
+
+
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
@@ -120,6 +143,7 @@ type LocalImage = {
   locationLabel: string | null;
   title: string;
   description: string;
+  keywords: string[];
   status: "pending" | "saving" | "saved" | "error";
   error?: string;
   // When the image was added from the user's library, we track the DB row so
@@ -143,6 +167,7 @@ type LocalImage = {
     XPComment: string;
     XPSubject: string;
     XPKeywords: string;
+    UserComment: string;
   };
 };
 
@@ -252,6 +277,7 @@ function GeotaggingPage() {
                 : pinnedCoord?.label ?? null,
             title: row.title ?? row.name ?? file.name,
             description: row.description ?? "",
+            keywords: [],
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
@@ -307,8 +333,9 @@ function GeotaggingPage() {
             locationLabel,
             title: meta.title || "",
             description: meta.description || "",
+            keywords: meta.keywords ?? [],
             status: "pending" as const,
-            hasExistingMeta,
+            hasExistingMeta: hasExistingMeta || (meta.keywords?.length ?? 0) > 0,
             metaSources: meta.sources,
             metaRaw: meta.raw,
           };
@@ -415,13 +442,16 @@ function GeotaggingPage() {
     applyToTargets(ids);
   };
 
-  const updateImageMeta = (id: string, patch: Partial<Pick<LocalImage, "title" | "description">>) => {
+  const updateImageMeta = (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
+  ) => {
     setImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...patch } : img)));
   };
 
   const applyMetaToTargets = (
     ids: string[],
-    patch: Partial<Pick<LocalImage, "title" | "description">>,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
   ) => {
     if (ids.length === 0) return;
     setImages((prev) =>
@@ -468,7 +498,7 @@ function GeotaggingPage() {
         const tagged = await embedGps(img.file, img.lat!, img.lng!, {
           title: img.title,
           description: img.description,
-          keywords: img.locationLabel ? [img.locationLabel] : [],
+          keywords: mergeKeywordSet(img.keywords, img.locationLabel),
         });
 
         if (img.libraryId && img.libraryStoragePath) {
@@ -543,7 +573,7 @@ function GeotaggingPage() {
       const tagged = await embedGps(img.file, img.lat, img.lng, {
         title: img.title,
         description: img.description,
-        keywords: img.locationLabel ? [img.locationLabel] : [],
+        keywords: mergeKeywordSet(img.keywords, img.locationLabel),
       });
       const url = URL.createObjectURL(tagged);
       const a = document.createElement("a");
@@ -2390,7 +2420,7 @@ function MetaFields({
   img: LocalImage;
   updateImageMeta: (
     id: string,
-    patch: Partial<Pick<LocalImage, "title" | "description">>,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
   ) => void;
 }) {
   const sources = img.metaSources;
@@ -2404,9 +2434,22 @@ function MetaFields({
         .map((tag) => ({ tag, value: raw[tag] }))
     : [];
   const descAlts = raw
-    ? (["ImageDescription", "XPComment", "XPSubject"] as const)
+    ? (["ImageDescription", "XPComment", "XPSubject", "UserComment"] as const)
         .filter((tag) => raw[tag] && raw[tag] !== img.description)
         .map((tag) => ({ tag, value: raw[tag] }))
+    : [];
+
+  // Keyword source candidates: canonical (XPKeywords) and fallback
+  // (UserComment) both split into individual keywords for chip-swap.
+  const keywordAlts: { tag: "XPKeywords" | "UserComment"; keywords: string[] }[] = raw
+    ? (["XPKeywords", "UserComment"] as const)
+        .map((tag) => ({
+          tag,
+          keywords: raw[tag]
+            ? raw[tag].split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
+            : [],
+        }))
+        .filter(({ keywords }) => keywords.length > 0)
     : [];
 
   return (
@@ -2470,14 +2513,125 @@ function MetaFields({
         )}
       </div>
 
-      {(img.title || img.description) && img.hasExistingMeta && (
+      <KeywordsField
+        img={img}
+        sources={sources}
+        keywordAlts={keywordAlts}
+        updateImageMeta={updateImageMeta}
+      />
+
+      {(img.title || img.description || img.keywords.length > 0) && img.hasExistingMeta && (
         <button
           type="button"
-          onClick={() => updateImageMeta(img.id, { title: "", description: "" })}
+          onClick={() =>
+            updateImageMeta(img.id, { title: "", description: "", keywords: [] })
+          }
           className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
         >
-          Clear both fields
+          Clear all detected fields
         </button>
+      )}
+    </div>
+  );
+}
+
+function KeywordsField({
+  img,
+  sources,
+  keywordAlts,
+  updateImageMeta,
+}: {
+  img: LocalImage;
+  sources: LocalImage["metaSources"];
+  keywordAlts: { tag: "XPKeywords" | "UserComment"; keywords: string[] }[];
+  updateImageMeta: (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
+  ) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const addKeyword = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    const exists = img.keywords.some((k) => k.toLowerCase() === v.toLowerCase());
+    if (exists) return;
+    updateImageMeta(img.id, { keywords: [...img.keywords, v] });
+  };
+
+  const removeKeyword = (kw: string) => {
+    updateImageMeta(img.id, {
+      keywords: img.keywords.filter((k) => k !== kw),
+    });
+  };
+
+  const activeSet = new Set(img.keywords.map((k) => k.toLowerCase()));
+
+  return (
+    <div>
+      <div className="mb-0.5 flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+        <span>Keywords</span>
+        <SourceBadge source={sources?.keywords ?? null} />
+      </div>
+      <div className="flex flex-wrap gap-1 rounded-md border border-input bg-background px-1.5 py-1">
+        {img.keywords.map((kw) => (
+          <span
+            key={kw}
+            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
+          >
+            {kw}
+            <button
+              type="button"
+              onClick={() => removeKeyword(kw)}
+              className="text-primary/70 hover:text-primary"
+              aria-label={`Remove keyword ${kw}`}
+              title={`Remove ${kw}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              addKeyword(draft);
+              setDraft("");
+            } else if (e.key === "Backspace" && !draft && img.keywords.length > 0) {
+              removeKeyword(img.keywords[img.keywords.length - 1]);
+            }
+          }}
+          onBlur={() => {
+            if (draft.trim()) {
+              addKeyword(draft);
+              setDraft("");
+            }
+          }}
+          placeholder={img.keywords.length === 0 ? "Add keyword…" : ""}
+          className="min-w-[80px] flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-muted-foreground/60"
+        />
+      </div>
+      {keywordAlts.length > 0 && (
+        <div className="mt-0.5 flex flex-wrap gap-1">
+          {keywordAlts.flatMap(({ tag, keywords }) =>
+            keywords
+              .filter((kw) => !activeSet.has(kw.toLowerCase()))
+              .map((kw) => (
+                <button
+                  key={`${tag}:${kw}`}
+                  type="button"
+                  onClick={() => addKeyword(kw)}
+                  title={`Add "${kw}" from ${tag}`}
+                  className="inline-flex max-w-full items-center gap-1 rounded border border-border px-1 py-px text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <span className="font-medium text-primary">{tag}</span>
+                  <span className="truncate">{kw}</span>
+                </button>
+              )),
+          )}
+        </div>
       )}
     </div>
   );
