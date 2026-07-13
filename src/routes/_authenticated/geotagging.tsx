@@ -242,6 +242,8 @@ function GeotaggingPage() {
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
+            hasExistingMeta: Boolean(row.title || row.description),
+
           });
         }
         setImages((prev) => [...prev, ...built]);
