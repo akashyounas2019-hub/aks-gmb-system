@@ -248,15 +248,24 @@ export function PostGeneratorPage({
   }
 
   async function handleGenerate() {
-    if (!manualKw.length) {
+    if (!isSocial && !manualKw.length) {
       toast.error("Add at least one keyword");
+      return;
+    }
+    if (isSocial && !manualKw.length && hashtags.length === 0 && mentions.length === 0) {
+      toast.error("Add a keyword, hashtag, or mention to guide the post");
       return;
     }
     setGenerating(true);
     try {
+      // On social, seed the composer with hashtags/mentions when no keywords —
+      // gives the AI something to anchor the copy to.
+      const seedKeywords = manualKw.length
+        ? manualKw
+        : [...hashtags, ...mentions.map((m) => `@${m}`)];
       const res = await compose({
         data: {
-          keywords: manualKw,
+          keywords: seedKeywords,
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
           language,
@@ -265,7 +274,15 @@ export function PostGeneratorPage({
           callToAction: cta || undefined,
         },
       });
-      setCaption(res.caption);
+      // Append hashtags and @mentions to the generated caption for social posts.
+      let out = res.caption;
+      if (isSocial) {
+        const mentionLine = mentions.map((m) => `@${m}`).join(" ");
+        const hashtagLine = hashtags.map((h) => `#${h}`).join(" ");
+        const trailer = [mentionLine, hashtagLine].filter(Boolean).join("\n");
+        if (trailer) out = `${out.trimEnd()}\n\n${trailer}`;
+      }
+      setCaption(out);
       toast.success("Draft generated");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
