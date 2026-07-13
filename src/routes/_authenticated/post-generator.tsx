@@ -719,20 +719,41 @@ function PostGeneratorPage() {
               </label>
               {ctaType !== "none" && (
                 <label className="block">
-                  <span className="text-xs text-muted-foreground">
-                    {ctaType === "call" ? "Phone number" : "Destination URL"}
+                  <span className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
+                    {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
+                      <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
+                    )}
                   </span>
-                  <input
-                    value={ctaUrl}
-                    onChange={(e) => setCtaUrl(e.target.value)}
-                    placeholder={
-                      ctaType === "call"
-                        ? "+971 50 000 0000"
-                        : "https://example.com/book"
-                    }
-                    inputMode={ctaType === "call" ? "tel" : "url"}
-                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                  />
+                  <div className="relative mt-1">
+                    <input
+                      value={ctaUrl}
+                      onChange={(e) => {
+                        setCtaUrl(e.target.value);
+                        if (ctaType === "call") setPhoneManuallyEdited(true);
+                      }}
+                      placeholder={
+                        ctaType === "call"
+                          ? "+971 50 000 0000"
+                          : "https://example.com/book"
+                      }
+                      inputMode={ctaType === "call" ? "tel" : "url"}
+                      className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
+                    />
+                    {ctaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCtaUrl("");
+                          if (ctaType === "call") setPhoneManuallyEdited(true);
+                        }}
+                        aria-label="Clear"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </label>
               )}
             </div>
