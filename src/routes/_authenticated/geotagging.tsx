@@ -1337,11 +1337,34 @@ function StepAssign({
           <b className="text-foreground">{selected.size}</b> selected
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => e.target.files && addFiles(e.target.files)}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add photos
+          </button>
+          <button
+            type="button"
+            onClick={openLibrary}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            <Library className="h-3.5 w-3.5" /> From library
+          </button>
           <button
             onClick={selected.size === images.length ? clearSelection : selectAll}
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+            disabled={images.length === 0}
+            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-40"
           >
-            {selected.size === images.length ? "Clear selection" : "Select all"}
+            {selected.size === images.length && images.length > 0 ? "Clear selection" : "Select all"}
           </button>
           <button
             onClick={applyToSelected}
