@@ -2043,6 +2043,136 @@ function GeoTagImager({
           ))}
         </ul>
       )}
+
+      {libOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur"
+          onClick={() => !importing && setLibOpen(false)}
+        >
+          <div
+            className="flex max-h-[85vh] w-full max-w-4xl flex-col rounded-2xl border border-border bg-card shadow-xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-3 border-b border-border p-4">
+              <div>
+                <div className="text-sm font-medium">Pick images from your library</div>
+                <div className="text-xs text-muted-foreground">
+                  {library.length} available · {libSelected.size} selected
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={libSearch}
+                    onChange={(e) => setLibSearch(e.target.value)}
+                    placeholder="Search…"
+                    className="h-8 w-48 rounded-md border border-border bg-background pl-7 pr-2 text-xs"
+                  />
+                </div>
+                <button
+                  onClick={() => setLibOpen(false)}
+                  className="rounded-md p-1.5 hover:bg-accent"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-auto p-4">
+              {libraryLoading && library.length === 0 ? (
+                <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading…
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
+                  {(() => {
+                    const q = libSearch.trim().toLowerCase();
+                    const list = q
+                      ? library.filter((r) => r.name.toLowerCase().includes(q))
+                      : library;
+                    if (list.length === 0) {
+                      return (
+                        <div className="col-span-full py-10 text-center text-sm text-muted-foreground">
+                          No images found.
+                        </div>
+                      );
+                    }
+                    return list.map((row) => {
+                      const picked = libSelected.has(row.id);
+                      return (
+                        <button
+                          key={row.id}
+                          type="button"
+                          onClick={() => {
+                            setLibSelected((prev) => {
+                              const next = new Set(prev);
+                              if (next.has(row.id)) next.delete(row.id);
+                              else next.add(row.id);
+                              return next;
+                            });
+                          }}
+                          className={`group relative overflow-hidden rounded-lg border text-left transition ${
+                            picked ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/60"
+                          }`}
+                        >
+                          <div className="aspect-square w-full bg-muted">
+                            <SignedImage
+                              bucket="frames"
+                              path={row.storage_path}
+                              alt={row.name}
+                              className="h-full w-full object-cover"
+                            />
+                          </div>
+                          <div className="truncate p-1.5 text-[10px] text-muted-foreground">
+                            {row.name}
+                          </div>
+                          {picked && (
+                            <div className="absolute right-1.5 top-1.5 rounded-full bg-primary p-1 text-primary-foreground">
+                              <Check className="h-3 w-3" />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    });
+                  })()}
+                </div>
+              )}
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-border p-4">
+              <button
+                onClick={() => setLibSelected(new Set())}
+                className="text-xs text-muted-foreground hover:text-foreground"
+              >
+                Clear selection
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setLibOpen(false)}
+                  disabled={importing}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={importSelectedFromLibrary}
+                  disabled={importing || libSelected.size === 0}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {importing ? (
+                    <>
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing…
+                    </>
+                  ) : (
+                    <>Verify {libSelected.size} image{libSelected.size === 1 ? "" : "s"}</>
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
+
   );
 }
