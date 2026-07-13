@@ -291,11 +291,14 @@ function GeotaggingPage() {
         prev.map((x) => (x.id === img.id ? { ...x, status: "saving" } : x)),
       );
       try {
-        const ext = img.file.name.split(".").pop() || "jpg";
+        // Embed GPS EXIF into the JPEG bytes so third-party viewers (Photos,
+        // Windows Explorer, Lightroom, etc.) recognise the coordinates.
+        const tagged = await embedGps(img.file, img.lat!, img.lng!);
+        const ext = tagged.name.split(".").pop() || "jpg";
         const path = `${userId}/geotag/${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage
           .from("frames")
-          .upload(path, img.file, { contentType: img.file.type, upsert: false });
+          .upload(path, tagged, { contentType: tagged.type, upsert: false });
         if (upErr) throw upErr;
 
         const { error: dbErr } = await supabase.from("images").insert({
