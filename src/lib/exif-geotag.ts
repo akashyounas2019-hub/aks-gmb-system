@@ -343,8 +343,12 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
   if (!isJpeg(file)) return empty;
   try {
     const dataUrl = await fileToDataUrl(file);
-    const exif = piexif.load(dataUrl) as { "0th"?: Record<number, unknown> };
+    const exif = piexif.load(dataUrl) as {
+      "0th"?: Record<number, unknown>;
+      Exif?: Record<number, unknown>;
+    };
     const zeroth = exif["0th"] ?? {};
+    const exifIfd = exif.Exif ?? {};
     const XPSubjectTag = 0x9c9f;
 
     const XPTitle = fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]).trim();
@@ -353,8 +357,9 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     const XPComment = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]).trim();
     const XPSubject = fromXpBytes(zeroth[XPSubjectTag]).trim();
     const XPKeywords = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]).trim();
+    const UserComment = fromUserComment(exifIfd[piexif.ExifIFD.UserComment]);
 
-    const raw = { XPTitle, ImageDescription, XPComment, XPSubject, XPKeywords };
+    const raw = { XPTitle, ImageDescription, XPComment, XPSubject, XPKeywords, UserComment };
 
     let title = XPTitle;
     let titleSource: ExifMetaSource = XPTitle ? "XPTitle" : null;
@@ -396,10 +401,26 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
       );
     }
 
-    const keywords = XPKeywords
-      ? XPKeywords.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
-      : [];
-    const keywordsSource: ExifMetaSource = keywords.length > 0 ? "XPKeywords" : null;
+    // Keywords: XPKeywords is canonical. Fall back to UserComment if it looks
+    // like a delimited list (multiple items separated by ; or ,) and isn't
+    // just the description echoed back.
+    let keywords: string[] = [];
+    let keywordsSource: ExifMetaSource = null;
+    if (XPKeywords) {
+      keywords = splitKeywordString(XPKeywords);
+      if (keywords.length > 0) keywordsSource = "XPKeywords";
+    }
+    if (keywords.length === 0 && UserComment) {
+      const uc = splitKeywordString(UserComment);
+      const looksLikeList = uc.length > 1 && UserComment !== description;
+      if (looksLikeList) {
+        keywords = uc;
+        keywordsSource = "UserComment";
+        warnings.push(
+          "Keywords recovered from UserComment (no XPKeywords present).",
+        );
+      }
+    }
 
     return {
       title,
