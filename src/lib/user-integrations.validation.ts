@@ -10,7 +10,7 @@ export type FieldRule = {
   patternMessage?: string;
 };
 
-export type ProviderId = "ghl" | "dataforseo" | "serpapi" | "local_falcon" | "facebook" | "instagram";
+export type ProviderId = "ghl" | "dataforseo" | "serpapi" | "local_falcon" | "facebook" | "instagram" | "linkedin";
 
 export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
   ghl: {
@@ -91,6 +91,22 @@ export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
       required: true,
       min: 20,
       max: 1024,
+    },
+  },
+  linkedin: {
+    organization_id: {
+      label: "Organization or Member URN",
+      required: true,
+      min: 3,
+      max: 128,
+      pattern: /^[A-Za-z0-9:._-]+$/,
+      patternMessage: "Only letters, numbers, ':', '.', '_', and '-' are allowed.",
+    },
+    access_token: {
+      label: "Access Token",
+      required: true,
+      min: 20,
+      max: 2048,
     },
   },
 };

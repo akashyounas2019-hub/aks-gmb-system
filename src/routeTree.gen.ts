@@ -27,6 +27,7 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAutomationRouteImport } from './routes/_authenticated/automation'
+import { Route as AuthenticatedSocialLinkedinRouteImport } from './routes/_authenticated/social.linkedin'
 import { Route as AuthenticatedSocialInstagramRouteImport } from './routes/_authenticated/social.instagram'
 import { Route as AuthenticatedSocialFacebookRouteImport } from './routes/_authenticated/social.facebook'
 import { Route as AuthenticatedSettingsWebhooksRouteImport } from './routes/_authenticated/settings.webhooks'
@@ -36,6 +37,7 @@ import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
+import { Route as AuthenticatedSettingsBusinessProfileRouteImport } from './routes/_authenticated/settings.business-profile'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
@@ -134,6 +136,12 @@ const AuthenticatedAutomationRoute = AuthenticatedAutomationRouteImport.update({
   path: '/automation',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSocialLinkedinRoute =
+  AuthenticatedSocialLinkedinRouteImport.update({
+    id: '/social/linkedin',
+    path: '/social/linkedin',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSocialInstagramRoute =
   AuthenticatedSocialInstagramRouteImport.update({
     id: '/social/instagram',
@@ -188,6 +196,12 @@ const AuthenticatedSettingsGeneralRoute =
     path: '/general',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsBusinessProfileRoute =
+  AuthenticatedSettingsBusinessProfileRouteImport.update({
+    id: '/business-profile',
+    path: '/business-profile',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsAppearanceRoute =
   AuthenticatedSettingsAppearanceRouteImport.update({
     id: '/appearance',
@@ -227,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -236,6 +251,7 @@ export interface FileRoutesByFullPath {
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/social/facebook': typeof AuthenticatedSocialFacebookRoute
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
+  '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesByTo {
@@ -258,6 +274,7 @@ export interface FileRoutesByTo {
   '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -267,6 +284,7 @@ export interface FileRoutesByTo {
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/social/facebook': typeof AuthenticatedSocialFacebookRoute
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
+  '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesById {
@@ -291,6 +309,7 @@ export interface FileRoutesById {
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
   '/_authenticated/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/_authenticated/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -300,6 +319,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/_authenticated/social/facebook': typeof AuthenticatedSocialFacebookRoute
   '/_authenticated/social/instagram': typeof AuthenticatedSocialInstagramRoute
+  '/_authenticated/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRouteTypes {
@@ -324,6 +344,7 @@ export interface FileRouteTypes {
     | '/wizard'
     | '/library/$imageId'
     | '/settings/appearance'
+    | '/settings/business-profile'
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/notifications'
@@ -333,6 +354,7 @@ export interface FileRouteTypes {
     | '/settings/webhooks'
     | '/social/facebook'
     | '/social/instagram'
+    | '/social/linkedin'
     | '/api/public/hooks/run-automations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -355,6 +377,7 @@ export interface FileRouteTypes {
     | '/wizard'
     | '/library/$imageId'
     | '/settings/appearance'
+    | '/settings/business-profile'
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/notifications'
@@ -364,6 +387,7 @@ export interface FileRouteTypes {
     | '/settings/webhooks'
     | '/social/facebook'
     | '/social/instagram'
+    | '/social/linkedin'
     | '/api/public/hooks/run-automations'
   id:
     | '__root__'
@@ -387,6 +411,7 @@ export interface FileRouteTypes {
     | '/_authenticated/wizard'
     | '/_authenticated/library/$imageId'
     | '/_authenticated/settings/appearance'
+    | '/_authenticated/settings/business-profile'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/integrations'
     | '/_authenticated/settings/notifications'
@@ -396,6 +421,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/webhooks'
     | '/_authenticated/social/facebook'
     | '/_authenticated/social/instagram'
+    | '/_authenticated/social/linkedin'
     | '/api/public/hooks/run-automations'
   fileRoutesById: FileRoutesById
 }
@@ -534,6 +560,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAutomationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/social/linkedin': {
+      id: '/_authenticated/social/linkedin'
+      path: '/social/linkedin'
+      fullPath: '/social/linkedin'
+      preLoaderRoute: typeof AuthenticatedSocialLinkedinRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/social/instagram': {
       id: '/_authenticated/social/instagram'
       path: '/social/instagram'
@@ -597,6 +630,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/business-profile': {
+      id: '/_authenticated/settings/business-profile'
+      path: '/business-profile'
+      fullPath: '/settings/business-profile'
+      preLoaderRoute: typeof AuthenticatedSettingsBusinessProfileRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/appearance': {
       id: '/_authenticated/settings/appearance'
       path: '/appearance'
@@ -634,6 +674,7 @@ const AuthenticatedLibraryRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
+  AuthenticatedSettingsBusinessProfileRoute: typeof AuthenticatedSettingsBusinessProfileRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
@@ -645,6 +686,8 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAppearanceRoute: AuthenticatedSettingsAppearanceRoute,
+  AuthenticatedSettingsBusinessProfileRoute:
+    AuthenticatedSettingsBusinessProfileRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsIntegrationsRoute:
     AuthenticatedSettingsIntegrationsRoute,
@@ -679,6 +722,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
   AuthenticatedSocialFacebookRoute: typeof AuthenticatedSocialFacebookRoute
   AuthenticatedSocialInstagramRoute: typeof AuthenticatedSocialInstagramRoute
+  AuthenticatedSocialLinkedinRoute: typeof AuthenticatedSocialLinkedinRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -699,6 +743,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
   AuthenticatedSocialFacebookRoute: AuthenticatedSocialFacebookRoute,
   AuthenticatedSocialInstagramRoute: AuthenticatedSocialInstagramRoute,
+  AuthenticatedSocialLinkedinRoute: AuthenticatedSocialLinkedinRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =

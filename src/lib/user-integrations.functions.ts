@@ -8,6 +8,7 @@ const ALLOWED_PROVIDERS = [
   "local_falcon",
   "facebook",
   "instagram",
+  "linkedin",
 ] as const;
 type Provider = (typeof ALLOWED_PROVIDERS)[number];
 
@@ -102,6 +103,22 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       required: true,
       min: 20,
       max: 1024,
+    },
+  },
+  linkedin: {
+    organization_id: {
+      label: "Organization or Member URN",
+      required: true,
+      min: 3,
+      max: 128,
+      pattern: /^[A-Za-z0-9:._-]+$/,
+      patternMessage: "Only letters, numbers, ':', '.', '_', and '-' are allowed.",
+    },
+    access_token: {
+      label: "Access Token",
+      required: true,
+      min: 20,
+      max: 2048,
     },
   },
 };
