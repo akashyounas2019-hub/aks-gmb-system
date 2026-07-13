@@ -27,6 +27,7 @@ import { readGps } from "@/lib/exif-geotag";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
+import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
 import { UploadPanel } from "@/components/UploadPanel";
@@ -355,6 +356,11 @@ function LibraryPage() {
                     alt={img.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
+                  {isGeo && !selectMode && (
+                    <div className="absolute left-2 top-2 z-10">
+                      <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                    </div>
+                  )}
                   {selectMode && (
                     <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
                       {isSelected ? (

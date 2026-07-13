@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Sparkles, Trash2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
+import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { suggestTagsForImage } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/library/$imageId")({
@@ -137,14 +138,20 @@ function ImageDetail() {
       </Link>
 
       <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
-        <div className="overflow-hidden rounded-2xl border border-border bg-card">
+        <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
           <SignedImage
             bucket="frames"
             path={image.storage_path}
             alt={image.name}
             className="w-full object-contain"
           />
+          {image.lat != null && image.lng != null && (
+            <div className="absolute left-3 top-3">
+              <GeoTaggedBadge lat={Number(image.lat)} lng={Number(image.lng)} />
+            </div>
+          )}
         </div>
+
 
         <div className="space-y-6">
           <section>

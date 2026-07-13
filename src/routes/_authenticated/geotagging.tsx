@@ -127,6 +127,10 @@ type LocalImage = {
   // of creating a duplicate.
   libraryId?: string;
   libraryStoragePath?: string;
+  // True when the image was imported from the library and already had title/description set.
+  // We won't re-prompt for those fields.
+  hasExistingMeta?: boolean;
+
 };
 
 type LibraryImage = {
@@ -238,6 +242,8 @@ function GeotaggingPage() {
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
+            hasExistingMeta: Boolean(row.title || row.description),
+
           });
         }
         setImages((prev) => [...prev, ...built]);
@@ -1089,7 +1095,7 @@ function LibraryThumb({
         <div className="aspect-square w-full animate-pulse bg-muted" />
       )}
       {row.lat != null && row.lng != null && (
-        <span className="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-primary/85 px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground">
+        <span className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
           <MapPin className="h-2.5 w-2.5" />
         </span>
       )}
@@ -1578,10 +1584,10 @@ function StepAssign({
                     alt={img.file.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
-                  {img.lat !== null && (
-                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-primary/90 px-2 py-0.5 text-[10px] font-medium text-primary-foreground">
+                  {img.lat !== null && img.lng !== null && (
+                    <span className="absolute left-2 top-2 inline-flex items-center gap-1 rounded-full bg-emerald-500 px-2 py-0.5 text-[10px] font-semibold text-white shadow ring-2 ring-emerald-500/20">
                       <MapPin className="h-3 w-3" />
-                      Tagged
+                      Geotagged
                     </span>
                   )}
                   {isSelected && <span className="absolute inset-0 ring-2 ring-inset ring-primary" />}
@@ -1593,19 +1599,40 @@ function StepAssign({
                   <div className="truncate text-[11px] text-muted-foreground">
                     {img.locationLabel ?? "Not tagged"}
                   </div>
-                  <input
-                    value={img.title}
-                    onChange={(e) => updateImageMeta(img.id, { title: e.target.value })}
-                    placeholder="Title"
-                    className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
-                  />
-                  <textarea
-                    value={img.description}
-                    onChange={(e) => updateImageMeta(img.id, { description: e.target.value })}
-                    placeholder="Description"
-                    rows={2}
-                    className="w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
-                  />
+                  {img.hasExistingMeta ? (
+                    <div className="mt-1 rounded-md border border-dashed border-emerald-500/30 bg-emerald-500/5 px-2 py-1 text-[10px] text-emerald-700 dark:text-emerald-400">
+                      <div className="font-medium">{img.title || "(no title)"}</div>
+                      {img.description && (
+                        <div className="mt-0.5 line-clamp-2 text-muted-foreground">
+                          {img.description}
+                        </div>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => updateImageMeta(img.id, { title: "", description: "" })}
+                        className="mt-0.5 text-[10px] text-primary hover:underline"
+                      >
+                        Edit title/description
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <input
+                        value={img.title}
+                        onChange={(e) => updateImageMeta(img.id, { title: e.target.value })}
+                        placeholder="Title"
+                        className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+                      />
+                      <textarea
+                        value={img.description}
+                        onChange={(e) => updateImageMeta(img.id, { description: e.target.value })}
+                        placeholder="Description"
+                        rows={2}
+                        className="w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+                      />
+                    </>
+                  )}
+
                   <div className="flex items-center gap-1.5 pt-1">
                     <button
                       onClick={() => applyToTargets([img.id])}
@@ -2116,14 +2143,20 @@ function GeoTagImager({
                             picked ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/60"
                           }`}
                         >
-                          <div className="aspect-square w-full bg-muted">
+                          <div className="relative aspect-square w-full bg-muted">
                             <SignedImage
                               bucket="frames"
                               path={row.storage_path}
                               alt={row.name}
                               className="h-full w-full object-cover"
                             />
+                            {row.lat != null && row.lng != null && (
+                              <span className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
+                                <MapPin className="h-3 w-3" />
+                              </span>
+                            )}
                           </div>
+
                           <div className="truncate p-1.5 text-[10px] text-muted-foreground">
                             {row.name}
                           </div>
