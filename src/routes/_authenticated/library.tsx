@@ -1014,6 +1014,7 @@ function ImageEditModal({
   const [tagFilter, setTagFilter] = useState("");
   const [bucket, setBucket] = useState<"raw" | "published" | "geotagged">("raw");
   const [loc, setLoc] = useState<PickedLocation | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
