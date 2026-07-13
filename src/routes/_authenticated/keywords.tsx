@@ -809,6 +809,64 @@ function KeywordsPage() {
               </div>
             </div>
 
+            {/* Imported files — visual history of CSV/TXT/JSON uploads */}
+            {imports.length > 0 && (
+              <div className="rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Imported files</h3>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {imports.length}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setImports([])}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <ul className="divide-y divide-border/60">
+                  {imports.map((imp) => (
+                    <li
+                      key={imp.id}
+                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <FileUp className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{imp.name}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                            +{imp.count.toLocaleString()} keywords
+                          </span>
+                          <span>
+                            {imp.source === "semrush" ? "Semrush CSV" : "Generic import"}
+                          </span>
+                          <span>·</span>
+                          <span>{formatBytes(imp.size)}</span>
+                          <span>·</span>
+                          <span>into {imp.folderName}</span>
+                          <span>·</span>
+                          <span>{formatRelativeTime(imp.at)}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setActiveTab("library");
+                        }}
+                        className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+                      >
+                        View in Library
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="rounded-lg border border-dashed border-border bg-background/30 p-4 text-sm text-muted-foreground">
               Everything you save here shows up under the <strong>Library</strong> tab, where you can
               organize keywords into folders and clusters.
