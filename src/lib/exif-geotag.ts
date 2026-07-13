@@ -127,13 +127,17 @@ export async function embedGps(
       .filter((k) => k.length > 0);
 
     if (title) {
+      // Windows-aware title tag (what File Explorer / geoimgr call "Title").
       zeroth[piexif.ImageIFD.XPTitle] = toXpBytes(title);
-      // ImageDescription is ASCII-only per EXIF spec; piexif tolerates UTF-8
-      // bytes but non-ASCII may render as garbled in strict readers. We still
-      // write it since geoimager2 reads this field.
-      zeroth[piexif.ImageIFD.ImageDescription] = title;
+      // XPSubject is a secondary Windows tag some readers also expose as Title.
+      const XPSubject = 0x9c9f;
+      zeroth[XPSubject] = toXpBytes(title);
     }
     if (description) {
+      // Standard EXIF "ImageDescription" is what geoimgr and most readers
+      // surface as the Description field. Keep this reserved for the
+      // description — never overload it with the title.
+      zeroth[piexif.ImageIFD.ImageDescription] = description;
       zeroth[piexif.ImageIFD.XPComment] = toXpBytes(description);
       // UserComment is prefixed with an 8-byte character-code header.
       const prefix = [0x55, 0x4e, 0x49, 0x43, 0x4f, 0x44, 0x45, 0x00]; // "UNICODE\0"
