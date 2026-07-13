@@ -107,6 +107,29 @@ const TYPE_META: Record<PlaceType, { label: string; icon: typeof Home; tone: str
 
 const AREAS = Array.from(new Set(PLACES.map((p) => p.area))).sort();
 
+/** De-duplicate a keyword list (case-insensitive) and optionally seed it with
+ *  the current location label so venue-scoped auto-tags survive alongside
+ *  user-provided keywords. */
+function mergeKeywordSet(
+  existing: string[] | undefined,
+  locationLabel?: string | null,
+): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  const push = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    const key = v.toLowerCase();
+    if (seen.has(key)) return;
+    seen.add(key);
+    out.push(v);
+  };
+  (existing ?? []).forEach(push);
+  if (locationLabel) push(locationLabel);
+  return out;
+}
+
+
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
