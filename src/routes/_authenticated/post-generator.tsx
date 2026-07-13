@@ -99,8 +99,32 @@ function PostGeneratorPage() {
     "none" | "book" | "order" | "shop" | "learn_more" | "sign_up" | "call"
   >("none");
   const [ctaUrl, setCtaUrl] = useState("");
+  const [businessPhone, setBusinessPhone] = useState("");
+  const [phoneManuallyEdited, setPhoneManuallyEdited] = useState(false);
+  const loadPrefs = useServerFn(getPreferences);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
+
+  // Load business phone from settings for the Call CTA auto-populate.
+  useEffect(() => {
+    loadPrefs()
+      .then((p) => {
+        const g = (p?.general ?? {}) as { phone?: string };
+        if (g.phone) setBusinessPhone(g.phone);
+      })
+      .catch(() => {
+        /* ignore — user may not have saved a business phone yet */
+      });
+  }, [loadPrefs]);
+
+  // Auto-populate the Call CTA phone number from business settings whenever
+  // the user switches the action to "Call now" and hasn't manually edited it.
+  useEffect(() => {
+    if (ctaType === "call" && !phoneManuallyEdited && !ctaUrl && businessPhone) {
+      setCtaUrl(businessPhone);
+    }
+  }, [ctaType, businessPhone, phoneManuallyEdited, ctaUrl]);
+
 
   const CAPTION_LIMIT = 1500;
   const captionLen = caption.length;
