@@ -34,6 +34,7 @@ import {
   composePost,
   sendPostToSocialPlanner,
 } from "@/lib/post-generator.functions";
+import { readGps } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/post-generator")({
   component: PostGeneratorPage,
