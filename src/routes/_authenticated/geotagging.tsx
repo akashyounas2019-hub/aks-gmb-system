@@ -700,6 +700,8 @@ function GeotaggingPage() {
             addFiles={addFiles}
             openLibrary={() => setLibraryOpen(true)}
             downloadProcessed={downloadProcessed}
+            updateImageMeta={updateImageMeta}
+            applyMetaToTargets={applyMetaToTargets}
           />
         )}
 
