@@ -1419,6 +1419,8 @@ function StepAssign({
   addFiles,
   openLibrary,
   downloadProcessed,
+  updateImageMeta,
+  applyMetaToTargets,
 }: {
   images: LocalImage[];
   selected: Set<string>;
@@ -1433,7 +1435,36 @@ function StepAssign({
   addFiles: (f: FileList | File[]) => void;
   openLibrary: () => void;
   downloadProcessed: (img: LocalImage) => Promise<void>;
+  updateImageMeta: (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => void;
+  applyMetaToTargets: (
+    ids: string[],
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => void;
 }) {
+  const [batchTitle, setBatchTitle] = useState("");
+  const [batchDescription, setBatchDescription] = useState("");
+
+  const applyBatchMeta = () => {
+    const ids = selected.size ? Array.from(selected) : images.map((i) => i.id);
+    if (ids.length === 0) {
+      toast.error("Upload some images first.");
+      return;
+    }
+    const patch: Partial<Pick<LocalImage, "title" | "description">> = {};
+    if (batchTitle.trim()) patch.title = batchTitle.trim();
+    if (batchDescription.trim()) patch.description = batchDescription.trim();
+    if (Object.keys(patch).length === 0) {
+      toast.error("Enter a title or description first.");
+      return;
+    }
+    applyMetaToTargets(ids, patch);
+    toast.success(
+      `Applied details to ${ids.length} image${ids.length === 1 ? "" : "s"}.`,
+    );
+  };
   return (
     <div className="space-y-4">
       <div>
