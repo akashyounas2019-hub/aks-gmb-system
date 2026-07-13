@@ -616,6 +616,13 @@ function GeotaggingPage() {
             inputRef={inputRef}
             addFiles={addFiles}
             removeImage={removeImage}
+            library={library}
+            libraryLoading={libraryLoading}
+            reloadLibrary={reloadLibrary}
+            openLibrary={() => setLibraryOpen(true)}
+            alreadyImportedIds={alreadyImportedIds}
+            addFromLibrary={addFromLibrary}
+            importingFromLibrary={importingFromLibrary}
           />
         )}
 
@@ -660,6 +667,10 @@ function GeotaggingPage() {
             applyToTargets={applyToTargets}
             applyToSelected={applyToSelected}
             removeImage={removeImage}
+            inputRef={inputRef}
+            addFiles={addFiles}
+            openLibrary={() => setLibraryOpen(true)}
+            downloadProcessed={downloadProcessed}
           />
         )}
 
@@ -670,6 +681,7 @@ function GeotaggingPage() {
             savingBulk={savingBulk}
             saveAll={saveAll}
             images={images}
+            downloadProcessed={downloadProcessed}
           />
         )}
       </section>
