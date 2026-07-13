@@ -2131,3 +2131,162 @@ function FolderModal({
     </div>
   );
 }
+
+// ---------- Import set row (rename + move + preview phrases) ----------
+type ImportRowProps = {
+  imp: {
+    id: string;
+    name: string;
+    size: number;
+    count: number;
+    source: "semrush" | "generic";
+    folderName: string;
+    at: number;
+    phrases: string[];
+    keywordIds: string[];
+  };
+  folders: KFolder[];
+  folderById: Map<string, KFolder>;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  editing: boolean;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
+  onRename: (name: string) => void;
+  onMove: (folderId: string | null) => void;
+  onOpenInLibrary?: () => void;
+};
+
+function ImportRow({
+  imp,
+  folders,
+  folderById,
+  expanded,
+  onToggleExpanded,
+  editing,
+  onStartEdit,
+  onStopEdit,
+  onRename,
+  onMove,
+  onOpenInLibrary,
+}: ImportRowProps) {
+  const [draft, setDraft] = useState(imp.name);
+  useEffect(() => setDraft(imp.name), [imp.name, editing]);
+  return (
+    <li className="px-5 py-3">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+        <button
+          onClick={onToggleExpanded}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20"
+          aria-label={expanded ? "Hide keywords" : "Show keywords"}
+        >
+          {expanded ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+        <div className="min-w-0">
+          {editing ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                onRename(draft);
+                onStopEdit();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onRename(draft);
+                  onStopEdit();
+                } else if (e.key === "Escape") {
+                  setDraft(imp.name);
+                  onStopEdit();
+                }
+              }}
+              className="w-full max-w-sm rounded border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary"
+            />
+          ) : (
+            <button
+              onClick={onStartEdit}
+              className="group inline-flex max-w-full items-center gap-1.5 text-left"
+              title="Click to rename this set"
+            >
+              <span className="truncate text-sm font-medium">{imp.name}</span>
+              <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+            </button>
+          )}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+              {imp.count.toLocaleString()} keywords
+            </span>
+            <span>{imp.source === "semrush" ? "Semrush CSV" : "Generic import"}</span>
+            <span>·</span>
+            <span>{formatBytes(imp.size)}</span>
+            <span>·</span>
+            <span>in {imp.folderName}</span>
+            <span>·</span>
+            <span>{formatRelativeTime(imp.at)}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50">
+                <Move className="h-3.5 w-3.5" /> Move set
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+              <DropdownMenuLabel className="text-xs">Move all keywords to</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onMove(null)}>
+                <Inbox className="mr-2 h-4 w-4" /> Unfiled
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {folders.length === 0 ? (
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  No folders yet
+                </DropdownMenuLabel>
+              ) : (
+                folders.map((f) => (
+                  <DropdownMenuItem key={f.id} onClick={() => onMove(f.id)}>
+                    <span
+                      className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ background: f.color ?? "#64748b" }}
+                    />
+                    {folderPath(f, folderById)}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {onOpenInLibrary && (
+            <button
+              onClick={onOpenInLibrary}
+              className="rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+            >
+              Open in Library
+            </button>
+          )}
+        </div>
+      </div>
+      {expanded && imp.phrases.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5 rounded-md border border-border/60 bg-background/40 p-2.5">
+          {imp.phrases.slice(0, 200).map((p, i) => (
+            <span
+              key={`${imp.id}-${i}`}
+              className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-[11px]"
+            >
+              {p}
+            </span>
+          ))}
+          {imp.phrases.length > 200 && (
+            <span className="text-[11px] text-muted-foreground">
+              …and {imp.phrases.length - 200} more
+            </span>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
