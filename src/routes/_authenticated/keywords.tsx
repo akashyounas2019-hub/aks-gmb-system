@@ -1280,6 +1280,21 @@ function KeywordsPage() {
                 <Sparkles className="h-3.5 w-3.5" />
                 {enriching ? "Normalizing…" : "Normalize"}
               </button>
+              {activeTab === "tracked" ? (
+                <button
+                  onClick={() => setTracked(Array.from(selection), false)}
+                  className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50"
+                >
+                  <Target className="h-3.5 w-3.5" /> Untrack
+                </button>
+              ) : (
+                <button
+                  onClick={() => setTracked(Array.from(selection), true)}
+                  className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15"
+                >
+                  <Target className="h-3.5 w-3.5" /> Track
+                </button>
+              )}
               <button
                 onClick={() => deleteKeywords(Array.from(selection))}
                 className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
