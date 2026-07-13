@@ -46,8 +46,11 @@ async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
     .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
+    // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
+    .not("storage_path", "ilike", "%/social-%")
     .order("created_at", { ascending: false });
   if (error) throw error;
+
 
   const { data: venues } = await supabase.from("venues").select("id, name");
   const { data: tagRows } = await supabase
@@ -438,6 +441,41 @@ function LibraryPage() {
           </div>
         </div>
       )}
+
+      {tab !== "videos" && tab !== "upload" && selectMode && selected.size > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-3 text-xs">
+          <span className="font-medium">
+            Move {selected.size} selected to folder:
+          </span>
+          {data?.folders.map((f) => (
+            <button
+              key={f.id}
+              onClick={async () => {
+                await moveImagesToFolder(Array.from(selected), f.id);
+                clearSelection();
+              }}
+              className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+            >
+              <FolderIcon className="h-3 w-3" /> {f.name}
+            </button>
+          ))}
+          <button
+            onClick={async () => {
+              await moveImagesToFolder(Array.from(selected), null);
+              clearSelection();
+            }}
+            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+          >
+            <X className="h-3 w-3" /> Unfiled
+          </button>
+          {(!data?.folders || data.folders.length === 0) && (
+            <span className="text-muted-foreground">
+              Create a folder in the Raw Images tab first.
+            </span>
+          )}
+        </div>
+      )}
+
 
       {tab === "raw" && !isLoading && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
