@@ -554,6 +554,7 @@ function N8nIntegrationCard() {
     authToken: "",
     enabled: false,
   });
+  const [open, setOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [testing, setTesting] = useState(false);
 
@@ -632,7 +633,7 @@ function N8nIntegrationCard() {
             <span className="font-mono text-xs">Webhook</span> trigger node.
           </p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {connected && (
             <>
               <button
@@ -652,17 +653,27 @@ function N8nIntegrationCard() {
               >
                 {cfg.enabled ? "Pause" : "Enable"}
               </button>
-              <button
-                onClick={disconnect}
-                className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive hover:bg-destructive/20"
-              >
-                Disconnect
-              </button>
             </>
+          )}
+          <button
+            onClick={() => setOpen((v) => !v)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
+          >
+            {connected ? "Update" : "Add API"}
+          </button>
+          {connected && (
+            <button
+              onClick={disconnect}
+              className="rounded-lg border border-destructive/40 bg-destructive/10 px-3 py-2 text-sm text-destructive hover:bg-destructive/20"
+            >
+              Disconnect
+            </button>
           )}
         </div>
       </div>
 
+      {open && (
+        <>
       <div className="mt-5 grid gap-3 md:grid-cols-2">
         <label className="block md:col-span-2">
           <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
@@ -744,6 +755,8 @@ function N8nIntegrationCard() {
         Stored locally on this device. For production pipelines, add the URL as a project secret
         instead.
       </p>
+        </>
+      )}
     </div>
   );
 }
