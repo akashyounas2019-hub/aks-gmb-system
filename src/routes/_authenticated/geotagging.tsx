@@ -309,6 +309,8 @@ function GeotaggingPage() {
             description: meta.description || "",
             status: "pending" as const,
             hasExistingMeta,
+            metaSources: meta.sources,
+            metaRaw: meta.raw,
           };
         }),
       ]);
