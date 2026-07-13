@@ -1227,9 +1227,9 @@ function ImageEditModal({
       // 2. Move-to bucket
       //    - "geotagged": require a location, apply lat/lng, remove published tag
       //    - "published": ADD published tag, PRESERVE existing lat/lng (never null them)
-      //    - "raw":       remove published tag, PRESERVE existing lat/lng
-      //    This fixes two bugs: unpublishing a geo-tagged image no longer wipes
-      //    its coordinates, and publishing a geo-tagged image keeps all metadata.
+      //    - "raw":       remove published tag AND clear lat/lng so the image
+      //                    actually lands in the Raw tab (imageBucket treats any
+      //                    image with coords as Geo-Tagged).
       const publishedTag = data.tags.find((t) => t.slug === "published");
       const nextAssigned = new Set(assigned);
       const patch: { lat?: number | null; lng?: number | null } = {};
@@ -1253,6 +1253,9 @@ function ImageEditModal({
         // without a separate manual coordinate entry step.
         patch.lat = loc.lat;
         patch.lng = loc.lng;
+      } else if (bucket === "raw") {
+        patch.lat = null;
+        patch.lng = null;
       }
       if (bucket === "published" && publishedTag) {
         nextAssigned.add(publishedTag.id);
