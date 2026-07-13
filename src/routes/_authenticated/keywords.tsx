@@ -544,8 +544,8 @@ function KeywordsPage() {
       cluster: p.cluster ?? null,
       source: `import:${name.split(".").pop() ?? "file"}`,
     }));
-    const count = await insertBatch(payload);
-    recordImport(file, count, "generic");
+    const inserted = await insertBatch(payload);
+    recordImport(file, inserted.ids, inserted.phrases, "generic");
   }
 
   async function insertBatch(
@@ -560,50 +560,97 @@ function KeywordsPage() {
       cluster: string | null;
       source: string;
     }>,
-  ): Promise<number> {
+  ): Promise<{ ids: string[]; phrases: string[] }> {
     if (!payload.length) {
       toast.error("No keywords found in file");
-      return 0;
+      return { ids: [], phrases: [] };
     }
+    const ids: string[] = [];
+    const phrases: string[] = [];
     const chunk = 200;
     for (let i = 0; i < payload.length; i += chunk) {
-      const { error } = await supabase
+      const slice = payload.slice(i, i + chunk);
+      const { data, error } = await supabase
         .from("keywords")
-        .insert(payload.slice(i, i + chunk));
+        .insert(slice)
+        .select("id, phrase");
       if (error) {
         toast.error(error.message);
-        return 0;
+        return { ids, phrases };
+      }
+      for (const row of (data ?? []) as Array<{ id: string; phrase: string }>) {
+        ids.push(row.id);
+        phrases.push(row.phrase);
       }
     }
-    toast.success(`Imported ${payload.length} keywords`);
+    toast.success(`Imported ${ids.length} keywords`);
     load();
-    return payload.length;
+    return { ids, phrases };
   }
 
   function recordImport(
     file: File,
-    count: number,
+    ids: string[],
+    phrases: string[],
     source: "semrush" | "generic",
   ) {
-    if (count <= 0) return;
+    if (ids.length <= 0) return;
     const folderName =
       scope === "unfiled" || scope === "all"
         ? "Unfiled"
         : folderById.get(scope)?.name ?? "Unfiled";
+    const recId = crypto.randomUUID();
     setImports((prev) =>
       [
         {
-          id: crypto.randomUUID(),
-          name: file.name,
+          id: recId,
+          name: file.name.replace(/\.[^.]+$/, ""),
           size: file.size,
-          count,
+          count: ids.length,
           source,
           folderName,
           at: Date.now(),
+          phrases,
+          keywordIds: ids,
         },
         ...prev,
       ].slice(0, 20),
     );
+    setExpandedImports((prev) => new Set(prev).add(recId));
+  }
+
+  async function moveImportSet(rec: ImportRecord, targetFolderId: string | null) {
+    if (!rec.keywordIds.length) return;
+    await moveKeywords(rec.keywordIds, targetFolderId);
+    const targetName = targetFolderId
+      ? folderById.get(targetFolderId)?.name ?? "folder"
+      : "Unfiled";
+    setImports((prev) =>
+      prev.map((r) => (r.id === rec.id ? { ...r, folderName: targetName } : r)),
+    );
+  }
+
+  function renameImport(id: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setImports((prev) => prev.map((r) => (r.id === id ? { ...r, name: trimmed } : r)));
+  }
+
+  async function setTracked(ids: string[], tracked: boolean) {
+    if (!ids.length) return;
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("keywords")
+      .update({ tracked } as any)
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(
+      tracked
+        ? `Added ${ids.length} to Tracked`
+        : `Removed ${ids.length} from Tracked`,
+    );
+    setSelection(new Set());
+    await load();
   }
 
   // ---------- Export ----------
