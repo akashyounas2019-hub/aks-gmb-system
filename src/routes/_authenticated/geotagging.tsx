@@ -120,6 +120,19 @@ type LocalImage = {
   locationLabel: string | null;
   status: "pending" | "saving" | "saved" | "error";
   error?: string;
+  // When the image was added from the user's library, we track the DB row so
+  // saveAll updates that row (and re-uploads to the same storage path) instead
+  // of creating a duplicate.
+  libraryId?: string;
+  libraryStoragePath?: string;
+};
+
+type LibraryImage = {
+  id: string;
+  name: string;
+  storage_path: string;
+  lat: number | null;
+  lng: number | null;
 };
 
 /* -------------------------------------------------------------------------- */
