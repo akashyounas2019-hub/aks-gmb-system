@@ -1310,3 +1310,98 @@ function VideoPreviewModal({ video, onClose }: { video: VideoRow; onClose: () =>
   );
 }
 
+
+function GeoStatusButton({
+  bucket,
+  path,
+  lat,
+  lng,
+}: {
+  bucket: string;
+  path: string;
+  lat: number;
+  lng: number;
+}) {
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "mismatch" | "missing">("idle");
+  const [detail, setDetail] = useState<string>("");
+
+  async function verify(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setState("checking");
+    try {
+      const { data: signed, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 60);
+      if (error || !signed?.signedUrl) throw error ?? new Error("Could not read image");
+      const res = await fetch(signed.signedUrl);
+      const blob = await res.blob();
+      const file = new File([blob], "image.jpg", { type: blob.type || "image/jpeg" });
+      const gps = await readGps(file);
+      if (!gps.hasGps || gps.lat == null || gps.lng == null) {
+        setState("missing");
+        setDetail(gps.reason ?? "No GPS EXIF in file");
+        toast.warning("No GPS EXIF found in this image file.");
+        return;
+      }
+      const dLat = Math.abs(gps.lat - lat);
+      const dLng = Math.abs(gps.lng - lng);
+      if (dLat < 1e-4 && dLng < 1e-4) {
+        setState("ok");
+        setDetail(`Verified ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)}`);
+        toast.success("Geo-tag verified — EXIF matches the database.");
+      } else {
+        setState("mismatch");
+        setDetail(
+          `EXIF ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)} vs DB ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        );
+        toast.warning("EXIF coordinates don't match the stored geo-tag.");
+      }
+    } catch (err) {
+      setState("missing");
+      setDetail(err instanceof Error ? err.message : "Check failed");
+      toast.error("Verification failed.");
+    }
+  }
+
+  const Icon =
+    state === "ok"
+      ? ShieldCheck
+      : state === "mismatch" || state === "missing"
+        ? ShieldAlert
+        : ShieldQuestion;
+
+  const tone =
+    state === "ok"
+      ? "text-emerald-500"
+      : state === "mismatch" || state === "missing"
+        ? "text-amber-500"
+        : "text-primary";
+
+  const label =
+    state === "checking"
+      ? "Verifying…"
+      : state === "ok"
+        ? "Verified"
+        : state === "mismatch"
+          ? "EXIF mismatch"
+          : state === "missing"
+            ? "No EXIF GPS"
+            : "Verify geo-tag";
+
+  return (
+    <button
+      onClick={verify}
+      disabled={state === "checking"}
+      title={detail || label}
+      aria-label={label}
+      className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${tone}`}
+    >
+      {state === "checking" ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Icon className="h-3.5 w-3.5" />
+      )}
+    </button>
+  );
+}
