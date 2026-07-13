@@ -10,7 +10,7 @@ export type FieldRule = {
   patternMessage?: string;
 };
 
-export type ProviderId = "ghl" | "dataforseo" | "serpapi" | "local_falcon";
+export type ProviderId = "ghl" | "dataforseo" | "serpapi" | "local_falcon" | "facebook" | "instagram";
 
 export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
   ghl: {
