@@ -1912,28 +1912,47 @@ function GeoTagImager({
   const [libSelected, setLibSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
-  const addFiles = useCallback(async (files: FileList | File[]) => {
-
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) {
-      toast.error("Choose image files to verify.");
-      return;
-    }
-    const newRows: VerifyRow[] = list.map((f) => ({
-      id: crypto.randomUUID(),
-      file: f,
-      previewUrl: URL.createObjectURL(f),
-      result: null,
-      loading: true,
-    }));
-    setRows((prev) => [...newRows, ...prev]);
-    for (const row of newRows) {
-      const result = await readGps(row.file);
-      setRows((prev) =>
-        prev.map((r) => (r.id === row.id ? { ...r, result, loading: false } : r)),
-      );
-    }
-  }, []);
+  const addFiles = useCallback(
+    async (
+      files: FileList | File[],
+      metaByIndex?: Array<{ title?: string | null; description?: string | null; displayName?: string }>,
+    ) => {
+      const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (list.length === 0) {
+        toast.error("Choose image files to verify.");
+        return;
+      }
+      const newRows: VerifyRow[] = list.map((f, i) => ({
+        id: crypto.randomUUID(),
+        file: f,
+        previewUrl: URL.createObjectURL(f),
+        result: null,
+        loading: true,
+        title: metaByIndex?.[i]?.title ?? null,
+        description: metaByIndex?.[i]?.description ?? null,
+        displayName: metaByIndex?.[i]?.displayName ?? f.name,
+        cityLoading: false,
+      }));
+      setRows((prev) => [...newRows, ...prev]);
+      for (const row of newRows) {
+        const result = await readGps(row.file);
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === row.id
+              ? { ...r, result, loading: false, cityLoading: result.hasGps }
+              : r,
+          ),
+        );
+        if (result.hasGps && result.lat != null && result.lng != null) {
+          const city = await reverseGeocodeCity(result.lat, result.lng);
+          setRows((prev) =>
+            prev.map((r) => (r.id === row.id ? { ...r, nearestCity: city, cityLoading: false } : r)),
+          );
+        }
+      }
+    },
+    [],
+  );
 
   const clearAll = () => {
     rows.forEach((r) => URL.revokeObjectURL(r.previewUrl));
@@ -1949,6 +1968,7 @@ function GeoTagImager({
     setImporting(true);
     try {
       const files: File[] = [];
+      const metas: Array<{ title?: string | null; description?: string | null; displayName?: string }> = [];
       for (const row of picks) {
         const { data: signed } = await supabase.storage
           .from("frames")
@@ -1958,8 +1978,13 @@ function GeoTagImager({
         const blob = await res.blob();
         const mime = blob.type || "image/jpeg";
         files.push(new File([blob], row.name || `library-${row.id}.jpg`, { type: mime }));
+        metas.push({
+          title: row.title,
+          description: row.description,
+          displayName: row.title || row.name,
+        });
       }
-      if (files.length) await addFiles(files);
+      if (files.length) await addFiles(files, metas);
       setLibOpen(false);
       setLibSelected(new Set());
     } catch (e) {
@@ -1968,6 +1993,7 @@ function GeoTagImager({
       setImporting(false);
     }
   }, [library, libSelected, addFiles]);
+
 
 
   const tagged = rows.filter((r) => r.result?.hasGps).length;
