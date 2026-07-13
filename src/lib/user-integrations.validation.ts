@@ -61,6 +61,38 @@ export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
       patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
     },
   },
+  facebook: {
+    page_id: {
+      label: "Page ID",
+      required: true,
+      min: 3,
+      max: 128,
+      pattern: /^[A-Za-z0-9._-]+$/,
+      patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
+    },
+    access_token: {
+      label: "Page Access Token",
+      required: true,
+      min: 20,
+      max: 1024,
+    },
+  },
+  instagram: {
+    account_id: {
+      label: "Instagram Business Account ID",
+      required: true,
+      min: 3,
+      max: 128,
+      pattern: /^[A-Za-z0-9._-]+$/,
+      patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
+    },
+    access_token: {
+      label: "Access Token",
+      required: true,
+      min: 20,
+      max: 1024,
+    },
+  },
 };
 
 export function validateField(rule: FieldRule, raw: string): string | null {
