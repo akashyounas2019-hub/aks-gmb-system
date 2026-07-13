@@ -1027,8 +1027,41 @@ function ImageEditModal({
       });
     } else if (hasPublished) {
       setBucket("published");
+      setLoc(null);
     } else {
       setBucket("raw");
+      setLoc(null);
+    }
+
+    // Auto-detect embedded GPS from the file itself when the DB row has no
+    // coordinates. If found, pre-populate the location picker so moving to
+    // Geo-tagged / Published works without manually re-entering coords.
+    if (data.image.lat == null || data.image.lng == null) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data: signed } = await supabase.storage
+            .from("frames")
+            .createSignedUrl(data.image.storage_path, 60);
+          if (!signed?.signedUrl || cancelled) return;
+          const res = await fetch(signed.signedUrl);
+          const blob = await res.blob();
+          const gps = await readGps(
+            new File([blob], "image.jpg", { type: blob.type || "image/jpeg" }),
+          );
+          if (cancelled || !gps.hasGps || gps.lat == null || gps.lng == null) return;
+          setLoc({
+            lat: gps.lat,
+            lng: gps.lng,
+            label: `EXIF ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`,
+          });
+        } catch {
+          /* ignore — user can still pick manually */
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [data]);
 
@@ -1121,10 +1154,22 @@ function ImageEditModal({
       const patch: { lat?: number | null; lng?: number | null } = {};
       if (bucket === "geotagged") {
         if (!loc) {
-          toast.error("Pick a location for geo-tagging");
+          toast.error(
+            "No coordinates available. Pick a location or upload an image with embedded GPS.",
+          );
           setSaving(false);
           return;
         }
+        patch.lat = loc.lat;
+        patch.lng = loc.lng;
+      } else if (
+        bucket === "published" &&
+        loc &&
+        (data.image.lat == null || data.image.lng == null)
+      ) {
+        // Publishing a raw image that has EXIF-embedded coords — persist them
+        // to the DB so the published image keeps its geo-tag automatically,
+        // without a separate manual coordinate entry step.
         patch.lat = loc.lat;
         patch.lng = loc.lng;
       }
@@ -1647,7 +1692,10 @@ function GeoStatusButton({
       }
       const dLat = Math.abs(gps.lat - lat);
       const dLng = Math.abs(gps.lng - lng);
-      if (dLat < 1e-4 && dLng < 1e-4) {
+      // Tolerance ~5e-4° (~55m) — piexif rounds GPS seconds to 1/10000 and
+      // reverse-geocoded pins can drift a few meters; anything closer than
+      // this is treated as a match to avoid spurious mismatch errors.
+      if (dLat < 5e-4 && dLng < 5e-4) {
         setState("ok");
         setDetail(`Verified ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)}`);
         toast.success("Geo-tag verified — EXIF matches the database.");
