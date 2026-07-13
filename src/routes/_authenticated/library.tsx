@@ -440,25 +440,37 @@ function LibraryPage() {
       )}
 
       {tab === "raw" && !isLoading && (
-        <div className="mt-6 rounded-xl border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm font-medium">Folders</div>
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <FolderIcon className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold leading-tight">Folders</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Organize raw images into groups
+                </div>
+              </div>
+            </div>
             <button
               onClick={createFolder}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
             >
-              <FolderPlus className="h-3.5 w-3.5 text-primary" /> New folder
+              <FolderPlus className="h-3.5 w-3.5" /> New folder
             </button>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 p-4">
             <FolderChip
               active={rawFolderId === null}
+              icon={ImagesIcon}
               label="All raw"
               count={data?.images.filter((i) => imageBucket(i) === "raw").length ?? 0}
               onClick={() => setRawFolderId(null)}
             />
             <FolderChip
               active={rawFolderId === "__uncategorized"}
+              icon={ImagesIcon}
               label="Unfiled"
               count={
                 data?.images.filter((i) => imageBucket(i) === "raw" && i.folder_id == null).length ?? 0
@@ -473,45 +485,63 @@ function LibraryPage() {
               return (
                 <div
                   key={f.id}
-                  className={`group inline-flex items-center gap-1 rounded-full border px-1 pl-3 text-xs transition ${
+                  className={`group inline-flex items-center overflow-hidden rounded-full border text-xs transition ${
                     active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background hover:border-primary/40"
+                      ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+                      : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
                   }`}
                 >
                   <button
                     onClick={() => setRawFolderId(f.id)}
-                    className="inline-flex items-center gap-1.5 py-1 font-medium"
+                    className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
                   >
-                    <FolderIcon className="h-3.5 w-3.5" />
-                    {f.name}
-                    <span className="text-muted-foreground">{count}</span>
+                    <FolderIcon
+                      className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
+                    />
+                    <span>{f.name}</span>
+                    <span
+                      className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                        active
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {count}
+                    </span>
                   </button>
-                  <button
-                    onClick={() => renameFolder(f.id, f.name)}
-                    aria-label="Rename"
-                    title="Rename"
-                    className="rounded-full p-1 opacity-0 transition group-hover:opacity-100 hover:bg-accent"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => deleteFolder(f.id, f.name)}
-                    aria-label="Delete folder"
-                    title="Delete folder"
-                    className="rounded-full p-1 text-destructive opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center pr-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      onClick={() => renameFolder(f.id, f.name)}
+                      aria-label="Rename folder"
+                      title="Rename"
+                      className="rounded-full p-1 hover:bg-accent"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteFolder(f.id, f.name)}
+                      aria-label="Delete folder"
+                      title="Delete folder"
+                      className="rounded-full p-1 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
+            {data?.folders.length === 0 && (
+              <div className="flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+                <FolderPlus className="h-3 w-3" />
+                No folders yet — click <span className="font-medium">New folder</span> to start.
+              </div>
+            )}
           </div>
 
           {selectMode && selected.size > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-primary/[0.04] px-4 py-2.5 text-xs">
               <span className="font-medium">
-                Move {selected.size} selected to:
+                Move {selected.size} selected to
               </span>
               {data?.folders.map((f) => (
                 <button
@@ -532,7 +562,7 @@ function LibraryPage() {
                 }}
                 className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
               >
-                Remove from folder
+                <X className="h-3 w-3" /> Remove from folder
               </button>
               {data?.folders.length === 0 && (
                 <span className="text-muted-foreground">
