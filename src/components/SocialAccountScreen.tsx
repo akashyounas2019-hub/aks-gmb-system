@@ -39,7 +39,7 @@ export function SocialAccountScreen({
   libraryCategories?: CategoryDef[];
 }) {
   const [tab, setTab] = useState<"library" | "upload" | "compose" | "calendar">(
-    "library",
+    "upload",
   );
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -55,16 +55,16 @@ export function SocialAccountScreen({
       <div className="mb-6 border-b border-border">
         <nav role="tablist" className="-mb-px flex flex-wrap gap-1">
           <TabButton
-            active={tab === "library"}
-            onClick={() => setTab("library")}
-            icon={<Images className="h-4 w-4" />}
-            label="Image Library"
-          />
-          <TabButton
             active={tab === "upload"}
             onClick={() => setTab("upload")}
             icon={<Upload className="h-4 w-4" />}
             label="Upload"
+          />
+          <TabButton
+            active={tab === "library"}
+            onClick={() => setTab("library")}
+            icon={<Images className="h-4 w-4" />}
+            label="Image Library"
           />
           <TabButton
             active={tab === "compose"}
@@ -80,6 +80,7 @@ export function SocialAccountScreen({
           />
         </nav>
       </div>
+
 
       {tab === "library" && (
         <ImageLibraryTab
