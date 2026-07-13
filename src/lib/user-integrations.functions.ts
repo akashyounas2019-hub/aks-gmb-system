@@ -8,6 +8,7 @@ const ALLOWED_PROVIDERS = [
   "local_falcon",
   "facebook",
   "instagram",
+  "linkedin",
 ] as const;
 type Provider = (typeof ALLOWED_PROVIDERS)[number];
 
