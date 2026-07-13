@@ -317,6 +317,7 @@ export function CalendarPage({
           byDay={byDay}
           selectedDay={selectedDay}
           setSelectedDay={setSelectedDay}
+          onDayClick={onDayClick}
           selectedPosts={selectedPosts}
           onRetry={handleRetry}
           retrying={retrying}
@@ -376,6 +377,7 @@ function MonthView({
   onRetry,
   retrying,
   loading,
+  onDayClick,
 }: {
   cursor: Date;
   setCursor: (d: Date) => void;
@@ -388,6 +390,7 @@ function MonthView({
   onRetry: (id: string) => void;
   retrying: string | null;
   loading: boolean;
+  onDayClick?: (dateISO: string) => void;
 }) {
   const currentMonth = cursor.getMonth();
   const todayKey = dateKey(new Date());
