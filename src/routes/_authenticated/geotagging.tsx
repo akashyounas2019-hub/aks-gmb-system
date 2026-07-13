@@ -1592,6 +1592,19 @@ function StepAssign({
                   <div className="truncate text-[11px] text-muted-foreground">
                     {img.locationLabel ?? "Not tagged"}
                   </div>
+                  <input
+                    value={img.title}
+                    onChange={(e) => updateImageMeta(img.id, { title: e.target.value })}
+                    placeholder="Title"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <textarea
+                    value={img.description}
+                    onChange={(e) => updateImageMeta(img.id, { description: e.target.value })}
+                    placeholder="Description"
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+                  />
                   <div className="flex items-center gap-1.5 pt-1">
                     <button
                       onClick={() => applyToTargets([img.id])}
