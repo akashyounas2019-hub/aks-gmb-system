@@ -124,6 +124,7 @@ type LocalImage = {
 
 function GeotaggingPage() {
   const inputRef = useRef<HTMLInputElement>(null);
+  const [tab, setTab] = useState<"wizard" | "verify">("wizard");
   const [images, setImages] = useState<LocalImage[]>([]);
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const [dragOver, setDragOver] = useState(false);
