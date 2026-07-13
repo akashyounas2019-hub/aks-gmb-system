@@ -901,39 +901,27 @@ function KeywordsPage() {
                 </div>
                 <ul className="divide-y divide-border/60">
                   {imports.map((imp) => (
-                    <li
+                    <ImportRow
                       key={imp.id}
-                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <FileUp className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{imp.name}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                            +{imp.count.toLocaleString()} keywords
-                          </span>
-                          <span>
-                            {imp.source === "semrush" ? "Semrush CSV" : "Generic import"}
-                          </span>
-                          <span>·</span>
-                          <span>{formatBytes(imp.size)}</span>
-                          <span>·</span>
-                          <span>into {imp.folderName}</span>
-                          <span>·</span>
-                          <span>{formatRelativeTime(imp.at)}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setActiveTab("library");
-                        }}
-                        className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
-                      >
-                        View in Library
-                      </button>
-                    </li>
+                      imp={imp}
+                      folders={folders}
+                      folderById={folderById}
+                      expanded={expandedImports.has(imp.id)}
+                      onToggleExpanded={() =>
+                        setExpandedImports((prev) => {
+                          const n = new Set(prev);
+                          if (n.has(imp.id)) n.delete(imp.id);
+                          else n.add(imp.id);
+                          return n;
+                        })
+                      }
+                      editing={editingImportId === imp.id}
+                      onStartEdit={() => setEditingImportId(imp.id)}
+                      onStopEdit={() => setEditingImportId(null)}
+                      onRename={(name) => renameImport(imp.id, name)}
+                      onMove={(fid) => moveImportSet(imp, fid)}
+                      onOpenInLibrary={() => setActiveTab("library")}
+                    />
                   ))}
                 </ul>
               </div>
