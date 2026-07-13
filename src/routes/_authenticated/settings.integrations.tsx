@@ -500,6 +500,20 @@ function IntegrationsPage() {
         docsUrl="https://developers.facebook.com/docs/instagram-api"
       />
 
+      {/* LinkedIn */}
+      <ProviderCard
+        provider="linkedin"
+        title="LinkedIn"
+        description="Publish to a LinkedIn Page or member profile via the LinkedIn API. Requires an organization or member URN and an OAuth access token."
+        icon={<Plug className="h-6 w-6" />}
+        fields={[
+          { key: "organization_id", label: "Organization or Member URN", secret: false, placeholder: "urn:li:organization:123456" },
+          { key: "access_token", label: "Access Token", secret: true, placeholder: "AQV••••" },
+        ]}
+        docsUrl="https://learn.microsoft.com/linkedin/marketing/integrations/community-management/shares/posts-api"
+      />
+
+
 
 
 
