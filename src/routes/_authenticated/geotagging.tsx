@@ -494,7 +494,11 @@ function GeotaggingPage() {
       return;
     }
     try {
-      const tagged = await embedGps(img.file, img.lat, img.lng);
+      const tagged = await embedGps(img.file, img.lat, img.lng, {
+        title: img.title,
+        description: img.description,
+        keywords: img.locationLabel ? [img.locationLabel] : [],
+      });
       const url = URL.createObjectURL(tagged);
       const a = document.createElement("a");
       a.href = url;
