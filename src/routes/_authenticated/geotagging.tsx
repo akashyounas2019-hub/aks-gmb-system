@@ -1956,6 +1956,26 @@ function GeoTagImager({
           </div>
         </div>
 
+        <div className="mt-3 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            onClick={() => {
+              setLibSelected(new Set());
+              setLibOpen(true);
+              if (library.length === 0) onRefresh();
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+          >
+            <Library className="h-3.5 w-3.5 text-primary" />
+            Pick from library
+            <span className="text-muted-foreground">({library.length})</span>
+          </button>
+          <span className="text-xs text-muted-foreground">
+            Verify GeoTag status of images already in your cloud library.
+          </span>
+        </div>
+
+
         {rows.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <StatChip label="Checked" value={rows.length} />
