@@ -41,7 +41,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
