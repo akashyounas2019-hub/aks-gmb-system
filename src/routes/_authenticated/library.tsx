@@ -159,11 +159,15 @@ function LibraryPage() {
 
 
   function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
-    if (img.lat != null && img.lng != null) return "geotagged";
+    // Published wins over geotagged so a geo-tagged image that gets published
+    // shows up under "Published" (with its GPS still intact) instead of
+    // silently staying in the geo-tagged tab.
     const tags = data?.tagMap.get(img.id) ?? [];
     if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
+    if (img.lat != null && img.lng != null) return "geotagged";
     return "raw";
   }
+
 
 
   const counts = useMemo(() => {
