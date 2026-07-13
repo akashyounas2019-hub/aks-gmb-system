@@ -58,6 +58,13 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    label: "Social Accounts",
+    items: [
+      { to: "/social/facebook", label: "Facebook", icon: PenSquare },
+      { to: "/social/instagram", label: "Instagram", icon: PenSquare },
+    ],
+  },
+  {
     label: "Publishing",
     items: [
       { to: "/calendar", label: "Calendar", icon: CalendarDays },

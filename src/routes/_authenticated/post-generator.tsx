@@ -38,8 +38,10 @@ import { readGps } from "@/lib/exif-geotag";
 import { getPreferences } from "@/lib/user-preferences.functions";
 
 export const Route = createFileRoute("/_authenticated/post-generator")({
-  component: PostGeneratorPage,
+  component: () => <PostGeneratorPage />,
 });
+
+export type SocialPlatform = "gmb" | "facebook" | "instagram" | "linkedin" | "twitter";
 
 type KeywordRow = {
   id: string;
@@ -59,7 +61,10 @@ type ImageRow = {
 const PREVIEW_COUNT = 8;
 
 
-function PostGeneratorPage() {
+export function PostGeneratorPage({
+  defaultPlatform,
+  pageTitle,
+}: { defaultPlatform?: SocialPlatform; pageTitle?: string } = {}) {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
   const saveDraft = useServerFn(upsertDraft);
@@ -88,7 +93,7 @@ function PostGeneratorPage() {
   const [cta, setCta] = useState("");
   const [ghlLocationId, setGhlLocationId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
-  const [networks, setNetworks] = useState<Array<"gmb" | "facebook" | "instagram" | "linkedin" | "twitter">>(["gmb"]);
+  const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const [caption, setCaption] = useState("");
@@ -404,7 +409,7 @@ function PostGeneratorPage() {
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl">Post Generator</h1>
+          <h1 className="text-3xl">{pageTitle ?? "Post Generator"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Enter your keywords, pick images + location, generate with AI, then
             push to GHL Social Planner.

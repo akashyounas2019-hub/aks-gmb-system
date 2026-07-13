@@ -27,6 +27,8 @@ import { Route as AuthenticatedDashboardRouteImport } from './routes/_authentica
 import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
 import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
 import { Route as AuthenticatedAutomationRouteImport } from './routes/_authenticated/automation'
+import { Route as AuthenticatedSocialInstagramRouteImport } from './routes/_authenticated/social.instagram'
+import { Route as AuthenticatedSocialFacebookRouteImport } from './routes/_authenticated/social.facebook'
 import { Route as AuthenticatedSettingsWebhooksRouteImport } from './routes/_authenticated/settings.webhooks'
 import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
 import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
@@ -132,6 +134,18 @@ const AuthenticatedAutomationRoute = AuthenticatedAutomationRouteImport.update({
   path: '/automation',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedSocialInstagramRoute =
+  AuthenticatedSocialInstagramRouteImport.update({
+    id: '/social/instagram',
+    path: '/social/instagram',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSocialFacebookRoute =
+  AuthenticatedSocialFacebookRouteImport.update({
+    id: '/social/facebook',
+    path: '/social/facebook',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSettingsWebhooksRoute =
   AuthenticatedSettingsWebhooksRouteImport.update({
     id: '/webhooks',
@@ -220,6 +234,8 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
+  '/social/facebook': typeof AuthenticatedSocialFacebookRoute
+  '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesByTo {
@@ -249,6 +265,8 @@ export interface FileRoutesByTo {
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
+  '/social/facebook': typeof AuthenticatedSocialFacebookRoute
+  '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesById {
@@ -280,6 +298,8 @@ export interface FileRoutesById {
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
+  '/_authenticated/social/facebook': typeof AuthenticatedSocialFacebookRoute
+  '/_authenticated/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRouteTypes {
@@ -311,6 +331,8 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/team'
     | '/settings/webhooks'
+    | '/social/facebook'
+    | '/social/instagram'
     | '/api/public/hooks/run-automations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -340,6 +362,8 @@ export interface FileRouteTypes {
     | '/settings/security'
     | '/settings/team'
     | '/settings/webhooks'
+    | '/social/facebook'
+    | '/social/instagram'
     | '/api/public/hooks/run-automations'
   id:
     | '__root__'
@@ -370,6 +394,8 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/security'
     | '/_authenticated/settings/team'
     | '/_authenticated/settings/webhooks'
+    | '/_authenticated/social/facebook'
+    | '/_authenticated/social/instagram'
     | '/api/public/hooks/run-automations'
   fileRoutesById: FileRoutesById
 }
@@ -508,6 +534,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAutomationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/social/instagram': {
+      id: '/_authenticated/social/instagram'
+      path: '/social/instagram'
+      fullPath: '/social/instagram'
+      preLoaderRoute: typeof AuthenticatedSocialInstagramRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/social/facebook': {
+      id: '/_authenticated/social/facebook'
+      path: '/social/facebook'
+      fullPath: '/social/facebook'
+      preLoaderRoute: typeof AuthenticatedSocialFacebookRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/settings/webhooks': {
       id: '/_authenticated/settings/webhooks'
       path: '/webhooks'
@@ -637,6 +677,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
+  AuthenticatedSocialFacebookRoute: typeof AuthenticatedSocialFacebookRoute
+  AuthenticatedSocialInstagramRoute: typeof AuthenticatedSocialInstagramRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -655,6 +697,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
+  AuthenticatedSocialFacebookRoute: AuthenticatedSocialFacebookRoute,
+  AuthenticatedSocialInstagramRoute: AuthenticatedSocialInstagramRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
