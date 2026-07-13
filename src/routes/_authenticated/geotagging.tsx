@@ -390,21 +390,38 @@ function GeotaggingPage() {
         // Embed GPS EXIF into the JPEG bytes so third-party viewers (Photos,
         // Windows Explorer, Lightroom, etc.) recognise the coordinates.
         const tagged = await embedGps(img.file, img.lat!, img.lng!);
-        const ext = tagged.name.split(".").pop() || "jpg";
-        const path = `${userId}/geotag/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("frames")
-          .upload(path, tagged, { contentType: tagged.type, upsert: false });
-        if (upErr) throw upErr;
 
-        const { error: dbErr } = await supabase.from("images").insert({
-          owner_id: userId,
-          storage_path: path,
-          name: img.file.name,
-          lat: img.lat,
-          lng: img.lng,
-        });
-        if (dbErr) throw dbErr;
+        if (img.libraryId && img.libraryStoragePath) {
+          // Overwrite the existing storage object so the file itself carries
+          // the new GPS EXIF, and update the DB row rather than inserting.
+          const { error: upErr } = await supabase.storage
+            .from("frames")
+            .upload(img.libraryStoragePath, tagged, {
+              contentType: tagged.type,
+              upsert: true,
+            });
+          if (upErr) throw upErr;
+          const { error: dbErr } = await supabase
+            .from("images")
+            .update({ lat: img.lat, lng: img.lng })
+            .eq("id", img.libraryId);
+          if (dbErr) throw dbErr;
+        } else {
+          const ext = tagged.name.split(".").pop() || "jpg";
+          const path = `${userId}/geotag/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("frames")
+            .upload(path, tagged, { contentType: tagged.type, upsert: false });
+          if (upErr) throw upErr;
+          const { error: dbErr } = await supabase.from("images").insert({
+            owner_id: userId,
+            storage_path: path,
+            name: img.file.name,
+            lat: img.lat,
+            lng: img.lng,
+          });
+          if (dbErr) throw dbErr;
+        }
 
         ok++;
         setImages((prev) =>
