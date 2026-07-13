@@ -1027,8 +1027,41 @@ function ImageEditModal({
       });
     } else if (hasPublished) {
       setBucket("published");
+      setLoc(null);
     } else {
       setBucket("raw");
+      setLoc(null);
+    }
+
+    // Auto-detect embedded GPS from the file itself when the DB row has no
+    // coordinates. If found, pre-populate the location picker so moving to
+    // Geo-tagged / Published works without manually re-entering coords.
+    if (data.image.lat == null || data.image.lng == null) {
+      let cancelled = false;
+      (async () => {
+        try {
+          const { data: signed } = await supabase.storage
+            .from("frames")
+            .createSignedUrl(data.image.storage_path, 60);
+          if (!signed?.signedUrl || cancelled) return;
+          const res = await fetch(signed.signedUrl);
+          const blob = await res.blob();
+          const gps = await readGps(
+            new File([blob], "image.jpg", { type: blob.type || "image/jpeg" }),
+          );
+          if (cancelled || !gps.hasGps || gps.lat == null || gps.lng == null) return;
+          setLoc({
+            lat: gps.lat,
+            lng: gps.lng,
+            label: `EXIF ${gps.lat.toFixed(5)}, ${gps.lng.toFixed(5)}`,
+          });
+        } catch {
+          /* ignore — user can still pick manually */
+        }
+      })();
+      return () => {
+        cancelled = true;
+      };
     }
   }, [data]);
 
