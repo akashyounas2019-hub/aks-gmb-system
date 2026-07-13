@@ -436,7 +436,8 @@ function KeywordsPage() {
         source: "semrush-csv",
       }))
       .filter((k) => k.phrase);
-    await insertBatch(payload);
+    const count = await insertBatch(payload);
+    recordImport(file, count, "semrush");
   }
 
   async function importGeneric(file: File) {
