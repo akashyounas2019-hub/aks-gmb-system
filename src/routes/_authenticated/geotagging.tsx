@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   MapPin,
@@ -20,10 +20,14 @@ import {
   ChevronRight,
   ChevronDown,
   CircleCheck,
+  Download,
+  Library,
+  Plus,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
+import { SignedImage, useSignedUrl } from "@/components/SignedImage";
 import { embedGps, readGps, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
@@ -116,6 +120,19 @@ type LocalImage = {
   locationLabel: string | null;
   status: "pending" | "saving" | "saved" | "error";
   error?: string;
+  // When the image was added from the user's library, we track the DB row so
+  // saveAll updates that row (and re-uploads to the same storage path) instead
+  // of creating a duplicate.
+  libraryId?: string;
+  libraryStoragePath?: string;
+};
+
+type LibraryImage = {
+  id: string;
+  name: string;
+  storage_path: string;
+  lat: number | null;
+  lng: number | null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -149,6 +166,84 @@ function GeotaggingPage() {
   const officePlaces = useMemo(() => PLACES.filter((p) => p.type === "office"), []);
   const [homePickId, setHomePickId] = useState<string>(homePlaces[0]?.id ?? "");
   const [officePickId, setOfficePickId] = useState<string>(officePlaces[0]?.id ?? "");
+
+  // Cloud library (existing user images)
+  const [library, setLibrary] = useState<LibraryImage[]>([]);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [importingFromLibrary, setImportingFromLibrary] = useState(false);
+
+  const reloadLibrary = useCallback(async () => {
+    setLibraryLoading(true);
+    const { data } = await supabase
+      .from("images")
+      .select("id,name,storage_path,lat,lng")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    setLibrary((data ?? []) as LibraryImage[]);
+    setLibraryLoading(false);
+  }, []);
+
+  useEffect(() => {
+    reloadLibrary();
+  }, [reloadLibrary]);
+
+  const alreadyImportedIds = useMemo(
+    () => new Set(images.map((i) => i.libraryId).filter(Boolean) as string[]),
+    [images],
+  );
+
+  const addFromLibrary = useCallback(
+    async (rows: LibraryImage[]) => {
+      if (rows.length === 0) return;
+      setImportingFromLibrary(true);
+      try {
+        const newOnes = rows.filter((r) => !alreadyImportedIds.has(r.id));
+        if (newOnes.length === 0) {
+          toast.info("Already added from library.");
+          return;
+        }
+        const built: LocalImage[] = [];
+        for (const row of newOnes) {
+          const { data: signed, error } = await supabase.storage
+            .from("frames")
+            .createSignedUrl(row.storage_path, 60 * 60);
+          if (error || !signed?.signedUrl) continue;
+          const res = await fetch(signed.signedUrl);
+          const blob = await res.blob();
+          const mime = blob.type || "image/jpeg";
+          const file = new File([blob], row.name || `library-${row.id}.jpg`, {
+            type: mime,
+            lastModified: Date.now(),
+          });
+          const lat = row.lat != null ? Number(row.lat) : pinnedCoord?.lat ?? null;
+          const lng = row.lng != null ? Number(row.lng) : pinnedCoord?.lng ?? null;
+          built.push({
+            id: crypto.randomUUID(),
+            file,
+            previewUrl: URL.createObjectURL(blob),
+            lat,
+            lng,
+            locationLabel:
+              row.lat != null && row.lng != null
+                ? `Existing tag ${Number(row.lat).toFixed(4)}, ${Number(row.lng).toFixed(4)}`
+                : pinnedCoord?.label ?? null,
+            status: "pending",
+            libraryId: row.id,
+            libraryStoragePath: row.storage_path,
+          });
+        }
+        setImages((prev) => [...prev, ...built]);
+        toast.success(`Imported ${built.length} image${built.length === 1 ? "" : "s"} from library.`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Library import failed.");
+      } finally {
+        setImportingFromLibrary(false);
+      }
+    },
+    [alreadyImportedIds, pinnedCoord],
+  );
 
   /* --------------------------- upload handling --------------------------- */
 
@@ -295,21 +390,38 @@ function GeotaggingPage() {
         // Embed GPS EXIF into the JPEG bytes so third-party viewers (Photos,
         // Windows Explorer, Lightroom, etc.) recognise the coordinates.
         const tagged = await embedGps(img.file, img.lat!, img.lng!);
-        const ext = tagged.name.split(".").pop() || "jpg";
-        const path = `${userId}/geotag/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("frames")
-          .upload(path, tagged, { contentType: tagged.type, upsert: false });
-        if (upErr) throw upErr;
 
-        const { error: dbErr } = await supabase.from("images").insert({
-          owner_id: userId,
-          storage_path: path,
-          name: img.file.name,
-          lat: img.lat,
-          lng: img.lng,
-        });
-        if (dbErr) throw dbErr;
+        if (img.libraryId && img.libraryStoragePath) {
+          // Overwrite the existing storage object so the file itself carries
+          // the new GPS EXIF, and update the DB row rather than inserting.
+          const { error: upErr } = await supabase.storage
+            .from("frames")
+            .upload(img.libraryStoragePath, tagged, {
+              contentType: tagged.type,
+              upsert: true,
+            });
+          if (upErr) throw upErr;
+          const { error: dbErr } = await supabase
+            .from("images")
+            .update({ lat: img.lat, lng: img.lng })
+            .eq("id", img.libraryId);
+          if (dbErr) throw dbErr;
+        } else {
+          const ext = tagged.name.split(".").pop() || "jpg";
+          const path = `${userId}/geotag/${crypto.randomUUID()}.${ext}`;
+          const { error: upErr } = await supabase.storage
+            .from("frames")
+            .upload(path, tagged, { contentType: tagged.type, upsert: false });
+          if (upErr) throw upErr;
+          const { error: dbErr } = await supabase.from("images").insert({
+            owner_id: userId,
+            storage_path: path,
+            name: img.file.name,
+            lat: img.lat,
+            lng: img.lng,
+          });
+          if (dbErr) throw dbErr;
+        }
 
         ok++;
         setImages((prev) =>
@@ -330,6 +442,31 @@ function GeotaggingPage() {
     setSavingBulk(false);
     if (fail === 0) toast.success(`Saved ${ok} geotagged image${ok === 1 ? "" : "s"}.`);
     else toast.error(`${ok} saved, ${fail} failed.`);
+    reloadLibrary();
+  };
+
+  /* --------------------------- download processed --------------------------- */
+
+  const downloadProcessed = async (img: LocalImage) => {
+    if (img.lat === null || img.lng === null) {
+      toast.error("Tag this image with a location first.");
+      return;
+    }
+    try {
+      const tagged = await embedGps(img.file, img.lat, img.lng);
+      const url = URL.createObjectURL(tagged);
+      const a = document.createElement("a");
+      a.href = url;
+      const base = img.file.name.replace(/\.[^.]+$/, "");
+      const ext = tagged.name.split(".").pop() || "jpg";
+      a.download = `${base}-geotagged.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed.");
+    }
   };
 
   /* --------------------------------- UI --------------------------------- */
@@ -479,6 +616,13 @@ function GeotaggingPage() {
             inputRef={inputRef}
             addFiles={addFiles}
             removeImage={removeImage}
+            library={library}
+            libraryLoading={libraryLoading}
+            reloadLibrary={reloadLibrary}
+            openLibrary={() => setLibraryOpen(true)}
+            alreadyImportedIds={alreadyImportedIds}
+            addFromLibrary={addFromLibrary}
+            importingFromLibrary={importingFromLibrary}
           />
         )}
 
@@ -523,6 +667,10 @@ function GeotaggingPage() {
             applyToTargets={applyToTargets}
             applyToSelected={applyToSelected}
             removeImage={removeImage}
+            inputRef={inputRef}
+            addFiles={addFiles}
+            openLibrary={() => setLibraryOpen(true)}
+            downloadProcessed={downloadProcessed}
           />
         )}
 
@@ -533,6 +681,7 @@ function GeotaggingPage() {
             savingBulk={savingBulk}
             saveAll={saveAll}
             images={images}
+            downloadProcessed={downloadProcessed}
           />
         )}
       </section>
@@ -598,6 +747,87 @@ function GeotaggingPage() {
       </div>
       </>
       )}
+
+      {/* Library gallery modal */}
+      {libraryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setLibraryOpen(false)}
+        >
+          <div
+            className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <div>
+                <div className="text-sm font-medium">Your image library</div>
+                <div className="text-xs text-muted-foreground">
+                  {library.length} available · {alreadyImportedIds.size} already added
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Search className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+                  <input
+                    value={librarySearch}
+                    onChange={(e) => setLibrarySearch(e.target.value)}
+                    placeholder="Search by name…"
+                    className="w-56 rounded-md border border-border bg-background pl-7 pr-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-primary"
+                  />
+                </div>
+                <button
+                  onClick={() => setLibraryOpen(false)}
+                  className="rounded p-1 hover:bg-accent"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              {(() => {
+                const q = librarySearch.trim().toLowerCase();
+                const filtered = q
+                  ? library.filter((r) => r.name.toLowerCase().includes(q))
+                  : library;
+                if (filtered.length === 0) {
+                  return (
+                    <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
+                      No images match.
+                    </div>
+                  );
+                }
+                return (
+                  <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                    {filtered.map((row) => {
+                      const imported = alreadyImportedIds.has(row.id);
+                      return (
+                        <LibraryThumb
+                          key={row.id}
+                          row={row}
+                          imported={imported}
+                          onClick={() => !imported && addFromLibrary([row])}
+                        />
+                      );
+                    })}
+                  </div>
+                );
+              })()}
+            </div>
+            <div className="flex items-center justify-between border-t border-border px-5 py-3">
+              <div className="text-xs text-muted-foreground">
+                {importingFromLibrary ? "Importing…" : "Click any image to add it to the batch."}
+              </div>
+              <button
+                onClick={() => setLibraryOpen(false)}
+                className="rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
@@ -656,6 +886,13 @@ function StepUpload({
   inputRef,
   addFiles,
   removeImage,
+  library,
+  libraryLoading,
+  reloadLibrary,
+  openLibrary,
+  alreadyImportedIds,
+  addFromLibrary,
+  importingFromLibrary,
 }: {
   images: LocalImage[];
   dragOver: boolean;
@@ -663,13 +900,23 @@ function StepUpload({
   inputRef: React.RefObject<HTMLInputElement | null>;
   addFiles: (f: FileList | File[]) => void;
   removeImage: (id: string) => void;
+  library: LibraryImage[];
+  libraryLoading: boolean;
+  reloadLibrary: () => void;
+  openLibrary: () => void;
+  alreadyImportedIds: Set<string>;
+  addFromLibrary: (rows: LibraryImage[]) => Promise<void>;
+  importingFromLibrary: boolean;
 }) {
+  const PREVIEW_COUNT = 8;
+  const previewLibrary = library.slice(0, PREVIEW_COUNT);
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-medium">Upload your images</h2>
         <p className="text-sm text-muted-foreground">
-          Drop a batch of photos below. You can add more later.
+          Drop a batch of photos below, or pick from your existing library. You can add
+          more or remove any at later steps.
         </p>
       </div>
 
@@ -702,6 +949,57 @@ function StepUpload({
         <div className="text-xs text-muted-foreground">JPG, PNG, WEBP — bulk upload supported</div>
       </div>
 
+      {/* Library picker */}
+      <section className="rounded-xl border border-border bg-card/40 p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Library className="h-4 w-4 text-primary" /> Pick from your library
+            <span className="text-xs text-muted-foreground">
+              ({library.length} available)
+            </span>
+            {importingFromLibrary && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={reloadLibrary}
+            className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent"
+          >
+            {libraryLoading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
+        {previewLibrary.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            No images in your library yet. Uploaded and geotagged images will appear here.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-2 md:grid-cols-8">
+              {previewLibrary.map((row) => {
+                const imported = alreadyImportedIds.has(row.id);
+                return (
+                  <LibraryThumb
+                    key={row.id}
+                    row={row}
+                    imported={imported}
+                    onClick={() => !imported && addFromLibrary([row])}
+                  />
+                );
+              })}
+            </div>
+            {library.length > PREVIEW_COUNT && (
+              <button
+                onClick={openLibrary}
+                className="mt-3 w-full rounded-md border border-border py-2 text-xs font-medium hover:border-primary/50 hover:bg-accent"
+              >
+                View all {library.length} images →
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-2 md:grid-cols-5 lg:grid-cols-6">
           {images.map((img) => (
@@ -711,6 +1009,11 @@ function StepUpload({
                 alt={img.file.name}
                 className="aspect-square h-full w-full object-cover"
               />
+              {img.libraryId && (
+                <span className="absolute left-1 top-1 rounded-md bg-primary/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary-foreground">
+                  Library
+                </span>
+              )}
               <button
                 onClick={() => removeImage(img.id)}
                 className="absolute right-1 top-1 rounded-md bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive"
@@ -723,6 +1026,47 @@ function StepUpload({
         </div>
       )}
     </div>
+  );
+}
+
+function LibraryThumb({
+  row,
+  imported,
+  onClick,
+}: {
+  row: LibraryImage;
+  imported: boolean;
+  onClick: () => void;
+}) {
+  const url = useSignedUrl("frames", row.storage_path);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={imported}
+      title={imported ? "Already added" : row.name}
+      className={`relative overflow-hidden rounded-md border transition ${
+        imported
+          ? "border-primary/50 opacity-60"
+          : "border-border hover:border-primary hover:ring-2 hover:ring-primary/40"
+      }`}
+    >
+      {url ? (
+        <img src={url} alt={row.name} className="aspect-square w-full object-cover" />
+      ) : (
+        <div className="aspect-square w-full animate-pulse bg-muted" />
+      )}
+      {row.lat != null && row.lng != null && (
+        <span className="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-primary/85 px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground">
+          <MapPin className="h-2.5 w-2.5" />
+        </span>
+      )}
+      {imported && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/60 text-[10px] font-semibold text-primary">
+          Added
+        </div>
+      )}
+    </button>
   );
 }
 
@@ -1040,6 +1384,10 @@ function StepAssign({
   applyToTargets,
   applyToSelected,
   removeImage,
+  inputRef,
+  addFiles,
+  openLibrary,
+  downloadProcessed,
 }: {
   images: LocalImage[];
   selected: Set<string>;
@@ -1050,6 +1398,10 @@ function StepAssign({
   applyToTargets: (ids: string[]) => void;
   applyToSelected: () => void;
   removeImage: (id: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  addFiles: (f: FileList | File[]) => void;
+  openLibrary: () => void;
+  downloadProcessed: (img: LocalImage) => Promise<void>;
 }) {
   return (
     <div className="space-y-4">
@@ -1066,11 +1418,34 @@ function StepAssign({
           <b className="text-foreground">{selected.size}</b> selected
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => e.target.files && addFiles(e.target.files)}
+          />
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add photos
+          </button>
+          <button
+            type="button"
+            onClick={openLibrary}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            <Library className="h-3.5 w-3.5" /> From library
+          </button>
           <button
             onClick={selected.size === images.length ? clearSelection : selectAll}
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+            disabled={images.length === 0}
+            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-40"
           >
-            {selected.size === images.length ? "Clear selection" : "Select all"}
+            {selected.size === images.length && images.length > 0 ? "Clear selection" : "Select all"}
           </button>
           <button
             onClick={applyToSelected}
@@ -1132,6 +1507,15 @@ function StepAssign({
                       Tag
                     </button>
                     <button
+                      onClick={() => downloadProcessed(img)}
+                      disabled={img.lat === null}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+                      aria-label="Download geotagged"
+                      title="Download with GPS EXIF"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    <button
                       onClick={() => removeImage(img.id)}
                       className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       aria-label="Remove"
@@ -1159,13 +1543,21 @@ function StepSave({
   savingBulk,
   saveAll,
   images,
+  downloadProcessed,
 }: {
   stats: { total: number; tagged: number; saved: number };
   readyToSave: LocalImage[];
   savingBulk: boolean;
   saveAll: () => void;
   images: LocalImage[];
+  downloadProcessed: (img: LocalImage) => Promise<void>;
 }) {
+  const taggedImages = images.filter((i) => i.lat !== null);
+  const downloadAll = async () => {
+    for (const img of taggedImages) {
+      await downloadProcessed(img);
+    }
+  };
   const untagged = stats.total - stats.tagged;
   return (
     <div className="space-y-4">
@@ -1190,8 +1582,17 @@ function StepSave({
       )}
 
       <div className="rounded-lg border border-border">
-        <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-          Preview
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <div className="text-xs font-medium text-muted-foreground">Preview</div>
+          <button
+            type="button"
+            onClick={downloadAll}
+            disabled={taggedImages.length === 0}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+          >
+            <Download className="h-3 w-3" />
+            Download all ({taggedImages.length})
+          </button>
         </div>
         <div className="grid max-h-72 gap-2 overflow-auto p-3 sm:grid-cols-2 md:grid-cols-3">
           {images.map((img) => (
@@ -1210,6 +1611,16 @@ function StepSave({
                   {img.locationLabel ?? "Not tagged"}
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => downloadProcessed(img)}
+                disabled={img.lat === null}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                aria-label="Download geotagged image"
+                title="Download with GPS EXIF"
+              >
+                <Download className="h-4 w-4" />
+              </button>
               {img.status === "saved" ? (
                 <Check className="h-4 w-4 text-emerald-500" />
               ) : img.status === "saving" ? (
