@@ -7,6 +7,7 @@ import { ArrowLeft, MapPin, Sparkles, Trash2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
+import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { suggestTagsForImage } from "@/lib/ai.functions";
 
 export const Route = createFileRoute("/_authenticated/library/$imageId")({
