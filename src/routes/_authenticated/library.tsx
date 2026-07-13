@@ -956,6 +956,21 @@ function ImageEditModal({
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
+              <label className="mt-3 block text-xs font-medium text-muted-foreground">Title</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Short headline shown on hover"
+                className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <label className="mt-3 block text-xs font-medium text-muted-foreground">Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Extra context surfaced on hover and in previews"
+                className="mt-1 w-full resize-none rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
             </div>
 
             <div className="space-y-5">
