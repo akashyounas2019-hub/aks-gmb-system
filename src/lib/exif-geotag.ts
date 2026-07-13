@@ -337,7 +337,7 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     description: "",
     keywords: [],
     sources: { title: null, description: null, keywords: null },
-    raw: { XPTitle: "", ImageDescription: "", XPComment: "", XPSubject: "", XPKeywords: "" },
+    raw: { XPTitle: "", ImageDescription: "", XPComment: "", XPSubject: "", XPKeywords: "", UserComment: "" },
     warnings: [],
   };
   if (!isJpeg(file)) return empty;
