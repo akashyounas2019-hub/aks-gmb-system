@@ -256,67 +256,85 @@ function fromXpBytes(raw: unknown): string {
   return out.join("");
 }
 
+export type ExifMetaSource =
+  | "XPTitle"
+  | "ImageDescription"
+  | "XPComment"
+  | "XPSubject"
+  | "XPKeywords"
+  | null;
+
 export type ExifMetaResult = {
   title: string;
   description: string;
   keywords: string[];
-  /**
-   * Diagnostic notes from the consistency check. Populated when the raw EXIF
-   * tags looked ambiguous (e.g. title and description held the same string,
-   * or the title only lived in XPSubject which geoimgr surfaces as
-   * description). The caller can surface these in the UI or a log line.
-   */
+  /** Which EXIF tag each field was read from (null when field is empty). */
+  sources: {
+    title: ExifMetaSource;
+    description: ExifMetaSource;
+    keywords: ExifMetaSource;
+  };
+  /** Raw per-tag values, so the UI can show alternatives when remapping. */
+  raw: {
+    XPTitle: string;
+    ImageDescription: string;
+    XPComment: string;
+    XPSubject: string;
+    XPKeywords: string;
+  };
+  /** Diagnostic notes from the consistency check. */
   warnings: string[];
 };
 
 /**
- * Read title/description/keywords from a JPEG. Recognises the standard
- * ImageDescription tag AND the Windows XPTitle/XPComment/XPKeywords/XPSubject
- * tags so files tagged by geoimgr, Windows Explorer, Lightroom, etc. round-trip.
- *
- * Metadata consistency check: EXIF has multiple overlapping "text" tags and
- * different tools disagree about which one is the title vs. the description.
- * This function pins each field to a single canonical tag and refuses to let
- * one value bleed into the other:
- *
- *   title       ← 0th.XPTitle
- *   description ← 0th.ImageDescription (fallback: 0th.XPComment)
- *
- * XPSubject (0x9c9f) is intentionally NOT read as a title, because geoimgr
- * (and File Explorer's "Subject" column) treat it as a secondary description.
- * If the file only has XPSubject, we surface it as description instead — never
- * as title — so a round-trip through geoimgr can't accidentally promote a
- * description string into the title field.
- *
- * If, after mapping, title and description end up identical (a sign that some
- * earlier tool wrote the same string into both tag families), we drop the
- * title. Description is authoritative because it's what geoimgr, Lightroom,
- * and every stock-photo viewer surface as the caption.
+ * Read title/description/keywords from a JPEG with source tracking.
+ * Canonical mapping: title←XPTitle, description←ImageDescription→XPComment→XPSubject.
+ * See consistency rules in comments below.
  */
 export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
-  const empty: ExifMetaResult = { title: "", description: "", keywords: [], warnings: [] };
+  const empty: ExifMetaResult = {
+    title: "",
+    description: "",
+    keywords: [],
+    sources: { title: null, description: null, keywords: null },
+    raw: { XPTitle: "", ImageDescription: "", XPComment: "", XPSubject: "", XPKeywords: "" },
+    warnings: [],
+  };
   if (!isJpeg(file)) return empty;
   try {
     const dataUrl = await fileToDataUrl(file);
     const exif = piexif.load(dataUrl) as { "0th"?: Record<number, unknown> };
     const zeroth = exif["0th"] ?? {};
-    const XPSubject = 0x9c9f;
+    const XPSubjectTag = 0x9c9f;
 
-    // Canonical reads — each field is pinned to one tag family.
-    let title = fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]).trim();
+    const XPTitle = fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]).trim();
     const imgDescRaw = zeroth[piexif.ImageIFD.ImageDescription];
-    const imgDesc = typeof imgDescRaw === "string" ? imgDescRaw.trim() : "";
-    const xpComment = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]).trim();
-    const xpSubject = fromXpBytes(zeroth[XPSubject]).trim();
+    const ImageDescription = typeof imgDescRaw === "string" ? imgDescRaw.trim() : "";
+    const XPComment = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]).trim();
+    const XPSubject = fromXpBytes(zeroth[XPSubjectTag]).trim();
+    const XPKeywords = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]).trim();
 
-    let description = imgDesc || xpComment || "";
+    const raw = { XPTitle, ImageDescription, XPComment, XPSubject, XPKeywords };
+
+    let title = XPTitle;
+    let titleSource: ExifMetaSource = XPTitle ? "XPTitle" : null;
+
+    let description = "";
+    let descriptionSource: ExifMetaSource = null;
+    if (ImageDescription) {
+      description = ImageDescription;
+      descriptionSource = "ImageDescription";
+    } else if (XPComment) {
+      description = XPComment;
+      descriptionSource = "XPComment";
+    }
+
     const warnings: string[] = [];
 
-    // Rule 1: XPSubject is a description tag in geoimgr / Windows, never a
-    // title. If description is empty but XPSubject is populated, surface
-    // XPSubject as description.
-    if (!description && xpSubject) {
-      description = xpSubject;
+    // Rule 1: XPSubject is a description tag in geoimgr / Windows.
+    if (!description && XPSubject) {
+      description = XPSubject;
+      descriptionSource = "XPSubject";
       warnings.push(
         "Description recovered from XPSubject (no ImageDescription/XPComment present).",
       );
@@ -325,25 +343,32 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     // Rule 2: never let the same string live in both fields.
     if (title && description && title === description) {
       title = "";
+      titleSource = null;
       warnings.push(
         "Title and description held the same value; kept it as description only.",
       );
     }
 
-    // Rule 3: refuse to promote XPSubject into title even if XPTitle is
-    // missing — that would re-introduce the exact bug we fixed.
-    if (!title && xpSubject && xpSubject !== description) {
+    // Rule 3: never promote XPSubject into title.
+    if (!title && XPSubject && XPSubject !== description) {
       warnings.push(
         "Text found in XPSubject but no XPTitle — left title blank to avoid mislabelling a description as a title.",
       );
     }
 
-    const kwRaw = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]);
-    const keywords = kwRaw
-      ? kwRaw.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
+    const keywords = XPKeywords
+      ? XPKeywords.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
       : [];
+    const keywordsSource: ExifMetaSource = keywords.length > 0 ? "XPKeywords" : null;
 
-    return { title, description, keywords, warnings };
+    return {
+      title,
+      description,
+      keywords,
+      sources: { title: titleSource, description: descriptionSource, keywords: keywordsSource },
+      raw,
+      warnings,
+    };
   } catch {
     return empty;
   }
