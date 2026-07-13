@@ -938,7 +938,7 @@ function KeywordsPage() {
         </div>
       )}
 
-      {activeTab === "library" && (
+      {(activeTab === "library" || activeTab === "tracked") && (
         <div className="flex flex-1 flex-col">
           {/* Horizontal Library toolbar — replaces the old vertical sidebar */}
           <div className="border-b border-border bg-card/40">
