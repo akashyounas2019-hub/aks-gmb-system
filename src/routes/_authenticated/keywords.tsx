@@ -280,11 +280,14 @@ function KeywordsPage() {
     scope !== "all" && scope !== "unfiled" ? folderById.get(scope) ?? null : null;
 
   const scopedRows = useMemo(() => {
+    if (activeTab === "tracked") return rows.filter((r) => r.tracked);
     if (scope === "all") return rows;
     if (scope === "unfiled") return rows.filter((r) => !r.folder_id);
     const ids = descendantIds(scope);
     return rows.filter((r) => r.folder_id && ids.has(r.folder_id));
-  }, [rows, scope, descendantIds]);
+  }, [rows, scope, descendantIds, activeTab]);
+
+  const trackedCount = useMemo(() => rows.filter((r) => r.tracked).length, [rows]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
