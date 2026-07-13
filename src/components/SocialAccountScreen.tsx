@@ -1,5 +1,5 @@
-import { useEffect, useRef, useState } from "react";
-import { Images, PenSquare, Upload, Loader2, Trash2 } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft } from "lucide-react";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -8,6 +8,8 @@ import {
   type SocialPlatform,
 } from "@/routes/_authenticated/post-generator";
 
+type LibraryPlatform = Extract<SocialPlatform, "facebook" | "instagram" | "linkedin">;
+
 type Creative = {
   id: string;
   name: string;
@@ -15,12 +17,16 @@ type Creative = {
   created_at: string;
 };
 
+type CategoryDef = { id: string; label: string };
+
 export function SocialAccountScreen({
   platform,
   title,
+  libraryCategories = [{ id: "post", label: "Post" }],
 }: {
-  platform: Extract<SocialPlatform, "facebook" | "instagram">;
+  platform: LibraryPlatform;
   title: string;
+  libraryCategories?: CategoryDef[];
 }) {
   const [tab, setTab] = useState<"library" | "compose">("library");
 
@@ -51,7 +57,7 @@ export function SocialAccountScreen({
       </div>
 
       {tab === "library" ? (
-        <ImageLibraryTab platform={platform} />
+        <ImageLibraryTab platform={platform} categories={libraryCategories} />
       ) : (
         <div className="-mx-6 -my-6 md:-mx-10 md:-my-10">
           <PostGeneratorPage defaultPlatform={platform} pageTitle={`${title} Post`} />
@@ -89,42 +95,61 @@ function TabButton({
   );
 }
 
+/** Path prefix for a creative row given its storage_path. Returns "" if unknown. */
+function categoryFromPath(path: string, platform: string): string {
+  const m = path.match(new RegExp(`/social-${platform}(?:-([a-z0-9-]+))?/`));
+  if (!m) return "";
+  return m[1] ?? "post"; // legacy `social-<platform>/` → post
+}
+
 function ImageLibraryTab({
   platform,
+  categories,
 }: {
-  platform: "facebook" | "instagram";
+  platform: LibraryPlatform;
+  categories: CategoryDef[];
 }) {
   const [creatives, setCreatives] = useState<Creative[]>([]);
-  const [title, setTitle] = useState("");
+  const [activeCat, setActiveCat] = useState<string>(categories[0]?.id ?? "post");
+  const [uploadCat, setUploadCat] = useState<string>(categories[0]?.id ?? "post");
+  const [titleInput, setTitleInput] = useState("");
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
-  const pathPrefix = `social-${platform}/`;
 
-  async function reload() {
+  const tabs: CategoryDef[] =
+    categories.length > 1
+      ? [...categories, { id: "all", label: "All" }]
+      : categories;
+
+  const reload = useCallback(async () => {
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user?.id;
     if (!uid) return;
     const { data } = await supabase
       .from("images")
       .select("id,name,storage_path,created_at")
-      .like("storage_path", `${uid}/${pathPrefix}%`)
+      .like("storage_path", `${uid}/social-${platform}%`)
       .order("created_at", { ascending: false })
-      .limit(200);
+      .limit(500);
     setCreatives((data ?? []) as Creative[]);
-  }
+  }, [platform]);
 
   useEffect(() => {
     reload();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [platform]);
+  }, [reload]);
+
+  const visible = creatives.filter((c) => {
+    if (activeCat === "all") return true;
+    return categoryFromPath(c.storage_path, platform) === activeCat;
+  });
 
   async function handleUpload() {
     if (!file) {
       toast.error("Choose an image file");
       return;
     }
-    if (!title.trim()) {
+    if (!titleInput.trim()) {
       toast.error("Title is required");
       return;
     }
@@ -134,19 +159,19 @@ function ImageLibraryTab({
       const uid = userData.user?.id;
       if (!uid) throw new Error("Not signed in");
       const ext = file.name.split(".").pop() || "jpg";
-      const path = `${uid}/${pathPrefix}${crypto.randomUUID()}.${ext}`;
+      const path = `${uid}/social-${platform}-${uploadCat}/${crypto.randomUUID()}.${ext}`;
       const { error: upErr } = await supabase.storage
         .from("frames")
         .upload(path, file, { contentType: file.type, upsert: false });
       if (upErr) throw upErr;
       const { error: dbErr } = await supabase.from("images").insert({
         owner_id: uid,
-        name: title.trim(),
+        name: titleInput.trim(),
         storage_path: path,
       });
       if (dbErr) throw dbErr;
       toast.success("Creative uploaded");
-      setTitle("");
+      setTitleInput("");
       setFile(null);
       if (fileRef.current) fileRef.current.value = "";
       reload();
@@ -162,6 +187,31 @@ function ImageLibraryTab({
     await supabase.storage.from("frames").remove([c.storage_path]);
     await supabase.from("images").delete().eq("id", c.id);
     reload();
+  }
+
+  async function handleMove(c: Creative, toCat: string) {
+    const currentCat = categoryFromPath(c.storage_path, platform);
+    if (currentCat === toCat) return;
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      const filename = c.storage_path.split("/").pop() ?? crypto.randomUUID();
+      const newPath = `${uid}/social-${platform}-${toCat}/${filename}`;
+      const { error: mvErr } = await supabase.storage
+        .from("frames")
+        .move(c.storage_path, newPath);
+      if (mvErr) throw mvErr;
+      const { error: upErr } = await supabase
+        .from("images")
+        .update({ storage_path: newPath })
+        .eq("id", c.id);
+      if (upErr) throw upErr;
+      toast.success(`Moved to ${toCat}`);
+      reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Move failed");
+    }
   }
 
   return (
@@ -183,12 +233,38 @@ function ImageLibraryTab({
               </label>
               <input
                 type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
+                value={titleInput}
+                onChange={(e) => setTitleInput(e.target.value)}
                 placeholder="e.g. Summer campaign hero"
                 className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
               />
             </div>
+            {categories.length > 1 && (
+              <div>
+                <label className="mb-1 block text-xs font-medium text-muted-foreground">
+                  Category
+                </label>
+                <div className="flex flex-wrap gap-1.5">
+                  {categories.map((c) => {
+                    const on = uploadCat === c.id;
+                    return (
+                      <button
+                        key={c.id}
+                        type="button"
+                        onClick={() => setUploadCat(c.id)}
+                        className={`rounded-full border px-3 py-1 text-xs transition ${
+                          on
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {c.label}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
             <div>
               <label className="mb-1 block text-xs font-medium text-muted-foreground">
                 Image
@@ -205,7 +281,7 @@ function ImageLibraryTab({
           <div className="flex items-end">
             <button
               onClick={handleUpload}
-              disabled={uploading || !file || !title.trim()}
+              disabled={uploading || !file || !titleInput.trim()}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
               {uploading ? (
@@ -219,41 +295,78 @@ function ImageLibraryTab({
         </div>
       </div>
 
+      {tabs.length > 1 && (
+        <div className="border-b border-border">
+          <nav className="-mb-px flex gap-1">
+            {tabs.map((t) => (
+              <TabButton
+                key={t.id}
+                active={activeCat === t.id}
+                onClick={() => setActiveCat(t.id)}
+                icon={<Images className="h-4 w-4" />}
+                label={t.label}
+              />
+            ))}
+          </nav>
+        </div>
+      )}
+
       <div>
-        <h2 className="mb-3 text-lg font-semibold">Creatives</h2>
-        {creatives.length === 0 ? (
+        {visible.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-            No creatives yet. Upload one above.
+            No creatives here yet.
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-4 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
-            {creatives.map((c) => (
-              <div
-                key={c.id}
-                className="group relative overflow-hidden rounded-md border border-border bg-card"
-              >
-                <div className="aspect-square bg-muted">
-                  <SignedImage
-                    bucket="frames"
-                    path={c.storage_path}
-                    alt={c.name}
-                    className="h-full w-full object-cover"
-                  />
+            {visible.map((c) => {
+              const cat = categoryFromPath(c.storage_path, platform);
+              const otherCats = categories.filter((x) => x.id !== cat);
+              return (
+                <div
+                  key={c.id}
+                  className="group relative overflow-hidden rounded-md border border-border bg-card"
+                >
+                  <div className="aspect-square bg-muted">
+                    <SignedImage
+                      bucket="frames"
+                      path={c.storage_path}
+                      alt={c.name}
+                      className="h-full w-full object-cover"
+                    />
+                  </div>
+                  {categories.length > 1 && (
+                    <span className="absolute left-2 top-2 rounded-full bg-background/80 px-2 py-0.5 text-[10px] font-medium uppercase text-foreground">
+                      {cat}
+                    </span>
+                  )}
+                  <div className="flex items-center justify-between gap-2 px-2 py-1.5">
+                    <span className="truncate text-xs" title={c.name}>
+                      {c.name}
+                    </span>
+                    <div className="flex items-center gap-1 opacity-0 transition group-hover:opacity-100">
+                      {otherCats.map((oc) => (
+                        <button
+                          key={oc.id}
+                          onClick={() => handleMove(c, oc.id)}
+                          className="rounded p-1 text-muted-foreground hover:bg-primary/10 hover:text-primary"
+                          title={`Move to ${oc.label}`}
+                          aria-label={`Move to ${oc.label}`}
+                        >
+                          <ArrowRightLeft className="h-3.5 w-3.5" />
+                        </button>
+                      ))}
+                      <button
+                        onClick={() => handleDelete(c)}
+                        className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        aria-label="Delete"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex items-center justify-between gap-2 px-2 py-1.5">
-                  <span className="truncate text-xs" title={c.name}>
-                    {c.name}
-                  </span>
-                  <button
-                    onClick={() => handleDelete(c)}
-                    className="rounded p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10 hover:text-destructive"
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="h-3.5 w-3.5" />
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
