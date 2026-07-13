@@ -419,7 +419,11 @@ function GeotaggingPage() {
       try {
         // Embed GPS EXIF into the JPEG bytes so third-party viewers (Photos,
         // Windows Explorer, Lightroom, etc.) recognise the coordinates.
-        const tagged = await embedGps(img.file, img.lat!, img.lng!);
+        const tagged = await embedGps(img.file, img.lat!, img.lng!, {
+          title: img.title,
+          description: img.description,
+          keywords: img.locationLabel ? [img.locationLabel] : [],
+        });
 
         if (img.libraryId && img.libraryStoragePath) {
           // Overwrite the existing storage object so the file itself carries
@@ -490,7 +494,11 @@ function GeotaggingPage() {
       return;
     }
     try {
-      const tagged = await embedGps(img.file, img.lat, img.lng);
+      const tagged = await embedGps(img.file, img.lat, img.lng, {
+        title: img.title,
+        description: img.description,
+        keywords: img.locationLabel ? [img.locationLabel] : [],
+      });
       const url = URL.createObjectURL(tagged);
       const a = document.createElement("a");
       a.href = url;

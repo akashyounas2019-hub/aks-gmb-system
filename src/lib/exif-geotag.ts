@@ -63,10 +63,39 @@ function rationalToDeg(
 }
 
 /**
- * Return a new File with GPS EXIF tags embedded. Non-JPEG inputs are
- * returned unchanged (piexif cannot write PNG/WEBP EXIF reliably).
+ * Windows XP EXIF tags (XPTitle/XPComment/XPKeywords) are stored as
+ * UTF-16LE byte arrays with a trailing null terminator. This is the format
+ * geoimager2.geoimager.com and most Windows-aware EXIF readers expect.
  */
-export async function embedGps(file: File, lat: number, lng: number): Promise<File> {
+function toXpBytes(value: string): number[] {
+  const bytes: number[] = [];
+  for (const ch of value) {
+    const code = ch.charCodeAt(0);
+    bytes.push(code & 0xff, (code >> 8) & 0xff);
+  }
+  bytes.push(0, 0);
+  return bytes;
+}
+
+export interface ImageMetadata {
+  title?: string | null;
+  description?: string | null;
+  keywords?: string[] | null;
+}
+
+/**
+ * Return a new File with GPS EXIF plus optional title/description/keywords
+ * embedded. Non-JPEG inputs are returned unchanged (piexif cannot write
+ * PNG/WEBP EXIF reliably). Metadata is written into both the standard
+ * ImageDescription tag AND the Windows XPTitle/XPComment/XPKeywords tags so
+ * platforms like geoimager2.geoimager.com pick them up.
+ */
+export async function embedGps(
+  file: File,
+  lat: number,
+  lng: number,
+  meta: ImageMetadata = {},
+): Promise<File> {
   if (!isJpeg(file)) return file;
   try {
     const dataUrl = await fileToDataUrl(file);
@@ -82,13 +111,50 @@ export async function embedGps(file: File, lat: number, lng: number): Promise<Fi
       [piexif.GPSIFD.GPSDateStamp]: new Date().toISOString().slice(0, 10).replace(/-/g, ":"),
     };
     // Preserve any existing EXIF (camera, dates, etc.) and replace GPS block.
-    let existing: Record<string, unknown> = {};
+    let existing: { "0th"?: Record<number, unknown>; Exif?: Record<number, unknown> } & Record<string, unknown> = {};
     try {
-      existing = piexif.load(dataUrl) as Record<string, unknown>;
+      existing = piexif.load(dataUrl) as typeof existing;
     } catch {
       existing = {};
     }
-    const exifObj = { ...existing, GPS: gps };
+    const zeroth: Record<number, unknown> = { ...(existing["0th"] ?? {}) };
+    const exifIfd: Record<number, unknown> = { ...(existing.Exif ?? {}) };
+
+    const title = meta.title?.trim();
+    const description = meta.description?.trim();
+    const keywords = (meta.keywords ?? [])
+      .map((k) => k.trim())
+      .filter((k) => k.length > 0);
+
+    if (title) {
+      zeroth[piexif.ImageIFD.XPTitle] = toXpBytes(title);
+      // ImageDescription is ASCII-only per EXIF spec; piexif tolerates UTF-8
+      // bytes but non-ASCII may render as garbled in strict readers. We still
+      // write it since geoimager2 reads this field.
+      zeroth[piexif.ImageIFD.ImageDescription] = title;
+    }
+    if (description) {
+      zeroth[piexif.ImageIFD.XPComment] = toXpBytes(description);
+      // UserComment is prefixed with an 8-byte character-code header.
+      const prefix = [0x55, 0x4e, 0x49, 0x43, 0x4f, 0x44, 0x45, 0x00]; // "UNICODE\0"
+      const body: number[] = [];
+      for (const ch of description) {
+        const code = ch.charCodeAt(0);
+        body.push(code & 0xff, (code >> 8) & 0xff);
+      }
+      exifIfd[piexif.ExifIFD.UserComment] = [...prefix, ...body];
+    }
+    if (keywords.length > 0) {
+      // Windows convention: keywords joined by "; ".
+      zeroth[piexif.ImageIFD.XPKeywords] = toXpBytes(keywords.join("; "));
+    }
+
+    const exifObj: Record<string, unknown> = {
+      ...existing,
+      "0th": zeroth,
+      Exif: exifIfd,
+      GPS: gps,
+    };
     const exifBytes = piexif.dump(exifObj);
     const newDataUrl = piexif.insert(exifBytes, dataUrl);
     const blob = dataUrlToBlob(newDataUrl, "image/jpeg");

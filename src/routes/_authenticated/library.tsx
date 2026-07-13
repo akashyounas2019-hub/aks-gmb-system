@@ -131,11 +131,13 @@ function LibraryPage() {
   }
 
   async function downloadImage(img: {
+    id: string;
     name: string;
     storage_path: string;
     lat: number | null;
     lng: number | null;
     title: string | null;
+    description?: string | null;
   }) {
     try {
       const { data: signed, error } = await supabase.storage
@@ -174,9 +176,16 @@ function LibraryPage() {
         (img.name && /\.[a-z0-9]+$/i.test(img.name) ? img.name : `image.${inferredExt}`),
         { type: inferredMime },
       );
+      // Pull keywords (image_tags) so downloads carry them in EXIF XPKeywords.
+      const keywords =
+        data?.tagMap.get(img.id)?.map((t) => t.label).filter(Boolean) ?? [];
       const output =
         img.lat != null && img.lng != null
-          ? await embedGps(source, Number(img.lat), Number(img.lng))
+          ? await embedGps(source, Number(img.lat), Number(img.lng), {
+              title: img.title,
+              description: img.description ?? null,
+              keywords,
+            })
           : source;
 
       const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
@@ -712,11 +721,13 @@ function LibraryPage() {
                           e.preventDefault();
                           e.stopPropagation();
                           downloadImage({
+                            id: img.id,
                             name: img.name,
                             storage_path: img.storage_path,
                             lat: img.lat as number | null,
                             lng: img.lng as number | null,
                             title: (img as { title: string | null }).title,
+                            description: (img as { description: string | null }).description,
                           });
                         }}
                         aria-label="Download"
