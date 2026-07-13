@@ -37,6 +37,7 @@ import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
 import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
 import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
+import { Route as AuthenticatedSettingsBusinessProfileRouteImport } from './routes/_authenticated/settings.business-profile'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
@@ -195,6 +196,12 @@ const AuthenticatedSettingsGeneralRoute =
     path: '/general',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
+const AuthenticatedSettingsBusinessProfileRoute =
+  AuthenticatedSettingsBusinessProfileRouteImport.update({
+    id: '/business-profile',
+    path: '/business-profile',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const AuthenticatedSettingsAppearanceRoute =
   AuthenticatedSettingsAppearanceRouteImport.update({
     id: '/appearance',
@@ -234,6 +241,7 @@ export interface FileRoutesByFullPath {
   '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -266,6 +274,7 @@ export interface FileRoutesByTo {
   '/wizard': typeof AuthenticatedWizardRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
   '/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -300,6 +309,7 @@ export interface FileRoutesById {
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
   '/_authenticated/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
+  '/_authenticated/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
   '/_authenticated/settings/general': typeof AuthenticatedSettingsGeneralRoute
   '/_authenticated/settings/integrations': typeof AuthenticatedSettingsIntegrationsRoute
   '/_authenticated/settings/notifications': typeof AuthenticatedSettingsNotificationsRoute
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/wizard'
     | '/library/$imageId'
     | '/settings/appearance'
+    | '/settings/business-profile'
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/notifications'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/wizard'
     | '/library/$imageId'
     | '/settings/appearance'
+    | '/settings/business-profile'
     | '/settings/general'
     | '/settings/integrations'
     | '/settings/notifications'
@@ -399,6 +411,7 @@ export interface FileRouteTypes {
     | '/_authenticated/wizard'
     | '/_authenticated/library/$imageId'
     | '/_authenticated/settings/appearance'
+    | '/_authenticated/settings/business-profile'
     | '/_authenticated/settings/general'
     | '/_authenticated/settings/integrations'
     | '/_authenticated/settings/notifications'
@@ -617,6 +630,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
+    '/_authenticated/settings/business-profile': {
+      id: '/_authenticated/settings/business-profile'
+      path: '/business-profile'
+      fullPath: '/settings/business-profile'
+      preLoaderRoute: typeof AuthenticatedSettingsBusinessProfileRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
     '/_authenticated/settings/appearance': {
       id: '/_authenticated/settings/appearance'
       path: '/appearance'
@@ -654,6 +674,7 @@ const AuthenticatedLibraryRouteWithChildren =
 
 interface AuthenticatedSettingsRouteChildren {
   AuthenticatedSettingsAppearanceRoute: typeof AuthenticatedSettingsAppearanceRoute
+  AuthenticatedSettingsBusinessProfileRoute: typeof AuthenticatedSettingsBusinessProfileRoute
   AuthenticatedSettingsGeneralRoute: typeof AuthenticatedSettingsGeneralRoute
   AuthenticatedSettingsIntegrationsRoute: typeof AuthenticatedSettingsIntegrationsRoute
   AuthenticatedSettingsNotificationsRoute: typeof AuthenticatedSettingsNotificationsRoute
@@ -665,6 +686,8 @@ interface AuthenticatedSettingsRouteChildren {
 
 const AuthenticatedSettingsRouteChildren: AuthenticatedSettingsRouteChildren = {
   AuthenticatedSettingsAppearanceRoute: AuthenticatedSettingsAppearanceRoute,
+  AuthenticatedSettingsBusinessProfileRoute:
+    AuthenticatedSettingsBusinessProfileRoute,
   AuthenticatedSettingsGeneralRoute: AuthenticatedSettingsGeneralRoute,
   AuthenticatedSettingsIntegrationsRoute:
     AuthenticatedSettingsIntegrationsRoute,
