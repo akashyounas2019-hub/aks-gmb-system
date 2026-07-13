@@ -1484,6 +1484,21 @@ function StepAssign({
 }) {
   const [batchTitle, setBatchTitle] = useState("");
   const [batchDescription, setBatchDescription] = useState("");
+  const prefilledRef = React.useRef(false);
+
+  // Auto-fill the batch title/description from any uploaded image that already
+  // carries embedded metadata, so users don't have to retype what's in the file.
+  React.useEffect(() => {
+    if (prefilledRef.current) return;
+    const withMeta = images.find(
+      (i) => i.hasExistingMeta && (i.title || i.description),
+    );
+    if (!withMeta) return;
+    if (!batchTitle && withMeta.title) setBatchTitle(withMeta.title);
+    if (!batchDescription && withMeta.description)
+      setBatchDescription(withMeta.description);
+    prefilledRef.current = true;
+  }, [images, batchTitle, batchDescription]);
 
   const applyBatchMeta = () => {
     const ids = selected.size ? Array.from(selected) : images.map((i) => i.id);
