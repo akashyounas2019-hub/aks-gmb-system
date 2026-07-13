@@ -254,6 +254,7 @@ function GeotaggingPage() {
                 : pinnedCoord?.label ?? null,
             title: row.title ?? row.name ?? file.name,
             description: row.description ?? "",
+            keywords: [],
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
