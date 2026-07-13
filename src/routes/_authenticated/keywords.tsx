@@ -196,8 +196,12 @@ function KeywordsPage() {
     source: "semrush" | "generic";
     folderName: string;
     at: number;
+    phrases: string[];
+    keywordIds: string[];
   };
   const [imports, setImports] = useState<ImportRecord[]>([]);
+  const [expandedImports, setExpandedImports] = useState<Set<string>>(new Set());
+  const [editingImportId, setEditingImportId] = useState<string | null>(null);
 
   const semrushRef = useRef<HTMLInputElement>(null);
   const genericRef = useRef<HTMLInputElement>(null);
