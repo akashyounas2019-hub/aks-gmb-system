@@ -35,6 +35,7 @@ import {
   sendPostToSocialPlanner,
 } from "@/lib/post-generator.functions";
 import { readGps } from "@/lib/exif-geotag";
+import { getPreferences } from "@/lib/user-preferences.functions";
 
 export const Route = createFileRoute("/_authenticated/post-generator")({
   component: PostGeneratorPage,
@@ -98,8 +99,32 @@ function PostGeneratorPage() {
     "none" | "book" | "order" | "shop" | "learn_more" | "sign_up" | "call"
   >("none");
   const [ctaUrl, setCtaUrl] = useState("");
+  const [businessPhone, setBusinessPhone] = useState("");
+  const [phoneManuallyEdited, setPhoneManuallyEdited] = useState(false);
+  const loadPrefs = useServerFn(getPreferences);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
+
+  // Load business phone from settings for the Call CTA auto-populate.
+  useEffect(() => {
+    loadPrefs()
+      .then((p) => {
+        const g = (p?.general ?? {}) as { phone?: string };
+        if (g.phone) setBusinessPhone(g.phone);
+      })
+      .catch(() => {
+        /* ignore — user may not have saved a business phone yet */
+      });
+  }, [loadPrefs]);
+
+  // Auto-populate the Call CTA phone number from business settings whenever
+  // the user switches the action to "Call now" and hasn't manually edited it.
+  useEffect(() => {
+    if (ctaType === "call" && !phoneManuallyEdited && !ctaUrl && businessPhone) {
+      setCtaUrl(businessPhone);
+    }
+  }, [ctaType, businessPhone, phoneManuallyEdited, ctaUrl]);
+
 
   const CAPTION_LIMIT = 1500;
   const captionLen = caption.length;
@@ -694,20 +719,41 @@ function PostGeneratorPage() {
               </label>
               {ctaType !== "none" && (
                 <label className="block">
-                  <span className="text-xs text-muted-foreground">
-                    {ctaType === "call" ? "Phone number" : "Destination URL"}
+                  <span className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
+                    {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
+                      <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
+                    )}
                   </span>
-                  <input
-                    value={ctaUrl}
-                    onChange={(e) => setCtaUrl(e.target.value)}
-                    placeholder={
-                      ctaType === "call"
-                        ? "+971 50 000 0000"
-                        : "https://example.com/book"
-                    }
-                    inputMode={ctaType === "call" ? "tel" : "url"}
-                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                  />
+                  <div className="relative mt-1">
+                    <input
+                      value={ctaUrl}
+                      onChange={(e) => {
+                        setCtaUrl(e.target.value);
+                        if (ctaType === "call") setPhoneManuallyEdited(true);
+                      }}
+                      placeholder={
+                        ctaType === "call"
+                          ? "+971 50 000 0000"
+                          : "https://example.com/book"
+                      }
+                      inputMode={ctaType === "call" ? "tel" : "url"}
+                      className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
+                    />
+                    {ctaUrl && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCtaUrl("");
+                          if (ctaType === "call") setPhoneManuallyEdited(true);
+                        }}
+                        aria-label="Clear"
+                        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    )}
+                  </div>
                 </label>
               )}
             </div>
