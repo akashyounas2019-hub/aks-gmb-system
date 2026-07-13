@@ -1343,6 +1343,60 @@ function ImageEditModal({
                 )}
               </div>
 
+              {/* Folder (Raw Images organization) */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Folder
+                  </div>
+                  {folderId && (
+                    <button
+                      type="button"
+                      onClick={() => setFolderId(null)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5 rounded-md border border-border p-2">
+                  <button
+                    type="button"
+                    onClick={() => setFolderId(null)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                      folderId === null
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <ImagesIcon className="h-3 w-3" /> Unfiled
+                  </button>
+                  {data.folders.map((f) => {
+                    const on = folderId === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFolderId(f.id)}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                          on
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:bg-accent"
+                        }`}
+                      >
+                        <FolderIcon className="h-3 w-3" /> {f.name}
+                      </button>
+                    );
+                  })}
+                  {data.folders.length === 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      No folders yet — create one from the Raw Images tab.
+                    </span>
+                  )}
+                </div>
+              </div>
+
+
               {/* Tags */}
               <div>
                 <div className="flex items-center justify-between">
