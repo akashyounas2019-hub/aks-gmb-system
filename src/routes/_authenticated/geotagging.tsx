@@ -379,6 +379,30 @@ function GeotaggingPage() {
         </p>
       </header>
 
+      {/* Tabs */}
+      <div className="mb-6 inline-flex rounded-lg border border-border bg-card p-1">
+        <button
+          onClick={() => setTab("wizard")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            tab === "wizard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          Geotagging wizard
+        </button>
+        <button
+          onClick={() => setTab("verify")}
+          className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
+            tab === "verify" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+          }`}
+        >
+          GeoTag Imager
+        </button>
+      </div>
+
+      {tab === "verify" ? (
+        <GeoTagImager />
+      ) : (
+      <>
       {/* Progress bar */}
       <ol className="mb-8 grid grid-cols-4 gap-2">
         {steps.map((s) => {
