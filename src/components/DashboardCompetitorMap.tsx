@@ -268,64 +268,218 @@ export function DashboardCompetitorMap() {
           )}
         </div>
 
-        <div className="max-h-96 overflow-y-auto">
-          <div className="mb-2 flex items-center justify-between">
-            <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-              Competitors
-            </span>
-            <span className="text-xs text-muted-foreground">
-              {located.length}/{competitors.length} on map
-            </span>
-          </div>
-          {competitors.length === 0 ? (
-            <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-              No competitors added yet.
-            </div>
-          ) : (
-            <ul className="space-y-2">
-              {competitors.map((c) => {
-                const loc = located.find((l) => l.id === c.id);
-                return (
-                  <li
-                    key={c.id}
-                    className="rounded-md border border-border bg-background p-3 text-xs"
-                  >
-                    <div className="flex items-start justify-between gap-2">
-                      <span className="font-medium">{c.name}</span>
-                      {c.gbp_url && (
-                        <a
-                          href={c.gbp_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="text-muted-foreground hover:text-primary"
-                          aria-label="Open Google profile"
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                    </div>
-                    {loc?.address && (
-                      <div className="mt-1 text-muted-foreground">{loc.address}</div>
-                    )}
-                    {loc?.rating && (
-                      <div className="mt-1 inline-flex items-center gap-1 text-amber-500">
-                        <Star className="h-3 w-3 fill-amber-500" />
-                        {loc.rating.toFixed(1)}
-                        <span className="text-muted-foreground">
-                          ({loc.ratingCount ?? 0})
-                        </span>
-                      </div>
-                    )}
-                    {c.notes && (
-                      <p className="mt-1 text-muted-foreground">{c.notes}</p>
-                    )}
-                  </li>
-                );
-              })}
-            </ul>
-          )}
+        <CompetitorSidebar
+          competitors={competitors}
+          located={located}
+          businessCoords={businessCoords}
+        />
+      </div>
+    </div>
+  );
+}
+
+function distanceKm(
+  a: { lat: number; lng: number },
+  b: { lat: number; lng: number },
+): number {
+  const R = 6371;
+  const toRad = (v: number) => (v * Math.PI) / 180;
+  const dLat = toRad(b.lat - a.lat);
+  const dLng = toRad(b.lng - a.lng);
+  const s =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(a.lat)) * Math.cos(toRad(b.lat)) * Math.sin(dLng / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(s));
+}
+
+function CompetitorSidebar({
+  competitors,
+  located,
+  businessCoords,
+}: {
+  competitors: Competitor[];
+  located: Located[];
+  businessCoords: { lat: number; lng: number } | null;
+}) {
+  const [maxDistance, setMaxDistance] = useState<number>(20);
+  const [minRating, setMinRating] = useState<number>(0);
+  const [sortBy, setSortBy] = useState<"distance" | "rating" | "reviews" | "name">(
+    "distance",
+  );
+
+  // Enrich located competitors with computed distance for filter/sort.
+  const enriched = located.map((l) => ({
+    ...l,
+    distance: businessCoords ? distanceKm(businessCoords, l) : null,
+  }));
+
+  const filteredLocated = enriched
+    .filter((l) =>
+      l.distance == null ? true : l.distance <= maxDistance,
+    )
+    .filter((l) => (l.rating ?? 0) >= minRating);
+
+  const sortedLocated = [...filteredLocated].sort((a, b) => {
+    switch (sortBy) {
+      case "distance":
+        return (a.distance ?? Infinity) - (b.distance ?? Infinity);
+      case "rating":
+        return (b.rating ?? 0) - (a.rating ?? 0);
+      case "reviews":
+        return (b.ratingCount ?? 0) - (a.ratingCount ?? 0);
+      case "name":
+        return a.name.localeCompare(b.name);
+    }
+  });
+
+  // Competitors without coords still show at end when no filters active.
+  const unlocated =
+    minRating === 0 && maxDistance >= 20
+      ? competitors.filter((c) => !located.find((l) => l.id === c.id))
+      : [];
+
+  return (
+    <div className="max-h-96 overflow-y-auto">
+      <div className="mb-2 flex items-center justify-between">
+        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+          Competitors
+        </span>
+        <span className="text-xs text-muted-foreground">
+          {sortedLocated.length}/{competitors.length} shown
+        </span>
+      </div>
+
+      {/* Filters + sort */}
+      <div className="mb-3 space-y-2 rounded-md border border-border bg-background/50 p-2">
+        <div>
+          <label className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Max distance</span>
+            <span className="font-mono">{maxDistance} km</span>
+          </label>
+          <input
+            type="range"
+            min={1}
+            max={20}
+            step={0.5}
+            value={maxDistance}
+            onChange={(e) => setMaxDistance(Number(e.target.value))}
+            className="w-full accent-primary"
+          />
+        </div>
+        <div>
+          <label className="mb-1 flex items-center justify-between text-[11px] text-muted-foreground">
+            <span>Min rating</span>
+            <span className="font-mono">{minRating.toFixed(1)}★</span>
+          </label>
+          <input
+            type="range"
+            min={0}
+            max={5}
+            step={0.5}
+            value={minRating}
+            onChange={(e) => setMinRating(Number(e.target.value))}
+            className="w-full accent-primary"
+          />
+        </div>
+        <div>
+          <label className="mb-1 block text-[11px] text-muted-foreground">
+            Sort by
+          </label>
+          <select
+            value={sortBy}
+            onChange={(e) =>
+              setSortBy(e.target.value as "distance" | "rating" | "reviews" | "name")
+            }
+            className="w-full rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+          >
+            <option value="distance">Distance (nearest first)</option>
+            <option value="rating">Rating (highest first)</option>
+            <option value="reviews">Reviews (most first)</option>
+            <option value="name">Name (A–Z)</option>
+          </select>
         </div>
       </div>
+
+      {competitors.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          No competitors added yet.
+        </div>
+      ) : sortedLocated.length === 0 && unlocated.length === 0 ? (
+        <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          No competitors match these filters.
+        </div>
+      ) : (
+        <ul className="space-y-2">
+          {sortedLocated.map((c) => (
+            <li
+              key={c.id}
+              className="rounded-md border border-border bg-background p-3 text-xs"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-medium">{c.name}</span>
+                {c.gbp_url && (
+                  <a
+                    href={c.gbp_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted-foreground hover:text-primary"
+                    aria-label="Open Google profile"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+              {c.address && (
+                <div className="mt-1 text-muted-foreground">{c.address}</div>
+              )}
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
+                {c.rating != null && (
+                  <span className="inline-flex items-center gap-1 text-amber-500">
+                    <Star className="h-3 w-3 fill-amber-500" />
+                    {c.rating.toFixed(1)}
+                    <span className="text-muted-foreground">
+                      ({c.ratingCount ?? 0})
+                    </span>
+                  </span>
+                )}
+                {c.distance != null && (
+                  <span className="text-muted-foreground">
+                    {c.distance.toFixed(1)} km
+                  </span>
+                )}
+              </div>
+              {c.notes && (
+                <p className="mt-1 text-muted-foreground">{c.notes}</p>
+              )}
+            </li>
+          ))}
+          {unlocated.map((c) => (
+            <li
+              key={c.id}
+              className="rounded-md border border-dashed border-border bg-background p-3 text-xs opacity-70"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="font-medium">{c.name}</span>
+                {c.gbp_url && (
+                  <a
+                    href={c.gbp_url}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="text-muted-foreground hover:text-primary"
+                    aria-label="Open Google profile"
+                  >
+                    <ExternalLink className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+              <div className="mt-1 text-muted-foreground">Not on map</div>
+              {c.notes && (
+                <p className="mt-1 text-muted-foreground">{c.notes}</p>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

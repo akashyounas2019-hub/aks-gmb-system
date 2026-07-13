@@ -28,9 +28,10 @@ import {
   deleteAutomation,
   runAutomationNow,
 } from "@/lib/automations.functions";
+import { WizardPage } from "@/routes/_authenticated/wizard";
 
 export const Route = createFileRoute("/_authenticated/automation")({
-  component: AutomationPage,
+  component: AutomationRoute,
   head: () => ({
     meta: [
       { title: "Automation — Workflows & Rules" },
@@ -42,6 +43,44 @@ export const Route = createFileRoute("/_authenticated/automation")({
     ],
   }),
 });
+
+function AutomationRoute() {
+  const [tab, setTab] = useState<"automation" | "pipeline">("automation");
+  return (
+    <div>
+      <div className="border-b border-border bg-card px-6 pt-4">
+        <nav role="tablist" className="-mb-px flex gap-1">
+          {(
+            [
+              { id: "automation", label: "Automation", icon: Zap },
+              { id: "pipeline", label: "Pipeline", icon: WorkflowIcon },
+            ] as const
+          ).map((t) => {
+            const active = tab === t.id;
+            const Icon = t.icon;
+            return (
+              <button
+                key={t.id}
+                role="tab"
+                aria-selected={active}
+                onClick={() => setTab(t.id)}
+                className={`inline-flex items-center gap-2 whitespace-nowrap border-b-2 px-4 py-2.5 text-sm font-medium transition ${
+                  active
+                    ? "border-primary text-primary"
+                    : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                }`}
+              >
+                <Icon className="h-4 w-4" />
+                {t.label}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+      {tab === "automation" ? <AutomationPage /> : <WizardPage />}
+    </div>
+  );
+}
 
 type Kind = "rank_refresh" | "auto_publish" | "auto_tag" | "alert_scan";
 
