@@ -1776,19 +1776,6 @@ function StepSave({
         </div>
       </div>
 
-      <button
-        onClick={saveAll}
-        disabled={savingBulk || readyToSave.length === 0}
-        className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-      >
-        {savingBulk ? (
-          <Loader2 className="h-4 w-4 animate-spin" />
-        ) : (
-          <UploadCloud className="h-4 w-4" />
-        )}
-        Save {readyToSave.length > 0 ? readyToSave.length : ""} image
-        {readyToSave.length === 1 ? "" : "s"} to cloud
-      </button>
     </div>
   );
 }
