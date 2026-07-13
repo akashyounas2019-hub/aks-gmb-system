@@ -442,6 +442,31 @@ function GeotaggingPage() {
     setSavingBulk(false);
     if (fail === 0) toast.success(`Saved ${ok} geotagged image${ok === 1 ? "" : "s"}.`);
     else toast.error(`${ok} saved, ${fail} failed.`);
+    reloadLibrary();
+  };
+
+  /* --------------------------- download processed --------------------------- */
+
+  const downloadProcessed = async (img: LocalImage) => {
+    if (img.lat === null || img.lng === null) {
+      toast.error("Tag this image with a location first.");
+      return;
+    }
+    try {
+      const tagged = await embedGps(img.file, img.lat, img.lng);
+      const url = URL.createObjectURL(tagged);
+      const a = document.createElement("a");
+      a.href = url;
+      const base = img.file.name.replace(/\.[^.]+$/, "");
+      const ext = tagged.name.split(".").pop() || "jpg";
+      a.download = `${base}-geotagged.${ext}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed.");
+    }
   };
 
   /* --------------------------------- UI --------------------------------- */
