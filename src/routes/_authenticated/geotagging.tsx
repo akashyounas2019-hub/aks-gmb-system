@@ -1870,6 +1870,36 @@ function GeoTagImager({
     setRows([]);
   };
 
+  const importSelectedFromLibrary = useCallback(async () => {
+    const picks = library.filter((l) => libSelected.has(l.id));
+    if (picks.length === 0) {
+      toast.error("Select at least one image.");
+      return;
+    }
+    setImporting(true);
+    try {
+      const files: File[] = [];
+      for (const row of picks) {
+        const { data: signed } = await supabase.storage
+          .from("frames")
+          .createSignedUrl(row.storage_path, 60 * 60);
+        if (!signed?.signedUrl) continue;
+        const res = await fetch(signed.signedUrl);
+        const blob = await res.blob();
+        const mime = blob.type || "image/jpeg";
+        files.push(new File([blob], row.name || `library-${row.id}.jpg`, { type: mime }));
+      }
+      if (files.length) await addFiles(files);
+      setLibOpen(false);
+      setLibSelected(new Set());
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import failed.");
+    } finally {
+      setImporting(false);
+    }
+  }, [library, libSelected, addFiles]);
+
+
   const tagged = rows.filter((r) => r.result?.hasGps).length;
   const untagged = rows.filter((r) => r.result && !r.result.hasGps).length;
 
