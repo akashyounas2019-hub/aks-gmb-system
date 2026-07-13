@@ -23,7 +23,7 @@ import {
 } from "@/lib/post-generator.functions";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
-  component: CalendarPage,
+  component: () => <CalendarPage title="GMB Calendar" platform="gmb" />,
 });
 
 type Post = {
@@ -96,7 +96,15 @@ function dateKey(d: Date) {
   ).padStart(2, "0")}`;
 }
 
-function CalendarPage() {
+export function CalendarPage({
+  title,
+  platform,
+  onDayClick,
+}: {
+  title?: string;
+  platform?: "gmb" | "facebook" | "instagram" | "linkedin";
+  onDayClick?: (dateISO: string) => void;
+} = {}) {
   const list = useServerFn(listSocialPosts);
   const retry = useServerFn(retrySocialPost);
   const [posts, setPosts] = useState<Post[]>([]);
@@ -201,7 +209,7 @@ function CalendarPage() {
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl">Content Calendar</h1>
+          <h1 className="text-3xl">{title ?? "Content Calendar"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Track every prompt from draft to publish at a glance.
           </p>
@@ -456,7 +464,10 @@ function MonthView({
             return (
               <button
                 key={i}
-                onClick={() => setSelectedDay(key)}
+                onClick={() => {
+                  setSelectedDay(key);
+                  if (onDayClick) onDayClick(key);
+                }}
                 className={`group relative flex min-h-[104px] flex-col border-b border-r border-border p-2 text-left transition ${
                   inMonth ? "bg-card hover:bg-accent/30" : "bg-muted/20 text-muted-foreground/60"
                 } ${isSelected ? "ring-2 ring-inset ring-primary" : ""}`}
