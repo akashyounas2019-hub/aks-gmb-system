@@ -2513,14 +2513,125 @@ function MetaFields({
         )}
       </div>
 
-      {(img.title || img.description) && img.hasExistingMeta && (
+      <KeywordsField
+        img={img}
+        sources={sources}
+        keywordAlts={keywordAlts}
+        updateImageMeta={updateImageMeta}
+      />
+
+      {(img.title || img.description || img.keywords.length > 0) && img.hasExistingMeta && (
         <button
           type="button"
-          onClick={() => updateImageMeta(img.id, { title: "", description: "" })}
+          onClick={() =>
+            updateImageMeta(img.id, { title: "", description: "", keywords: [] })
+          }
           className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
         >
-          Clear both fields
+          Clear all detected fields
         </button>
+      )}
+    </div>
+  );
+}
+
+function KeywordsField({
+  img,
+  sources,
+  keywordAlts,
+  updateImageMeta,
+}: {
+  img: LocalImage;
+  sources: LocalImage["metaSources"];
+  keywordAlts: { tag: "XPKeywords" | "UserComment"; keywords: string[] }[];
+  updateImageMeta: (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
+  ) => void;
+}) {
+  const [draft, setDraft] = useState("");
+
+  const addKeyword = (raw: string) => {
+    const v = raw.trim();
+    if (!v) return;
+    const exists = img.keywords.some((k) => k.toLowerCase() === v.toLowerCase());
+    if (exists) return;
+    updateImageMeta(img.id, { keywords: [...img.keywords, v] });
+  };
+
+  const removeKeyword = (kw: string) => {
+    updateImageMeta(img.id, {
+      keywords: img.keywords.filter((k) => k !== kw),
+    });
+  };
+
+  const activeSet = new Set(img.keywords.map((k) => k.toLowerCase()));
+
+  return (
+    <div>
+      <div className="mb-0.5 flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+        <span>Keywords</span>
+        <SourceBadge source={sources?.keywords ?? null} />
+      </div>
+      <div className="flex flex-wrap gap-1 rounded-md border border-input bg-background px-1.5 py-1">
+        {img.keywords.map((kw) => (
+          <span
+            key={kw}
+            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
+          >
+            {kw}
+            <button
+              type="button"
+              onClick={() => removeKeyword(kw)}
+              className="text-primary/70 hover:text-primary"
+              aria-label={`Remove keyword ${kw}`}
+              title={`Remove ${kw}`}
+            >
+              ×
+            </button>
+          </span>
+        ))}
+        <input
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter" || e.key === ",") {
+              e.preventDefault();
+              addKeyword(draft);
+              setDraft("");
+            } else if (e.key === "Backspace" && !draft && img.keywords.length > 0) {
+              removeKeyword(img.keywords[img.keywords.length - 1]);
+            }
+          }}
+          onBlur={() => {
+            if (draft.trim()) {
+              addKeyword(draft);
+              setDraft("");
+            }
+          }}
+          placeholder={img.keywords.length === 0 ? "Add keyword…" : ""}
+          className="min-w-[80px] flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-muted-foreground/60"
+        />
+      </div>
+      {keywordAlts.length > 0 && (
+        <div className="mt-0.5 flex flex-wrap gap-1">
+          {keywordAlts.flatMap(({ tag, keywords }) =>
+            keywords
+              .filter((kw) => !activeSet.has(kw.toLowerCase()))
+              .map((kw) => (
+                <button
+                  key={`${tag}:${kw}`}
+                  type="button"
+                  onClick={() => addKeyword(kw)}
+                  title={`Add "${kw}" from ${tag}`}
+                  className="inline-flex max-w-full items-center gap-1 rounded border border-border px-1 py-px text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  <span className="font-medium text-primary">{tag}</span>
+                  <span className="truncate">{kw}</span>
+                </button>
+              )),
+          )}
+        </div>
       )}
     </div>
   );
