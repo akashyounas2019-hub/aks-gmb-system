@@ -17,6 +17,7 @@ import {
   TrendingUp,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { DashboardCompetitorMap } from "@/components/DashboardCompetitorMap";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -242,6 +243,11 @@ function DashboardPage() {
             <p className="mt-1 text-xs text-muted-foreground">{k.hint}</p>
           </Link>
         ))}
+      </div>
+
+      {/* Competitive map */}
+      <div className="mt-8">
+        <DashboardCompetitorMap />
       </div>
 
       {/* Modules grid */}
