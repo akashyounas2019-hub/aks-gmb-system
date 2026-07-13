@@ -127,13 +127,17 @@ export async function embedGps(
       .filter((k) => k.length > 0);
 
     if (title) {
+      // Windows-aware title tag (what File Explorer / geoimgr call "Title").
       zeroth[piexif.ImageIFD.XPTitle] = toXpBytes(title);
-      // ImageDescription is ASCII-only per EXIF spec; piexif tolerates UTF-8
-      // bytes but non-ASCII may render as garbled in strict readers. We still
-      // write it since geoimager2 reads this field.
-      zeroth[piexif.ImageIFD.ImageDescription] = title;
+      // XPSubject is a secondary Windows tag some readers also expose as Title.
+      const XPSubject = 0x9c9f;
+      zeroth[XPSubject] = toXpBytes(title);
     }
     if (description) {
+      // Standard EXIF "ImageDescription" is what geoimgr and most readers
+      // surface as the Description field. Keep this reserved for the
+      // description — never overload it with the title.
+      zeroth[piexif.ImageIFD.ImageDescription] = description;
       zeroth[piexif.ImageIFD.XPComment] = toXpBytes(description);
       // UserComment is prefixed with an 8-byte character-code header.
       const prefix = [0x55, 0x4e, 0x49, 0x43, 0x4f, 0x44, 0x45, 0x00]; // "UNICODE\0"
@@ -209,5 +213,63 @@ export async function readGps(file: File | Blob): Promise<GpsReadResult> {
       format,
       reason: e instanceof Error ? e.message : "EXIF read failed",
     };
+  }
+}
+
+/**
+ * Decode a Windows XP* UTF-16LE byte array (XPTitle/XPComment/XPKeywords/XPSubject)
+ * back to a JS string. Accepts number[], Uint8Array, or an already-decoded string.
+ */
+function fromXpBytes(raw: unknown): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") return raw;
+  const bytes = Array.isArray(raw) ? (raw as number[]) : Array.from(raw as ArrayLike<number>);
+  const out: string[] = [];
+  for (let i = 0; i + 1 < bytes.length; i += 2) {
+    const code = bytes[i] | (bytes[i + 1] << 8);
+    if (code === 0) break;
+    out.push(String.fromCharCode(code));
+  }
+  return out.join("");
+}
+
+export type ExifMetaResult = {
+  title: string;
+  description: string;
+  keywords: string[];
+};
+
+/**
+ * Read title/description/keywords from a JPEG. Recognises the standard
+ * ImageDescription tag AND the Windows XPTitle/XPComment/XPKeywords/XPSubject
+ * tags so files tagged by geoimgr, Windows Explorer, Lightroom, etc. round-trip.
+ */
+export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
+  const empty: ExifMetaResult = { title: "", description: "", keywords: [] };
+  if (!isJpeg(file)) return empty;
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const exif = piexif.load(dataUrl) as { "0th"?: Record<number, unknown> };
+    const zeroth = exif["0th"] ?? {};
+    const XPSubject = 0x9c9f;
+    const title =
+      fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]) ||
+      fromXpBytes(zeroth[XPSubject]) ||
+      "";
+    const descFromXp = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]);
+    const imgDesc = zeroth[piexif.ImageIFD.ImageDescription];
+    const description =
+      descFromXp || (typeof imgDesc === "string" ? imgDesc : "") || "";
+    const kwRaw = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]);
+    const keywords = kwRaw
+      ? kwRaw.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
+      : [];
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      keywords,
+    };
+  } catch {
+    return empty;
   }
 }

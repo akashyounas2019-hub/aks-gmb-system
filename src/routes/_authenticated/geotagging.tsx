@@ -28,7 +28,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { SignedImage, useSignedUrl } from "@/components/SignedImage";
-import { embedGps, readGps, type GpsReadResult } from "@/lib/exif-geotag";
+import { embedGps, readGps, readMeta, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
   component: GeotaggingPage,
@@ -262,25 +262,42 @@ function GeotaggingPage() {
   /* --------------------------- upload handling --------------------------- */
 
   const addFiles = useCallback(
-    (files: FileList | File[]) => {
+    async (files: FileList | File[]) => {
       const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
       if (list.length === 0) {
         toast.error("Please choose image files.");
         return;
       }
+      // Read existing EXIF title/description/GPS in parallel so we don't
+      // re-prompt for metadata that's already embedded in the file.
+      const enriched = await Promise.all(
+        list.map(async (f) => {
+          const [meta, gps] = await Promise.all([readMeta(f), readGps(f)]);
+          return { file: f, meta, gps };
+        }),
+      );
       setImages((prev) => [
         ...prev,
-        ...list.map((f) => ({
-          id: crypto.randomUUID(),
-          file: f,
-          previewUrl: URL.createObjectURL(f),
-          lat: pinnedCoord?.lat ?? null,
-          lng: pinnedCoord?.lng ?? null,
-          locationLabel: pinnedCoord?.label ?? null,
-          title: "",
-          description: "",
-          status: "pending" as const,
-        })),
+        ...enriched.map(({ file: f, meta, gps }) => {
+          const lat = gps.hasGps && gps.lat != null ? gps.lat : pinnedCoord?.lat ?? null;
+          const lng = gps.hasGps && gps.lng != null ? gps.lng : pinnedCoord?.lng ?? null;
+          const locationLabel = gps.hasGps
+            ? `Existing tag ${gps.lat!.toFixed(4)}, ${gps.lng!.toFixed(4)}`
+            : pinnedCoord?.label ?? null;
+          const hasExistingMeta = Boolean(meta.title || meta.description);
+          return {
+            id: crypto.randomUUID(),
+            file: f,
+            previewUrl: URL.createObjectURL(f),
+            lat,
+            lng,
+            locationLabel,
+            title: meta.title || "",
+            description: meta.description || "",
+            status: "pending" as const,
+            hasExistingMeta,
+          };
+        }),
       ]);
       if (pinnedCoord) {
         toast.success(
