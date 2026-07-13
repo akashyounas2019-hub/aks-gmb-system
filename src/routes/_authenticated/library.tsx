@@ -440,25 +440,37 @@ function LibraryPage() {
       )}
 
       {tab === "raw" && !isLoading && (
-        <div className="mt-6 rounded-xl border border-border bg-card p-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="text-sm font-medium">Folders</div>
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <FolderIcon className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold leading-tight">Folders</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Organize raw images into groups
+                </div>
+              </div>
+            </div>
             <button
               onClick={createFolder}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
             >
-              <FolderPlus className="h-3.5 w-3.5 text-primary" /> New folder
+              <FolderPlus className="h-3.5 w-3.5" /> New folder
             </button>
           </div>
-          <div className="mt-3 flex flex-wrap gap-2">
+          <div className="flex flex-wrap gap-2 p-4">
             <FolderChip
               active={rawFolderId === null}
+              icon={ImagesIcon}
               label="All raw"
               count={data?.images.filter((i) => imageBucket(i) === "raw").length ?? 0}
               onClick={() => setRawFolderId(null)}
             />
             <FolderChip
               active={rawFolderId === "__uncategorized"}
+              icon={ImagesIcon}
               label="Unfiled"
               count={
                 data?.images.filter((i) => imageBucket(i) === "raw" && i.folder_id == null).length ?? 0
@@ -473,45 +485,63 @@ function LibraryPage() {
               return (
                 <div
                   key={f.id}
-                  className={`group inline-flex items-center gap-1 rounded-full border px-1 pl-3 text-xs transition ${
+                  className={`group inline-flex items-center overflow-hidden rounded-full border text-xs transition ${
                     active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-background hover:border-primary/40"
+                      ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+                      : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
                   }`}
                 >
                   <button
                     onClick={() => setRawFolderId(f.id)}
-                    className="inline-flex items-center gap-1.5 py-1 font-medium"
+                    className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
                   >
-                    <FolderIcon className="h-3.5 w-3.5" />
-                    {f.name}
-                    <span className="text-muted-foreground">{count}</span>
+                    <FolderIcon
+                      className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
+                    />
+                    <span>{f.name}</span>
+                    <span
+                      className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                        active
+                          ? "bg-primary/15 text-primary"
+                          : "bg-muted text-muted-foreground"
+                      }`}
+                    >
+                      {count}
+                    </span>
                   </button>
-                  <button
-                    onClick={() => renameFolder(f.id, f.name)}
-                    aria-label="Rename"
-                    title="Rename"
-                    className="rounded-full p-1 opacity-0 transition group-hover:opacity-100 hover:bg-accent"
-                  >
-                    <Pencil className="h-3 w-3" />
-                  </button>
-                  <button
-                    onClick={() => deleteFolder(f.id, f.name)}
-                    aria-label="Delete folder"
-                    title="Delete folder"
-                    className="rounded-full p-1 text-destructive opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                  <div className="flex items-center pr-1 opacity-0 transition group-hover:opacity-100">
+                    <button
+                      onClick={() => renameFolder(f.id, f.name)}
+                      aria-label="Rename folder"
+                      title="Rename"
+                      className="rounded-full p-1 hover:bg-accent"
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteFolder(f.id, f.name)}
+                      aria-label="Delete folder"
+                      title="Delete folder"
+                      className="rounded-full p-1 text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               );
             })}
+            {data?.folders.length === 0 && (
+              <div className="flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+                <FolderPlus className="h-3 w-3" />
+                No folders yet — click <span className="font-medium">New folder</span> to start.
+              </div>
+            )}
           </div>
 
           {selectMode && selected.size > 0 && (
-            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2 text-xs">
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-primary/[0.04] px-4 py-2.5 text-xs">
               <span className="font-medium">
-                Move {selected.size} selected to:
+                Move {selected.size} selected to
               </span>
               {data?.folders.map((f) => (
                 <button
@@ -532,7 +562,7 @@ function LibraryPage() {
                 }}
                 className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
               >
-                Remove from folder
+                <X className="h-3 w-3" /> Remove from folder
               </button>
               {data?.folders.length === 0 && (
                 <span className="text-muted-foreground">
@@ -959,27 +989,36 @@ type ImageRow = {
   lng: number | null;
   title: string | null;
   description: string | null;
+  folder_id: string | null;
 };
 type TagRow = { id: string; slug: string; label: string };
+type FolderRow = { id: string; name: string };
 
 async function fetchImageEdit(imageId: string) {
-  const [{ data: img, error: e1 }, { data: allTags, error: e2 }, { data: it, error: e3 }] =
-    await Promise.all([
-      supabase
-        .from("images")
-        .select("id,name,storage_path,lat,lng,title,description")
-        .eq("id", imageId)
-        .single(),
-      supabase.from("tags").select("id,slug,label").order("label"),
-      supabase.from("image_tags").select("tag_id").eq("image_id", imageId),
-    ]);
+  const [
+    { data: img, error: e1 },
+    { data: allTags, error: e2 },
+    { data: it, error: e3 },
+    { data: folders, error: e4 },
+  ] = await Promise.all([
+    supabase
+      .from("images")
+      .select("id,name,storage_path,lat,lng,title,description,folder_id")
+      .eq("id", imageId)
+      .single(),
+    supabase.from("tags").select("id,slug,label").order("label"),
+    supabase.from("image_tags").select("tag_id").eq("image_id", imageId),
+    supabase.from("image_folders").select("id,name").order("name", { ascending: true }),
+  ]);
   if (e1) throw e1;
   if (e2) throw e2;
   if (e3) throw e3;
+  if (e4) throw e4;
   return {
     image: img as ImageRow,
     tags: (allTags ?? []) as TagRow[],
     assignedIds: new Set((it ?? []).map((r) => r.tag_id as string)),
+    folders: (folders ?? []) as FolderRow[],
   };
 }
 
@@ -1005,6 +1044,7 @@ function ImageEditModal({
   const [tagFilter, setTagFilter] = useState("");
   const [bucket, setBucket] = useState<"raw" | "published" | "geotagged">("raw");
   const [loc, setLoc] = useState<PickedLocation | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
 
@@ -1014,6 +1054,7 @@ function ImageEditModal({
     setTitle(data.image.title ?? "");
     setDescription(data.image.description ?? "");
     setAssigned(new Set(data.assignedIds));
+    setFolderId(data.image.folder_id ?? null);
     const publishedTagIds = new Set(
       data.tags.filter((t) => t.slug === "published" || t.slug === "posted").map((t) => t.id),
     );
@@ -1131,11 +1172,13 @@ function ImageEditModal({
       const nameChanged = name.trim() && name.trim() !== data.image.name;
       const titleChanged = (title || null) !== (data.image.title ?? null);
       const descChanged = (description || null) !== (data.image.description ?? null);
-      if (nameChanged || titleChanged || descChanged) {
+      const folderChanged = (folderId ?? null) !== (data.image.folder_id ?? null);
+      if (nameChanged || titleChanged || descChanged || folderChanged) {
         const meta: Record<string, string | null> = {};
         if (nameChanged) meta.name = name.trim();
         if (titleChanged) meta.title = title.trim() || null;
         if (descChanged) meta.description = description.trim() || null;
+        if (folderChanged) meta.folder_id = folderId;
         const { error } = await supabase
           .from("images")
           .update(meta as never)
@@ -1329,6 +1372,60 @@ function ImageEditModal({
                   </div>
                 )}
               </div>
+
+              {/* Folder (Raw Images organization) */}
+              <div>
+                <div className="flex items-center justify-between">
+                  <div className="text-xs font-medium text-muted-foreground">
+                    Folder
+                  </div>
+                  {folderId && (
+                    <button
+                      type="button"
+                      onClick={() => setFolderId(null)}
+                      className="text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Clear
+                    </button>
+                  )}
+                </div>
+                <div className="mt-2 flex flex-wrap gap-1.5 rounded-md border border-border p-2">
+                  <button
+                    type="button"
+                    onClick={() => setFolderId(null)}
+                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                      folderId === null
+                        ? "border-primary bg-primary/15 text-primary"
+                        : "border-border text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    <ImagesIcon className="h-3 w-3" /> Unfiled
+                  </button>
+                  {data.folders.map((f) => {
+                    const on = folderId === f.id;
+                    return (
+                      <button
+                        key={f.id}
+                        type="button"
+                        onClick={() => setFolderId(f.id)}
+                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                          on
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:bg-accent"
+                        }`}
+                      >
+                        <FolderIcon className="h-3 w-3" /> {f.name}
+                      </button>
+                    );
+                  })}
+                  {data.folders.length === 0 && (
+                    <span className="text-xs text-muted-foreground">
+                      No folders yet — create one from the Raw Images tab.
+                    </span>
+                  )}
+                </div>
+              </div>
+
 
               {/* Tags */}
               <div>
@@ -1757,11 +1854,13 @@ function GeoStatusButton({
 
 function FolderChip({
   active,
+  icon: Icon,
   label,
   count,
   onClick,
 }: {
   active: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
   label: string;
   count: number;
   onClick: () => void;
@@ -1769,14 +1868,23 @@ function FolderChip({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
         active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background hover:border-primary/40"
+          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
       }`}
     >
-      {label}
-      <span className="text-muted-foreground">{count}</span>
+      {Icon && (
+        <Icon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+      )}
+      <span>{label}</span>
+      <span
+        className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {count}
+      </span>
     </button>
   );
 }
