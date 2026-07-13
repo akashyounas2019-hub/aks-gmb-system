@@ -2143,14 +2143,20 @@ function GeoTagImager({
                             picked ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/60"
                           }`}
                         >
-                          <div className="aspect-square w-full bg-muted">
+                          <div className="relative aspect-square w-full bg-muted">
                             <SignedImage
                               bucket="frames"
                               path={row.storage_path}
                               alt={row.name}
                               className="h-full w-full object-cover"
                             />
+                            {row.lat != null && row.lng != null && (
+                              <span className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
+                                <MapPin className="h-3 w-3" />
+                              </span>
+                            )}
                           </div>
+
                           <div className="truncate p-1.5 text-[10px] text-muted-foreground">
                             {row.name}
                           </div>
