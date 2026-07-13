@@ -895,86 +895,90 @@ function KeywordsPage() {
       )}
 
       {activeTab === "library" && (
-        <div className="flex flex-1">
-      <aside className="hidden w-72 shrink-0 border-r border-border bg-card/40 lg:block">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div>
-            <h2 className="text-sm font-semibold">Library</h2>
-            <p className="text-[11px] text-muted-foreground">
-              {folders.length} folder{folders.length === 1 ? "" : "s"} · {rows.length} keywords
-            </p>
-          </div>
-          <button
-            onClick={() =>
-              setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
-            }
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="New folder"
-          >
-            <FolderPlus className="h-4 w-4" />
-          </button>
-        </div>
-
-        <nav className="px-2 pb-6 text-sm">
-          <SidebarItem
-            icon={<Layers className="h-4 w-4" />}
-            label="All keywords"
-            count={rows.length}
-            active={scope === "all"}
-            onClick={() => setScope("all")}
-          />
-          <SidebarItem
-            icon={<Inbox className="h-4 w-4" />}
-            label="Unfiled"
-            count={rows.filter((r) => !r.folder_id).length}
-            active={scope === "unfiled"}
-            onClick={() => setScope("unfiled")}
-          />
-
-          <div className="mt-4 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Folders
-          </div>
-          <div className="mt-1">
-            {(folderChildren.get(null) ?? []).length === 0 ? (
-              <div className="mx-2 rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-                No folders yet.
-                <button
-                  onClick={() =>
-                    setFolderModal({ mode: "create", parentId: null })
-                  }
-                  className="mt-2 block w-full text-primary hover:underline"
-                >
-                  Create your first folder
-                </button>
+        <div className="flex flex-1 flex-col">
+          {/* Horizontal Library toolbar — replaces the old vertical sidebar */}
+          <div className="border-b border-border bg-card/40">
+            <div className="flex flex-wrap items-center gap-3 px-6 py-3 md:px-10">
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div className="leading-tight">
+                  <div className="text-sm font-semibold">Library</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {folders.length} folder{folders.length === 1 ? "" : "s"} ·{" "}
+                    {rows.length} keywords
+                  </div>
+                </div>
               </div>
-            ) : (
-              (folderChildren.get(null) ?? []).map((f) => (
-                <FolderNode
-                  key={f.id}
-                  folder={f}
-                  depth={0}
-                  childrenMap={folderChildren}
-                  totals={countByFolder.totals}
-                  expanded={expanded}
-                  setExpanded={setExpanded}
-                  scope={scope}
-                  setScope={setScope}
-                  onEdit={(fldr) =>
-                    setFolderModal({ mode: "edit", parentId: fldr.parent_id, folder: fldr })
-                  }
-                  onDelete={(id) => deleteFolder(id)}
-                  onAddChild={(parentId) =>
-                    setFolderModal({ mode: "create", parentId })
-                  }
-                />
-              ))
-            )}
-          </div>
-        </nav>
-      </aside>
 
-      {/* ---------- Main panel ---------- */}
-      <div className="flex-1 py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
+              <div className="mx-1 hidden h-8 w-px bg-border sm:block" />
+
+              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
+                <ToolbarChip
+                  icon={<Layers className="h-3.5 w-3.5" />}
+                  label="All keywords"
+                  count={rows.length}
+                  active={scope === "all"}
+                  onClick={() => setScope("all")}
+                />
+                <ToolbarChip
+                  icon={<Inbox className="h-3.5 w-3.5" />}
+                  label="Unfiled"
+                  count={rows.filter((r) => !r.folder_id).length}
+                  active={scope === "unfiled"}
+                  onClick={() => setScope("unfiled")}
+                />
+
+                {folders.length > 0 && (
+                  <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
+                )}
+
+                {flattenFolders(folderChildren.get(null) ?? [], folderChildren).map(
+                  ({ folder, depth }) => (
+                    <FolderToolbarChip
+                      key={folder.id}
+                      folder={folder}
+                      depth={depth}
+                      count={countByFolder.totals.get(folder.id) ?? 0}
+                      active={scope === folder.id}
+                      onClick={() => setScope(folder.id)}
+                      onEdit={() =>
+                        setFolderModal({
+                          mode: "edit",
+                          parentId: folder.parent_id,
+                          folder,
+                        })
+                      }
+                      onDelete={() => deleteFolder(folder.id)}
+                      onAddChild={() =>
+                        setFolderModal({ mode: "create", parentId: folder.id })
+                      }
+                    />
+                  ),
+                )}
+
+                {folders.length === 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-[11px] text-muted-foreground">
+                    <Folder className="h-3 w-3" />
+                    No folders yet
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={() =>
+                  setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
+                }
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
+              >
+                <FolderPlus className="h-3.5 w-3.5" /> New folder
+              </button>
+            </div>
+          </div>
+
+          {/* ---------- Main panel ---------- */}
+          <div className="min-w-0 flex-1 px-6 py-6 md:px-10 md:py-10">
         {/* Breadcrumb + header */}
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
