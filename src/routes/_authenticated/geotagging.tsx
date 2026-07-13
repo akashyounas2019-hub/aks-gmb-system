@@ -310,8 +310,9 @@ function GeotaggingPage() {
             locationLabel,
             title: meta.title || "",
             description: meta.description || "",
+            keywords: meta.keywords ?? [],
             status: "pending" as const,
-            hasExistingMeta,
+            hasExistingMeta: hasExistingMeta || (meta.keywords?.length ?? 0) > 0,
             metaSources: meta.sources,
             metaRaw: meta.raw,
           };
