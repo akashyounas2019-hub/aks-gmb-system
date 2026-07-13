@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   MapPin,
@@ -20,10 +20,14 @@ import {
   ChevronRight,
   ChevronDown,
   CircleCheck,
+  Download,
+  Library,
+  Plus,
 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
+import { SignedImage, useSignedUrl } from "@/components/SignedImage";
 import { embedGps, readGps, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
