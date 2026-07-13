@@ -212,20 +212,20 @@ function UploadTab({
         <h2 className="text-lg font-semibold">Upload creative</h2>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        Only a title is required — no description or geo-tagging. Uploads appear in the Image Library.
+        Title is optional — if left blank the file name is used. Uploads appear in the Image Library.
       </p>
 
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Title
+              Title <span className="text-muted-foreground/60">(optional)</span>
             </label>
             <input
               type="text"
               value={titleInput}
               onChange={(e) => setTitleInput(e.target.value)}
-              placeholder="e.g. Summer campaign hero"
+              placeholder={file ? file.name.replace(/\.[^.]+$/, "") : "Defaults to file name"}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
