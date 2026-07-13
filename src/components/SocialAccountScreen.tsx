@@ -295,7 +295,7 @@ function UploadTab({
           )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              {isVideos ? "Video" : "Image"}
+              {isVideos ? "Video" : isStory ? "Story media" : "Image"}
             </label>
             <input
               ref={fileRef}
@@ -304,7 +304,13 @@ function UploadTab({
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
             />
+            {isStory && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Stories use a 9:16 portrait aspect ratio (recommended 1080×1920).
+              </p>
+            )}
           </div>
+
         </div>
         <div className="flex items-end">
           <button
