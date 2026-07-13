@@ -182,7 +182,7 @@ function GeotaggingPage() {
     setLibraryLoading(true);
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,lat,lng")
+      .select("id,name,storage_path,lat,lng,title,description")
       .order("created_at", { ascending: false })
       .limit(500);
     setLibrary((data ?? []) as LibraryImage[]);
@@ -233,6 +233,8 @@ function GeotaggingPage() {
               row.lat != null && row.lng != null
                 ? `Existing tag ${Number(row.lat).toFixed(4)}, ${Number(row.lng).toFixed(4)}`
                 : pinnedCoord?.label ?? null,
+            title: row.title ?? "",
+            description: row.description ?? "",
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
@@ -267,6 +269,8 @@ function GeotaggingPage() {
           lat: pinnedCoord?.lat ?? null,
           lng: pinnedCoord?.lng ?? null,
           locationLabel: pinnedCoord?.label ?? null,
+          title: "",
+          description: "",
           status: "pending" as const,
         })),
       ]);
