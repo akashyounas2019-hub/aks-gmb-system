@@ -805,6 +805,13 @@ function StepUpload({
   inputRef,
   addFiles,
   removeImage,
+  library,
+  libraryLoading,
+  reloadLibrary,
+  openLibrary,
+  alreadyImportedIds,
+  addFromLibrary,
+  importingFromLibrary,
 }: {
   images: LocalImage[];
   dragOver: boolean;
@@ -812,13 +819,23 @@ function StepUpload({
   inputRef: React.RefObject<HTMLInputElement | null>;
   addFiles: (f: FileList | File[]) => void;
   removeImage: (id: string) => void;
+  library: LibraryImage[];
+  libraryLoading: boolean;
+  reloadLibrary: () => void;
+  openLibrary: () => void;
+  alreadyImportedIds: Set<string>;
+  addFromLibrary: (rows: LibraryImage[]) => Promise<void>;
+  importingFromLibrary: boolean;
 }) {
+  const PREVIEW_COUNT = 8;
+  const previewLibrary = library.slice(0, PREVIEW_COUNT);
   return (
     <div className="space-y-4">
       <div>
         <h2 className="text-lg font-medium">Upload your images</h2>
         <p className="text-sm text-muted-foreground">
-          Drop a batch of photos below. You can add more later.
+          Drop a batch of photos below, or pick from your existing library. You can add
+          more or remove any at later steps.
         </p>
       </div>
 
@@ -851,6 +868,57 @@ function StepUpload({
         <div className="text-xs text-muted-foreground">JPG, PNG, WEBP — bulk upload supported</div>
       </div>
 
+      {/* Library picker */}
+      <section className="rounded-xl border border-border bg-card/40 p-4">
+        <div className="mb-3 flex items-center justify-between gap-2">
+          <div className="flex items-center gap-2 text-sm font-medium">
+            <Library className="h-4 w-4 text-primary" /> Pick from your library
+            <span className="text-xs text-muted-foreground">
+              ({library.length} available)
+            </span>
+            {importingFromLibrary && (
+              <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
+            )}
+          </div>
+          <button
+            type="button"
+            onClick={reloadLibrary}
+            className="rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent"
+          >
+            {libraryLoading ? "Refreshing…" : "Refresh"}
+          </button>
+        </div>
+        {previewLibrary.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            No images in your library yet. Uploaded and geotagged images will appear here.
+          </div>
+        ) : (
+          <>
+            <div className="grid grid-cols-4 gap-2 md:grid-cols-8">
+              {previewLibrary.map((row) => {
+                const imported = alreadyImportedIds.has(row.id);
+                return (
+                  <LibraryThumb
+                    key={row.id}
+                    row={row}
+                    imported={imported}
+                    onClick={() => !imported && addFromLibrary([row])}
+                  />
+                );
+              })}
+            </div>
+            {library.length > PREVIEW_COUNT && (
+              <button
+                onClick={openLibrary}
+                className="mt-3 w-full rounded-md border border-border py-2 text-xs font-medium hover:border-primary/50 hover:bg-accent"
+              >
+                View all {library.length} images →
+              </button>
+            )}
+          </>
+        )}
+      </section>
+
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-2 md:grid-cols-5 lg:grid-cols-6">
           {images.map((img) => (
@@ -860,6 +928,11 @@ function StepUpload({
                 alt={img.file.name}
                 className="aspect-square h-full w-full object-cover"
               />
+              {img.libraryId && (
+                <span className="absolute left-1 top-1 rounded-md bg-primary/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary-foreground">
+                  Library
+                </span>
+              )}
               <button
                 onClick={() => removeImage(img.id)}
                 className="absolute right-1 top-1 rounded-md bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive"
@@ -872,6 +945,47 @@ function StepUpload({
         </div>
       )}
     </div>
+  );
+}
+
+function LibraryThumb({
+  row,
+  imported,
+  onClick,
+}: {
+  row: LibraryImage;
+  imported: boolean;
+  onClick: () => void;
+}) {
+  const url = useSignedUrl("frames", row.storage_path);
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={imported}
+      title={imported ? "Already added" : row.name}
+      className={`relative overflow-hidden rounded-md border transition ${
+        imported
+          ? "border-primary/50 opacity-60"
+          : "border-border hover:border-primary hover:ring-2 hover:ring-primary/40"
+      }`}
+    >
+      {url ? (
+        <img src={url} alt={row.name} className="aspect-square w-full object-cover" />
+      ) : (
+        <div className="aspect-square w-full animate-pulse bg-muted" />
+      )}
+      {row.lat != null && row.lng != null && (
+        <span className="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-primary/85 px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground">
+          <MapPin className="h-2.5 w-2.5" />
+        </span>
+      )}
+      {imported && (
+        <div className="absolute inset-0 flex items-center justify-center bg-background/60 text-[10px] font-semibold text-primary">
+          Added
+        </div>
+      )}
+    </button>
   );
 }
 
