@@ -2420,7 +2420,7 @@ function MetaFields({
   img: LocalImage;
   updateImageMeta: (
     id: string,
-    patch: Partial<Pick<LocalImage, "title" | "description">>,
+    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
   ) => void;
 }) {
   const sources = img.metaSources;
@@ -2434,9 +2434,22 @@ function MetaFields({
         .map((tag) => ({ tag, value: raw[tag] }))
     : [];
   const descAlts = raw
-    ? (["ImageDescription", "XPComment", "XPSubject"] as const)
+    ? (["ImageDescription", "XPComment", "XPSubject", "UserComment"] as const)
         .filter((tag) => raw[tag] && raw[tag] !== img.description)
         .map((tag) => ({ tag, value: raw[tag] }))
+    : [];
+
+  // Keyword source candidates: canonical (XPKeywords) and fallback
+  // (UserComment) both split into individual keywords for chip-swap.
+  const keywordAlts: { tag: "XPKeywords" | "UserComment"; keywords: string[] }[] = raw
+    ? (["XPKeywords", "UserComment"] as const)
+        .map((tag) => ({
+          tag,
+          keywords: raw[tag]
+            ? raw[tag].split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
+            : [],
+        }))
+        .filter(({ keywords }) => keywords.length > 0)
     : [];
 
   return (
