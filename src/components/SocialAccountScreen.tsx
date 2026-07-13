@@ -173,10 +173,6 @@ function UploadTab({
       toast.error("Choose a file");
       return;
     }
-    if (!titleInput.trim()) {
-      toast.error("Title is required");
-      return;
-    }
     setUploading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -188,9 +184,12 @@ function UploadTab({
         .from("frames")
         .upload(path, file, { contentType: file.type, upsert: false });
       if (upErr) throw upErr;
+      // Title is optional — fall back to the uploaded file's name (minus ext).
+      const fallback = file.name.replace(/\.[^.]+$/, "").trim() || file.name;
+      const finalTitle = titleInput.trim() || fallback;
       const { error: dbErr } = await supabase.from("images").insert({
         owner_id: uid,
-        name: titleInput.trim(),
+        name: finalTitle,
         storage_path: path,
       });
       if (dbErr) throw dbErr;
