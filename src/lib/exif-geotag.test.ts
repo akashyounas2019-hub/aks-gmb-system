@@ -137,6 +137,21 @@ describe("exif-geotag consistency checks", () => {
     expect(meta.raw.XPSubject).toBe("");
   });
 
+  it("falls back gracefully when description contains non-Latin-1 characters", async () => {
+    // piexifjs's ImageDescription tag is Latin-1 encoded and rejects codepoints
+    // > 0xFF (em dash, CJK, emoji). embedGps must not throw — it should
+    // return the original file so the upload isn't blocked.
+    const original = baseJpeg();
+    const tagged = await embedGps(original, 10, 20, {
+      description: "夜景 — after dark",
+    });
+    // Fell back to original: readMeta finds no embedded description.
+    const meta = await readMeta(tagged);
+    expect(meta.description).toBe("");
+    // And the file object is still usable (didn't crash the pipeline).
+    expect(tagged.type).toMatch(/jpeg/);
+  });
+
   it("returns hasGps=false and empty meta for non-JPEG input", async () => {
     const png = new File([new Uint8Array([0x89, 0x50, 0x4e, 0x47])], "x.png", {
       type: "image/png",
