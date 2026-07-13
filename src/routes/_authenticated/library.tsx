@@ -959,27 +959,36 @@ type ImageRow = {
   lng: number | null;
   title: string | null;
   description: string | null;
+  folder_id: string | null;
 };
 type TagRow = { id: string; slug: string; label: string };
+type FolderRow = { id: string; name: string };
 
 async function fetchImageEdit(imageId: string) {
-  const [{ data: img, error: e1 }, { data: allTags, error: e2 }, { data: it, error: e3 }] =
-    await Promise.all([
-      supabase
-        .from("images")
-        .select("id,name,storage_path,lat,lng,title,description")
-        .eq("id", imageId)
-        .single(),
-      supabase.from("tags").select("id,slug,label").order("label"),
-      supabase.from("image_tags").select("tag_id").eq("image_id", imageId),
-    ]);
+  const [
+    { data: img, error: e1 },
+    { data: allTags, error: e2 },
+    { data: it, error: e3 },
+    { data: folders, error: e4 },
+  ] = await Promise.all([
+    supabase
+      .from("images")
+      .select("id,name,storage_path,lat,lng,title,description,folder_id")
+      .eq("id", imageId)
+      .single(),
+    supabase.from("tags").select("id,slug,label").order("label"),
+    supabase.from("image_tags").select("tag_id").eq("image_id", imageId),
+    supabase.from("image_folders").select("id,name").order("name", { ascending: true }),
+  ]);
   if (e1) throw e1;
   if (e2) throw e2;
   if (e3) throw e3;
+  if (e4) throw e4;
   return {
     image: img as ImageRow,
     tags: (allTags ?? []) as TagRow[],
     assignedIds: new Set((it ?? []).map((r) => r.tag_id as string)),
+    folders: (folders ?? []) as FolderRow[],
   };
 }
 
