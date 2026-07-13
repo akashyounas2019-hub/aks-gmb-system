@@ -141,18 +141,46 @@ function LibraryPage() {
       if (error || !signed?.signedUrl) throw new Error(error?.message ?? "Signed URL failed");
       const res = await fetch(signed.signedUrl);
       const blob = await res.blob();
-      const ext = (img.storage_path.split(".").pop() || "jpg").toLowerCase();
-      const source = new File([blob], img.name || `image.${ext}`, {
-        type: blob.type || "image/jpeg",
-      });
+
+      // Map MIME type -> canonical image extension. Falls back to sniffing the
+      // storage path only if it already carries a real image extension.
+      const mimeToExt: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/gif": "gif",
+        "image/avif": "avif",
+        "image/heic": "heic",
+        "image/heif": "heif",
+        "image/tiff": "tiff",
+        "image/bmp": "bmp",
+        "image/svg+xml": "svg",
+      };
+      const validExts = new Set(Object.values(mimeToExt));
+      const pathExt = (img.storage_path.split(".").pop() || "").toLowerCase();
+      const mime = (blob.type || "").toLowerCase();
+      const inferredExt =
+        mimeToExt[mime] ||
+        (validExts.has(pathExt) ? pathExt : "jpg");
+      const inferredMime =
+        mime.startsWith("image/") ? mime : `image/${inferredExt === "jpg" ? "jpeg" : inferredExt}`;
+
+      const source = new File(
+        [blob],
+        (img.name && /\.[a-z0-9]+$/i.test(img.name) ? img.name : `image.${inferredExt}`),
+        { type: inferredMime },
+      );
       const output =
         img.lat != null && img.lng != null
           ? await embedGps(source, Number(img.lat), Number(img.lng))
           : source;
+
       const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
       const base =
         rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
-      const outExt = output.name.split(".").pop() || ext;
+      const outExtRaw = (output.name.split(".").pop() || "").toLowerCase();
+      const outExt = validExts.has(outExtRaw) ? outExtRaw : inferredExt;
       const url = URL.createObjectURL(output);
       const a = document.createElement("a");
       a.href = url;
