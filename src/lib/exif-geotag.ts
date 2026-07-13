@@ -262,6 +262,7 @@ export type ExifMetaSource =
   | "XPComment"
   | "XPSubject"
   | "XPKeywords"
+  | "UserComment"
   | null;
 
 export type ExifMetaResult = {
@@ -281,10 +282,49 @@ export type ExifMetaResult = {
     XPComment: string;
     XPSubject: string;
     XPKeywords: string;
+    UserComment: string;
   };
   /** Diagnostic notes from the consistency check. */
   warnings: string[];
 };
+
+/**
+ * Decode a UserComment byte array. The tag has an 8-byte character-code
+ * prefix (ASCII "ASCII\0\0\0", "UNICODE\0", "JIS\0\0\0\0\0", or all-zero
+ * for undefined). Only ASCII and UNICODE (UTF-16LE) are common in the wild.
+ */
+function fromUserComment(raw: unknown): string {
+  if (raw == null) return "";
+  const bytes = Array.isArray(raw)
+    ? (raw as number[])
+    : typeof raw === "string"
+      ? Array.from(raw, (c) => c.charCodeAt(0))
+      : Array.from(raw as ArrayLike<number>);
+  if (bytes.length <= 8) return "";
+  const prefix = String.fromCharCode(...bytes.slice(0, 8));
+  const body = bytes.slice(8);
+  if (prefix.startsWith("UNICODE")) {
+    const out: string[] = [];
+    for (let i = 0; i + 1 < body.length; i += 2) {
+      const code = body[i] | (body[i + 1] << 8);
+      if (code === 0) break;
+      out.push(String.fromCharCode(code));
+    }
+    return out.join("").trim();
+  }
+  if (prefix.startsWith("ASCII")) {
+    return String.fromCharCode(...body).replace(/\0+$/g, "").trim();
+  }
+  // Undefined / JIS — best-effort: try ASCII interpretation of printable bytes.
+  const ascii = body.filter((b) => b >= 0x20 && b < 0x7f);
+  return ascii.length > body.length / 2
+    ? String.fromCharCode(...ascii).trim()
+    : "";
+}
+
+function splitKeywordString(s: string): string[] {
+  return s.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean);
+}
 
 /**
  * Read title/description/keywords from a JPEG with source tracking.
