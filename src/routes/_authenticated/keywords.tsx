@@ -166,6 +166,19 @@ function KeywordsPage() {
   const [activeTab, setActiveTab] = useState<"research" | "library">("research");
   const [researchQuery, setResearchQuery] = useState("");
 
+  // Tracks CSV / TXT / JSON imports so the Research tab can show a visual
+  // history list under the upload area instead of relying only on a toast.
+  type ImportRecord = {
+    id: string;
+    name: string;
+    size: number;
+    count: number;
+    source: "semrush" | "generic";
+    folderName: string;
+    at: number;
+  };
+  const [imports, setImports] = useState<ImportRecord[]>([]);
+
   const semrushRef = useRef<HTMLInputElement>(null);
   const genericRef = useRef<HTMLInputElement>(null);
 
