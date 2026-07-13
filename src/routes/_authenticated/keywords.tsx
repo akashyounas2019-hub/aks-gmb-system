@@ -534,17 +534,50 @@ function KeywordsPage() {
       cluster: string | null;
       source: string;
     }>,
-  ) {
-    if (!payload.length) return toast.error("No keywords found in file");
+  ): Promise<number> {
+    if (!payload.length) {
+      toast.error("No keywords found in file");
+      return 0;
+    }
     const chunk = 200;
     for (let i = 0; i < payload.length; i += chunk) {
       const { error } = await supabase
         .from("keywords")
         .insert(payload.slice(i, i + chunk));
-      if (error) return toast.error(error.message);
+      if (error) {
+        toast.error(error.message);
+        return 0;
+      }
     }
     toast.success(`Imported ${payload.length} keywords`);
     load();
+    return payload.length;
+  }
+
+  function recordImport(
+    file: File,
+    count: number,
+    source: "semrush" | "generic",
+  ) {
+    if (count <= 0) return;
+    const folderName =
+      scope === "unfiled" || scope === "all"
+        ? "Unfiled"
+        : folderById.get(scope)?.name ?? "Unfiled";
+    setImports((prev) =>
+      [
+        {
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          count,
+          source,
+          folderName,
+          at: Date.now(),
+        },
+        ...prev,
+      ].slice(0, 20),
+    );
   }
 
   // ---------- Export ----------
