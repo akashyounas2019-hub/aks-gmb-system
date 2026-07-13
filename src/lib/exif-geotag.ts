@@ -120,18 +120,30 @@ export async function embedGps(
     const zeroth: Record<number, unknown> = { ...(existing["0th"] ?? {}) };
     const exifIfd: Record<number, unknown> = { ...(existing.Exif ?? {}) };
 
-    const title = meta.title?.trim();
-    const description = meta.description?.trim();
+    let title = meta.title?.trim() ?? "";
+    const description = meta.description?.trim() ?? "";
     const keywords = (meta.keywords ?? [])
       .map((k) => k.trim())
       .filter((k) => k.length > 0);
 
+    // Write-side consistency check: refuse to persist a title that equals the
+    // description. Description wins because it is what geoimgr/Windows/
+    // Lightroom surface as the caption; keeping both would create the same
+    // ambiguity that readMeta has to unwind on the next round-trip.
+    if (title && description && title === description) {
+      title = "";
+    }
+
     if (title) {
       // Windows-aware title tag (what File Explorer / geoimgr call "Title").
-      // NOTE: do NOT also write XPSubject here — geoimgr and some readers
-      // surface XPSubject as the Description, which would clobber the real
+      // NEVER also write XPSubject — geoimgr and some readers surface
+      // XPSubject as the Description, which would clobber the real
       // description with the title.
       zeroth[piexif.ImageIFD.XPTitle] = toXpBytes(title);
+    } else {
+      // No title provided — actively strip any stale XPTitle from the source
+      // file so a re-tag can never leave an outdated title behind.
+      delete zeroth[piexif.ImageIFD.XPTitle];
     }
     if (description) {
       // Standard EXIF "ImageDescription" is what geoimgr and most readers
