@@ -1,0 +1,2 @@
+ALTER TABLE public.keywords ADD COLUMN IF NOT EXISTS tracked boolean NOT NULL DEFAULT false;
+CREATE INDEX IF NOT EXISTS keywords_tracked_idx ON public.keywords (owner_id, tracked) WHERE tracked = true;

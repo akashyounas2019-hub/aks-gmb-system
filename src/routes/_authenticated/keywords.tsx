@@ -50,6 +50,7 @@ type Keyword = {
   cluster: string | null;
   source: string | null;
   folder_id: string | null;
+  tracked?: boolean;
   created_at: string;
 };
 
@@ -182,7 +183,7 @@ function KeywordsPage() {
     folder?: KFolder;
   } | null>(null);
   const [enriching, setEnriching] = useState(false);
-  const [activeTab, setActiveTab] = useState<"research" | "library">("research");
+  const [activeTab, setActiveTab] = useState<"research" | "library" | "tracked">("research");
   const [researchQuery, setResearchQuery] = useState("");
 
   // Tracks CSV / TXT / JSON imports so the Research tab can show a visual
@@ -195,8 +196,12 @@ function KeywordsPage() {
     source: "semrush" | "generic";
     folderName: string;
     at: number;
+    phrases: string[];
+    keywordIds: string[];
   };
   const [imports, setImports] = useState<ImportRecord[]>([]);
+  const [expandedImports, setExpandedImports] = useState<Set<string>>(new Set());
+  const [editingImportId, setEditingImportId] = useState<string | null>(null);
 
   const semrushRef = useRef<HTMLInputElement>(null);
   const genericRef = useRef<HTMLInputElement>(null);
@@ -275,11 +280,14 @@ function KeywordsPage() {
     scope !== "all" && scope !== "unfiled" ? folderById.get(scope) ?? null : null;
 
   const scopedRows = useMemo(() => {
+    if (activeTab === "tracked") return rows.filter((r) => r.tracked);
     if (scope === "all") return rows;
     if (scope === "unfiled") return rows.filter((r) => !r.folder_id);
     const ids = descendantIds(scope);
     return rows.filter((r) => r.folder_id && ids.has(r.folder_id));
-  }, [rows, scope, descendantIds]);
+  }, [rows, scope, descendantIds, activeTab]);
+
+  const trackedCount = useMemo(() => rows.filter((r) => r.tracked).length, [rows]);
 
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -455,8 +463,8 @@ function KeywordsPage() {
         source: "semrush-csv",
       }))
       .filter((k) => k.phrase);
-    const count = await insertBatch(payload);
-    recordImport(file, count, "semrush");
+    const inserted = await insertBatch(payload);
+    recordImport(file, inserted.ids, inserted.phrases, "semrush");
   }
 
   async function importGeneric(file: File) {
@@ -539,8 +547,8 @@ function KeywordsPage() {
       cluster: p.cluster ?? null,
       source: `import:${name.split(".").pop() ?? "file"}`,
     }));
-    const count = await insertBatch(payload);
-    recordImport(file, count, "generic");
+    const inserted = await insertBatch(payload);
+    recordImport(file, inserted.ids, inserted.phrases, "generic");
   }
 
   async function insertBatch(
@@ -555,50 +563,97 @@ function KeywordsPage() {
       cluster: string | null;
       source: string;
     }>,
-  ): Promise<number> {
+  ): Promise<{ ids: string[]; phrases: string[] }> {
     if (!payload.length) {
       toast.error("No keywords found in file");
-      return 0;
+      return { ids: [], phrases: [] };
     }
+    const ids: string[] = [];
+    const phrases: string[] = [];
     const chunk = 200;
     for (let i = 0; i < payload.length; i += chunk) {
-      const { error } = await supabase
+      const slice = payload.slice(i, i + chunk);
+      const { data, error } = await supabase
         .from("keywords")
-        .insert(payload.slice(i, i + chunk));
+        .insert(slice)
+        .select("id, phrase");
       if (error) {
         toast.error(error.message);
-        return 0;
+        return { ids, phrases };
+      }
+      for (const row of (data ?? []) as Array<{ id: string; phrase: string }>) {
+        ids.push(row.id);
+        phrases.push(row.phrase);
       }
     }
-    toast.success(`Imported ${payload.length} keywords`);
+    toast.success(`Imported ${ids.length} keywords`);
     load();
-    return payload.length;
+    return { ids, phrases };
   }
 
   function recordImport(
     file: File,
-    count: number,
+    ids: string[],
+    phrases: string[],
     source: "semrush" | "generic",
   ) {
-    if (count <= 0) return;
+    if (ids.length <= 0) return;
     const folderName =
       scope === "unfiled" || scope === "all"
         ? "Unfiled"
         : folderById.get(scope)?.name ?? "Unfiled";
+    const recId = crypto.randomUUID();
     setImports((prev) =>
       [
         {
-          id: crypto.randomUUID(),
-          name: file.name,
+          id: recId,
+          name: file.name.replace(/\.[^.]+$/, ""),
           size: file.size,
-          count,
+          count: ids.length,
           source,
           folderName,
           at: Date.now(),
+          phrases,
+          keywordIds: ids,
         },
         ...prev,
       ].slice(0, 20),
     );
+    setExpandedImports((prev) => new Set(prev).add(recId));
+  }
+
+  async function moveImportSet(rec: ImportRecord, targetFolderId: string | null) {
+    if (!rec.keywordIds.length) return;
+    await moveKeywords(rec.keywordIds, targetFolderId);
+    const targetName = targetFolderId
+      ? folderById.get(targetFolderId)?.name ?? "folder"
+      : "Unfiled";
+    setImports((prev) =>
+      prev.map((r) => (r.id === rec.id ? { ...r, folderName: targetName } : r)),
+    );
+  }
+
+  function renameImport(id: string, newName: string) {
+    const trimmed = newName.trim();
+    if (!trimmed) return;
+    setImports((prev) => prev.map((r) => (r.id === id ? { ...r, name: trimmed } : r)));
+  }
+
+  async function setTracked(ids: string[], tracked: boolean) {
+    if (!ids.length) return;
+    const { error } = await supabase
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      .from("keywords")
+      .update({ tracked } as any)
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(
+      tracked
+        ? `Added ${ids.length} to Tracked`
+        : `Removed ${ids.length} from Tracked`,
+    );
+    setSelection(new Set());
+    await load();
   }
 
   // ---------- Export ----------
@@ -705,6 +760,7 @@ function KeywordsPage() {
             [
               { id: "research" as const, label: "Keyword Research", icon: Search },
               { id: "library" as const, label: "Library", icon: FolderOpen },
+              { id: "tracked" as const, label: "Tracked Keywords", icon: Target },
             ]
           ).map((t) => {
             const active = activeTab === t.id;
@@ -848,39 +904,27 @@ function KeywordsPage() {
                 </div>
                 <ul className="divide-y divide-border/60">
                   {imports.map((imp) => (
-                    <li
+                    <ImportRow
                       key={imp.id}
-                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3"
-                    >
-                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                        <FileUp className="h-4 w-4" />
-                      </div>
-                      <div className="min-w-0">
-                        <div className="truncate text-sm font-medium">{imp.name}</div>
-                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
-                            +{imp.count.toLocaleString()} keywords
-                          </span>
-                          <span>
-                            {imp.source === "semrush" ? "Semrush CSV" : "Generic import"}
-                          </span>
-                          <span>·</span>
-                          <span>{formatBytes(imp.size)}</span>
-                          <span>·</span>
-                          <span>into {imp.folderName}</span>
-                          <span>·</span>
-                          <span>{formatRelativeTime(imp.at)}</span>
-                        </div>
-                      </div>
-                      <button
-                        onClick={() => {
-                          setActiveTab("library");
-                        }}
-                        className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
-                      >
-                        View in Library
-                      </button>
-                    </li>
+                      imp={imp}
+                      folders={folders}
+                      folderById={folderById}
+                      expanded={expandedImports.has(imp.id)}
+                      onToggleExpanded={() =>
+                        setExpandedImports((prev) => {
+                          const n = new Set(prev);
+                          if (n.has(imp.id)) n.delete(imp.id);
+                          else n.add(imp.id);
+                          return n;
+                        })
+                      }
+                      editing={editingImportId === imp.id}
+                      onStartEdit={() => setEditingImportId(imp.id)}
+                      onStopEdit={() => setEditingImportId(null)}
+                      onRename={(name: string) => renameImport(imp.id, name)}
+                      onMove={(fid: string | null) => moveImportSet(imp, fid)}
+                      onOpenInLibrary={() => setActiveTab("library")}
+                    />
                   ))}
                 </ul>
               </div>
@@ -894,9 +938,10 @@ function KeywordsPage() {
         </div>
       )}
 
-      {activeTab === "library" && (
+      {(activeTab === "library" || activeTab === "tracked") && (
         <div className="flex flex-1 flex-col">
           {/* Horizontal Library toolbar — replaces the old vertical sidebar */}
+          {activeTab === "library" && (
           <div className="border-b border-border bg-card/40">
             <div className="flex flex-wrap items-center gap-3 px-6 py-3 md:px-10">
               <div className="flex shrink-0 items-center gap-2">
@@ -976,6 +1021,7 @@ function KeywordsPage() {
               </button>
             </div>
           </div>
+          )}
 
           {/* ---------- Main panel ---------- */}
           <div className="min-w-0 flex-1 px-6 py-6 md:px-10 md:py-10">
@@ -1020,7 +1066,9 @@ function KeywordsPage() {
                   <Target className="h-5 w-5 text-primary" />
                 )}
                 <h1 className="text-3xl">
-                  {scope === "all"
+                  {activeTab === "tracked"
+                    ? "Tracked keywords"
+                    : scope === "all"
                     ? "All keywords"
                     : scope === "unfiled"
                       ? "Unfiled"
@@ -1113,6 +1161,48 @@ function KeywordsPage() {
             </button>
           </div>
         </div>
+
+        {/* Import sets — allow moving a whole import set to a folder */}
+        {activeTab === "library" && imports.length > 0 && (
+          <div className="mb-5 rounded-xl border border-border bg-card">
+            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+              <div className="flex items-center gap-2">
+                <FileUp className="h-4 w-4 text-primary" />
+                <h3 className="text-sm font-semibold">Import sets</h3>
+                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                  {imports.length}
+                </span>
+              </div>
+              <span className="text-[11px] text-muted-foreground">
+                Rename a set or move all of its keywords into a folder.
+              </span>
+            </div>
+            <ul className="divide-y divide-border/60">
+              {imports.map((imp) => (
+                <ImportRow
+                  key={imp.id}
+                  imp={imp}
+                  folders={folders}
+                  folderById={folderById}
+                  expanded={expandedImports.has(imp.id)}
+                  onToggleExpanded={() =>
+                    setExpandedImports((prev) => {
+                      const n = new Set(prev);
+                      if (n.has(imp.id)) n.delete(imp.id);
+                      else n.add(imp.id);
+                      return n;
+                    })
+                  }
+                  editing={editingImportId === imp.id}
+                  onStartEdit={() => setEditingImportId(imp.id)}
+                  onStopEdit={() => setEditingImportId(null)}
+                  onRename={(name: string) => renameImport(imp.id, name)}
+                  onMove={(fid: string | null) => moveImportSet(imp, fid)}
+                />
+              ))}
+            </ul>
+          </div>
+        )}
 
         {/* KPI strip */}
         <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
@@ -1232,6 +1322,21 @@ function KeywordsPage() {
                 <Sparkles className="h-3.5 w-3.5" />
                 {enriching ? "Normalizing…" : "Normalize"}
               </button>
+              {activeTab === "tracked" ? (
+                <button
+                  onClick={() => setTracked(Array.from(selection), false)}
+                  className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50"
+                >
+                  <Target className="h-3.5 w-3.5" /> Untrack
+                </button>
+              ) : (
+                <button
+                  onClick={() => setTracked(Array.from(selection), true)}
+                  className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15"
+                >
+                  <Target className="h-3.5 w-3.5" /> Track
+                </button>
+              )}
               <button
                 onClick={() => deleteKeywords(Array.from(selection))}
                 className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
@@ -2024,5 +2129,164 @@ function FolderModal({
         </div>
       </form>
     </div>
+  );
+}
+
+// ---------- Import set row (rename + move + preview phrases) ----------
+type ImportRowProps = {
+  imp: {
+    id: string;
+    name: string;
+    size: number;
+    count: number;
+    source: "semrush" | "generic";
+    folderName: string;
+    at: number;
+    phrases: string[];
+    keywordIds: string[];
+  };
+  folders: KFolder[];
+  folderById: Map<string, KFolder>;
+  expanded: boolean;
+  onToggleExpanded: () => void;
+  editing: boolean;
+  onStartEdit: () => void;
+  onStopEdit: () => void;
+  onRename: (name: string) => void;
+  onMove: (folderId: string | null) => void;
+  onOpenInLibrary?: () => void;
+};
+
+function ImportRow({
+  imp,
+  folders,
+  folderById,
+  expanded,
+  onToggleExpanded,
+  editing,
+  onStartEdit,
+  onStopEdit,
+  onRename,
+  onMove,
+  onOpenInLibrary,
+}: ImportRowProps) {
+  const [draft, setDraft] = useState(imp.name);
+  useEffect(() => setDraft(imp.name), [imp.name, editing]);
+  return (
+    <li className="px-5 py-3">
+      <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3">
+        <button
+          onClick={onToggleExpanded}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20"
+          aria-label={expanded ? "Hide keywords" : "Show keywords"}
+        >
+          {expanded ? (
+            <ChevronDown className="h-4 w-4" />
+          ) : (
+            <ChevronRight className="h-4 w-4" />
+          )}
+        </button>
+        <div className="min-w-0">
+          {editing ? (
+            <input
+              autoFocus
+              value={draft}
+              onChange={(e) => setDraft(e.target.value)}
+              onBlur={() => {
+                onRename(draft);
+                onStopEdit();
+              }}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  onRename(draft);
+                  onStopEdit();
+                } else if (e.key === "Escape") {
+                  setDraft(imp.name);
+                  onStopEdit();
+                }
+              }}
+              className="w-full max-w-sm rounded border border-border bg-background px-2 py-1 text-sm outline-none focus:border-primary"
+            />
+          ) : (
+            <button
+              onClick={onStartEdit}
+              className="group inline-flex max-w-full items-center gap-1.5 text-left"
+              title="Click to rename this set"
+            >
+              <span className="truncate text-sm font-medium">{imp.name}</span>
+              <Pencil className="h-3 w-3 shrink-0 text-muted-foreground opacity-0 transition group-hover:opacity-100" />
+            </button>
+          )}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+            <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+              {imp.count.toLocaleString()} keywords
+            </span>
+            <span>{imp.source === "semrush" ? "Semrush CSV" : "Generic import"}</span>
+            <span>·</span>
+            <span>{formatBytes(imp.size)}</span>
+            <span>·</span>
+            <span>in {imp.folderName}</span>
+            <span>·</span>
+            <span>{formatRelativeTime(imp.at)}</span>
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button className="flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50">
+                <Move className="h-3.5 w-3.5" /> Move set
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+              <DropdownMenuLabel className="text-xs">Move all keywords to</DropdownMenuLabel>
+              <DropdownMenuItem onClick={() => onMove(null)}>
+                <Inbox className="mr-2 h-4 w-4" /> Unfiled
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              {folders.length === 0 ? (
+                <DropdownMenuLabel className="text-xs text-muted-foreground">
+                  No folders yet
+                </DropdownMenuLabel>
+              ) : (
+                folders.map((f) => (
+                  <DropdownMenuItem key={f.id} onClick={() => onMove(f.id)}>
+                    <span
+                      className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                      style={{ background: f.color ?? "#64748b" }}
+                    />
+                    {folderPath(f, folderById)}
+                  </DropdownMenuItem>
+                ))
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+          {onOpenInLibrary && (
+            <button
+              onClick={onOpenInLibrary}
+              className="rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+            >
+              Open in Library
+            </button>
+          )}
+        </div>
+      </div>
+      {expanded && imp.phrases.length > 0 && (
+        <div className="mt-3 flex flex-wrap gap-1.5 rounded-md border border-border/60 bg-background/40 p-2.5">
+          {imp.phrases.slice(0, 200).map((p, i) => (
+            <span
+              key={`${imp.id}-${i}`}
+              className="inline-flex items-center rounded-full border border-border bg-card px-2 py-0.5 text-[11px]"
+            >
+              {p}
+            </span>
+          ))}
+          {imp.phrases.length > 200 && (
+            <span className="text-[11px] text-muted-foreground">
+              …and {imp.phrases.length - 200} more
+            </span>
+          )}
+        </div>
+      )}
+    </li>
   );
 }
