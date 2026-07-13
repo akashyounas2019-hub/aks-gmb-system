@@ -118,6 +118,8 @@ type LocalImage = {
   lat: number | null;
   lng: number | null;
   locationLabel: string | null;
+  title: string;
+  description: string;
   status: "pending" | "saving" | "saved" | "error";
   error?: string;
   // When the image was added from the user's library, we track the DB row so
@@ -133,6 +135,8 @@ type LibraryImage = {
   storage_path: string;
   lat: number | null;
   lng: number | null;
+  title: string | null;
+  description: string | null;
 };
 
 /* -------------------------------------------------------------------------- */
