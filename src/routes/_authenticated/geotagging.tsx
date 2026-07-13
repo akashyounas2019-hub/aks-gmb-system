@@ -1682,7 +1682,7 @@ function StepSave({
   stats,
   readyToSave,
   savingBulk,
-  saveAll,
+  saveAll: _saveAll,
   images,
   downloadProcessed,
 }: {
