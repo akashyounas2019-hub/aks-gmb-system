@@ -118,6 +118,46 @@ function LibraryPage() {
     }
   }
 
+  async function downloadImage(img: {
+    name: string;
+    storage_path: string;
+    lat: number | null;
+    lng: number | null;
+    title: string | null;
+  }) {
+    try {
+      const { data: signed, error } = await supabase.storage
+        .from("frames")
+        .createSignedUrl(img.storage_path, 60 * 5);
+      if (error || !signed?.signedUrl) throw new Error(error?.message ?? "Signed URL failed");
+      const res = await fetch(signed.signedUrl);
+      const blob = await res.blob();
+      const ext = (img.storage_path.split(".").pop() || "jpg").toLowerCase();
+      const source = new File([blob], img.name || `image.${ext}`, {
+        type: blob.type || "image/jpeg",
+      });
+      const output =
+        img.lat != null && img.lng != null
+          ? await embedGps(source, Number(img.lat), Number(img.lng))
+          : source;
+      const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
+      const base =
+        rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
+      const outExt = output.name.split(".").pop() || ext;
+      const url = URL.createObjectURL(output);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${base}.${outExt}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed.");
+    }
+  }
+
+
   function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
     if (img.lat != null && img.lng != null) return "geotagged";
     const tags = data?.tagMap.get(img.id) ?? [];
