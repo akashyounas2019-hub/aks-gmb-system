@@ -356,6 +356,11 @@ function LibraryPage() {
                     alt={img.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
+                  {isGeo && !selectMode && (
+                    <div className="absolute left-2 top-2 z-10">
+                      <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                    </div>
+                  )}
                   {selectMode && (
                     <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
                       {isSelected ? (
