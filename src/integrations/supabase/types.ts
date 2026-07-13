@@ -273,6 +273,30 @@ export type Database = {
         }
         Relationships: []
       }
+      image_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       image_keywords: {
         Row: {
           created_at: string
@@ -337,6 +361,7 @@ export type Database = {
         Row: {
           created_at: string
           description: string | null
+          folder_id: string | null
           height: number | null
           id: string
           lat: number | null
@@ -355,6 +380,7 @@ export type Database = {
         Insert: {
           created_at?: string
           description?: string | null
+          folder_id?: string | null
           height?: number | null
           id?: string
           lat?: number | null
@@ -373,6 +399,7 @@ export type Database = {
         Update: {
           created_at?: string
           description?: string | null
+          folder_id?: string | null
           height?: number | null
           id?: string
           lat?: number | null
@@ -389,6 +416,13 @@ export type Database = {
           width?: number | null
         }
         Relationships: [
+          {
+            foreignKeyName: "images_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "image_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "images_venue_id_fkey"
             columns: ["venue_id"]
