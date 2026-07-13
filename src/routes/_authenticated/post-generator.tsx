@@ -865,76 +865,78 @@ export function PostGeneratorPage({
             </div>
           </section>
 
-          {/* GMB Call-to-action */}
-          <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-medium">GMB call-to-action</div>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Google standard
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <label className="block">
-                <span className="text-xs text-muted-foreground">Action</span>
-                <select
-                  value={ctaType}
-                  onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                >
-                  <option value="none">None</option>
-                  <option value="book">Book</option>
-                  <option value="order">Order online</option>
-                  <option value="shop">Buy</option>
-                  <option value="learn_more">Learn more</option>
-                  <option value="sign_up">Sign up</option>
-                  <option value="call">Call now</option>
-                </select>
-              </label>
-              {ctaType !== "none" && (
+          {/* GMB Call-to-action — hidden on Facebook/Instagram */}
+          {!isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm font-medium">GMB call-to-action</div>
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Google standard
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <label className="block">
-                  <span className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
-                    {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
-                      <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
-                    )}
-                  </span>
-                  <div className="relative mt-1">
-                    <input
-                      value={ctaUrl}
-                      onChange={(e) => {
-                        setCtaUrl(e.target.value);
-                        if (ctaType === "call") setPhoneManuallyEdited(true);
-                      }}
-                      placeholder={
-                        ctaType === "call"
-                          ? "+971 50 000 0000"
-                          : "https://example.com/book"
-                      }
-                      inputMode={ctaType === "call" ? "tel" : "url"}
-                      className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
-                    />
-                    {ctaUrl && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCtaUrl("");
+                  <span className="text-xs text-muted-foreground">Action</span>
+                  <select
+                    value={ctaType}
+                    onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
+                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="book">Book</option>
+                    <option value="order">Order online</option>
+                    <option value="shop">Buy</option>
+                    <option value="learn_more">Learn more</option>
+                    <option value="sign_up">Sign up</option>
+                    <option value="call">Call now</option>
+                  </select>
+                </label>
+                {ctaType !== "none" && (
+                  <label className="block">
+                    <span className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
+                      {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
+                        <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
+                      )}
+                    </span>
+                    <div className="relative mt-1">
+                      <input
+                        value={ctaUrl}
+                        onChange={(e) => {
+                          setCtaUrl(e.target.value);
                           if (ctaType === "call") setPhoneManuallyEdited(true);
                         }}
-                        aria-label="Clear"
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </label>
-              )}
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              These map to Google Business Profile's standard actions (Book,
-              Order, Buy, Learn more, Sign up, Call).
-            </p>
-          </section>
+                        placeholder={
+                          ctaType === "call"
+                            ? "+971 50 000 0000"
+                            : "https://example.com/book"
+                        }
+                        inputMode={ctaType === "call" ? "tel" : "url"}
+                        className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
+                      />
+                      {ctaUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCtaUrl("");
+                            if (ctaType === "call") setPhoneManuallyEdited(true);
+                          }}
+                          aria-label="Clear"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </label>
+                )}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                These map to Google Business Profile's standard actions (Book,
+                Order, Buy, Learn more, Sign up, Call).
+              </p>
+            </section>
+          )}
 
 
           <button
