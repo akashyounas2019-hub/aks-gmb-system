@@ -731,7 +731,7 @@ function KeywordsPage() {
 
       {activeTab === "research" && (
         <div className="w-full px-6 py-6 md:px-10 md:py-10">
-          <div className="mx-auto max-w-4xl space-y-6">
+          <div className="space-y-6">
             {/* Research bar */}
             <div className="rounded-xl border border-border bg-card p-5">
               <h2 className="text-lg font-semibold">Research a keyword</h2>
