@@ -94,6 +94,11 @@ export function PostGeneratorPage({
   const [ghlLocationId, setGhlLocationId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
+  const isSocial = defaultPlatform === "facebook" || defaultPlatform === "instagram";
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [hashtagInput, setHashtagInput] = useState("");
+  const [mentions, setMentions] = useState<string[]>([]);
+  const [mentionInput, setMentionInput] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const [caption, setCaption] = useState("");
@@ -197,6 +202,41 @@ export function PostGeneratorPage({
     setManualKw((prev) => prev.filter((k) => k !== kw));
   }
 
+  function addHashtag(raw: string) {
+    const parts = raw
+      .split(/[,\s\n]/)
+      .map((p) => p.trim().replace(/^#+/, ""))
+      .filter(Boolean);
+    if (!parts.length) return;
+    setHashtags((prev) => {
+      const seen = new Set(prev.map((k) => k.toLowerCase()));
+      const next = [...prev];
+      for (const p of parts) if (!seen.has(p.toLowerCase())) { next.push(p); seen.add(p.toLowerCase()); }
+      return next;
+    });
+    setHashtagInput("");
+  }
+  function removeHashtag(h: string) {
+    setHashtags((prev) => prev.filter((k) => k !== h));
+  }
+  function addMention(raw: string) {
+    const parts = raw
+      .split(/[,\s\n]/)
+      .map((p) => p.trim().replace(/^@+/, ""))
+      .filter(Boolean);
+    if (!parts.length) return;
+    setMentions((prev) => {
+      const seen = new Set(prev.map((k) => k.toLowerCase()));
+      const next = [...prev];
+      for (const p of parts) if (!seen.has(p.toLowerCase())) { next.push(p); seen.add(p.toLowerCase()); }
+      return next;
+    });
+    setMentionInput("");
+  }
+  function removeMention(m: string) {
+    setMentions((prev) => prev.filter((k) => k !== m));
+  }
+
   function toggleImage(id: string) {
     setSelectedImages((s) => {
       const n = new Set(s);
@@ -208,15 +248,24 @@ export function PostGeneratorPage({
   }
 
   async function handleGenerate() {
-    if (!manualKw.length) {
+    if (!isSocial && !manualKw.length) {
       toast.error("Add at least one keyword");
+      return;
+    }
+    if (isSocial && !manualKw.length && hashtags.length === 0 && mentions.length === 0) {
+      toast.error("Add a keyword, hashtag, or mention to guide the post");
       return;
     }
     setGenerating(true);
     try {
+      // On social, seed the composer with hashtags/mentions when no keywords —
+      // gives the AI something to anchor the copy to.
+      const seedKeywords = manualKw.length
+        ? manualKw
+        : [...hashtags, ...mentions.map((m) => `@${m}`)];
       const res = await compose({
         data: {
-          keywords: manualKw,
+          keywords: seedKeywords,
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
           language,
@@ -225,7 +274,15 @@ export function PostGeneratorPage({
           callToAction: cta || undefined,
         },
       });
-      setCaption(res.caption);
+      // Append hashtags and @mentions to the generated caption for social posts.
+      let out = res.caption;
+      if (isSocial) {
+        const mentionLine = mentions.map((m) => `@${m}`).join(" ");
+        const hashtagLine = hashtags.map((h) => `#${h}`).join(" ");
+        const trailer = [mentionLine, hashtagLine].filter(Boolean).join("\n");
+        if (trailer) out = `${out.trimEnd()}\n\n${trailer}`;
+      }
+      setCaption(out);
       toast.success("Draft generated");
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Generation failed");
@@ -459,6 +516,11 @@ export function PostGeneratorPage({
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <KeyRound className="h-4 w-4 text-primary" /> Keywords
+                {isSocial && (
+                  <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Optional
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">
                   ({manualKw.length} added)
                 </span>
@@ -563,6 +625,110 @@ export function PostGeneratorPage({
             )}
           </section>
 
+          {/* Hashtags & Mentions — social platforms only */}
+          {isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                Hashtags &amp; mentions
+                <span className="text-xs text-muted-foreground">
+                  ({hashtags.length} tags · {mentions.length} mentions)
+                </span>
+              </div>
+              <div className="space-y-3">
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Hashtags</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={hashtagInput}
+                      onChange={(e) => setHashtagInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " " || e.key === ",") {
+                          e.preventDefault();
+                          addHashtag(hashtagInput);
+                        }
+                      }}
+                      placeholder="marketing, socialmedia (Enter or space to add)"
+                      className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={() => addHashtag(hashtagInput)}
+                      className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                  {hashtags.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {hashtags.map((h) => (
+                        <span
+                          key={h}
+                          className="inline-flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-600 dark:text-sky-400"
+                        >
+                          #{h}
+                          <button
+                            onClick={() => removeHashtag(h)}
+                            className="ml-0.5 rounded-full hover:bg-sky-500/20"
+                            aria-label={`Remove #${h}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div>
+                  <label className="mb-1 block text-xs text-muted-foreground">Mentions</label>
+                  <div className="flex gap-2">
+                    <input
+                      value={mentionInput}
+                      onChange={(e) => setMentionInput(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " " || e.key === ",") {
+                          e.preventDefault();
+                          addMention(mentionInput);
+                        }
+                      }}
+                      placeholder={`@handle (${defaultPlatform === "instagram" ? "Instagram" : "Facebook"} account)`}
+                      className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                    />
+                    <button
+                      onClick={() => addMention(mentionInput)}
+                      className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
+                  {mentions.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5">
+                      {mentions.map((m) => (
+                        <span
+                          key={m}
+                          className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400"
+                        >
+                          @{m}
+                          <button
+                            onClick={() => removeMention(m)}
+                            className="ml-0.5 rounded-full hover:bg-emerald-500/20"
+                            aria-label={`Remove @${m}`}
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+              <p className="mt-3 text-[11px] text-muted-foreground">
+                Hashtags and mentions are appended to the generated post automatically.
+              </p>
+            </section>
+          )}
+
+
+
           {/* Images picker — preview + View all */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
@@ -637,11 +803,13 @@ export function PostGeneratorPage({
             )}
           </section>
 
-          {/* Location */}
-          <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 text-sm font-medium">Location</div>
-            <LocationPicker value={location} onChange={setLocation} />
-          </section>
+          {/* Location — hidden on Facebook/Instagram (GMB-only widget) */}
+          {!isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 text-sm font-medium">Location</div>
+              <LocationPicker value={location} onChange={setLocation} />
+            </section>
+          )}
 
           {/* Voice */}
           <section className="rounded-xl border border-border bg-card p-4">
@@ -697,76 +865,78 @@ export function PostGeneratorPage({
             </div>
           </section>
 
-          {/* GMB Call-to-action */}
-          <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 flex items-center justify-between">
-              <div className="text-sm font-medium">GMB call-to-action</div>
-              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                Google standard
-              </span>
-            </div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <label className="block">
-                <span className="text-xs text-muted-foreground">Action</span>
-                <select
-                  value={ctaType}
-                  onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                >
-                  <option value="none">None</option>
-                  <option value="book">Book</option>
-                  <option value="order">Order online</option>
-                  <option value="shop">Buy</option>
-                  <option value="learn_more">Learn more</option>
-                  <option value="sign_up">Sign up</option>
-                  <option value="call">Call now</option>
-                </select>
-              </label>
-              {ctaType !== "none" && (
+          {/* GMB Call-to-action — hidden on Facebook/Instagram */}
+          {!isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-sm font-medium">GMB call-to-action</div>
+                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                  Google standard
+                </span>
+              </div>
+              <div className="grid grid-cols-2 gap-3 text-sm">
                 <label className="block">
-                  <span className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
-                    {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
-                      <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
-                    )}
-                  </span>
-                  <div className="relative mt-1">
-                    <input
-                      value={ctaUrl}
-                      onChange={(e) => {
-                        setCtaUrl(e.target.value);
-                        if (ctaType === "call") setPhoneManuallyEdited(true);
-                      }}
-                      placeholder={
-                        ctaType === "call"
-                          ? "+971 50 000 0000"
-                          : "https://example.com/book"
-                      }
-                      inputMode={ctaType === "call" ? "tel" : "url"}
-                      className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
-                    />
-                    {ctaUrl && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCtaUrl("");
+                  <span className="text-xs text-muted-foreground">Action</span>
+                  <select
+                    value={ctaType}
+                    onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
+                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                  >
+                    <option value="none">None</option>
+                    <option value="book">Book</option>
+                    <option value="order">Order online</option>
+                    <option value="shop">Buy</option>
+                    <option value="learn_more">Learn more</option>
+                    <option value="sign_up">Sign up</option>
+                    <option value="call">Call now</option>
+                  </select>
+                </label>
+                {ctaType !== "none" && (
+                  <label className="block">
+                    <span className="flex items-center justify-between text-xs text-muted-foreground">
+                      <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
+                      {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
+                        <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
+                      )}
+                    </span>
+                    <div className="relative mt-1">
+                      <input
+                        value={ctaUrl}
+                        onChange={(e) => {
+                          setCtaUrl(e.target.value);
                           if (ctaType === "call") setPhoneManuallyEdited(true);
                         }}
-                        aria-label="Clear"
-                        className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    )}
-                  </div>
-                </label>
-              )}
-            </div>
-            <p className="mt-2 text-[11px] text-muted-foreground">
-              These map to Google Business Profile's standard actions (Book,
-              Order, Buy, Learn more, Sign up, Call).
-            </p>
-          </section>
+                        placeholder={
+                          ctaType === "call"
+                            ? "+971 50 000 0000"
+                            : "https://example.com/book"
+                        }
+                        inputMode={ctaType === "call" ? "tel" : "url"}
+                        className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
+                      />
+                      {ctaUrl && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCtaUrl("");
+                            if (ctaType === "call") setPhoneManuallyEdited(true);
+                          }}
+                          aria-label="Clear"
+                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      )}
+                    </div>
+                  </label>
+                )}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                These map to Google Business Profile's standard actions (Book,
+                Order, Buy, Learn more, Sign up, Call).
+              </p>
+            </section>
+          )}
 
 
           <button
