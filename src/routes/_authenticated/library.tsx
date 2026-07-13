@@ -192,6 +192,11 @@ function LibraryPage() {
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
       if (imageBucket(i) !== tab) return false;
+      // Folder scoping only applies to the Raw Images tab.
+      if (tab === "raw") {
+        if (rawFolderId === "__uncategorized" && i.folder_id != null) return false;
+        if (rawFolderId && rawFolderId !== "__uncategorized" && i.folder_id !== rawFolderId) return false;
+      }
       if (!q) return true;
       if (i.name.toLowerCase().includes(q)) return true;
       const venue = i.venue_id ? data.venueMap.get(i.venue_id) : undefined;
@@ -202,7 +207,63 @@ function LibraryPage() {
       return false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, filter, tab]);
+  }, [data, filter, tab, rawFolderId]);
+
+  // Folder CRUD -----------------------------------------------------------------
+  async function createFolder() {
+    const name = window.prompt("Folder name")?.trim();
+    if (!name) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return toast.error("Not signed in.");
+    const { data: row, error } = await supabase
+      .from("image_folders")
+      .insert({ owner_id: userId, name } as never)
+      .select("id")
+      .single();
+    if (error) return toast.error(error.message);
+    toast.success(`Created folder “${name}”.`);
+    qc.invalidateQueries({ queryKey: ["library"] });
+    if (row) setRawFolderId((row as { id: string }).id);
+  }
+
+  async function renameFolder(id: string, current: string) {
+    const name = window.prompt("Rename folder", current)?.trim();
+    if (!name || name === current) return;
+    const { error } = await supabase
+      .from("image_folders")
+      .update({ name } as never)
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Folder renamed.");
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+  async function deleteFolder(id: string, name: string) {
+    if (!window.confirm(`Delete folder “${name}”? Images inside stay in Raw Images.`)) return;
+    const { error } = await supabase.from("image_folders").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Folder deleted.");
+    if (rawFolderId === id) setRawFolderId(null);
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+  async function moveImagesToFolder(imageIds: string[], folderId: string | null) {
+    if (imageIds.length === 0) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ folder_id: folderId } as never)
+      .in("id", imageIds);
+    if (error) return toast.error(error.message);
+    toast.success(
+      folderId
+        ? `Moved ${imageIds.length} image${imageIds.length === 1 ? "" : "s"} to folder.`
+        : `Removed ${imageIds.length} image${imageIds.length === 1 ? "" : "s"} from folder.`,
+    );
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+
 
 
 
