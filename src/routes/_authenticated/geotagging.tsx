@@ -237,13 +237,15 @@ function GeotaggingPage() {
               row.lat != null && row.lng != null
                 ? `Existing tag ${Number(row.lat).toFixed(4)}, ${Number(row.lng).toFixed(4)}`
                 : pinnedCoord?.label ?? null,
-            title: row.title ?? "",
+            title: row.title ?? row.name ?? file.name,
             description: row.description ?? "",
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
-            hasExistingMeta: Boolean(row.title || row.description),
-
+            // Always treat library-sourced images as having existing metadata —
+            // we pre-fill title (from title → name → filename) and description,
+            // so the user doesn't have to re-enter anything from the previous step.
+            hasExistingMeta: true,
           });
         }
         setImages((prev) => [...prev, ...built]);
