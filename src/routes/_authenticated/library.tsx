@@ -1154,10 +1154,22 @@ function ImageEditModal({
       const patch: { lat?: number | null; lng?: number | null } = {};
       if (bucket === "geotagged") {
         if (!loc) {
-          toast.error("Pick a location for geo-tagging");
+          toast.error(
+            "No coordinates available. Pick a location or upload an image with embedded GPS.",
+          );
           setSaving(false);
           return;
         }
+        patch.lat = loc.lat;
+        patch.lng = loc.lng;
+      } else if (
+        bucket === "published" &&
+        loc &&
+        (data.image.lat == null || data.image.lng == null)
+      ) {
+        // Publishing a raw image that has EXIF-embedded coords — persist them
+        // to the DB so the published image keeps its geo-tag automatically,
+        // without a separate manual coordinate entry step.
         patch.lat = loc.lat;
         patch.lng = loc.lng;
       }
