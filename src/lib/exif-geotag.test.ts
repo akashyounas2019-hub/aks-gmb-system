@@ -43,9 +43,9 @@ const SAMPLES = [
     lng: -74.006,
   },
   {
-    name: "unicode metadata",
+    name: "latin-1 unicode metadata (accents)",
     title: "München Altstadt",
-    description: "Nächtliche Aussicht — 夜景",
+    description: "Nächtliche Aussicht am Café",
     lat: 48.1371,
     lng: 11.5754,
   },
