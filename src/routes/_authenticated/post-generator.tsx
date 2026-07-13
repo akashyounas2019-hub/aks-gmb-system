@@ -61,7 +61,10 @@ type ImageRow = {
 const PREVIEW_COUNT = 8;
 
 
-function PostGeneratorPage() {
+export function PostGeneratorPage({
+  defaultPlatform,
+  pageTitle,
+}: { defaultPlatform?: SocialPlatform; pageTitle?: string } = {}) {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
   const saveDraft = useServerFn(upsertDraft);
