@@ -120,6 +120,7 @@ type LocalImage = {
   locationLabel: string | null;
   title: string;
   description: string;
+  keywords: string[];
   status: "pending" | "saving" | "saved" | "error";
   error?: string;
   // When the image was added from the user's library, we track the DB row so
@@ -143,6 +144,7 @@ type LocalImage = {
     XPComment: string;
     XPSubject: string;
     XPKeywords: string;
+    UserComment: string;
   };
 };
 
