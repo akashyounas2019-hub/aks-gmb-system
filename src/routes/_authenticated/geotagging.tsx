@@ -24,6 +24,7 @@ import {
 
 import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
+import { embedGps, readGps, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
   component: GeotaggingPage,
