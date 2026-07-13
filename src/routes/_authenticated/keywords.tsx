@@ -520,7 +520,8 @@ function KeywordsPage() {
       cluster: p.cluster ?? null,
       source: `import:${name.split(".").pop() ?? "file"}`,
     }));
-    await insertBatch(payload);
+    const count = await insertBatch(payload);
+    recordImport(file, count, "generic");
   }
 
   async function insertBatch(
