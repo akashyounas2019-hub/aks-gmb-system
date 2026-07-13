@@ -921,8 +921,8 @@ function KeywordsPage() {
                       editing={editingImportId === imp.id}
                       onStartEdit={() => setEditingImportId(imp.id)}
                       onStopEdit={() => setEditingImportId(null)}
-                      onRename={(name) => renameImport(imp.id, name)}
-                      onMove={(fid) => moveImportSet(imp, fid)}
+                      onRename={(name: string) => renameImport(imp.id, name)}
+                      onMove={(fid: string | null) => moveImportSet(imp, fid)}
                       onOpenInLibrary={() => setActiveTab("library")}
                     />
                   ))}
