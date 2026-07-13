@@ -173,10 +173,6 @@ function UploadTab({
       toast.error("Choose a file");
       return;
     }
-    if (!titleInput.trim()) {
-      toast.error("Title is required");
-      return;
-    }
     setUploading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -188,9 +184,12 @@ function UploadTab({
         .from("frames")
         .upload(path, file, { contentType: file.type, upsert: false });
       if (upErr) throw upErr;
+      // Title is optional — fall back to the uploaded file's name (minus ext).
+      const fallback = file.name.replace(/\.[^.]+$/, "").trim() || file.name;
+      const finalTitle = titleInput.trim() || fallback;
       const { error: dbErr } = await supabase.from("images").insert({
         owner_id: uid,
-        name: titleInput.trim(),
+        name: finalTitle,
         storage_path: path,
       });
       if (dbErr) throw dbErr;
@@ -213,20 +212,20 @@ function UploadTab({
         <h2 className="text-lg font-semibold">Upload creative</h2>
       </div>
       <p className="mb-4 text-sm text-muted-foreground">
-        Only a title is required — no description or geo-tagging. Uploads appear in the Image Library.
+        Title is optional — if left blank the file name is used. Uploads appear in the Image Library.
       </p>
 
       <div className="grid gap-3 md:grid-cols-[1fr_auto]">
         <div className="space-y-3">
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              Title
+              Title <span className="text-muted-foreground/60">(optional)</span>
             </label>
             <input
               type="text"
               value={titleInput}
               onChange={(e) => setTitleInput(e.target.value)}
-              placeholder="e.g. Summer campaign hero"
+              placeholder={file ? file.name.replace(/\.[^.]+$/, "") : "Defaults to file name"}
               className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
             />
           </div>
@@ -272,7 +271,7 @@ function UploadTab({
         <div className="flex items-end">
           <button
             onClick={handleUpload}
-            disabled={uploading || !file || !titleInput.trim()}
+            disabled={uploading || !file}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {uploading ? (
