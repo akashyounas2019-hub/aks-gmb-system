@@ -815,13 +815,21 @@ function PostGeneratorPage() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPreviewOpen(true)}
                   disabled={!caption.trim() || captionOver}
                   className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
                 >
                   <Eye className="h-4 w-4" /> Preview
+                </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={saving || !caption.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  Save
                 </button>
                 <button
                   onClick={() => setPreviewOpen(true)}
