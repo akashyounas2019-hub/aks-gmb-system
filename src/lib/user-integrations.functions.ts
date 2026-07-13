@@ -105,6 +105,22 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       max: 1024,
     },
   },
+  linkedin: {
+    organization_id: {
+      label: "Organization or Member URN",
+      required: true,
+      min: 3,
+      max: 128,
+      pattern: /^[A-Za-z0-9:._-]+$/,
+      patternMessage: "Only letters, numbers, ':', '.', '_', and '-' are allowed.",
+    },
+    access_token: {
+      label: "Access Token",
+      required: true,
+      min: 20,
+      max: 2048,
+    },
+  },
 };
 
 function validateField(rule: Rule, raw: string): string | null {
