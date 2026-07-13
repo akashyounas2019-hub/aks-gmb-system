@@ -1095,7 +1095,7 @@ function LibraryThumb({
         <div className="aspect-square w-full animate-pulse bg-muted" />
       )}
       {row.lat != null && row.lng != null && (
-        <span className="absolute left-1 top-1 inline-flex items-center gap-0.5 rounded-full bg-primary/85 px-1.5 py-0.5 text-[9px] font-medium text-primary-foreground">
+        <span className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
           <MapPin className="h-2.5 w-2.5" />
         </span>
       )}
