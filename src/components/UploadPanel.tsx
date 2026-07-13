@@ -266,15 +266,15 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       >
         <UploadCloud className="h-10 w-10 text-primary" />
         <div className="mt-4 text-lg font-medium">
-          Drop videos here, or click to browse
+          Drop images or videos here, or click to browse
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
-          MP4, MOV, WebM · queue multiple files · up to a few hundred MB each
+          Images (JPG, PNG, WebP…) upload directly · Videos (MP4, MOV, WebM) extract sharp frames · queue multiple files
         </div>
         <input
           ref={inputRef}
           type="file"
-          accept="video/*"
+          accept="image/*,video/*"
           multiple
           className="hidden"
           onChange={(e) => {
