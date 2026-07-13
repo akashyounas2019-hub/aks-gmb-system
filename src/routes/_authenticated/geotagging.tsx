@@ -1825,12 +1825,25 @@ type VerifyRow = {
   loading: boolean;
 };
 
-function GeoTagImager() {
+function GeoTagImager({
+  library,
+  libraryLoading,
+  onRefresh,
+}: {
+  library: LibraryImage[];
+  libraryLoading: boolean;
+  onRefresh: () => Promise<void>;
+}) {
   const inputRef = useRef<HTMLInputElement>(null);
   const [rows, setRows] = useState<VerifyRow[]>([]);
   const [dragOver, setDragOver] = useState(false);
+  const [libOpen, setLibOpen] = useState(false);
+  const [libSearch, setLibSearch] = useState("");
+  const [libSelected, setLibSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
 
   const addFiles = useCallback(async (files: FileList | File[]) => {
+
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (list.length === 0) {
       toast.error("Choose image files to verify.");
