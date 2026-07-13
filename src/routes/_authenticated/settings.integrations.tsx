@@ -474,6 +474,33 @@ function IntegrationsPage() {
       {/* n8n */}
       <N8nIntegrationCard />
 
+      {/* Facebook */}
+      <ProviderCard
+        provider="facebook"
+        title="Facebook"
+        description="Post to a Facebook Page. Requires a Page ID and Page Access Token from Meta for Developers."
+        icon={<Plug className="h-6 w-6" />}
+        fields={[
+          { key: "page_id", label: "Page ID", secret: false, placeholder: "1234567890" },
+          { key: "access_token", label: "Page Access Token", secret: true, placeholder: "EAAB••••" },
+        ]}
+        docsUrl="https://developers.facebook.com/docs/pages-api"
+      />
+
+      {/* Instagram */}
+      <ProviderCard
+        provider="instagram"
+        title="Instagram"
+        description="Post to an Instagram Business account via the Graph API. Requires the IG business account ID and an access token."
+        icon={<Plug className="h-6 w-6" />}
+        fields={[
+          { key: "account_id", label: "Instagram Business Account ID", secret: false, placeholder: "1784••••" },
+          { key: "access_token", label: "Access Token", secret: true, placeholder: "EAAB••••" },
+        ]}
+        docsUrl="https://developers.facebook.com/docs/instagram-api"
+      />
+
+
 
 
       {/* Rank sources */}

@@ -1,8 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { PostGeneratorPage } from "@/routes/_authenticated/post-generator";
+import { SocialAccountScreen } from "@/components/SocialAccountScreen";
 
 export const Route = createFileRoute("/_authenticated/social/instagram")({
-  component: () => (
-    <PostGeneratorPage defaultPlatform="instagram" pageTitle="Instagram" />
-  ),
+  component: () => <SocialAccountScreen platform="instagram" title="Instagram" />,
 });
