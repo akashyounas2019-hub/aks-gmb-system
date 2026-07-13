@@ -43,7 +43,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -51,6 +51,10 @@ async function fetchLibrary() {
   const { data: tagRows } = await supabase
     .from("image_tags")
     .select("image_id, tag_id, tags(slug,label)");
+  const { data: folders } = await supabase
+    .from("image_folders")
+    .select("id, name, created_at")
+    .order("name", { ascending: true });
 
   const venueMap = new Map(venues?.map((v) => [v.id, v.name]) ?? []);
   const tagMap = new Map<string, { slug: string; label: string }[]>();
@@ -61,8 +65,9 @@ async function fetchLibrary() {
     arr.push(t);
     tagMap.set(row.image_id, arr);
   }
-  return { images: images ?? [], venueMap, tagMap };
+  return { images: images ?? [], venueMap, tagMap, folders: folders ?? [] };
 }
+
 
 async function fetchKeywords() {
   const { data, error } = await supabase
