@@ -726,6 +726,8 @@ function ImageEditModal({
   });
 
   const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
   const [newTag, setNewTag] = useState("");
   const [tagFilter, setTagFilter] = useState("");
