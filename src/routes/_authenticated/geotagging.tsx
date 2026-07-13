@@ -566,7 +566,8 @@ function GeotaggingPage() {
       </div>
 
       {tab === "verify" ? (
-        <GeoTagImager />
+        <GeoTagImager library={library} libraryLoading={libraryLoading} onRefresh={reloadLibrary} />
+
       ) : (
       <>
       {/* Progress bar */}
