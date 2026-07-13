@@ -480,7 +480,6 @@ function CompetitorSidebar({
           ))}
         </ul>
       )}
-      </div>
     </div>
   );
 }
