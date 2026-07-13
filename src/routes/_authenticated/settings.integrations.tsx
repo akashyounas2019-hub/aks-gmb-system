@@ -554,6 +554,7 @@ function N8nIntegrationCard() {
     authToken: "",
     enabled: false,
   });
+  const [open, setOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [testing, setTesting] = useState(false);
 
