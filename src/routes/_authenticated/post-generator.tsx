@@ -38,8 +38,10 @@ import { readGps } from "@/lib/exif-geotag";
 import { getPreferences } from "@/lib/user-preferences.functions";
 
 export const Route = createFileRoute("/_authenticated/post-generator")({
-  component: PostGeneratorPage,
+  component: () => <PostGeneratorPage />,
 });
+
+export type SocialPlatform = "gmb" | "facebook" | "instagram" | "linkedin" | "twitter";
 
 type KeywordRow = {
   id: string;
