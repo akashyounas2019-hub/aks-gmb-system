@@ -1303,6 +1303,10 @@ function StepAssign({
   applyToTargets,
   applyToSelected,
   removeImage,
+  inputRef,
+  addFiles,
+  openLibrary,
+  downloadProcessed,
 }: {
   images: LocalImage[];
   selected: Set<string>;
@@ -1313,6 +1317,10 @@ function StepAssign({
   applyToTargets: (ids: string[]) => void;
   applyToSelected: () => void;
   removeImage: (id: string) => void;
+  inputRef: React.RefObject<HTMLInputElement | null>;
+  addFiles: (f: FileList | File[]) => void;
+  openLibrary: () => void;
+  downloadProcessed: (img: LocalImage) => Promise<void>;
 }) {
   return (
     <div className="space-y-4">
