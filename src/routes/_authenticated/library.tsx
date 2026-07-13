@@ -89,6 +89,8 @@ function LibraryPage() {
   const [autoTagging, setAutoTagging] = useState(false);
   const [tab, setTab] = useState<LibraryTab>("raw");
   const [editingId, setEditingId] = useState<string | null>(null);
+  // null = "All raw" (folder chip); "__uncategorized" = images with no folder
+  const [rawFolderId, setRawFolderId] = useState<string | null>(null);
   const autoTag = useServerFn(autoTagImages);
 
 
