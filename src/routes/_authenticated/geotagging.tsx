@@ -1894,6 +1894,15 @@ async function reverseGeocodeCity(lat: number, lng: number): Promise<string | nu
   }
 }
 
+function MetaCell({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex flex-col">
+      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={`text-xs text-foreground ${mono ? "font-mono" : ""}`}>{value}</dd>
+    </div>
+  );
+}
+
 
 function GeoTagImager({
   library,
