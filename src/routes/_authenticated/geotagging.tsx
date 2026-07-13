@@ -1501,8 +1501,17 @@ function StepSave({
       )}
 
       <div className="rounded-lg border border-border">
-        <div className="border-b border-border px-3 py-2 text-xs font-medium text-muted-foreground">
-          Preview
+        <div className="flex items-center justify-between border-b border-border px-3 py-2">
+          <div className="text-xs font-medium text-muted-foreground">Preview</div>
+          <button
+            type="button"
+            onClick={downloadAll}
+            disabled={taggedImages.length === 0}
+            className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+          >
+            <Download className="h-3 w-3" />
+            Download all ({taggedImages.length})
+          </button>
         </div>
         <div className="grid max-h-72 gap-2 overflow-auto p-3 sm:grid-cols-2 md:grid-cols-3">
           {images.map((img) => (
@@ -1521,6 +1530,16 @@ function StepSave({
                   {img.locationLabel ?? "Not tagged"}
                 </div>
               </div>
+              <button
+                type="button"
+                onClick={() => downloadProcessed(img)}
+                disabled={img.lat === null}
+                className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-30"
+                aria-label="Download geotagged image"
+                title="Download with GPS EXIF"
+              >
+                <Download className="h-4 w-4" />
+              </button>
               {img.status === "saved" ? (
                 <Check className="h-4 w-4 text-emerald-500" />
               ) : img.status === "saving" ? (
