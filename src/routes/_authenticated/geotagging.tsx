@@ -167,6 +167,84 @@ function GeotaggingPage() {
   const [homePickId, setHomePickId] = useState<string>(homePlaces[0]?.id ?? "");
   const [officePickId, setOfficePickId] = useState<string>(officePlaces[0]?.id ?? "");
 
+  // Cloud library (existing user images)
+  const [library, setLibrary] = useState<LibraryImage[]>([]);
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [librarySearch, setLibrarySearch] = useState("");
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [importingFromLibrary, setImportingFromLibrary] = useState(false);
+
+  const reloadLibrary = useCallback(async () => {
+    setLibraryLoading(true);
+    const { data } = await supabase
+      .from("images")
+      .select("id,name,storage_path,lat,lng")
+      .order("created_at", { ascending: false })
+      .limit(500);
+    setLibrary((data ?? []) as LibraryImage[]);
+    setLibraryLoading(false);
+  }, []);
+
+  useEffect(() => {
+    reloadLibrary();
+  }, [reloadLibrary]);
+
+  const alreadyImportedIds = useMemo(
+    () => new Set(images.map((i) => i.libraryId).filter(Boolean) as string[]),
+    [images],
+  );
+
+  const addFromLibrary = useCallback(
+    async (rows: LibraryImage[]) => {
+      if (rows.length === 0) return;
+      setImportingFromLibrary(true);
+      try {
+        const newOnes = rows.filter((r) => !alreadyImportedIds.has(r.id));
+        if (newOnes.length === 0) {
+          toast.info("Already added from library.");
+          return;
+        }
+        const built: LocalImage[] = [];
+        for (const row of newOnes) {
+          const { data: signed, error } = await supabase.storage
+            .from("frames")
+            .createSignedUrl(row.storage_path, 60 * 60);
+          if (error || !signed?.signedUrl) continue;
+          const res = await fetch(signed.signedUrl);
+          const blob = await res.blob();
+          const mime = blob.type || "image/jpeg";
+          const file = new File([blob], row.name || `library-${row.id}.jpg`, {
+            type: mime,
+            lastModified: Date.now(),
+          });
+          const lat = row.lat != null ? Number(row.lat) : pinnedCoord?.lat ?? null;
+          const lng = row.lng != null ? Number(row.lng) : pinnedCoord?.lng ?? null;
+          built.push({
+            id: crypto.randomUUID(),
+            file,
+            previewUrl: URL.createObjectURL(blob),
+            lat,
+            lng,
+            locationLabel:
+              row.lat != null && row.lng != null
+                ? `Existing tag ${Number(row.lat).toFixed(4)}, ${Number(row.lng).toFixed(4)}`
+                : pinnedCoord?.label ?? null,
+            status: "pending",
+            libraryId: row.id,
+            libraryStoragePath: row.storage_path,
+          });
+        }
+        setImages((prev) => [...prev, ...built]);
+        toast.success(`Imported ${built.length} image${built.length === 1 ? "" : "s"} from library.`);
+      } catch (e) {
+        toast.error(e instanceof Error ? e.message : "Library import failed.");
+      } finally {
+        setImportingFromLibrary(false);
+      }
+    },
+    [alreadyImportedIds, pinnedCoord],
+  );
+
   /* --------------------------- upload handling --------------------------- */
 
   const addFiles = useCallback(
