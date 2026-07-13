@@ -66,6 +66,33 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in.");
 
+      // Image path — upload directly, no frame extraction.
+      if (item.file.type.startsWith("image/")) {
+        patchItem(item.id, { stage: "uploading", message: "Uploading image…", progress: 0.2 });
+        const ext = item.file.name.split(".").pop() || "jpg";
+        const imgPath = `${userId}/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("frames")
+          .upload(imgPath, item.file, { contentType: item.file.type, upsert: false });
+        if (upErr) throw upErr;
+
+        patchItem(item.id, { stage: "saving", message: "Saving…", progress: 0.7 });
+        const baseName = item.file.name.replace(/\.[^.]+$/, "");
+        const { error: iErr } = await supabase.from("images").insert({
+          owner_id: userId,
+          storage_path: imgPath,
+          name: baseName || item.file.name,
+          size_bytes: item.file.size,
+          lat: autoGeotag && location ? location.lat : null,
+          lng: autoGeotag && location ? location.lng : null,
+        });
+        if (iErr) throw iErr;
+        onImageSaved?.();
+        patchItem(item.id, { stage: "done", progress: 1, message: "Uploaded" });
+        onComplete?.();
+        return;
+      }
+
       patchItem(item.id, { stage: "extracting", message: "Analyzing video…", progress: 0 });
       const { frames, durationSeconds } = await extractSharpFrames(item.file, {
         sampleEveryMs: sampleMs,
