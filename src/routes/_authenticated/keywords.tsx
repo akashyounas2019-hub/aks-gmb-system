@@ -183,7 +183,7 @@ function KeywordsPage() {
     folder?: KFolder;
   } | null>(null);
   const [enriching, setEnriching] = useState(false);
-  const [activeTab, setActiveTab] = useState<"research" | "library">("research");
+  const [activeTab, setActiveTab] = useState<"research" | "library" | "tracked">("research");
   const [researchQuery, setResearchQuery] = useState("");
 
   // Tracks CSV / TXT / JSON imports so the Research tab can show a visual
