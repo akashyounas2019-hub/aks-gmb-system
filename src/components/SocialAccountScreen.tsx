@@ -39,7 +39,7 @@ export function SocialAccountScreen({
   libraryCategories?: CategoryDef[];
 }) {
   const [tab, setTab] = useState<"library" | "upload" | "compose" | "calendar">(
-    "library",
+    "upload",
   );
   const [reloadKey, setReloadKey] = useState(0);
 
@@ -55,16 +55,16 @@ export function SocialAccountScreen({
       <div className="mb-6 border-b border-border">
         <nav role="tablist" className="-mb-px flex flex-wrap gap-1">
           <TabButton
-            active={tab === "library"}
-            onClick={() => setTab("library")}
-            icon={<Images className="h-4 w-4" />}
-            label="Image Library"
-          />
-          <TabButton
             active={tab === "upload"}
             onClick={() => setTab("upload")}
             icon={<Upload className="h-4 w-4" />}
             label="Upload"
+          />
+          <TabButton
+            active={tab === "library"}
+            onClick={() => setTab("library")}
+            icon={<Images className="h-4 w-4" />}
+            label="Image Library"
           />
           <TabButton
             active={tab === "compose"}
@@ -80,6 +80,7 @@ export function SocialAccountScreen({
           />
         </nav>
       </div>
+
 
       {tab === "library" && (
         <ImageLibraryTab
@@ -166,13 +167,50 @@ function UploadTab({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isVideos = uploadCat === "videos";
-  const accept = isVideos ? "video/*" : "image/*";
+  const isStory = uploadCat === "story";
+  const accept = isVideos
+    ? "video/*"
+    : isStory
+      ? "image/*,video/*"
+      : "image/*";
+
+  // Story format expects a 9:16 portrait aspect ratio (e.g. 1080x1920).
+  // Allow a small tolerance so near-matches don't fail.
+  const STORY_ASPECT = 9 / 16;
+  const STORY_TOLERANCE = 0.05;
+
+  async function getImageAspect(f: File): Promise<number | null> {
+    if (!f.type.startsWith("image/")) return null;
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img.naturalWidth / img.naturalHeight);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      img.src = url;
+    });
+  }
 
   async function handleUpload() {
     if (!file) {
       toast.error("Choose a file");
       return;
     }
+    if (isStory) {
+      const ratio = await getImageAspect(file);
+      if (ratio !== null && Math.abs(ratio - STORY_ASPECT) > STORY_TOLERANCE) {
+        toast.error(
+          "Story images must use a 9:16 portrait aspect ratio (e.g. 1080×1920).",
+        );
+        return;
+      }
+    }
+
     setUploading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
@@ -257,7 +295,7 @@ function UploadTab({
           )}
           <div>
             <label className="mb-1 block text-xs font-medium text-muted-foreground">
-              {isVideos ? "Video" : "Image"}
+              {isVideos ? "Video" : isStory ? "Story media" : "Image"}
             </label>
             <input
               ref={fileRef}
@@ -266,7 +304,13 @@ function UploadTab({
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
               className="block w-full text-sm text-muted-foreground file:mr-3 file:rounded-md file:border-0 file:bg-primary file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-primary-foreground hover:file:bg-primary/90"
             />
+            {isStory && (
+              <p className="mt-1 text-xs text-muted-foreground">
+                Stories use a 9:16 portrait aspect ratio (recommended 1080×1920).
+              </p>
+            )}
           </div>
+
         </div>
         <div className="flex items-end">
           <button
