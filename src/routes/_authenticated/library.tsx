@@ -334,11 +334,14 @@ function LibraryPage() {
             const linkProps = selectMode
               ? {}
               : { to: "/library/$imageId", params: { imageId: img.id } };
+            const isGeo = img.lat != null && img.lng != null;
+            const hoverTitle = [img.title, img.description].filter(Boolean).join(" — ");
             return (
               <CardTag
                 key={img.id}
                 {...linkProps}
                 onClick={selectMode ? () => toggleSelect(img.id) : undefined}
+                title={hoverTitle || img.name}
                 className={`group relative overflow-hidden rounded-xl border bg-card transition ${
                   isSelected
                     ? "border-primary ring-2 ring-primary"
@@ -363,6 +366,14 @@ function LibraryPage() {
                   )}
                   {!selectMode && (
                     <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                      {isGeo && (
+                        <GeoStatusButton
+                          bucket="frames"
+                          path={img.storage_path}
+                          lat={Number(img.lat)}
+                          lng={Number(img.lng)}
+                        />
+                      )}
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -387,17 +398,35 @@ function LibraryPage() {
                       </button>
                     </div>
                   )}
+
+                  {(img.title || img.description) && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/85 via-black/70 to-transparent p-3 text-[11px] text-white opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                      {img.title && (
+                        <div className="truncate text-xs font-semibold">{img.title}</div>
+                      )}
+                      {img.description && (
+                        <div className="mt-0.5 line-clamp-2 text-[11px] text-white/85">
+                          {img.description}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3">
-                  <div className="truncate text-sm font-medium">{img.name}</div>
+                  <div className="truncate text-sm font-medium">{img.title || img.name}</div>
+                  {img.description && (
+                    <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                      {img.description}
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
                     {venue && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
                         <MapPin className="h-3 w-3" /> {venue}
                       </span>
                     )}
-                    {(img.lat != null && img.lng != null && !venue) && (
+                    {(isGeo && !venue) && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
                         <MapPin className="h-3 w-3" /> Geotagged
                       </span>
