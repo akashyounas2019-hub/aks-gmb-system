@@ -202,6 +202,41 @@ export function PostGeneratorPage({
     setManualKw((prev) => prev.filter((k) => k !== kw));
   }
 
+  function addHashtag(raw: string) {
+    const parts = raw
+      .split(/[,\s\n]/)
+      .map((p) => p.trim().replace(/^#+/, ""))
+      .filter(Boolean);
+    if (!parts.length) return;
+    setHashtags((prev) => {
+      const seen = new Set(prev.map((k) => k.toLowerCase()));
+      const next = [...prev];
+      for (const p of parts) if (!seen.has(p.toLowerCase())) { next.push(p); seen.add(p.toLowerCase()); }
+      return next;
+    });
+    setHashtagInput("");
+  }
+  function removeHashtag(h: string) {
+    setHashtags((prev) => prev.filter((k) => k !== h));
+  }
+  function addMention(raw: string) {
+    const parts = raw
+      .split(/[,\s\n]/)
+      .map((p) => p.trim().replace(/^@+/, ""))
+      .filter(Boolean);
+    if (!parts.length) return;
+    setMentions((prev) => {
+      const seen = new Set(prev.map((k) => k.toLowerCase()));
+      const next = [...prev];
+      for (const p of parts) if (!seen.has(p.toLowerCase())) { next.push(p); seen.add(p.toLowerCase()); }
+      return next;
+    });
+    setMentionInput("");
+  }
+  function removeMention(m: string) {
+    setMentions((prev) => prev.filter((k) => k !== m));
+  }
+
   function toggleImage(id: string) {
     setSelectedImages((s) => {
       const n = new Set(s);
