@@ -253,6 +253,36 @@ function PostGeneratorPage() {
     }
   }
 
+  async function handleSaveDraft() {
+    if (!caption.trim()) {
+      toast.error("Nothing to save");
+      return;
+    }
+    setSaving(true);
+    try {
+      const title =
+        (manualKw[0] ?? businessName ?? caption.slice(0, 60).trim()) || "Untitled draft";
+      await saveDraft({
+        data: {
+          title,
+          body: caption,
+          status: "Draft",
+          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
+          tags: manualKw.slice(0, 8),
+        },
+      });
+      toast.success("Draft saved to Post Storage");
+      setCaption("");
+      setSelectedImages(new Set());
+      setTab("storage");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+
   async function uploadManualImages(files: FileList | File[]) {
     const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
     if (!list.length) {
