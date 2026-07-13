@@ -361,6 +361,20 @@ function GeotaggingPage() {
     applyToTargets(ids);
   };
 
+  const updateImageMeta = (id: string, patch: Partial<Pick<LocalImage, "title" | "description">>) => {
+    setImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...patch } : img)));
+  };
+
+  const applyMetaToTargets = (
+    ids: string[],
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => {
+    if (ids.length === 0) return;
+    setImages((prev) =>
+      prev.map((img) => (ids.includes(img.id) ? { ...img, ...patch } : img)),
+    );
+  };
+
   const copyCoord = async () => {
     if (!activeCoord) return;
     await navigator.clipboard.writeText(`${activeCoord.lat}, ${activeCoord.lng}`);
