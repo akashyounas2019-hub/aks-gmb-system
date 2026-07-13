@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft } from "lucide-react";
+import { CalendarDays, Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft } from "lucide-react";
+import { CalendarPage } from "@/routes/_authenticated/calendar";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage, useSignedUrl } from "@/components/SignedImage";
@@ -37,7 +38,9 @@ export function SocialAccountScreen({
   title: string;
   libraryCategories?: CategoryDef[];
 }) {
-  const [tab, setTab] = useState<"library" | "upload" | "compose">("library");
+  const [tab, setTab] = useState<"library" | "upload" | "compose" | "calendar">(
+    "library",
+  );
   const [reloadKey, setReloadKey] = useState(0);
 
   return (
@@ -69,6 +72,12 @@ export function SocialAccountScreen({
             icon={<PenSquare className="h-4 w-4" />}
             label="Post Generator"
           />
+          <TabButton
+            active={tab === "calendar"}
+            onClick={() => setTab("calendar")}
+            icon={<CalendarDays className="h-4 w-4" />}
+            label={`${title} Calendar`}
+          />
         </nav>
       </div>
 
@@ -92,6 +101,15 @@ export function SocialAccountScreen({
       {tab === "compose" && (
         <div className="-mx-6 -my-6 md:-mx-10 md:-my-10">
           <PostGeneratorPage defaultPlatform={platform} pageTitle={`${title} Post`} />
+        </div>
+      )}
+      {tab === "calendar" && (
+        <div className="-mx-6 -my-6 md:-mx-10 md:-my-10">
+          <CalendarPage
+            title={`${title} Calendar`}
+            platform={platform}
+            onDayClick={() => setTab("compose")}
+          />
         </div>
       )}
     </div>
