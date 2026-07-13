@@ -6,6 +6,8 @@ const ALLOWED_PROVIDERS = [
   "dataforseo",
   "serpapi",
   "local_falcon",
+  "facebook",
+  "instagram",
 ] as const;
 type Provider = (typeof ALLOWED_PROVIDERS)[number];
 
