@@ -200,8 +200,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
     const arr = Array.from(files);
     const valid: QueueItem[] = [];
     for (const file of arr) {
-      if (!file.type.startsWith("video/")) {
-        toast.error(`Skipped ${file.name}: not a video`);
+      if (!file.type.startsWith("video/") && !file.type.startsWith("image/")) {
+        toast.error(`Skipped ${file.name}: not an image or video`);
         continue;
       }
       valid.push({
