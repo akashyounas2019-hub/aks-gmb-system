@@ -1462,13 +1462,21 @@ function StepSave({
   savingBulk,
   saveAll,
   images,
+  downloadProcessed,
 }: {
   stats: { total: number; tagged: number; saved: number };
   readyToSave: LocalImage[];
   savingBulk: boolean;
   saveAll: () => void;
   images: LocalImage[];
+  downloadProcessed: (img: LocalImage) => Promise<void>;
 }) {
+  const taggedImages = images.filter((i) => i.lat !== null);
+  const downloadAll = async () => {
+    for (const img of taggedImages) {
+      await downloadProcessed(img);
+    }
+  };
   const untagged = stats.total - stats.tagged;
   return (
     <div className="space-y-4">
