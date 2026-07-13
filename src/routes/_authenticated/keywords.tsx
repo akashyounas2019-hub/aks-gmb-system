@@ -1511,6 +1511,138 @@ function SidebarItem({
   );
 }
 
+function flattenFolders(
+  roots: KFolder[],
+  childrenMap: Map<string | null, KFolder[]>,
+  depth = 0,
+): Array<{ folder: KFolder; depth: number }> {
+  const out: Array<{ folder: KFolder; depth: number }> = [];
+  for (const f of roots) {
+    out.push({ folder: f, depth });
+    const kids = childrenMap.get(f.id) ?? [];
+    if (kids.length) out.push(...flattenFolders(kids, childrenMap, depth + 1));
+  }
+  return out;
+}
+
+function ToolbarChip({
+  icon,
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+        active
+          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-primary/[0.04] hover:text-foreground"
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+      <span
+        className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function FolderToolbarChip({
+  folder,
+  depth,
+  count,
+  active,
+  onClick,
+  onEdit,
+  onDelete,
+  onAddChild,
+}: {
+  folder: KFolder;
+  depth: number;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onAddChild: () => void;
+}) {
+  return (
+    <div
+      className={`group inline-flex shrink-0 items-center overflow-hidden rounded-full border text-xs transition ${
+        active
+          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
+      }`}
+    >
+      <button
+        onClick={onClick}
+        className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
+        title={folder.name}
+      >
+        {depth > 0 && (
+          <span className="text-muted-foreground">
+            {"› ".repeat(depth).trim()}
+          </span>
+        )}
+        <span
+          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: folder.color ?? "#64748b" }}
+        />
+        <Folder
+          className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
+        />
+        <span className="max-w-[10rem] truncate">{folder.name}</span>
+        <span
+          className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+            active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {count}
+        </span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="rounded-full p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100 mr-1"
+            aria-label="Folder actions"
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onAddChild}>
+            <FolderPlus className="mr-2 h-4 w-4" /> New subfolder
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="mr-2 h-4 w-4" /> Rename / edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
+
 function FolderNode({
   folder,
   depth,
