@@ -721,11 +721,13 @@ function LibraryPage() {
                           e.preventDefault();
                           e.stopPropagation();
                           downloadImage({
+                            id: img.id,
                             name: img.name,
                             storage_path: img.storage_path,
                             lat: img.lat as number | null,
                             lng: img.lng as number | null,
                             title: (img as { title: string | null }).title,
+                            description: (img as { description: string | null }).description,
                           });
                         }}
                         aria-label="Download"
