@@ -19,7 +19,11 @@ import {
   Images as ImagesIcon,
   CheckCircle2,
   UploadCloud,
+  ShieldCheck,
+  ShieldAlert,
+  ShieldQuestion,
 } from "lucide-react";
+import { readGps } from "@/lib/exif-geotag";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -37,7 +41,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -330,11 +334,14 @@ function LibraryPage() {
             const linkProps = selectMode
               ? {}
               : { to: "/library/$imageId", params: { imageId: img.id } };
+            const isGeo = img.lat != null && img.lng != null;
+            const hoverTitle = [img.title, img.description].filter(Boolean).join(" — ");
             return (
               <CardTag
                 key={img.id}
                 {...linkProps}
                 onClick={selectMode ? () => toggleSelect(img.id) : undefined}
+                title={hoverTitle || img.name}
                 className={`group relative overflow-hidden rounded-xl border bg-card transition ${
                   isSelected
                     ? "border-primary ring-2 ring-primary"
@@ -359,6 +366,14 @@ function LibraryPage() {
                   )}
                   {!selectMode && (
                     <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                      {isGeo && (
+                        <GeoStatusButton
+                          bucket="frames"
+                          path={img.storage_path}
+                          lat={Number(img.lat)}
+                          lng={Number(img.lng)}
+                        />
+                      )}
                       <button
                         onClick={(e) => {
                           e.preventDefault();
@@ -383,17 +398,35 @@ function LibraryPage() {
                       </button>
                     </div>
                   )}
+
+                  {(img.title || img.description) && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/85 via-black/70 to-transparent p-3 text-[11px] text-white opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                      {img.title && (
+                        <div className="truncate text-xs font-semibold">{img.title}</div>
+                      )}
+                      {img.description && (
+                        <div className="mt-0.5 line-clamp-2 text-[11px] text-white/85">
+                          {img.description}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
 
                 <div className="p-3">
-                  <div className="truncate text-sm font-medium">{img.name}</div>
+                  <div className="truncate text-sm font-medium">{img.title || img.name}</div>
+                  {img.description && (
+                    <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                      {img.description}
+                    </div>
+                  )}
                   <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
                     {venue && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
                         <MapPin className="h-3 w-3" /> {venue}
                       </span>
                     )}
-                    {(img.lat != null && img.lng != null && !venue) && (
+                    {(isGeo && !venue) && (
                       <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
                         <MapPin className="h-3 w-3" /> Geotagged
                       </span>
@@ -652,6 +685,8 @@ type ImageRow = {
   storage_path: string;
   lat: number | null;
   lng: number | null;
+  title: string | null;
+  description: string | null;
 };
 type TagRow = { id: string; slug: string; label: string };
 
@@ -660,7 +695,7 @@ async function fetchImageEdit(imageId: string) {
     await Promise.all([
       supabase
         .from("images")
-        .select("id,name,storage_path,lat,lng")
+        .select("id,name,storage_path,lat,lng,title,description")
         .eq("id", imageId)
         .single(),
       supabase.from("tags").select("id,slug,label").order("label"),
@@ -691,6 +726,8 @@ function ImageEditModal({
   });
 
   const [name, setName] = useState("");
+  const [title, setTitle] = useState("");
+  const [description, setDescription] = useState("");
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
   const [newTag, setNewTag] = useState("");
   const [tagFilter, setTagFilter] = useState("");
@@ -702,6 +739,8 @@ function ImageEditModal({
   useEffect(() => {
     if (!data) return;
     setName(data.image.name);
+    setTitle(data.image.title ?? "");
+    setDescription(data.image.description ?? "");
     setAssigned(new Set(data.assignedIds));
     const publishedTagIds = new Set(
       data.tags.filter((t) => t.slug === "published" || t.slug === "posted").map((t) => t.id),
@@ -783,11 +822,18 @@ function ImageEditModal({
     if (!data) return;
     setSaving(true);
     try {
-      // 1. Name
-      if (name.trim() && name.trim() !== data.image.name) {
+      // 1. Name, title, description
+      const nameChanged = name.trim() && name.trim() !== data.image.name;
+      const titleChanged = (title || null) !== (data.image.title ?? null);
+      const descChanged = (description || null) !== (data.image.description ?? null);
+      if (nameChanged || titleChanged || descChanged) {
+        const meta: Record<string, string | null> = {};
+        if (nameChanged) meta.name = name.trim();
+        if (titleChanged) meta.title = title.trim() || null;
+        if (descChanged) meta.description = description.trim() || null;
         const { error } = await supabase
           .from("images")
-          .update({ name: name.trim() })
+          .update(meta as never)
           .eq("id", imageId);
         if (error) throw error;
       }
@@ -909,6 +955,21 @@ function ImageEditModal({
                 value={name}
                 onChange={(e) => setName(e.target.value)}
                 className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <label className="mt-3 block text-xs font-medium text-muted-foreground">Title</label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Short headline shown on hover"
+                className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+              />
+              <label className="mt-3 block text-xs font-medium text-muted-foreground">Description</label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={3}
+                placeholder="Extra context surfaced on hover and in previews"
+                className="mt-1 w-full resize-none rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
             </div>
 
@@ -1275,3 +1336,98 @@ function VideoPreviewModal({ video, onClose }: { video: VideoRow; onClose: () =>
   );
 }
 
+
+function GeoStatusButton({
+  bucket,
+  path,
+  lat,
+  lng,
+}: {
+  bucket: string;
+  path: string;
+  lat: number;
+  lng: number;
+}) {
+  const [state, setState] = useState<"idle" | "checking" | "ok" | "mismatch" | "missing">("idle");
+  const [detail, setDetail] = useState<string>("");
+
+  async function verify(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setState("checking");
+    try {
+      const { data: signed, error } = await supabase.storage
+        .from(bucket)
+        .createSignedUrl(path, 60);
+      if (error || !signed?.signedUrl) throw error ?? new Error("Could not read image");
+      const res = await fetch(signed.signedUrl);
+      const blob = await res.blob();
+      const file = new File([blob], "image.jpg", { type: blob.type || "image/jpeg" });
+      const gps = await readGps(file);
+      if (!gps.hasGps || gps.lat == null || gps.lng == null) {
+        setState("missing");
+        setDetail(gps.reason ?? "No GPS EXIF in file");
+        toast.warning("No GPS EXIF found in this image file.");
+        return;
+      }
+      const dLat = Math.abs(gps.lat - lat);
+      const dLng = Math.abs(gps.lng - lng);
+      if (dLat < 1e-4 && dLng < 1e-4) {
+        setState("ok");
+        setDetail(`Verified ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)}`);
+        toast.success("Geo-tag verified — EXIF matches the database.");
+      } else {
+        setState("mismatch");
+        setDetail(
+          `EXIF ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)} vs DB ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+        );
+        toast.warning("EXIF coordinates don't match the stored geo-tag.");
+      }
+    } catch (err) {
+      setState("missing");
+      setDetail(err instanceof Error ? err.message : "Check failed");
+      toast.error("Verification failed.");
+    }
+  }
+
+  const Icon =
+    state === "ok"
+      ? ShieldCheck
+      : state === "mismatch" || state === "missing"
+        ? ShieldAlert
+        : ShieldQuestion;
+
+  const tone =
+    state === "ok"
+      ? "text-emerald-500"
+      : state === "mismatch" || state === "missing"
+        ? "text-amber-500"
+        : "text-primary";
+
+  const label =
+    state === "checking"
+      ? "Verifying…"
+      : state === "ok"
+        ? "Verified"
+        : state === "mismatch"
+          ? "EXIF mismatch"
+          : state === "missing"
+            ? "No EXIF GPS"
+            : "Verify geo-tag";
+
+  return (
+    <button
+      onClick={verify}
+      disabled={state === "checking"}
+      title={detail || label}
+      aria-label={label}
+      className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${tone}`}
+    >
+      {state === "checking" ? (
+        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+      ) : (
+        <Icon className="h-3.5 w-3.5" />
+      )}
+    </button>
+  );
+}

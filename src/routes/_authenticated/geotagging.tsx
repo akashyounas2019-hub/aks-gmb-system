@@ -118,6 +118,8 @@ type LocalImage = {
   lat: number | null;
   lng: number | null;
   locationLabel: string | null;
+  title: string;
+  description: string;
   status: "pending" | "saving" | "saved" | "error";
   error?: string;
   // When the image was added from the user's library, we track the DB row so
@@ -133,6 +135,8 @@ type LibraryImage = {
   storage_path: string;
   lat: number | null;
   lng: number | null;
+  title: string | null;
+  description: string | null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -178,7 +182,7 @@ function GeotaggingPage() {
     setLibraryLoading(true);
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,lat,lng")
+      .select("id,name,storage_path,lat,lng,title,description")
       .order("created_at", { ascending: false })
       .limit(500);
     setLibrary((data ?? []) as LibraryImage[]);
@@ -229,6 +233,8 @@ function GeotaggingPage() {
               row.lat != null && row.lng != null
                 ? `Existing tag ${Number(row.lat).toFixed(4)}, ${Number(row.lng).toFixed(4)}`
                 : pinnedCoord?.label ?? null,
+            title: row.title ?? "",
+            description: row.description ?? "",
             status: "pending",
             libraryId: row.id,
             libraryStoragePath: row.storage_path,
@@ -263,6 +269,8 @@ function GeotaggingPage() {
           lat: pinnedCoord?.lat ?? null,
           lng: pinnedCoord?.lng ?? null,
           locationLabel: pinnedCoord?.label ?? null,
+          title: "",
+          description: "",
           status: "pending" as const,
         })),
       ]);
@@ -353,6 +361,20 @@ function GeotaggingPage() {
     applyToTargets(ids);
   };
 
+  const updateImageMeta = (id: string, patch: Partial<Pick<LocalImage, "title" | "description">>) => {
+    setImages((prev) => prev.map((img) => (img.id === id ? { ...img, ...patch } : img)));
+  };
+
+  const applyMetaToTargets = (
+    ids: string[],
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => {
+    if (ids.length === 0) return;
+    setImages((prev) =>
+      prev.map((img) => (ids.includes(img.id) ? { ...img, ...patch } : img)),
+    );
+  };
+
   const copyCoord = async () => {
     if (!activeCoord) return;
     await navigator.clipboard.writeText(`${activeCoord.lat}, ${activeCoord.lng}`);
@@ -403,7 +425,12 @@ function GeotaggingPage() {
           if (upErr) throw upErr;
           const { error: dbErr } = await supabase
             .from("images")
-            .update({ lat: img.lat, lng: img.lng })
+            .update({
+              lat: img.lat,
+              lng: img.lng,
+              title: img.title.trim() || null,
+              description: img.description.trim() || null,
+            } as never)
             .eq("id", img.libraryId);
           if (dbErr) throw dbErr;
         } else {
@@ -419,7 +446,9 @@ function GeotaggingPage() {
             name: img.file.name,
             lat: img.lat,
             lng: img.lng,
-          });
+            title: img.title.trim() || null,
+            description: img.description.trim() || null,
+          } as never);
           if (dbErr) throw dbErr;
         }
 
@@ -671,6 +700,8 @@ function GeotaggingPage() {
             addFiles={addFiles}
             openLibrary={() => setLibraryOpen(true)}
             downloadProcessed={downloadProcessed}
+            updateImageMeta={updateImageMeta}
+            applyMetaToTargets={applyMetaToTargets}
           />
         )}
 
@@ -1388,6 +1419,8 @@ function StepAssign({
   addFiles,
   openLibrary,
   downloadProcessed,
+  updateImageMeta,
+  applyMetaToTargets,
 }: {
   images: LocalImage[];
   selected: Set<string>;
@@ -1402,7 +1435,36 @@ function StepAssign({
   addFiles: (f: FileList | File[]) => void;
   openLibrary: () => void;
   downloadProcessed: (img: LocalImage) => Promise<void>;
+  updateImageMeta: (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => void;
+  applyMetaToTargets: (
+    ids: string[],
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => void;
 }) {
+  const [batchTitle, setBatchTitle] = useState("");
+  const [batchDescription, setBatchDescription] = useState("");
+
+  const applyBatchMeta = () => {
+    const ids = selected.size ? Array.from(selected) : images.map((i) => i.id);
+    if (ids.length === 0) {
+      toast.error("Upload some images first.");
+      return;
+    }
+    const patch: Partial<Pick<LocalImage, "title" | "description">> = {};
+    if (batchTitle.trim()) patch.title = batchTitle.trim();
+    if (batchDescription.trim()) patch.description = batchDescription.trim();
+    if (Object.keys(patch).length === 0) {
+      toast.error("Enter a title or description first.");
+      return;
+    }
+    applyMetaToTargets(ids, patch);
+    toast.success(
+      `Applied details to ${ids.length} image${ids.length === 1 ? "" : "s"}.`,
+    );
+  };
   return (
     <div className="space-y-4">
       <div>
@@ -1458,6 +1520,38 @@ function StepAssign({
         </div>
       </div>
 
+      {/* Batch title + description */}
+      <div className="rounded-lg border border-border bg-muted/20 p-3">
+        <div className="mb-2 text-xs font-medium text-muted-foreground">
+          Title &amp; description for this batch
+          <span className="ml-1 text-muted-foreground/70">
+            — applied alongside the location when you save.
+          </span>
+        </div>
+        <div className="grid gap-2 md:grid-cols-[1fr_1.5fr_auto]">
+          <input
+            value={batchTitle}
+            onChange={(e) => setBatchTitle(e.target.value)}
+            placeholder="Title (e.g. Marina villa exterior)"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <input
+            value={batchDescription}
+            onChange={(e) => setBatchDescription(e.target.value)}
+            placeholder="Description shown on hover in the library"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={applyBatchMeta}
+            disabled={images.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          >
+            Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
+          </button>
+        </div>
+      </div>
+
       {images.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
           <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
@@ -1498,6 +1592,19 @@ function StepAssign({
                   <div className="truncate text-[11px] text-muted-foreground">
                     {img.locationLabel ?? "Not tagged"}
                   </div>
+                  <input
+                    value={img.title}
+                    onChange={(e) => updateImageMeta(img.id, { title: e.target.value })}
+                    placeholder="Title"
+                    className="mt-1 w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+                  />
+                  <textarea
+                    value={img.description}
+                    onChange={(e) => updateImageMeta(img.id, { description: e.target.value })}
+                    placeholder="Description"
+                    rows={2}
+                    className="w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+                  />
                   <div className="flex items-center gap-1.5 pt-1">
                     <button
                       onClick={() => applyToTargets([img.id])}
