@@ -215,3 +215,61 @@ export async function readGps(file: File | Blob): Promise<GpsReadResult> {
     };
   }
 }
+
+/**
+ * Decode a Windows XP* UTF-16LE byte array (XPTitle/XPComment/XPKeywords/XPSubject)
+ * back to a JS string. Accepts number[], Uint8Array, or an already-decoded string.
+ */
+function fromXpBytes(raw: unknown): string {
+  if (raw == null) return "";
+  if (typeof raw === "string") return raw;
+  const bytes = Array.isArray(raw) ? (raw as number[]) : Array.from(raw as ArrayLike<number>);
+  const out: string[] = [];
+  for (let i = 0; i + 1 < bytes.length; i += 2) {
+    const code = bytes[i] | (bytes[i + 1] << 8);
+    if (code === 0) break;
+    out.push(String.fromCharCode(code));
+  }
+  return out.join("");
+}
+
+export type ExifMetaResult = {
+  title: string;
+  description: string;
+  keywords: string[];
+};
+
+/**
+ * Read title/description/keywords from a JPEG. Recognises the standard
+ * ImageDescription tag AND the Windows XPTitle/XPComment/XPKeywords/XPSubject
+ * tags so files tagged by geoimgr, Windows Explorer, Lightroom, etc. round-trip.
+ */
+export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
+  const empty: ExifMetaResult = { title: "", description: "", keywords: [] };
+  if (!isJpeg(file)) return empty;
+  try {
+    const dataUrl = await fileToDataUrl(file);
+    const exif = piexif.load(dataUrl) as { "0th"?: Record<number, unknown> };
+    const zeroth = exif["0th"] ?? {};
+    const XPSubject = 0x9c9f;
+    const title =
+      fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]) ||
+      fromXpBytes(zeroth[XPSubject]) ||
+      "";
+    const descFromXp = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]);
+    const imgDesc = zeroth[piexif.ImageIFD.ImageDescription];
+    const description =
+      descFromXp || (typeof imgDesc === "string" ? imgDesc : "") || "";
+    const kwRaw = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]);
+    const keywords = kwRaw
+      ? kwRaw.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
+      : [];
+    return {
+      title: title.trim(),
+      description: description.trim(),
+      keywords,
+    };
+  } catch {
+    return empty;
+  }
+}
