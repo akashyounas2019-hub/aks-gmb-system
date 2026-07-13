@@ -23,7 +23,7 @@ import {
   ShieldAlert,
   ShieldQuestion,
 } from "lucide-react";
-import { readGps } from "@/lib/exif-geotag";
+import { readGps, embedGps } from "@/lib/exif-geotag";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
