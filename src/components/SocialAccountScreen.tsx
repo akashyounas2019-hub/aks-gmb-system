@@ -167,13 +167,50 @@ function UploadTab({
   const fileRef = useRef<HTMLInputElement>(null);
 
   const isVideos = uploadCat === "videos";
-  const accept = isVideos ? "video/*" : "image/*";
+  const isStory = uploadCat === "story";
+  const accept = isVideos
+    ? "video/*"
+    : isStory
+      ? "image/*,video/*"
+      : "image/*";
+
+  // Story format expects a 9:16 portrait aspect ratio (e.g. 1080x1920).
+  // Allow a small tolerance so near-matches don't fail.
+  const STORY_ASPECT = 9 / 16;
+  const STORY_TOLERANCE = 0.05;
+
+  async function getImageAspect(f: File): Promise<number | null> {
+    if (!f.type.startsWith("image/")) return null;
+    return new Promise((resolve) => {
+      const url = URL.createObjectURL(f);
+      const img = new Image();
+      img.onload = () => {
+        URL.revokeObjectURL(url);
+        resolve(img.naturalWidth / img.naturalHeight);
+      };
+      img.onerror = () => {
+        URL.revokeObjectURL(url);
+        resolve(null);
+      };
+      img.src = url;
+    });
+  }
 
   async function handleUpload() {
     if (!file) {
       toast.error("Choose a file");
       return;
     }
+    if (isStory) {
+      const ratio = await getImageAspect(file);
+      if (ratio !== null && Math.abs(ratio - STORY_ASPECT) > STORY_TOLERANCE) {
+        toast.error(
+          "Story images must use a 9:16 portrait aspect ratio (e.g. 1080×1920).",
+        );
+        return;
+      }
+    }
+
     setUploading(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
