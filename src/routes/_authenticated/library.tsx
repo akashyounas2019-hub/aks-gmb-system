@@ -436,6 +436,24 @@ function LibraryPage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          downloadImage({
+                            name: img.name,
+                            storage_path: img.storage_path,
+                            lat: img.lat as number | null,
+                            lng: img.lng as number | null,
+                            title: (img as { title: string | null }).title,
+                          });
+                        }}
+                        aria-label="Download"
+                        title={`Download${img.title ? ` as “${img.title}”` : ""}`}
+                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           deleteImage(img.id, img.storage_path);
                         }}
                         aria-label="Delete"
