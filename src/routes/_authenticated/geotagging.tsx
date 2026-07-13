@@ -596,6 +596,8 @@ function GeotaggingPage() {
           </button>
         )}
       </div>
+      </>
+      )}
     </div>
   );
 }
