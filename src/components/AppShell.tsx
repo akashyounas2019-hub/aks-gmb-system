@@ -37,24 +37,23 @@ const groups: NavGroup[] = [
     label: "Workflow",
     items: [
       { to: "/automation", label: "Automation", icon: Zap },
-      { to: "/wizard", label: "Pipeline", icon: Workflow },
-      
-      { to: "/library", label: "Image Library", icon: Images },
-      { to: "/geotagging", label: "Geotagging", icon: MapPin },
     ],
   },
   {
     label: "Growth",
     items: [
       { to: "/keywords", label: "Keywords", icon: KeyRound },
-      { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
       { to: "/competitors", label: "Competitors", icon: Target },
     ],
   },
   {
-    label: "Content Writer",
+    label: "Google My Business",
     items: [
       { to: "/post-generator", label: "Post Generator", icon: PenSquare },
+      { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
+      { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
+      { to: "/library", label: "Image Library", icon: Images },
+      { to: "/calendar", label: "GMB Calendar", icon: CalendarDays },
     ],
   },
   {
@@ -63,12 +62,6 @@ const groups: NavGroup[] = [
       { to: "/social/facebook", label: "Facebook", icon: PenSquare },
       { to: "/social/instagram", label: "Instagram", icon: PenSquare },
       { to: "/social/linkedin", label: "LinkedIn", icon: PenSquare },
-    ],
-  },
-  {
-    label: "Publishing",
-    items: [
-      { to: "/calendar", label: "Calendar", icon: CalendarDays },
     ],
   },
 ];
