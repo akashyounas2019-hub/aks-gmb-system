@@ -120,18 +120,30 @@ export async function embedGps(
     const zeroth: Record<number, unknown> = { ...(existing["0th"] ?? {}) };
     const exifIfd: Record<number, unknown> = { ...(existing.Exif ?? {}) };
 
-    const title = meta.title?.trim();
-    const description = meta.description?.trim();
+    let title = meta.title?.trim() ?? "";
+    const description = meta.description?.trim() ?? "";
     const keywords = (meta.keywords ?? [])
       .map((k) => k.trim())
       .filter((k) => k.length > 0);
 
+    // Write-side consistency check: refuse to persist a title that equals the
+    // description. Description wins because it is what geoimgr/Windows/
+    // Lightroom surface as the caption; keeping both would create the same
+    // ambiguity that readMeta has to unwind on the next round-trip.
+    if (title && description && title === description) {
+      title = "";
+    }
+
     if (title) {
       // Windows-aware title tag (what File Explorer / geoimgr call "Title").
-      // NOTE: do NOT also write XPSubject here — geoimgr and some readers
-      // surface XPSubject as the Description, which would clobber the real
+      // NEVER also write XPSubject — geoimgr and some readers surface
+      // XPSubject as the Description, which would clobber the real
       // description with the title.
       zeroth[piexif.ImageIFD.XPTitle] = toXpBytes(title);
+    } else {
+      // No title provided — actively strip any stale XPTitle from the source
+      // file so a re-tag can never leave an outdated title behind.
+      delete zeroth[piexif.ImageIFD.XPTitle];
     }
     if (description) {
       // Standard EXIF "ImageDescription" is what geoimgr and most readers
@@ -139,6 +151,9 @@ export async function embedGps(
       // description — never overload it with the title.
       zeroth[piexif.ImageIFD.ImageDescription] = description;
       zeroth[piexif.ImageIFD.XPComment] = toXpBytes(description);
+      // Some readers surface XPSubject as description; keep it in sync so
+      // description stays consistent across every viewer.
+      zeroth[0x9c9f] = toXpBytes(description);
       // UserComment is prefixed with an 8-byte character-code header.
       const prefix = [0x55, 0x4e, 0x49, 0x43, 0x4f, 0x44, 0x45, 0x00]; // "UNICODE\0"
       const body: number[] = [];
@@ -147,6 +162,14 @@ export async function embedGps(
         body.push(code & 0xff, (code >> 8) & 0xff);
       }
       exifIfd[piexif.ExifIFD.UserComment] = [...prefix, ...body];
+    } else {
+      // No description provided — strip stale description-family tags so a
+      // re-tag can't leave an outdated caption behind or let an old value
+      // bleed back into the title on the next read.
+      delete zeroth[piexif.ImageIFD.ImageDescription];
+      delete zeroth[piexif.ImageIFD.XPComment];
+      delete zeroth[0x9c9f];
+      delete exifIfd[piexif.ExifIFD.UserComment];
     }
     if (keywords.length > 0) {
       // Windows convention: keywords joined by "; ".
@@ -237,38 +260,90 @@ export type ExifMetaResult = {
   title: string;
   description: string;
   keywords: string[];
+  /**
+   * Diagnostic notes from the consistency check. Populated when the raw EXIF
+   * tags looked ambiguous (e.g. title and description held the same string,
+   * or the title only lived in XPSubject which geoimgr surfaces as
+   * description). The caller can surface these in the UI or a log line.
+   */
+  warnings: string[];
 };
 
 /**
  * Read title/description/keywords from a JPEG. Recognises the standard
  * ImageDescription tag AND the Windows XPTitle/XPComment/XPKeywords/XPSubject
  * tags so files tagged by geoimgr, Windows Explorer, Lightroom, etc. round-trip.
+ *
+ * Metadata consistency check: EXIF has multiple overlapping "text" tags and
+ * different tools disagree about which one is the title vs. the description.
+ * This function pins each field to a single canonical tag and refuses to let
+ * one value bleed into the other:
+ *
+ *   title       ← 0th.XPTitle
+ *   description ← 0th.ImageDescription (fallback: 0th.XPComment)
+ *
+ * XPSubject (0x9c9f) is intentionally NOT read as a title, because geoimgr
+ * (and File Explorer's "Subject" column) treat it as a secondary description.
+ * If the file only has XPSubject, we surface it as description instead — never
+ * as title — so a round-trip through geoimgr can't accidentally promote a
+ * description string into the title field.
+ *
+ * If, after mapping, title and description end up identical (a sign that some
+ * earlier tool wrote the same string into both tag families), we drop the
+ * title. Description is authoritative because it's what geoimgr, Lightroom,
+ * and every stock-photo viewer surface as the caption.
  */
 export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
-  const empty: ExifMetaResult = { title: "", description: "", keywords: [] };
+  const empty: ExifMetaResult = { title: "", description: "", keywords: [], warnings: [] };
   if (!isJpeg(file)) return empty;
   try {
     const dataUrl = await fileToDataUrl(file);
     const exif = piexif.load(dataUrl) as { "0th"?: Record<number, unknown> };
     const zeroth = exif["0th"] ?? {};
     const XPSubject = 0x9c9f;
-    const title =
-      fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]) ||
-      fromXpBytes(zeroth[XPSubject]) ||
-      "";
-    const descFromXp = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]);
-    const imgDesc = zeroth[piexif.ImageIFD.ImageDescription];
-    const description =
-      descFromXp || (typeof imgDesc === "string" ? imgDesc : "") || "";
+
+    // Canonical reads — each field is pinned to one tag family.
+    let title = fromXpBytes(zeroth[piexif.ImageIFD.XPTitle]).trim();
+    const imgDescRaw = zeroth[piexif.ImageIFD.ImageDescription];
+    const imgDesc = typeof imgDescRaw === "string" ? imgDescRaw.trim() : "";
+    const xpComment = fromXpBytes(zeroth[piexif.ImageIFD.XPComment]).trim();
+    const xpSubject = fromXpBytes(zeroth[XPSubject]).trim();
+
+    let description = imgDesc || xpComment || "";
+    const warnings: string[] = [];
+
+    // Rule 1: XPSubject is a description tag in geoimgr / Windows, never a
+    // title. If description is empty but XPSubject is populated, surface
+    // XPSubject as description.
+    if (!description && xpSubject) {
+      description = xpSubject;
+      warnings.push(
+        "Description recovered from XPSubject (no ImageDescription/XPComment present).",
+      );
+    }
+
+    // Rule 2: never let the same string live in both fields.
+    if (title && description && title === description) {
+      title = "";
+      warnings.push(
+        "Title and description held the same value; kept it as description only.",
+      );
+    }
+
+    // Rule 3: refuse to promote XPSubject into title even if XPTitle is
+    // missing — that would re-introduce the exact bug we fixed.
+    if (!title && xpSubject && xpSubject !== description) {
+      warnings.push(
+        "Text found in XPSubject but no XPTitle — left title blank to avoid mislabelling a description as a title.",
+      );
+    }
+
     const kwRaw = fromXpBytes(zeroth[piexif.ImageIFD.XPKeywords]);
     const keywords = kwRaw
       ? kwRaw.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
       : [];
-    return {
-      title: title.trim(),
-      description: description.trim(),
-      keywords,
-    };
+
+    return { title, description, keywords, warnings };
   } catch {
     return empty;
   }

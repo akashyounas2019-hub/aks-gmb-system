@@ -299,6 +299,20 @@ function GeotaggingPage() {
           };
         }),
       ]);
+      // Surface any metadata consistency warnings (e.g. title==description,
+      // XPSubject-only descriptions) so the user knows why a field was
+      // remapped or left blank.
+      const warnings = enriched.flatMap(({ file: f, meta }) =>
+        meta.warnings.map((w) => `${f.name}: ${w}`),
+      );
+      if (warnings.length > 0) {
+        console.warn("[geotagging] EXIF consistency notes:", warnings);
+        toast.warning(
+          warnings.length === 1
+            ? warnings[0]
+            : `Metadata consistency check flagged ${warnings.length} issue${warnings.length === 1 ? "" : "s"} — see console for details.`,
+        );
+      }
       if (pinnedCoord) {
         toast.success(
           `Auto-tagged ${list.length} new image${list.length === 1 ? "" : "s"} with ${pinnedCoord.label}.`,
