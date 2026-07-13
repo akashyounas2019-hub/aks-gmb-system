@@ -127,6 +127,10 @@ type LocalImage = {
   // of creating a duplicate.
   libraryId?: string;
   libraryStoragePath?: string;
+  // True when the image was imported from the library and already had title/description set.
+  // We won't re-prompt for those fields.
+  hasExistingMeta?: boolean;
+
 };
 
 type LibraryImage = {
