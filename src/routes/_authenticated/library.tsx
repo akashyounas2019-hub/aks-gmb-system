@@ -1142,11 +1142,13 @@ function ImageEditModal({
       const nameChanged = name.trim() && name.trim() !== data.image.name;
       const titleChanged = (title || null) !== (data.image.title ?? null);
       const descChanged = (description || null) !== (data.image.description ?? null);
-      if (nameChanged || titleChanged || descChanged) {
+      const folderChanged = (folderId ?? null) !== (data.image.folder_id ?? null);
+      if (nameChanged || titleChanged || descChanged || folderChanged) {
         const meta: Record<string, string | null> = {};
         if (nameChanged) meta.name = name.trim();
         if (titleChanged) meta.title = title.trim() || null;
         if (descChanged) meta.description = description.trim() || null;
+        if (folderChanged) meta.folder_id = folderId;
         const { error } = await supabase
           .from("images")
           .update(meta as never)
