@@ -411,7 +411,12 @@ function GeotaggingPage() {
           if (upErr) throw upErr;
           const { error: dbErr } = await supabase
             .from("images")
-            .update({ lat: img.lat, lng: img.lng })
+            .update({
+              lat: img.lat,
+              lng: img.lng,
+              title: img.title.trim() || null,
+              description: img.description.trim() || null,
+            } as never)
             .eq("id", img.libraryId);
           if (dbErr) throw dbErr;
         } else {
@@ -427,7 +432,9 @@ function GeotaggingPage() {
             name: img.file.name,
             lat: img.lat,
             lng: img.lng,
-          });
+            title: img.title.trim() || null,
+            description: img.description.trim() || null,
+          } as never);
           if (dbErr) throw dbErr;
         }
 
