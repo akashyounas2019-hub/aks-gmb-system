@@ -907,13 +907,15 @@ function ImageEditModal({
         if (error) throw error;
       }
 
-      // 2. Move-to bucket -> lat/lng + published tag management
+      // 2. Move-to bucket
+      //    - "geotagged": require a location, apply lat/lng, remove published tag
+      //    - "published": ADD published tag, PRESERVE existing lat/lng (never null them)
+      //    - "raw":       remove published tag, PRESERVE existing lat/lng
+      //    This fixes two bugs: unpublishing a geo-tagged image no longer wipes
+      //    its coordinates, and publishing a geo-tagged image keeps all metadata.
       const publishedTag = data.tags.find((t) => t.slug === "published");
       const nextAssigned = new Set(assigned);
-      const patch: { lat: number | null; lng: number | null } = {
-        lat: null,
-        lng: null,
-      };
+      const patch: { lat?: number | null; lng?: number | null } = {};
       if (bucket === "geotagged") {
         if (!loc) {
           toast.error("Pick a location for geo-tagging");
@@ -928,13 +930,14 @@ function ImageEditModal({
       } else if (publishedTag) {
         nextAssigned.delete(publishedTag.id);
       }
-      {
+      if (Object.keys(patch).length > 0) {
         const { error } = await supabase
           .from("images")
           .update(patch as never)
           .eq("id", imageId);
         if (error) throw error;
       }
+
 
       // 3. Tags — diff and apply
       const { data: userData } = await supabase.auth.getUser();
