@@ -1854,7 +1854,46 @@ type VerifyRow = {
   previewUrl: string;
   result: GpsReadResult | null;
   loading: boolean;
+  // Library metadata (present when the row was picked from the user's library)
+  title?: string | null;
+  description?: string | null;
+  displayName?: string; // friendly name, falls back to file.name
+  // Nearest city resolved via reverse geocoding once GPS is known
+  nearestCity?: string | null;
+  cityLoading?: boolean;
 };
+
+// In-memory reverse-geocoding cache keyed by rounded coordinate (~1km bucket)
+const cityCache = new Map<string, string | null>();
+
+async function reverseGeocodeCity(lat: number, lng: number): Promise<string | null> {
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  if (cityCache.has(key)) return cityCache.get(key)!;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&zoom=12&lat=${lat}&lon=${lng}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) throw new Error("geocode failed");
+    const data = (await res.json()) as { address?: Record<string, string> };
+    const a = data.address ?? {};
+    const city =
+      a.city ??
+      a.town ??
+      a.village ??
+      a.municipality ??
+      a.suburb ??
+      a.county ??
+      a.state ??
+      null;
+    cityCache.set(key, city);
+    return city;
+  } catch {
+    cityCache.set(key, null);
+    return null;
+  }
+}
+
 
 function GeoTagImager({
   library,
