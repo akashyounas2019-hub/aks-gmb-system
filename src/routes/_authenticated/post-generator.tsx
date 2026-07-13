@@ -60,7 +60,9 @@ const PREVIEW_COUNT = 8;
 function PostGeneratorPage() {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
+  const saveDraft = useServerFn(upsertDraft);
   const [tab, setTab] = useState<"compose" | "storage">("compose");
+  const [saving, setSaving] = useState(false);
 
 
   // Keywords — manual list is primary; CSV imports come from the `keywords` table
