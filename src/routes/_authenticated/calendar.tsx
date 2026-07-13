@@ -23,8 +23,20 @@ import {
 } from "@/lib/post-generator.functions";
 
 export const Route = createFileRoute("/_authenticated/calendar")({
-  component: () => <CalendarPage title="GMB Calendar" platform="gmb" />,
+  component: GmbCalendarRoute,
 });
+
+function GmbCalendarRoute() {
+  return (
+    <CalendarPage
+      title="GMB Calendar"
+      platform="gmb"
+      onDayClick={() => {
+        window.location.href = "/post-generator";
+      }}
+    />
+  );
+}
 
 type Post = {
   id: string;
