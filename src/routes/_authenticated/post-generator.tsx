@@ -803,11 +803,13 @@ export function PostGeneratorPage({
             )}
           </section>
 
-          {/* Location */}
-          <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 text-sm font-medium">Location</div>
-            <LocationPicker value={location} onChange={setLocation} />
-          </section>
+          {/* Location — hidden on Facebook/Instagram (GMB-only widget) */}
+          {!isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 text-sm font-medium">Location</div>
+              <LocationPicker value={location} onChange={setLocation} />
+            </section>
+          )}
 
           {/* Voice */}
           <section className="rounded-xl border border-border bg-card p-4">
