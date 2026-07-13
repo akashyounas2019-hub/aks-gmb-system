@@ -12,6 +12,7 @@ export const Route = createFileRoute("/_authenticated/settings")({
 
 const submenu = [
   { to: "/settings/general", label: "General", icon: SettingsIcon },
+  { to: "/settings/business-profile", label: "Business Profile", icon: Building2 },
   { to: "/settings/profile", label: "Profile", icon: User },
   { to: "/settings/integrations", label: "Integrations", icon: Cable },
   { to: "/settings/webhooks", label: "Webhooks", icon: Webhook },
