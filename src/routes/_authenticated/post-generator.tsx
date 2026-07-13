@@ -103,7 +103,7 @@ function PostGeneratorPage() {
   async function reloadImages() {
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,posted_at")
+      .select("id,name,storage_path,posted_at,lat,lng")
       .order("created_at", { ascending: false })
       .limit(500);
     setImages((data ?? []) as ImageRow[]);
