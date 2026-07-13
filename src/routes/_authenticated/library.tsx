@@ -1024,6 +1024,7 @@ function ImageEditModal({
     setTitle(data.image.title ?? "");
     setDescription(data.image.description ?? "");
     setAssigned(new Set(data.assignedIds));
+    setFolderId(data.image.folder_id ?? null);
     const publishedTagIds = new Set(
       data.tags.filter((t) => t.slug === "published" || t.slug === "posted").map((t) => t.id),
     );
