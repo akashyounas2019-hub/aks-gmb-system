@@ -83,7 +83,7 @@ function StepBar({ step }: { step: Step }) {
   );
 }
 
-function WizardPage() {
+export function WizardPage() {
   const sendFn = useServerFn(sendImagesToGhl);
   const [step, setStep] = useState<Step>(1);
 
