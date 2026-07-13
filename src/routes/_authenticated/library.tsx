@@ -409,6 +409,111 @@ function LibraryPage() {
         </div>
       )}
 
+      {tab === "raw" && !isLoading && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-medium">Folders</div>
+            <button
+              onClick={createFolder}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
+            >
+              <FolderPlus className="h-3.5 w-3.5 text-primary" /> New folder
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <FolderChip
+              active={rawFolderId === null}
+              label="All raw"
+              count={data?.images.filter((i) => imageBucket(i) === "raw").length ?? 0}
+              onClick={() => setRawFolderId(null)}
+            />
+            <FolderChip
+              active={rawFolderId === "__uncategorized"}
+              label="Unfiled"
+              count={
+                data?.images.filter((i) => imageBucket(i) === "raw" && i.folder_id == null).length ?? 0
+              }
+              onClick={() => setRawFolderId("__uncategorized")}
+            />
+            {data?.folders.map((f) => {
+              const count = data.images.filter(
+                (i) => imageBucket(i) === "raw" && i.folder_id === f.id,
+              ).length;
+              const active = rawFolderId === f.id;
+              return (
+                <div
+                  key={f.id}
+                  className={`group inline-flex items-center gap-1 rounded-full border px-1 pl-3 text-xs transition ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background hover:border-primary/40"
+                  }`}
+                >
+                  <button
+                    onClick={() => setRawFolderId(f.id)}
+                    className="inline-flex items-center gap-1.5 py-1 font-medium"
+                  >
+                    <FolderIcon className="h-3.5 w-3.5" />
+                    {f.name}
+                    <span className="text-muted-foreground">{count}</span>
+                  </button>
+                  <button
+                    onClick={() => renameFolder(f.id, f.name)}
+                    aria-label="Rename"
+                    title="Rename"
+                    className="rounded-full p-1 opacity-0 transition group-hover:opacity-100 hover:bg-accent"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => deleteFolder(f.id, f.name)}
+                    aria-label="Delete folder"
+                    title="Delete folder"
+                    className="rounded-full p-1 text-destructive opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {selectMode && selected.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2 text-xs">
+              <span className="font-medium">
+                Move {selected.size} selected to:
+              </span>
+              {data?.folders.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={async () => {
+                    await moveImagesToFolder(Array.from(selected), f.id);
+                    clearSelection();
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+                >
+                  <FolderIcon className="h-3 w-3" /> {f.name}
+                </button>
+              ))}
+              <button
+                onClick={async () => {
+                  await moveImagesToFolder(Array.from(selected), null);
+                  clearSelection();
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+              >
+                Remove from folder
+              </button>
+              {data?.folders.length === 0 && (
+                <span className="text-muted-foreground">
+                  Create a folder first, then move.
+                </span>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {tab === "upload" ? (
         <div className="mt-6">
           <UploadPanel
