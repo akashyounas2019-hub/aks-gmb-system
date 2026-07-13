@@ -144,6 +144,25 @@ function looksLikeHeader(row: string[]): boolean {
   return nonNumeric >= Math.ceil(row.length / 2);
 }
 
+function formatBytes(bytes: number): string {
+  if (!bytes) return "0 B";
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
+
+function formatRelativeTime(ts: number): string {
+  const diff = Math.max(0, Date.now() - ts);
+  const s = Math.floor(diff / 1000);
+  if (s < 60) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  const d = Math.floor(h / 24);
+  return `${d}d ago`;
+}
+
 // ---------------- Component ----------------
 function KeywordsPage() {
   const [rows, setRows] = useState<Keyword[]>([]);
@@ -165,6 +184,19 @@ function KeywordsPage() {
   const [enriching, setEnriching] = useState(false);
   const [activeTab, setActiveTab] = useState<"research" | "library">("research");
   const [researchQuery, setResearchQuery] = useState("");
+
+  // Tracks CSV / TXT / JSON imports so the Research tab can show a visual
+  // history list under the upload area instead of relying only on a toast.
+  type ImportRecord = {
+    id: string;
+    name: string;
+    size: number;
+    count: number;
+    source: "semrush" | "generic";
+    folderName: string;
+    at: number;
+  };
+  const [imports, setImports] = useState<ImportRecord[]>([]);
 
   const semrushRef = useRef<HTMLInputElement>(null);
   const genericRef = useRef<HTMLInputElement>(null);
@@ -423,7 +455,8 @@ function KeywordsPage() {
         source: "semrush-csv",
       }))
       .filter((k) => k.phrase);
-    await insertBatch(payload);
+    const count = await insertBatch(payload);
+    recordImport(file, count, "semrush");
   }
 
   async function importGeneric(file: File) {
@@ -506,7 +539,8 @@ function KeywordsPage() {
       cluster: p.cluster ?? null,
       source: `import:${name.split(".").pop() ?? "file"}`,
     }));
-    await insertBatch(payload);
+    const count = await insertBatch(payload);
+    recordImport(file, count, "generic");
   }
 
   async function insertBatch(
@@ -521,17 +555,50 @@ function KeywordsPage() {
       cluster: string | null;
       source: string;
     }>,
-  ) {
-    if (!payload.length) return toast.error("No keywords found in file");
+  ): Promise<number> {
+    if (!payload.length) {
+      toast.error("No keywords found in file");
+      return 0;
+    }
     const chunk = 200;
     for (let i = 0; i < payload.length; i += chunk) {
       const { error } = await supabase
         .from("keywords")
         .insert(payload.slice(i, i + chunk));
-      if (error) return toast.error(error.message);
+      if (error) {
+        toast.error(error.message);
+        return 0;
+      }
     }
     toast.success(`Imported ${payload.length} keywords`);
     load();
+    return payload.length;
+  }
+
+  function recordImport(
+    file: File,
+    count: number,
+    source: "semrush" | "generic",
+  ) {
+    if (count <= 0) return;
+    const folderName =
+      scope === "unfiled" || scope === "all"
+        ? "Unfiled"
+        : folderById.get(scope)?.name ?? "Unfiled";
+    setImports((prev) =>
+      [
+        {
+          id: crypto.randomUUID(),
+          name: file.name,
+          size: file.size,
+          count,
+          source,
+          folderName,
+          at: Date.now(),
+        },
+        ...prev,
+      ].slice(0, 20),
+    );
   }
 
   // ---------- Export ----------
@@ -761,6 +828,64 @@ function KeywordsPage() {
               </div>
             </div>
 
+            {/* Imported files — visual history of CSV/TXT/JSON uploads */}
+            {imports.length > 0 && (
+              <div className="rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border/60 px-5 py-3">
+                  <div className="flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Imported files</h3>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {imports.length}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setImports([])}
+                    className="text-xs text-muted-foreground hover:text-foreground"
+                  >
+                    Clear
+                  </button>
+                </div>
+                <ul className="divide-y divide-border/60">
+                  {imports.map((imp) => (
+                    <li
+                      key={imp.id}
+                      className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 px-5 py-3"
+                    >
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <FileUp className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <div className="truncate text-sm font-medium">{imp.name}</div>
+                        <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[11px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 font-medium text-primary">
+                            +{imp.count.toLocaleString()} keywords
+                          </span>
+                          <span>
+                            {imp.source === "semrush" ? "Semrush CSV" : "Generic import"}
+                          </span>
+                          <span>·</span>
+                          <span>{formatBytes(imp.size)}</span>
+                          <span>·</span>
+                          <span>into {imp.folderName}</span>
+                          <span>·</span>
+                          <span>{formatRelativeTime(imp.at)}</span>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => {
+                          setActiveTab("library");
+                        }}
+                        className="shrink-0 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+                      >
+                        View in Library
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
             <div className="rounded-lg border border-dashed border-border bg-background/30 p-4 text-sm text-muted-foreground">
               Everything you save here shows up under the <strong>Library</strong> tab, where you can
               organize keywords into folders and clusters.
@@ -770,86 +895,90 @@ function KeywordsPage() {
       )}
 
       {activeTab === "library" && (
-        <div className="flex flex-1">
-      <aside className="hidden w-72 shrink-0 border-r border-border bg-card/40 lg:block">
-        <div className="flex items-center justify-between px-4 py-4">
-          <div>
-            <h2 className="text-sm font-semibold">Library</h2>
-            <p className="text-[11px] text-muted-foreground">
-              {folders.length} folder{folders.length === 1 ? "" : "s"} · {rows.length} keywords
-            </p>
-          </div>
-          <button
-            onClick={() =>
-              setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
-            }
-            className="rounded-md p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="New folder"
-          >
-            <FolderPlus className="h-4 w-4" />
-          </button>
-        </div>
-
-        <nav className="px-2 pb-6 text-sm">
-          <SidebarItem
-            icon={<Layers className="h-4 w-4" />}
-            label="All keywords"
-            count={rows.length}
-            active={scope === "all"}
-            onClick={() => setScope("all")}
-          />
-          <SidebarItem
-            icon={<Inbox className="h-4 w-4" />}
-            label="Unfiled"
-            count={rows.filter((r) => !r.folder_id).length}
-            active={scope === "unfiled"}
-            onClick={() => setScope("unfiled")}
-          />
-
-          <div className="mt-4 px-2 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
-            Folders
-          </div>
-          <div className="mt-1">
-            {(folderChildren.get(null) ?? []).length === 0 ? (
-              <div className="mx-2 rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
-                No folders yet.
-                <button
-                  onClick={() =>
-                    setFolderModal({ mode: "create", parentId: null })
-                  }
-                  className="mt-2 block w-full text-primary hover:underline"
-                >
-                  Create your first folder
-                </button>
+        <div className="flex flex-1 flex-col">
+          {/* Horizontal Library toolbar — replaces the old vertical sidebar */}
+          <div className="border-b border-border bg-card/40">
+            <div className="flex flex-wrap items-center gap-3 px-6 py-3 md:px-10">
+              <div className="flex shrink-0 items-center gap-2">
+                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Layers className="h-4 w-4" />
+                </div>
+                <div className="leading-tight">
+                  <div className="text-sm font-semibold">Library</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    {folders.length} folder{folders.length === 1 ? "" : "s"} ·{" "}
+                    {rows.length} keywords
+                  </div>
+                </div>
               </div>
-            ) : (
-              (folderChildren.get(null) ?? []).map((f) => (
-                <FolderNode
-                  key={f.id}
-                  folder={f}
-                  depth={0}
-                  childrenMap={folderChildren}
-                  totals={countByFolder.totals}
-                  expanded={expanded}
-                  setExpanded={setExpanded}
-                  scope={scope}
-                  setScope={setScope}
-                  onEdit={(fldr) =>
-                    setFolderModal({ mode: "edit", parentId: fldr.parent_id, folder: fldr })
-                  }
-                  onDelete={(id) => deleteFolder(id)}
-                  onAddChild={(parentId) =>
-                    setFolderModal({ mode: "create", parentId })
-                  }
-                />
-              ))
-            )}
-          </div>
-        </nav>
-      </aside>
 
-      {/* ---------- Main panel ---------- */}
-      <div className="flex-1 py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
+              <div className="mx-1 hidden h-8 w-px bg-border sm:block" />
+
+              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
+                <ToolbarChip
+                  icon={<Layers className="h-3.5 w-3.5" />}
+                  label="All keywords"
+                  count={rows.length}
+                  active={scope === "all"}
+                  onClick={() => setScope("all")}
+                />
+                <ToolbarChip
+                  icon={<Inbox className="h-3.5 w-3.5" />}
+                  label="Unfiled"
+                  count={rows.filter((r) => !r.folder_id).length}
+                  active={scope === "unfiled"}
+                  onClick={() => setScope("unfiled")}
+                />
+
+                {folders.length > 0 && (
+                  <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
+                )}
+
+                {flattenFolders(folderChildren.get(null) ?? [], folderChildren).map(
+                  ({ folder, depth }) => (
+                    <FolderToolbarChip
+                      key={folder.id}
+                      folder={folder}
+                      depth={depth}
+                      count={countByFolder.totals.get(folder.id) ?? 0}
+                      active={scope === folder.id}
+                      onClick={() => setScope(folder.id)}
+                      onEdit={() =>
+                        setFolderModal({
+                          mode: "edit",
+                          parentId: folder.parent_id,
+                          folder,
+                        })
+                      }
+                      onDelete={() => deleteFolder(folder.id)}
+                      onAddChild={() =>
+                        setFolderModal({ mode: "create", parentId: folder.id })
+                      }
+                    />
+                  ),
+                )}
+
+                {folders.length === 0 && (
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-[11px] text-muted-foreground">
+                    <Folder className="h-3 w-3" />
+                    No folders yet
+                  </span>
+                )}
+              </div>
+
+              <button
+                onClick={() =>
+                  setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
+                }
+                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
+              >
+                <FolderPlus className="h-3.5 w-3.5" /> New folder
+              </button>
+            </div>
+          </div>
+
+          {/* ---------- Main panel ---------- */}
+          <div className="min-w-0 flex-1 px-6 py-6 md:px-10 md:py-10">
         {/* Breadcrumb + header */}
         <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
           <div>
@@ -1381,6 +1510,138 @@ function SidebarItem({
     </button>
   );
 }
+
+function flattenFolders(
+  roots: KFolder[],
+  childrenMap: Map<string | null, KFolder[]>,
+  depth = 0,
+): Array<{ folder: KFolder; depth: number }> {
+  const out: Array<{ folder: KFolder; depth: number }> = [];
+  for (const f of roots) {
+    out.push({ folder: f, depth });
+    const kids = childrenMap.get(f.id) ?? [];
+    if (kids.length) out.push(...flattenFolders(kids, childrenMap, depth + 1));
+  }
+  return out;
+}
+
+function ToolbarChip({
+  icon,
+  label,
+  count,
+  active,
+  onClick,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
+        active
+          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-background text-muted-foreground hover:border-primary/50 hover:bg-primary/[0.04] hover:text-foreground"
+      }`}
+    >
+      {icon}
+      <span>{label}</span>
+      <span
+        className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {count}
+      </span>
+    </button>
+  );
+}
+
+function FolderToolbarChip({
+  folder,
+  depth,
+  count,
+  active,
+  onClick,
+  onEdit,
+  onDelete,
+  onAddChild,
+}: {
+  folder: KFolder;
+  depth: number;
+  count: number;
+  active: boolean;
+  onClick: () => void;
+  onEdit: () => void;
+  onDelete: () => void;
+  onAddChild: () => void;
+}) {
+  return (
+    <div
+      className={`group inline-flex shrink-0 items-center overflow-hidden rounded-full border text-xs transition ${
+        active
+          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
+      }`}
+    >
+      <button
+        onClick={onClick}
+        className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
+        title={folder.name}
+      >
+        {depth > 0 && (
+          <span className="text-muted-foreground">
+            {"› ".repeat(depth).trim()}
+          </span>
+        )}
+        <span
+          className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
+          style={{ background: folder.color ?? "#64748b" }}
+        />
+        <Folder
+          className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
+        />
+        <span className="max-w-[10rem] truncate">{folder.name}</span>
+        <span
+          className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+            active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+          }`}
+        >
+          {count}
+        </span>
+      </button>
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <button
+            className="rounded-full p-1 text-muted-foreground opacity-0 transition hover:bg-accent hover:text-foreground group-hover:opacity-100 mr-1"
+            aria-label="Folder actions"
+          >
+            <MoreHorizontal className="h-3 w-3" />
+          </button>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="end">
+          <DropdownMenuItem onClick={onAddChild}>
+            <FolderPlus className="mr-2 h-4 w-4" /> New subfolder
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={onEdit}>
+            <Pencil className="mr-2 h-4 w-4" /> Rename / edit
+          </DropdownMenuItem>
+          <DropdownMenuSeparator />
+          <DropdownMenuItem
+            onClick={onDelete}
+            className="text-destructive focus:text-destructive"
+          >
+            <Trash2 className="mr-2 h-4 w-4" /> Delete
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+    </div>
+  );
+}
+
 
 function FolderNode({
   folder,
