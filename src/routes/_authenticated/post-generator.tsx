@@ -409,7 +409,7 @@ export function PostGeneratorPage({
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl">Post Generator</h1>
+          <h1 className="text-3xl">{pageTitle ?? "Post Generator"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Enter your keywords, pick images + location, generate with AI, then
             push to GHL Social Planner.
