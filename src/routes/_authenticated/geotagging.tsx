@@ -492,7 +492,10 @@ function GeotaggingPage() {
       const url = URL.createObjectURL(tagged);
       const a = document.createElement("a");
       a.href = url;
-      const base = img.file.name.replace(/\.[^.]+$/, "");
+      // Prefer the user-supplied title (e.g. "Exterior Window Cleaning") over the
+      // raw uploaded filename (e.g. "003(1).jpg") when we build the "Save As" name.
+      const rawBase = img.title?.trim() || img.file.name.replace(/\.[^.]+$/, "");
+      const base = rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
       const ext = tagged.name.split(".").pop() || "jpg";
       a.download = `${base}-geotagged.${ext}`;
       document.body.appendChild(a);
@@ -503,6 +506,7 @@ function GeotaggingPage() {
       toast.error(e instanceof Error ? e.message : "Download failed.");
     }
   };
+
 
   /* --------------------------------- UI --------------------------------- */
 
