@@ -22,6 +22,7 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldQuestion,
+  Download,
 } from "lucide-react";
 import { readGps, embedGps } from "@/lib/exif-geotag";
 
