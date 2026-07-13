@@ -516,6 +516,11 @@ export function PostGeneratorPage({
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <KeyRound className="h-4 w-4 text-primary" /> Keywords
+                {isSocial && (
+                  <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                    Optional
+                  </span>
+                )}
                 <span className="text-xs text-muted-foreground">
                   ({manualKw.length} added)
                 </span>
