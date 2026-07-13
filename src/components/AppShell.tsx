@@ -22,7 +22,6 @@ import {
   
   User,
   Users,
-  Workflow,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
