@@ -94,6 +94,11 @@ export function PostGeneratorPage({
   const [ghlLocationId, setGhlLocationId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
+  const isSocial = defaultPlatform === "facebook" || defaultPlatform === "instagram";
+  const [hashtags, setHashtags] = useState<string[]>([]);
+  const [hashtagInput, setHashtagInput] = useState("");
+  const [mentions, setMentions] = useState<string[]>([]);
+  const [mentionInput, setMentionInput] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const [caption, setCaption] = useState("");
