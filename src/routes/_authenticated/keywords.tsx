@@ -1021,6 +1021,7 @@ function KeywordsPage() {
               </button>
             </div>
           </div>
+          )}
 
           {/* ---------- Main panel ---------- */}
           <div className="min-w-0 flex-1 px-6 py-6 md:px-10 md:py-10">
