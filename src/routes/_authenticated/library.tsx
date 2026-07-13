@@ -1692,7 +1692,10 @@ function GeoStatusButton({
       }
       const dLat = Math.abs(gps.lat - lat);
       const dLng = Math.abs(gps.lng - lng);
-      if (dLat < 1e-4 && dLng < 1e-4) {
+      // Tolerance ~5e-4° (~55m) — piexif rounds GPS seconds to 1/10000 and
+      // reverse-geocoded pins can drift a few meters; anything closer than
+      // this is treated as a match to avoid spurious mismatch errors.
+      if (dLat < 5e-4 && dLng < 5e-4) {
         setState("ok");
         setDetail(`Verified ${gps.lat.toFixed(6)}, ${gps.lng.toFixed(6)}`);
         toast.success("Geo-tag verified — EXIF matches the database.");
