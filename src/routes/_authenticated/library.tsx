@@ -822,11 +822,18 @@ function ImageEditModal({
     if (!data) return;
     setSaving(true);
     try {
-      // 1. Name
-      if (name.trim() && name.trim() !== data.image.name) {
+      // 1. Name, title, description
+      const nameChanged = name.trim() && name.trim() !== data.image.name;
+      const titleChanged = (title || null) !== (data.image.title ?? null);
+      const descChanged = (description || null) !== (data.image.description ?? null);
+      if (nameChanged || titleChanged || descChanged) {
+        const meta: Record<string, string | null> = {};
+        if (nameChanged) meta.name = name.trim();
+        if (titleChanged) meta.title = title.trim() || null;
+        if (descChanged) meta.description = description.trim() || null;
         const { error } = await supabase
           .from("images")
-          .update({ name: name.trim() })
+          .update(meta as never)
           .eq("id", imageId);
         if (error) throw error;
       }
