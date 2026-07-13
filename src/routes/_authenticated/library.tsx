@@ -1854,11 +1854,13 @@ function GeoStatusButton({
 
 function FolderChip({
   active,
+  icon: Icon,
   label,
   count,
   onClick,
 }: {
   active: boolean;
+  icon?: React.ComponentType<{ className?: string }>;
   label: string;
   count: number;
   onClick: () => void;
@@ -1866,14 +1868,23 @@ function FolderChip({
   return (
     <button
       onClick={onClick}
-      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-xs font-medium transition ${
         active
-          ? "border-primary bg-primary/10 text-primary"
-          : "border-border bg-background hover:border-primary/40"
+          ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+          : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
       }`}
     >
-      {label}
-      <span className="text-muted-foreground">{count}</span>
+      {Icon && (
+        <Icon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+      )}
+      <span>{label}</span>
+      <span
+        className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+          active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+        }`}
+      >
+        {count}
+      </span>
     </button>
   );
 }
