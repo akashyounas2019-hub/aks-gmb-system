@@ -23,6 +23,8 @@ import {
   ShieldAlert,
   ShieldQuestion,
   Download,
+  Folder as FolderIcon,
+  FolderPlus,
 } from "lucide-react";
 import { readGps, embedGps } from "@/lib/exif-geotag";
 
