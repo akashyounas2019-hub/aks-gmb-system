@@ -23,6 +23,8 @@ import {
   ShieldAlert,
   ShieldQuestion,
   Download,
+  Folder as FolderIcon,
+  FolderPlus,
 } from "lucide-react";
 import { readGps, embedGps } from "@/lib/exif-geotag";
 
@@ -43,7 +45,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -51,6 +53,10 @@ async function fetchLibrary() {
   const { data: tagRows } = await supabase
     .from("image_tags")
     .select("image_id, tag_id, tags(slug,label)");
+  const { data: folders } = await supabase
+    .from("image_folders")
+    .select("id, name, created_at")
+    .order("name", { ascending: true });
 
   const venueMap = new Map(venues?.map((v) => [v.id, v.name]) ?? []);
   const tagMap = new Map<string, { slug: string; label: string }[]>();
@@ -61,8 +67,9 @@ async function fetchLibrary() {
     arr.push(t);
     tagMap.set(row.image_id, arr);
   }
-  return { images: images ?? [], venueMap, tagMap };
+  return { images: images ?? [], venueMap, tagMap, folders: folders ?? [] };
 }
+
 
 async function fetchKeywords() {
   const { data, error } = await supabase
@@ -84,6 +91,8 @@ function LibraryPage() {
   const [autoTagging, setAutoTagging] = useState(false);
   const [tab, setTab] = useState<LibraryTab>("raw");
   const [editingId, setEditingId] = useState<string | null>(null);
+  // null = "All raw" (folder chip); "__uncategorized" = images with no folder
+  const [rawFolderId, setRawFolderId] = useState<string | null>(null);
   const autoTag = useServerFn(autoTagImages);
 
 
@@ -159,11 +168,15 @@ function LibraryPage() {
 
 
   function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
-    if (img.lat != null && img.lng != null) return "geotagged";
+    // Published wins over geotagged so a geo-tagged image that gets published
+    // shows up under "Published" (with its GPS still intact) instead of
+    // silently staying in the geo-tagged tab.
     const tags = data?.tagMap.get(img.id) ?? [];
     if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
+    if (img.lat != null && img.lng != null) return "geotagged";
     return "raw";
   }
+
 
 
   const counts = useMemo(() => {
@@ -181,6 +194,11 @@ function LibraryPage() {
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
       if (imageBucket(i) !== tab) return false;
+      // Folder scoping only applies to the Raw Images tab.
+      if (tab === "raw") {
+        if (rawFolderId === "__uncategorized" && i.folder_id != null) return false;
+        if (rawFolderId && rawFolderId !== "__uncategorized" && i.folder_id !== rawFolderId) return false;
+      }
       if (!q) return true;
       if (i.name.toLowerCase().includes(q)) return true;
       const venue = i.venue_id ? data.venueMap.get(i.venue_id) : undefined;
@@ -191,7 +209,63 @@ function LibraryPage() {
       return false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, filter, tab]);
+  }, [data, filter, tab, rawFolderId]);
+
+  // Folder CRUD -----------------------------------------------------------------
+  async function createFolder() {
+    const name = window.prompt("Folder name")?.trim();
+    if (!name) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return toast.error("Not signed in.");
+    const { data: row, error } = await supabase
+      .from("image_folders")
+      .insert({ owner_id: userId, name } as never)
+      .select("id")
+      .single();
+    if (error) return toast.error(error.message);
+    toast.success(`Created folder “${name}”.`);
+    qc.invalidateQueries({ queryKey: ["library"] });
+    if (row) setRawFolderId((row as { id: string }).id);
+  }
+
+  async function renameFolder(id: string, current: string) {
+    const name = window.prompt("Rename folder", current)?.trim();
+    if (!name || name === current) return;
+    const { error } = await supabase
+      .from("image_folders")
+      .update({ name } as never)
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Folder renamed.");
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+  async function deleteFolder(id: string, name: string) {
+    if (!window.confirm(`Delete folder “${name}”? Images inside stay in Raw Images.`)) return;
+    const { error } = await supabase.from("image_folders").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Folder deleted.");
+    if (rawFolderId === id) setRawFolderId(null);
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+  async function moveImagesToFolder(imageIds: string[], folderId: string | null) {
+    if (imageIds.length === 0) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ folder_id: folderId } as never)
+      .in("id", imageIds);
+    if (error) return toast.error(error.message);
+    toast.success(
+      folderId
+        ? `Moved ${imageIds.length} image${imageIds.length === 1 ? "" : "s"} to folder.`
+        : `Removed ${imageIds.length} image${imageIds.length === 1 ? "" : "s"} from folder.`,
+    );
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+
 
 
 
@@ -334,6 +408,111 @@ function LibraryPage() {
               Auto-tag with AI
             </button>
           </div>
+        </div>
+      )}
+
+      {tab === "raw" && !isLoading && (
+        <div className="mt-6 rounded-xl border border-border bg-card p-4">
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <div className="text-sm font-medium">Folders</div>
+            <button
+              onClick={createFolder}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-2.5 py-1 text-xs font-medium hover:bg-accent"
+            >
+              <FolderPlus className="h-3.5 w-3.5 text-primary" /> New folder
+            </button>
+          </div>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <FolderChip
+              active={rawFolderId === null}
+              label="All raw"
+              count={data?.images.filter((i) => imageBucket(i) === "raw").length ?? 0}
+              onClick={() => setRawFolderId(null)}
+            />
+            <FolderChip
+              active={rawFolderId === "__uncategorized"}
+              label="Unfiled"
+              count={
+                data?.images.filter((i) => imageBucket(i) === "raw" && i.folder_id == null).length ?? 0
+              }
+              onClick={() => setRawFolderId("__uncategorized")}
+            />
+            {data?.folders.map((f) => {
+              const count = data.images.filter(
+                (i) => imageBucket(i) === "raw" && i.folder_id === f.id,
+              ).length;
+              const active = rawFolderId === f.id;
+              return (
+                <div
+                  key={f.id}
+                  className={`group inline-flex items-center gap-1 rounded-full border px-1 pl-3 text-xs transition ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-background hover:border-primary/40"
+                  }`}
+                >
+                  <button
+                    onClick={() => setRawFolderId(f.id)}
+                    className="inline-flex items-center gap-1.5 py-1 font-medium"
+                  >
+                    <FolderIcon className="h-3.5 w-3.5" />
+                    {f.name}
+                    <span className="text-muted-foreground">{count}</span>
+                  </button>
+                  <button
+                    onClick={() => renameFolder(f.id, f.name)}
+                    aria-label="Rename"
+                    title="Rename"
+                    className="rounded-full p-1 opacity-0 transition group-hover:opacity-100 hover:bg-accent"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => deleteFolder(f.id, f.name)}
+                    aria-label="Delete folder"
+                    title="Delete folder"
+                    className="rounded-full p-1 text-destructive opacity-0 transition group-hover:opacity-100 hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
+          {selectMode && selected.size > 0 && (
+            <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg bg-muted/40 p-2 text-xs">
+              <span className="font-medium">
+                Move {selected.size} selected to:
+              </span>
+              {data?.folders.map((f) => (
+                <button
+                  key={f.id}
+                  onClick={async () => {
+                    await moveImagesToFolder(Array.from(selected), f.id);
+                    clearSelection();
+                  }}
+                  className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+                >
+                  <FolderIcon className="h-3 w-3" /> {f.name}
+                </button>
+              ))}
+              <button
+                onClick={async () => {
+                  await moveImagesToFolder(Array.from(selected), null);
+                  clearSelection();
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+              >
+                Remove from folder
+              </button>
+              {data?.folders.length === 0 && (
+                <span className="text-muted-foreground">
+                  Create a folder first, then move.
+                </span>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -903,13 +1082,15 @@ function ImageEditModal({
         if (error) throw error;
       }
 
-      // 2. Move-to bucket -> lat/lng + published tag management
+      // 2. Move-to bucket
+      //    - "geotagged": require a location, apply lat/lng, remove published tag
+      //    - "published": ADD published tag, PRESERVE existing lat/lng (never null them)
+      //    - "raw":       remove published tag, PRESERVE existing lat/lng
+      //    This fixes two bugs: unpublishing a geo-tagged image no longer wipes
+      //    its coordinates, and publishing a geo-tagged image keeps all metadata.
       const publishedTag = data.tags.find((t) => t.slug === "published");
       const nextAssigned = new Set(assigned);
-      const patch: { lat: number | null; lng: number | null } = {
-        lat: null,
-        lng: null,
-      };
+      const patch: { lat?: number | null; lng?: number | null } = {};
       if (bucket === "geotagged") {
         if (!loc) {
           toast.error("Pick a location for geo-tagging");
@@ -924,13 +1105,14 @@ function ImageEditModal({
       } else if (publishedTag) {
         nextAssigned.delete(publishedTag.id);
       }
-      {
+      if (Object.keys(patch).length > 0) {
         const { error } = await supabase
           .from("images")
           .update(patch as never)
           .eq("id", imageId);
         if (error) throw error;
       }
+
 
       // 3. Tags — diff and apply
       const { data: userData } = await supabase.auth.getUser();
@@ -1493,6 +1675,32 @@ function GeoStatusButton({
       ) : (
         <Icon className="h-3.5 w-3.5" />
       )}
+    </button>
+  );
+}
+
+function FolderChip({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-background hover:border-primary/40"
+      }`}
+    >
+      {label}
+      <span className="text-muted-foreground">{count}</span>
     </button>
   );
 }
