@@ -93,7 +93,7 @@ export function PostGeneratorPage({
   const [cta, setCta] = useState("");
   const [ghlLocationId, setGhlLocationId] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
-  const [networks, setNetworks] = useState<Array<"gmb" | "facebook" | "instagram" | "linkedin" | "twitter">>(["gmb"]);
+  const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
   const [previewOpen, setPreviewOpen] = useState(false);
 
   const [caption, setCaption] = useState("");
