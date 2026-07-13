@@ -2348,3 +2348,137 @@ function GeoTagImager({
 
   );
 }
+
+/* -------------------------------------------------------------------------- */
+/* Per-image metadata editor with source badges                               */
+/* -------------------------------------------------------------------------- */
+
+const SOURCE_LABELS: Record<string, { label: string; hint: string }> = {
+  XPTitle: { label: "XPTitle", hint: "Windows title tag" },
+  ImageDescription: { label: "ImageDescription", hint: "Standard EXIF caption" },
+  XPComment: { label: "XPComment", hint: "Windows comment tag" },
+  XPSubject: { label: "XPSubject", hint: "Windows subject tag (used as description)" },
+  XPKeywords: { label: "XPKeywords", hint: "Windows keywords tag" },
+};
+
+function SourceBadge({ source }: { source: string | null | undefined }) {
+  if (!source) {
+    return (
+      <span
+        className="inline-flex items-center rounded border border-dashed border-border px-1 py-px text-[9px] font-medium text-muted-foreground"
+        title="No EXIF tag found — value was entered manually"
+      >
+        manual
+      </span>
+    );
+  }
+  const info = SOURCE_LABELS[source] ?? { label: source, hint: source };
+  return (
+    <span
+      className="inline-flex items-center rounded bg-primary/10 px-1 py-px text-[9px] font-medium text-primary"
+      title={`Detected from EXIF ${info.hint}`}
+    >
+      {info.label}
+    </span>
+  );
+}
+
+function MetaFields({
+  img,
+  updateImageMeta,
+}: {
+  img: LocalImage;
+  updateImageMeta: (
+    id: string,
+    patch: Partial<Pick<LocalImage, "title" | "description">>,
+  ) => void;
+}) {
+  const sources = img.metaSources;
+  const raw = img.metaRaw;
+
+  // Build "use this instead" candidates for each field. Skip the value that's
+  // already active and skip anything empty.
+  const titleAlts = raw
+    ? (["XPTitle", "XPSubject"] as const)
+        .filter((tag) => raw[tag] && raw[tag] !== img.title)
+        .map((tag) => ({ tag, value: raw[tag] }))
+    : [];
+  const descAlts = raw
+    ? (["ImageDescription", "XPComment", "XPSubject"] as const)
+        .filter((tag) => raw[tag] && raw[tag] !== img.description)
+        .map((tag) => ({ tag, value: raw[tag] }))
+    : [];
+
+  return (
+    <div className="mt-1 space-y-1.5">
+      <div>
+        <div className="mb-0.5 flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+          <span>Title</span>
+          <SourceBadge source={sources?.title ?? null} />
+        </div>
+        <input
+          value={img.title}
+          onChange={(e) => updateImageMeta(img.id, { title: e.target.value })}
+          placeholder="Title"
+          className="w-full rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+        />
+        {titleAlts.length > 0 && (
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {titleAlts.map((alt) => (
+              <button
+                key={alt.tag}
+                type="button"
+                onClick={() => updateImageMeta(img.id, { title: alt.value })}
+                title={`Replace title with value from ${alt.tag}: ${alt.value}`}
+                className="inline-flex max-w-full items-center gap-1 rounded border border-border px-1 py-px text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <span className="font-medium text-primary">{alt.tag}</span>
+                <span className="truncate">{alt.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div>
+        <div className="mb-0.5 flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
+          <span>Description</span>
+          <SourceBadge source={sources?.description ?? null} />
+        </div>
+        <textarea
+          value={img.description}
+          onChange={(e) => updateImageMeta(img.id, { description: e.target.value })}
+          placeholder="Description"
+          rows={2}
+          className="w-full resize-none rounded-md border border-input bg-background px-2 py-1 text-[11px] outline-none focus:ring-2 focus:ring-ring"
+        />
+        {descAlts.length > 0 && (
+          <div className="mt-0.5 flex flex-wrap gap-1">
+            {descAlts.map((alt) => (
+              <button
+                key={alt.tag}
+                type="button"
+                onClick={() => updateImageMeta(img.id, { description: alt.value })}
+                title={`Replace description with value from ${alt.tag}: ${alt.value}`}
+                className="inline-flex max-w-full items-center gap-1 rounded border border-border px-1 py-px text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"
+              >
+                <span className="font-medium text-primary">{alt.tag}</span>
+                <span className="truncate">{alt.value}</span>
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {(img.title || img.description) && img.hasExistingMeta && (
+        <button
+          type="button"
+          onClick={() => updateImageMeta(img.id, { title: "", description: "" })}
+          className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
+        >
+          Clear both fields
+        </button>
+      )}
+    </div>
+  );
+}
