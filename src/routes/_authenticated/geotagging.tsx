@@ -492,7 +492,10 @@ function GeotaggingPage() {
       const url = URL.createObjectURL(tagged);
       const a = document.createElement("a");
       a.href = url;
-      const base = img.file.name.replace(/\.[^.]+$/, "");
+      // Prefer the user-supplied title (e.g. "Exterior Window Cleaning") over the
+      // raw uploaded filename (e.g. "003(1).jpg") when we build the "Save As" name.
+      const rawBase = img.title?.trim() || img.file.name.replace(/\.[^.]+$/, "");
+      const base = rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
       const ext = tagged.name.split(".").pop() || "jpg";
       a.download = `${base}-geotagged.${ext}`;
       document.body.appendChild(a);
@@ -503,6 +506,7 @@ function GeotaggingPage() {
       toast.error(e instanceof Error ? e.message : "Download failed.");
     }
   };
+
 
   /* --------------------------------- UI --------------------------------- */
 
@@ -1850,7 +1854,55 @@ type VerifyRow = {
   previewUrl: string;
   result: GpsReadResult | null;
   loading: boolean;
+  // Library metadata (present when the row was picked from the user's library)
+  title?: string | null;
+  description?: string | null;
+  displayName?: string; // friendly name, falls back to file.name
+  // Nearest city resolved via reverse geocoding once GPS is known
+  nearestCity?: string | null;
+  cityLoading?: boolean;
 };
+
+// In-memory reverse-geocoding cache keyed by rounded coordinate (~1km bucket)
+const cityCache = new Map<string, string | null>();
+
+async function reverseGeocodeCity(lat: number, lng: number): Promise<string | null> {
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  if (cityCache.has(key)) return cityCache.get(key)!;
+  try {
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&zoom=12&lat=${lat}&lon=${lng}`,
+      { headers: { Accept: "application/json" } },
+    );
+    if (!res.ok) throw new Error("geocode failed");
+    const data = (await res.json()) as { address?: Record<string, string> };
+    const a = data.address ?? {};
+    const city =
+      a.city ??
+      a.town ??
+      a.village ??
+      a.municipality ??
+      a.suburb ??
+      a.county ??
+      a.state ??
+      null;
+    cityCache.set(key, city);
+    return city;
+  } catch {
+    cityCache.set(key, null);
+    return null;
+  }
+}
+
+function MetaCell({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="flex flex-col">
+      <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
+      <dd className={`text-xs text-foreground ${mono ? "font-mono" : ""}`}>{value}</dd>
+    </div>
+  );
+}
+
 
 function GeoTagImager({
   library,
@@ -1869,28 +1921,47 @@ function GeoTagImager({
   const [libSelected, setLibSelected] = useState<Set<string>>(new Set());
   const [importing, setImporting] = useState(false);
 
-  const addFiles = useCallback(async (files: FileList | File[]) => {
-
-    const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
-    if (list.length === 0) {
-      toast.error("Choose image files to verify.");
-      return;
-    }
-    const newRows: VerifyRow[] = list.map((f) => ({
-      id: crypto.randomUUID(),
-      file: f,
-      previewUrl: URL.createObjectURL(f),
-      result: null,
-      loading: true,
-    }));
-    setRows((prev) => [...newRows, ...prev]);
-    for (const row of newRows) {
-      const result = await readGps(row.file);
-      setRows((prev) =>
-        prev.map((r) => (r.id === row.id ? { ...r, result, loading: false } : r)),
-      );
-    }
-  }, []);
+  const addFiles = useCallback(
+    async (
+      files: FileList | File[],
+      metaByIndex?: Array<{ title?: string | null; description?: string | null; displayName?: string }>,
+    ) => {
+      const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
+      if (list.length === 0) {
+        toast.error("Choose image files to verify.");
+        return;
+      }
+      const newRows: VerifyRow[] = list.map((f, i) => ({
+        id: crypto.randomUUID(),
+        file: f,
+        previewUrl: URL.createObjectURL(f),
+        result: null,
+        loading: true,
+        title: metaByIndex?.[i]?.title ?? null,
+        description: metaByIndex?.[i]?.description ?? null,
+        displayName: metaByIndex?.[i]?.displayName ?? f.name,
+        cityLoading: false,
+      }));
+      setRows((prev) => [...newRows, ...prev]);
+      for (const row of newRows) {
+        const result = await readGps(row.file);
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === row.id
+              ? { ...r, result, loading: false, cityLoading: result.hasGps }
+              : r,
+          ),
+        );
+        if (result.hasGps && result.lat != null && result.lng != null) {
+          const city = await reverseGeocodeCity(result.lat, result.lng);
+          setRows((prev) =>
+            prev.map((r) => (r.id === row.id ? { ...r, nearestCity: city, cityLoading: false } : r)),
+          );
+        }
+      }
+    },
+    [],
+  );
 
   const clearAll = () => {
     rows.forEach((r) => URL.revokeObjectURL(r.previewUrl));
@@ -1906,6 +1977,7 @@ function GeoTagImager({
     setImporting(true);
     try {
       const files: File[] = [];
+      const metas: Array<{ title?: string | null; description?: string | null; displayName?: string }> = [];
       for (const row of picks) {
         const { data: signed } = await supabase.storage
           .from("frames")
@@ -1915,8 +1987,13 @@ function GeoTagImager({
         const blob = await res.blob();
         const mime = blob.type || "image/jpeg";
         files.push(new File([blob], row.name || `library-${row.id}.jpg`, { type: mime }));
+        metas.push({
+          title: row.title,
+          description: row.description,
+          displayName: row.title || row.name,
+        });
       }
-      if (files.length) await addFiles(files);
+      if (files.length) await addFiles(files, metas);
       setLibOpen(false);
       setLibSelected(new Set());
     } catch (e) {
@@ -1925,6 +2002,7 @@ function GeoTagImager({
       setImporting(false);
     }
   }, [library, libSelected, addFiles]);
+
 
 
   const tagged = rows.filter((r) => r.result?.hasGps).length;
@@ -2017,56 +2095,87 @@ function GeoTagImager({
           {rows.map((r) => (
             <li
               key={r.id}
-              className="flex items-center gap-3 rounded-xl border border-border bg-card p-3"
+              className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-start"
             >
               <img
                 src={r.previewUrl}
-                alt={r.file.name}
-                className="h-16 w-16 rounded-md object-cover"
+                alt={r.displayName ?? r.file.name}
+                className="h-20 w-20 shrink-0 rounded-md object-cover"
               />
-              <div className="min-w-0 flex-1">
-                <div className="truncate text-sm font-medium">{r.file.name}</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {(r.file.size / 1024).toFixed(1)} KB · {r.file.type || "unknown"}
+              <div className="min-w-0 flex-1 space-y-1.5">
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">
+                      {r.title || r.displayName || r.file.name}
+                    </div>
+                    <div className="truncate text-[11px] text-muted-foreground">
+                      {(r.file.size / 1024).toFixed(1)} KB · {r.file.type || "unknown"}
+                      {r.title && r.displayName && r.title !== r.displayName ? (
+                        <> · file: {r.displayName}</>
+                      ) : null}
+                    </div>
+                  </div>
+                  <div className="shrink-0">
+                    {r.loading ? (
+                      <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+                    ) : r.result?.hasGps ? (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
+                        <CircleCheck className="h-3.5 w-3.5" /> GeoTagged
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
+                        <X className="h-3.5 w-3.5" /> Not tagged
+                      </span>
+                    )}
+                  </div>
                 </div>
-                {r.loading && (
-                  <div className="mt-1 text-xs text-muted-foreground">Reading EXIF…</div>
-                )}
-                {r.result?.hasGps && (
-                  <div className="mt-1 font-mono text-xs text-emerald-600 dark:text-emerald-400">
-                    {r.result.lat!.toFixed(6)}, {r.result.lng!.toFixed(6)}
+
+                {r.description && (
+                  <div className="line-clamp-2 text-xs text-muted-foreground">
+                    {r.description}
                   </div>
                 )}
+
+                {r.loading && (
+                  <div className="text-xs text-muted-foreground">Reading EXIF…</div>
+                )}
+
+                {r.result?.hasGps && (
+                  <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-3">
+                    <MetaCell label="Latitude" value={r.result.lat!.toFixed(6)} mono />
+                    <MetaCell label="Longitude" value={r.result.lng!.toFixed(6)} mono />
+                    <MetaCell
+                      label="Nearest city"
+                      value={
+                        r.cityLoading
+                          ? "Resolving…"
+                          : r.nearestCity ?? "Unknown"
+                      }
+                    />
+                  </dl>
+                )}
+
                 {r.result && !r.result.hasGps && (
-                  <div className="mt-1 text-xs text-amber-600 dark:text-amber-400">
+                  <div className="text-xs text-amber-600 dark:text-amber-400">
                     {r.result.reason ?? "No GPS EXIF"}
                   </div>
                 )}
-              </div>
-              <div className="shrink-0">
-                {r.loading ? (
-                  <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-                ) : r.result?.hasGps ? (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-600 dark:text-emerald-400">
-                    <CircleCheck className="h-3.5 w-3.5" /> GeoTagged
-                  </span>
-                ) : (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 px-2.5 py-1 text-xs font-medium text-amber-600 dark:text-amber-400">
-                    <X className="h-3.5 w-3.5" /> Not tagged
-                  </span>
+
+                {r.result?.hasGps && (
+                  <div className="pt-1">
+                    <a
+                      href={`https://www.google.com/maps?q=${r.result.lat},${r.result.lng}`}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="text-xs text-primary hover:underline"
+                    >
+                      Open in Google Maps →
+                    </a>
+                  </div>
                 )}
               </div>
-              {r.result?.hasGps && (
-                <a
-                  href={`https://www.google.com/maps?q=${r.result.lat},${r.result.lng}`}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="shrink-0 text-xs text-primary hover:underline"
-                >
-                  Open map →
-                </a>
-              )}
             </li>
+
           ))}
         </ul>
       )}

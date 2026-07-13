@@ -22,8 +22,9 @@ import {
   ShieldCheck,
   ShieldAlert,
   ShieldQuestion,
+  Download,
 } from "lucide-react";
-import { readGps } from "@/lib/exif-geotag";
+import { readGps, embedGps } from "@/lib/exif-geotag";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -116,6 +117,46 @@ function LibraryPage() {
       qc.invalidateQueries({ queryKey: ["library"] });
     }
   }
+
+  async function downloadImage(img: {
+    name: string;
+    storage_path: string;
+    lat: number | null;
+    lng: number | null;
+    title: string | null;
+  }) {
+    try {
+      const { data: signed, error } = await supabase.storage
+        .from("frames")
+        .createSignedUrl(img.storage_path, 60 * 5);
+      if (error || !signed?.signedUrl) throw new Error(error?.message ?? "Signed URL failed");
+      const res = await fetch(signed.signedUrl);
+      const blob = await res.blob();
+      const ext = (img.storage_path.split(".").pop() || "jpg").toLowerCase();
+      const source = new File([blob], img.name || `image.${ext}`, {
+        type: blob.type || "image/jpeg",
+      });
+      const output =
+        img.lat != null && img.lng != null
+          ? await embedGps(source, Number(img.lat), Number(img.lng))
+          : source;
+      const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
+      const base =
+        rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
+      const outExt = output.name.split(".").pop() || ext;
+      const url = URL.createObjectURL(output);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${base}.${outExt}`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Download failed.");
+    }
+  }
+
 
   function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
     if (img.lat != null && img.lng != null) return "geotagged";
@@ -390,6 +431,24 @@ function LibraryPage() {
                         className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
                       >
                         <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          downloadImage({
+                            name: img.name,
+                            storage_path: img.storage_path,
+                            lat: img.lat as number | null,
+                            lng: img.lng as number | null,
+                            title: (img as { title: string | null }).title,
+                          });
+                        }}
+                        aria-label="Download"
+                        title={`Download${img.title ? ` as “${img.title}”` : ""}`}
+                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                      >
+                        <Download className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={(e) => {
