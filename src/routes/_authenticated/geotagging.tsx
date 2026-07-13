@@ -130,7 +130,20 @@ type LocalImage = {
   // True when the image was imported from the library and already had title/description set.
   // We won't re-prompt for those fields.
   hasExistingMeta?: boolean;
-
+  // Detected EXIF sources so Step 3 can show which tag each field came from.
+  metaSources?: {
+    title: import("@/lib/exif-geotag").ExifMetaSource;
+    description: import("@/lib/exif-geotag").ExifMetaSource;
+    keywords: import("@/lib/exif-geotag").ExifMetaSource;
+  };
+  // Raw per-tag values so the user can pick an alternative source without retyping.
+  metaRaw?: {
+    XPTitle: string;
+    ImageDescription: string;
+    XPComment: string;
+    XPSubject: string;
+    XPKeywords: string;
+  };
 };
 
 type LibraryImage = {
