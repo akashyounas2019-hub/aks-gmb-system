@@ -1066,7 +1066,9 @@ function KeywordsPage() {
                   <Target className="h-5 w-5 text-primary" />
                 )}
                 <h1 className="text-3xl">
-                  {scope === "all"
+                  {activeTab === "tracked"
+                    ? "Tracked keywords"
+                    : scope === "all"
                     ? "All keywords"
                     : scope === "unfiled"
                       ? "Unfiled"
