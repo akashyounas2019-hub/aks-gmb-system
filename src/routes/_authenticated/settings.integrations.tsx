@@ -755,6 +755,8 @@ function N8nIntegrationCard() {
         Stored locally on this device. For production pipelines, add the URL as a project secret
         instead.
       </p>
+        </>
+      )}
     </div>
   );
 }
