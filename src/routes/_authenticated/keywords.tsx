@@ -757,6 +757,7 @@ function KeywordsPage() {
             [
               { id: "research" as const, label: "Keyword Research", icon: Search },
               { id: "library" as const, label: "Library", icon: FolderOpen },
+              { id: "tracked" as const, label: "Tracked Keywords", icon: Target },
             ]
           ).map((t) => {
             const active = activeTab === t.id;
