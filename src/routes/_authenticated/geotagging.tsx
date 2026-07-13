@@ -1520,6 +1520,38 @@ function StepAssign({
         </div>
       </div>
 
+      {/* Batch title + description */}
+      <div className="rounded-lg border border-border bg-muted/20 p-3">
+        <div className="mb-2 text-xs font-medium text-muted-foreground">
+          Title &amp; description for this batch
+          <span className="ml-1 text-muted-foreground/70">
+            — applied alongside the location when you save.
+          </span>
+        </div>
+        <div className="grid gap-2 md:grid-cols-[1fr_1.5fr_auto]">
+          <input
+            value={batchTitle}
+            onChange={(e) => setBatchTitle(e.target.value)}
+            placeholder="Title (e.g. Marina villa exterior)"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <input
+            value={batchDescription}
+            onChange={(e) => setBatchDescription(e.target.value)}
+            placeholder="Description shown on hover in the library"
+            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+          />
+          <button
+            type="button"
+            onClick={applyBatchMeta}
+            disabled={images.length === 0}
+            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+          >
+            Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
+          </button>
+        </div>
+      </div>
+
       {images.length === 0 ? (
         <div className="rounded-xl border border-dashed border-border p-10 text-center text-sm text-muted-foreground">
           <ImageIcon className="mx-auto mb-2 h-8 w-8 opacity-40" />
