@@ -1426,6 +1426,15 @@ function StepAssign({
                       Tag
                     </button>
                     <button
+                      onClick={() => downloadProcessed(img)}
+                      disabled={img.lat === null}
+                      className="rounded-md border border-border p-1 text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-40"
+                      aria-label="Download geotagged"
+                      title="Download with GPS EXIF"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                    </button>
+                    <button
                       onClick={() => removeImage(img.id)}
                       className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                       aria-label="Remove"
