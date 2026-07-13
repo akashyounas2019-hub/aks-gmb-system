@@ -1678,3 +1678,29 @@ function GeoStatusButton({
     </button>
   );
 }
+
+function FolderChip({
+  active,
+  label,
+  count,
+  onClick,
+}: {
+  active: boolean;
+  label: string;
+  count: number;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition ${
+        active
+          ? "border-primary bg-primary/10 text-primary"
+          : "border-border bg-background hover:border-primary/40"
+      }`}
+    >
+      {label}
+      <span className="text-muted-foreground">{count}</span>
+    </button>
+  );
+}
