@@ -495,6 +495,7 @@ export type Database = {
           owner_id: string
           phrase: string
           source: string | null
+          tracked: boolean
           volume: number | null
         }
         Insert: {
@@ -508,6 +509,7 @@ export type Database = {
           owner_id: string
           phrase: string
           source?: string | null
+          tracked?: boolean
           volume?: number | null
         }
         Update: {
@@ -521,6 +523,7 @@ export type Database = {
           owner_id?: string
           phrase?: string
           source?: string | null
+          tracked?: boolean
           volume?: number | null
         }
         Relationships: [
