@@ -82,7 +82,6 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
           owner_id: userId,
           storage_path: imgPath,
           name: baseName || item.file.name,
-          size_bytes: item.file.size,
           lat: autoGeotag && location ? location.lat : null,
           lng: autoGeotag && location ? location.lng : null,
         });
