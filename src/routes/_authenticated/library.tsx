@@ -739,6 +739,8 @@ function ImageEditModal({
   useEffect(() => {
     if (!data) return;
     setName(data.image.name);
+    setTitle(data.image.title ?? "");
+    setDescription(data.image.description ?? "");
     setAssigned(new Set(data.assignedIds));
     const publishedTagIds = new Set(
       data.tags.filter((t) => t.slug === "published" || t.slug === "posted").map((t) => t.id),
