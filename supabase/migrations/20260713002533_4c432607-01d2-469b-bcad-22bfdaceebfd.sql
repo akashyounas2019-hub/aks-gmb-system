@@ -1,0 +1,3 @@
+ALTER TABLE public.images
+  ADD COLUMN IF NOT EXISTS title TEXT,
+  ADD COLUMN IF NOT EXISTS description TEXT;

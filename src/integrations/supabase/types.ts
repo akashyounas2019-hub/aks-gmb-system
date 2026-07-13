@@ -336,6 +336,7 @@ export type Database = {
       images: {
         Row: {
           created_at: string
+          description: string | null
           height: number | null
           id: string
           lat: number | null
@@ -346,12 +347,14 @@ export type Database = {
           sharpness_score: number | null
           storage_path: string
           timestamp_seconds: number | null
+          title: string | null
           venue_id: string | null
           video_id: string | null
           width: number | null
         }
         Insert: {
           created_at?: string
+          description?: string | null
           height?: number | null
           id?: string
           lat?: number | null
@@ -362,12 +365,14 @@ export type Database = {
           sharpness_score?: number | null
           storage_path: string
           timestamp_seconds?: number | null
+          title?: string | null
           venue_id?: string | null
           video_id?: string | null
           width?: number | null
         }
         Update: {
           created_at?: string
+          description?: string | null
           height?: number | null
           id?: string
           lat?: number | null
@@ -378,6 +383,7 @@ export type Database = {
           sharpness_score?: number | null
           storage_path?: string
           timestamp_seconds?: number | null
+          title?: string | null
           venue_id?: string | null
           video_id?: string | null
           width?: number | null
