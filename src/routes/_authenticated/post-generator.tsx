@@ -300,8 +300,21 @@ function PostGeneratorPage() {
     }
     let ok = 0;
     let fail = 0;
+    let detectedGps: { lat: number; lng: number } | null = null;
     for (const file of list) {
       try {
+        // Try reading GPS EXIF before uploading so we can auto-fill the
+        // location field beneath the image with the first geotag we find.
+        if (!detectedGps) {
+          try {
+            const gps = await readGps(file);
+            if (gps.hasGps && gps.lat != null && gps.lng != null) {
+              detectedGps = { lat: gps.lat, lng: gps.lng };
+            }
+          } catch {
+            /* ignore EXIF errors */
+          }
+        }
         const ext = file.name.split(".").pop() || "jpg";
         const path = `${userId}/post-generator/${crypto.randomUUID()}.${ext}`;
         const { error: upErr } = await supabase.storage
@@ -310,7 +323,13 @@ function PostGeneratorPage() {
         if (upErr) throw upErr;
         const { error: dbErr } = await supabase
           .from("images")
-          .insert({ owner_id: userId, storage_path: path, name: file.name } as any);
+          .insert({
+            owner_id: userId,
+            storage_path: path,
+            name: file.name,
+            lat: detectedGps?.lat ?? null,
+            lng: detectedGps?.lng ?? null,
+          } as any);
         if (dbErr) throw dbErr;
         ok++;
       } catch {
@@ -320,9 +339,32 @@ function PostGeneratorPage() {
     setUploading(false);
     if (ok) toast.success(`Uploaded ${ok} image${ok === 1 ? "" : "s"}`);
     if (fail) toast.error(`${fail} upload${fail === 1 ? "" : "s"} failed`);
+
+    // Auto-populate the Post Generator location field from the first geotag
+    // found, but only when the user hasn't already picked a location.
+    if (detectedGps && !location) {
+      let label = `${detectedGps.lat.toFixed(5)}, ${detectedGps.lng.toFixed(5)}`;
+      try {
+        const g = (window as any).google;
+        if (g?.maps?.Geocoder) {
+          const geocoder = new g.maps.Geocoder();
+          const res: any = await geocoder.geocode({
+            location: { lat: detectedGps.lat, lng: detectedGps.lng },
+          });
+          const first = res?.results?.[0];
+          if (first?.formatted_address) label = first.formatted_address;
+        }
+      } catch {
+        /* keep coordinate label */
+      }
+      setLocation({ label, lat: detectedGps.lat, lng: detectedGps.lng });
+      toast.message(`Location auto-detected: ${label}`);
+    }
+
     await reloadImages();
     if (uploadRef.current) uploadRef.current.value = "";
   }
+
 
 
   async function copyOut() {
