@@ -145,6 +145,9 @@ export function PostGeneratorPage({
   const [ctaManuallyEdited, setCtaManuallyEdited] = useState(false);
   const loadPrefs = useServerFn(getPreferences);
   const captionMirrorRef = useRef<HTMLDivElement>(null);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
+  const [symbolsOpen, setSymbolsOpen] = useState(false);
+  const symbolsPopupRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const importPopupRef = useRef<HTMLDivElement>(null);
