@@ -40,7 +40,7 @@ type Row = {
 };
 
 function rowToDraft(r: Row): PostDraft {
-  const meta = (r.meta ?? {}) as { folderId?: string | null; tags?: string[] };
+  const meta = (r.meta ?? {}) as { folderId?: string | null; tags?: string[]; imageIds?: string[] };
   return {
     id: r.id,
     folderId: meta.folderId ?? null,
@@ -51,6 +51,7 @@ function rowToDraft(r: Row): PostDraft {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     tags: meta.tags ?? [],
+    imageIds: meta.imageIds ?? [],
   };
 }
 
