@@ -331,7 +331,9 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         progress: z.number().min(0).max(100).optional(),
-        status: z.enum(["queued", "running", "done", "awaiting_approval"]).optional(),
+        status: z
+          .enum(["queued", "running", "done", "awaiting_approval", "paused", "cancelled"])
+          .optional(),
       })
       .parse(input),
   )
@@ -349,6 +351,78 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId);
     if (error) throw error;
+    return { ok: true };
+  });
+
+export const pauseTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: task, error } = await supabase
+      .from("agent_tasks")
+      .update({ status: "paused" })
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .eq("status", "running")
+      .select("agent_id")
+      .maybeSingle();
+    if (error) throw error;
+    if (task?.agent_id) {
+      await supabase
+        .from("agents")
+        .update({ status: "idle", last_activity: "Task paused by operator" })
+        .eq("id", task.agent_id)
+        .eq("user_id", userId);
+    }
+    return { ok: true };
+  });
+
+export const resumeTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: task, error } = await supabase
+      .from("agent_tasks")
+      .update({ status: "running" })
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .eq("status", "paused")
+      .select("agent_id, title")
+      .maybeSingle();
+    if (error) throw error;
+    if (task?.agent_id) {
+      await supabase
+        .from("agents")
+        .update({ status: "working", last_activity: `Resumed: ${task.title}` })
+        .eq("id", task.agent_id)
+        .eq("user_id", userId);
+    }
+    return { ok: true };
+  });
+
+export const cancelTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: task, error } = await supabase
+      .from("agent_tasks")
+      .update({ status: "cancelled" })
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .in("status", ["running", "paused", "queued", "awaiting_approval"])
+      .select("agent_id")
+      .maybeSingle();
+    if (error) throw error;
+    if (task?.agent_id) {
+      await supabase
+        .from("agents")
+        .update({ status: "idle", last_activity: "Task cancelled by operator" })
+        .eq("id", task.agent_id)
+        .eq("user_id", userId);
+    }
     return { ok: true };
   });
 
