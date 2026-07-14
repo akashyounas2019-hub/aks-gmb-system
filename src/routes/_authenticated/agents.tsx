@@ -148,6 +148,12 @@ function AgentsPage() {
     role: "writer",
     parentId: "",
   });
+  const [assign, setAssign] = useState<{
+    agent_id: string;
+    title: string;
+    priority: "low" | "normal" | "high";
+    major: boolean;
+  }>({ agent_id: "", title: "", priority: "normal", major: false });
 
   const leader = agents.find((a) => a.parent_id === null) ?? agents[0];
   const subAgents = leader ? agents.filter((a) => a.parent_id === leader.id) : [];
