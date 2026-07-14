@@ -14,6 +14,7 @@ import {
   CircleDashed,
   LayoutGrid,
   List as ListIcon,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -409,9 +410,9 @@ function MonthView({
 
   return (
     <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_360px]">
-      <div className="rounded-2xl border border-border bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border bg-gradient-to-b from-card to-card/60 shadow-sm">
         {/* Month nav */}
-        <div className="flex items-center justify-between border-b border-border px-4 py-3">
+        <div className="flex items-center justify-between border-b border-border/70 bg-card/60 px-4 py-3 backdrop-blur">
           <div className="flex items-center gap-2">
             <button
               onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
@@ -451,7 +452,7 @@ function MonthView({
         </div>
 
         {/* Weekday header */}
-        <div className="grid grid-cols-7 border-b border-border text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-7 border-b border-border/70 bg-muted/30 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
           {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
             <div key={d} className="py-2">
               {d}
@@ -467,6 +468,7 @@ function MonthView({
             const isToday = key === todayKey;
             const isSelected = key === selectedDay;
             const posts = byDay.get(key) ?? [];
+            const isWeekend = d.getDay() === 0 || d.getDay() === 6;
 
             // aggregate bucket counts for the day
             const dayCounts: Partial<Record<Bucket, number>> = {};
@@ -477,43 +479,71 @@ function MonthView({
             const bucketOrder: Bucket[] = ["published", "scheduled", "sending", "draft", "failed"];
 
             return (
-              <button
+              <div
                 key={i}
-                onClick={() => {
-                  setSelectedDay(key);
-                  if (onDayClick) onDayClick(key);
+                onClick={() => setSelectedDay(key)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedDay(key);
+                  }
                 }}
-                className={`group relative flex min-h-[104px] flex-col border-b border-r border-border p-2 text-left transition ${
-                  inMonth ? "bg-card hover:bg-accent/30" : "bg-muted/20 text-muted-foreground/60"
-                } ${isSelected ? "ring-2 ring-inset ring-primary" : ""}`}
+                className={`group relative flex min-h-[116px] cursor-pointer flex-col border-b border-r border-border/60 p-2 text-left transition-colors ${
+                  inMonth
+                    ? isWeekend
+                      ? "bg-muted/10 hover:bg-accent/30"
+                      : "bg-card hover:bg-accent/30"
+                    : "bg-muted/20 text-muted-foreground/50"
+                } ${isSelected ? "ring-2 ring-inset ring-primary/70 bg-primary/5" : ""}`}
               >
                 <div className="flex items-center justify-between">
                   <span
-                    className={`inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-medium ${
+                    className={`inline-flex h-7 w-7 items-center justify-center rounded-full text-xs font-semibold transition ${
                       isToday
-                        ? "bg-primary text-primary-foreground"
-                        : inMonth
-                          ? ""
-                          : "text-muted-foreground/60"
+                        ? "bg-primary text-primary-foreground shadow-sm shadow-primary/30"
+                        : isSelected
+                          ? "bg-primary/15 text-primary"
+                          : inMonth
+                            ? "text-foreground/90"
+                            : "text-muted-foreground/50"
                     }`}
                   >
                     {d.getDate()}
                   </span>
                   {posts.length > 0 && (
-                    <span className="text-[10px] font-semibold text-muted-foreground">
+                    <span className="rounded-full bg-muted px-1.5 py-0.5 text-[10px] font-semibold text-muted-foreground">
                       {posts.length}
                     </span>
                   )}
                 </div>
 
+                {/* Add-post plus button (opens new post menu for this date) */}
+                {inMonth && (
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setSelectedDay(key);
+                      if (onDayClick) onDayClick(key);
+                    }}
+                    aria-label={`Schedule new post on ${d.toLocaleDateString()}`}
+                    title="Schedule new post"
+                    className="absolute right-1.5 top-8 inline-flex h-6 w-6 items-center justify-center rounded-full border border-primary/40 bg-primary/10 text-primary opacity-0 shadow-sm transition hover:scale-105 hover:bg-primary hover:text-primary-foreground focus:opacity-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-primary/50 group-hover:opacity-100"
+                  >
+                    <Plus className="h-3.5 w-3.5" strokeWidth={2.5} />
+                  </button>
+                )}
+
                 {/* status ribbons (up to 3) */}
-                <div className="mt-1 space-y-1">
+                <div className="mt-1.5 space-y-1">
                   {posts.slice(0, 3).map((p) => {
                     const meta = BUCKET_META[bucketOf(p)];
                     return (
                       <div
                         key={p.id}
-                        className={`flex items-center gap-1 rounded-sm border px-1 py-0.5 text-[10px] ${meta.chip}`}
+                        className={`flex items-center gap-1 rounded-md border px-1.5 py-0.5 text-[10px] ${meta.chip}`}
                         title={p.caption}
                       >
                         <span className={`h-1.5 w-1.5 shrink-0 rounded-full ${meta.dot}`} />
@@ -534,7 +564,7 @@ function MonthView({
                   )}
                 </div>
 
-                {/* dot summary (bottom) — shows even when ribbons hidden on tight cells */}
+                {/* dot summary (bottom) */}
                 {posts.length > 0 && (
                   <div className="mt-auto flex flex-wrap gap-1 pt-1">
                     {bucketOrder.map((b) =>
@@ -550,11 +580,12 @@ function MonthView({
                     )}
                   </div>
                 )}
-              </button>
+              </div>
             );
           })}
         </div>
       </div>
+
 
       {/* Day detail */}
       <aside className="rounded-2xl border border-border bg-card p-4">
