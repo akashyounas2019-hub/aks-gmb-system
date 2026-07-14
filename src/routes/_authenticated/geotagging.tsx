@@ -1286,6 +1286,11 @@ function StepLocation(props: {
   activeCoord: { lat: number; lng: number; label: string } | null;
   copyCoord: () => void;
   copied: boolean;
+  copied: boolean;
+  onRefresh: () => void;
+  refreshing: boolean;
+  refreshKey: number;
+  cityOptions: { name: string; lat: number; lng: number }[];
 }) {
   const {
     openSection,
