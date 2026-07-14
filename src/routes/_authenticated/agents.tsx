@@ -196,7 +196,7 @@ function AgentsPage() {
   const approveMut = useMutation({
     mutationFn: (id: string) => approveTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.success("Major task approved. Leader dispatching to sub-agent.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to approve."),
@@ -204,7 +204,7 @@ function AgentsPage() {
   const rejectMut = useMutation({
     mutationFn: (id: string) => rejectTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.message("Task rejected.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
@@ -221,7 +221,7 @@ function AgentsPage() {
         },
       }),
     onSuccess: (row) => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       setAddOpen(false);
       setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "" });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
@@ -237,7 +237,7 @@ function AgentsPage() {
       major: boolean;
     }) => assignTask({ data: input }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       setAssign((p) => ({ ...p, title: "" }));
       toast.success("Task launched. Progress will update in the queue.");
     },
@@ -246,13 +246,13 @@ function AgentsPage() {
   const progressMut = useMutation({
     mutationFn: (input: { id: string; progress?: number; status?: "running" | "done" }) =>
       updateTaskProgress({ data: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }),
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
   });
   const pauseMut = useMutation({
     mutationFn: (id: string) => pauseTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.message("Task paused.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to pause."),
@@ -260,7 +260,7 @@ function AgentsPage() {
   const resumeMut = useMutation({
     mutationFn: (id: string) => resumeTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.success("Task resumed.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to resume."),
@@ -268,7 +268,7 @@ function AgentsPage() {
   const cancelMut = useMutation({
     mutationFn: (id: string) => cancelTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.message("Task cancelled.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to cancel."),
