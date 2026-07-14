@@ -1411,14 +1411,22 @@ function MetricCard({
   value,
   icon: Icon,
   bar,
+  onClick,
 }: {
   label: string;
   value: number | string;
   icon: typeof Bot;
   bar?: number;
+  onClick?: () => void;
 }) {
+  const clickable = typeof onClick === "function";
+  const Comp: "button" | "div" = clickable ? "button" : "div";
   return (
-    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/60 p-5 transition hover:border-foreground/20 sm:p-6">
+    <Comp
+      type={clickable ? "button" : undefined}
+      onClick={onClick}
+      className={`group relative overflow-hidden rounded-2xl border border-border/70 bg-card/60 p-5 text-left transition sm:p-6 ${clickable ? "cursor-pointer hover:border-foreground/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40" : "hover:border-foreground/20"}`}
+    >
       <div className="flex items-center justify-between gap-3">
         <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
@@ -1435,7 +1443,12 @@ function MetricCard({
           <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
         </div>
       )}
-    </div>
+      {clickable && (
+        <div className="mt-3 inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 transition group-hover:text-foreground">
+          View breakdown <ChevronRight className="h-3 w-3" />
+        </div>
+      )}
+    </Comp>
   );
 }
 
