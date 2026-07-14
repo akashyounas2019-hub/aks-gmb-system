@@ -100,6 +100,10 @@ type TaskRow = {
   relative_time: string;
   progress?: number;
   priority?: string;
+  started_at?: string | null;
+  paused_at?: string | null;
+  eta_at?: string | null;
+  eta_confidence?: string | null;
 };
 
 const iconMap: Record<string, typeof Bot> = {
