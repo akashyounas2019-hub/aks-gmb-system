@@ -731,42 +731,45 @@ export function AiImagePromptGenerator() {
                     </div>
                   </div>
                 </div>
-                <div className="mt-2 flex items-center gap-1">
-                  <button
-                    onClick={() => togglePin(p.id)}
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title={p.pinned ? "Unpin" : "Pin"}
-                    aria-label={p.pinned ? "Unpin" : "Pin"}
-                  >
-                    {p.pinned ? (
-                      <PinOff className="h-3 w-3" />
-                    ) : (
-                      <Pin className="h-3 w-3" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => toggleFav(p.id)}
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title={p.favorite ? "Unfavorite" : "Favorite"}
-                    aria-label={p.favorite ? "Unfavorite" : "Favorite"}
-                  >
-                    {p.favorite ? (
-                      <StarOff className="h-3 w-3" />
-                    ) : (
-                      <Star className="h-3 w-3" />
-                    )}
-                  </button>
+                <div className="mt-2 space-y-1.5">
                   <button
                     onClick={() => {
-                      navigator.clipboard.writeText(p.body);
-                      toast.success("Prompt copied");
+                      navigator.clipboard.writeText(p.body).then(
+                        () => toast.success("Prompt copied to clipboard"),
+                        () => toast.error("Copy failed"),
+                      );
                     }}
-                    className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title="Copy"
-                    aria-label="Copy"
+                    className="inline-flex w-full items-center justify-center gap-1.5 rounded-md bg-primary px-2 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90"
+                    title="Copy prompt"
+                    aria-label="Copy prompt"
                   >
-                    <Copy className="h-3 w-3" />
+                    <Copy className="h-3 w-3" /> Copy prompt
                   </button>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => togglePin(p.id)}
+                      className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title={p.pinned ? "Unpin" : "Pin"}
+                      aria-label={p.pinned ? "Unpin" : "Pin"}
+                    >
+                      {p.pinned ? (
+                        <PinOff className="h-3 w-3" />
+                      ) : (
+                        <Pin className="h-3 w-3" />
+                      )}
+                    </button>
+                    <button
+                      onClick={() => toggleFav(p.id)}
+                      className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title={p.favorite ? "Unfavorite" : "Favorite"}
+                      aria-label={p.favorite ? "Unfavorite" : "Favorite"}
+                    >
+                      {p.favorite ? (
+                        <StarOff className="h-3 w-3" />
+                      ) : (
+                        <Star className="h-3 w-3" />
+                      )}
+                    </button>
                   <button
                     onClick={() => {
                       setCustomBody(p.body);
@@ -779,14 +782,15 @@ export function AiImagePromptGenerator() {
                   >
                     <Plus className="h-3 w-3" />
                   </button>
-                  <button
-                    onClick={() => removePrompt(p.id)}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    title="Delete"
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                    <button
+                      onClick={() => removePrompt(p.id)}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete"
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
               </li>
             ))}
