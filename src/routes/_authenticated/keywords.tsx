@@ -27,6 +27,7 @@ import {
   Tag,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import * as XLSX from "xlsx";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -471,14 +472,56 @@ function KeywordsPage() {
     const uid = (await supabase.auth.getUser()).data.user?.id;
     if (!uid) return toast.error("Not signed in");
     const name = file.name.toLowerCase();
-    const text = await readFileText(file).catch(() => "");
-    if (!text) return toast.error("Could not read this file.");
+    const isExcel = name.endsWith(".xlsx") || name.endsWith(".xls");
+    let text = "";
+    if (!isExcel) {
+      text = await readFileText(file).catch(() => "");
+      if (!text) return toast.error("Could not read this file.");
+    }
     let phrases: Array<{
       phrase: string;
       volume?: number | null;
       cluster?: string | null;
     }> = [];
-    if (name.endsWith(".json")) {
+    if (isExcel) {
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) return toast.error("Excel file has no sheets");
+        const aoa = XLSX.utils.sheet_to_json<string[]>(sheet, {
+          header: 1,
+          defval: "",
+          raw: false,
+        }) as string[][];
+        const nonEmpty = aoa.filter((r) => r.some((v) => String(v ?? "").trim()));
+        if (!nonEmpty.length) return toast.error("Excel file is empty");
+        const headers = nonEmpty[0].map((h) => String(h ?? ""));
+        const hasHeader = looksLikeHeader(headers);
+        const dataRows = (hasHeader ? nonEmpty.slice(1) : nonEmpty).map((r) =>
+          r.map((v) => String(v ?? "")),
+        );
+        const iPhrase = hasHeader
+          ? pickIndex(headers, ["keyword", "phrase", "query", "term"])
+          : 0;
+        const pIdx = iPhrase >= 0 ? iPhrase : 0;
+        const iVol = hasHeader ? pickIndex(headers, ["search volume", "volume"]) : -1;
+        const iCluster = hasHeader
+          ? pickIndex(headers, ["cluster", "topic", "group", "category"])
+          : -1;
+        phrases = dataRows
+          .map((r) => ({
+            phrase: (r[pIdx] ?? "").trim(),
+            volume: iVol >= 0 ? toNum(r[iVol]) : null,
+            cluster: iCluster >= 0 ? (r[iCluster] ?? "").trim() || null : null,
+          }))
+          .filter((p) => p.phrase);
+      } catch (e) {
+        return toast.error(
+          `Could not read Excel file: ${e instanceof Error ? e.message : "unknown"}`,
+        );
+      }
+    } else if (name.endsWith(".json")) {
       try {
         const parsed = JSON.parse(text);
         const arr = Array.isArray(parsed)
@@ -843,7 +886,7 @@ function KeywordsPage() {
                   <h3 className="font-semibold">Import from file</h3>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Bulk import from Semrush exports or any CSV / TSV / TXT / JSON.
+                  Bulk import from Semrush exports or any CSV / TSV / TXT / JSON / XLSX.
                 </p>
                 <input
                   ref={semrushRef}
@@ -859,7 +902,7 @@ function KeywordsPage() {
                 <input
                   ref={genericRef}
                   type="file"
-                  accept=".csv,.tsv,.txt,.json,text/*,application/json"
+                  accept=".csv,.tsv,.txt,.json,.xlsx,.xls,text/*,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -878,7 +921,7 @@ function KeywordsPage() {
                     onClick={() => genericRef.current?.click()}
                     className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm hover:border-primary/50"
                   >
-                    <FileUp className="h-4 w-4" /> CSV / TSV / TXT / JSON
+                    <FileUp className="h-4 w-4" /> CSV / TSV / TXT / JSON / XLSX
                   </button>
                 </div>
               </div>
@@ -1011,14 +1054,7 @@ function KeywordsPage() {
                 )}
               </div>
 
-              <button
-                onClick={() =>
-                  setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
-                }
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
-              >
-                <FolderPlus className="h-3.5 w-3.5" /> New folder
-              </button>
+              {/* Duplicate "New folder" removed — the header action button below is the single source of truth. */}
             </div>
           </div>
           )}
@@ -1091,10 +1127,11 @@ function KeywordsPage() {
                 </button>
               )}
             </div>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              {currentFolder?.description ??
-                "Organize your keyword universe into folders — one folder per service, campaign, or client theme. Import from Semrush or any CSV, then research and cluster from a single workspace."}
-            </p>
+            {currentFolder?.description ? (
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {currentFolder.description}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -1112,7 +1149,7 @@ function KeywordsPage() {
             <input
               ref={genericRef}
               type="file"
-              accept=".csv,.tsv,.txt,.json,text/*,application/json"
+              accept=".csv,.tsv,.txt,.json,.xlsx,.xls,text/*,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -1149,7 +1186,7 @@ function KeywordsPage() {
                   <Upload className="mr-2 h-4 w-4" /> Semrush CSV
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => genericRef.current?.click()}>
-                  <FileUp className="mr-2 h-4 w-4" /> CSV / TSV / TXT / JSON
+                  <FileUp className="mr-2 h-4 w-4" /> CSV / TSV / TXT / JSON / XLSX
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
