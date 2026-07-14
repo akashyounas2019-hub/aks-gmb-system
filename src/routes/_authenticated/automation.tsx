@@ -396,9 +396,18 @@ function AutomationPage() {
                         {a.enabled ? "Active" : "Paused"}
                       </button>
                       <button
-                        onClick={() => deleteMut.mutate(a.id)}
-                        className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setEditing({ id: a.id, name: a.name, cron: a.cron })}
+                        className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        aria-label="Edit"
+                        title="Edit"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete({ id: a.id, name: a.name })}
+                        className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         aria-label="Delete"
+                        title="Delete"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
