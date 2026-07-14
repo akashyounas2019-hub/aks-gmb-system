@@ -472,9 +472,56 @@ function KeywordsPage() {
     const uid = (await supabase.auth.getUser()).data.user?.id;
     if (!uid) return toast.error("Not signed in");
     const name = file.name.toLowerCase();
-    const text = await readFileText(file).catch(() => "");
-    if (!text) return toast.error("Could not read this file.");
+    const isExcel = name.endsWith(".xlsx") || name.endsWith(".xls");
+    let text = "";
+    if (!isExcel) {
+      text = await readFileText(file).catch(() => "");
+      if (!text) return toast.error("Could not read this file.");
+    }
     let phrases: Array<{
+      phrase: string;
+      volume?: number | null;
+      cluster?: string | null;
+    }> = [];
+    if (isExcel) {
+      try {
+        const buf = await file.arrayBuffer();
+        const wb = XLSX.read(buf, { type: "array" });
+        const sheet = wb.Sheets[wb.SheetNames[0]];
+        if (!sheet) return toast.error("Excel file has no sheets");
+        const aoa = XLSX.utils.sheet_to_json<string[]>(sheet, {
+          header: 1,
+          defval: "",
+          raw: false,
+        }) as string[][];
+        const nonEmpty = aoa.filter((r) => r.some((v) => String(v ?? "").trim()));
+        if (!nonEmpty.length) return toast.error("Excel file is empty");
+        const headers = nonEmpty[0].map((h) => String(h ?? ""));
+        const hasHeader = looksLikeHeader(headers);
+        const dataRows = (hasHeader ? nonEmpty.slice(1) : nonEmpty).map((r) =>
+          r.map((v) => String(v ?? "")),
+        );
+        const iPhrase = hasHeader
+          ? pickIndex(headers, ["keyword", "phrase", "query", "term"])
+          : 0;
+        const pIdx = iPhrase >= 0 ? iPhrase : 0;
+        const iVol = hasHeader ? pickIndex(headers, ["search volume", "volume"]) : -1;
+        const iCluster = hasHeader
+          ? pickIndex(headers, ["cluster", "topic", "group", "category"])
+          : -1;
+        phrases = dataRows
+          .map((r) => ({
+            phrase: (r[pIdx] ?? "").trim(),
+            volume: iVol >= 0 ? toNum(r[iVol]) : null,
+            cluster: iCluster >= 0 ? (r[iCluster] ?? "").trim() || null : null,
+          }))
+          .filter((p) => p.phrase);
+      } catch (e) {
+        return toast.error(
+          `Could not read Excel file: ${e instanceof Error ? e.message : "unknown"}`,
+        );
+      }
+    } else if (name.endsWith(".json")) {
       phrase: string;
       volume?: number | null;
       cluster?: string | null;
