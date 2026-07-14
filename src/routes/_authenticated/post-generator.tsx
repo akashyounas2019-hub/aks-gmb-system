@@ -19,6 +19,9 @@ import {
   Save,
   LayoutTemplate,
   Trash2,
+  BarChart3,
+  MapPin,
+  TrendingUp,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
