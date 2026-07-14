@@ -293,6 +293,7 @@ const DARK_MAP_STYLE: any[] = [
 function GmbAnalyticsPage() {
   const [keyword, setKeyword] = useState<string>("");
   const [search, setSearch] = useState("");
+  const [showAllKeywords, setShowAllKeywords] = useState(false);
   const [gmb, setGmb] = useState(() => readGmbConnection());
   const [connectBusy, setConnectBusy] = useState(false);
   const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
