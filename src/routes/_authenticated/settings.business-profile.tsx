@@ -43,6 +43,7 @@ const TIERS = Array.from({ length: 8 }, (_, i) => ({
 
 function BusinessProfilePage() {
   const load = useServerFn(getPreferences);
+  const geocode = useServerFn(geocodeAddress);
   const [general, setGeneral] = useState<General | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
