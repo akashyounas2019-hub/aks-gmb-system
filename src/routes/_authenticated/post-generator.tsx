@@ -1856,6 +1856,316 @@ export function PostGeneratorPage({
           </div>
         </div>
       )}
+
+      {/* Templates modal */}
+      {templatesOpen && (() => {
+        const q = templateSearch.trim().toLowerCase();
+        const counts: Record<string, number> = { __all: templates.length, __none: 0 };
+        for (const f of templateFolders) counts[f] = 0;
+        for (const t of templates) {
+          const key = t.folder && templateFolders.includes(t.folder) ? t.folder : "__none";
+          counts[key] = (counts[key] ?? 0) + 1;
+        }
+        const inFolder = (t: PostTemplate) => {
+          if (activeFolder === "__all") return true;
+          if (activeFolder === "") return !t.folder || !templateFolders.includes(t.folder);
+          return t.folder === activeFolder;
+        };
+        const visible = templates.filter(
+          (t) =>
+            inFolder(t) &&
+            (!q ||
+              t.name.toLowerCase().includes(q) ||
+              t.body.toLowerCase().includes(q)),
+        );
+        const folderItems: Array<{ key: string; label: string; count: number; removable: boolean }> = [
+          { key: "__all", label: "All templates", count: counts.__all, removable: false },
+          { key: "", label: "Uncategorized", count: counts.__none, removable: false },
+          ...templateFolders.map((f) => ({
+            key: f,
+            label: f,
+            count: counts[f] ?? 0,
+            removable: true,
+          })),
+        ];
+        return (
+          <div
+            className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+            onClick={() => setTemplatesOpen(false)}
+          >
+            <div
+              className="flex h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Header */}
+              <div className="flex items-center justify-between border-b border-border px-5 py-3">
+                <div>
+                  <div className="text-sm font-semibold">Post templates</div>
+                  <div className="text-[11px] text-muted-foreground">
+                    Organize reusable descriptions in folders and apply them to the post.
+                  </div>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <input
+                    ref={templateImportRef}
+                    type="file"
+                    accept="application/json,.json"
+                    hidden
+                    onChange={(e) => {
+                      const f = e.target.files?.[0];
+                      if (f) importTemplatesFromFile(f);
+                      if (templateImportRef.current) templateImportRef.current.value = "";
+                    }}
+                  />
+                  <button
+                    onClick={() => templateImportRef.current?.click()}
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+                  >
+                    Import
+                  </button>
+                  <button
+                    onClick={exportTemplates}
+                    disabled={!templates.length}
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
+                  >
+                    Export
+                  </button>
+                  <button
+                    onClick={() => setTemplatesOpen(false)}
+                    aria-label="Close"
+                    className="rounded p-1 hover:bg-accent"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Body: sidebar + main */}
+              <div className="grid flex-1 min-h-0 grid-cols-[220px_1fr]">
+                {/* Sidebar — folders */}
+                <aside className="flex flex-col overflow-hidden border-r border-border bg-muted/30">
+                  <div className="flex items-center justify-between px-3 py-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Folders
+                    <button
+                      onClick={addFolder}
+                      title="New folder"
+                      className="rounded p-1 hover:bg-accent hover:text-foreground"
+                    >
+                      <Plus className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-1.5 pb-2">
+                    {folderItems.map((f) => {
+                      const on = activeFolder === f.key;
+                      return (
+                        <div
+                          key={f.key || "__none"}
+                          className={`group flex items-center gap-1 rounded px-2 py-1.5 text-xs ${
+                            on ? "bg-primary/15 text-primary" : "hover:bg-accent"
+                          }`}
+                        >
+                          <button
+                            onClick={() => setActiveFolder(f.key)}
+                            className="flex-1 truncate text-left"
+                          >
+                            {f.label}
+                          </button>
+                          <span
+                            className={`rounded-full px-1.5 text-[10px] ${
+                              on ? "bg-primary/25" : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {f.count}
+                          </span>
+                          {f.removable && (
+                            <div className="flex opacity-0 transition group-hover:opacity-100">
+                              <button
+                                onClick={() => renameFolder(f.key)}
+                                aria-label="Rename folder"
+                                className="rounded p-0.5 hover:bg-background"
+                                title="Rename"
+                              >
+                                <PenSquare className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => removeFolder(f.key)}
+                                aria-label="Delete folder"
+                                className="rounded p-0.5 text-muted-foreground hover:bg-destructive/15 hover:text-destructive"
+                                title="Delete"
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </aside>
+
+                {/* Main */}
+                <main className="flex min-h-0 flex-col overflow-hidden">
+                  <div className="flex items-center gap-2 border-b border-border px-4 py-2">
+                    <input
+                      value={templateSearch}
+                      onChange={(e) => setTemplateSearch(e.target.value)}
+                      placeholder="Search templates…"
+                      className="flex-1 rounded border border-border bg-background px-2.5 py-1.5 text-sm outline-none focus:ring-2 focus:ring-primary/40"
+                    />
+                    <button
+                      onClick={() => beginCreateTemplate(false)}
+                      className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> New template
+                    </button>
+                    {caption.trim() && (
+                      <button
+                        onClick={() => {
+                          beginCreateTemplate(true);
+                          setNewTplName(caption.trim().slice(0, 40));
+                        }}
+                        className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                      >
+                        Save current
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Create form */}
+                  {creatingTemplate && (
+                    <div className="border-b border-border bg-muted/30 px-4 py-3">
+                      <div className="mb-2 text-xs font-semibold">New template</div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <label className="block">
+                          <span className="text-[11px] text-muted-foreground">Name</span>
+                          <input
+                            value={newTplName}
+                            onChange={(e) => setNewTplName(e.target.value)}
+                            placeholder="e.g. Sofa cleaning — Al Barsha"
+                            className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                          />
+                        </label>
+                        <label className="block">
+                          <span className="text-[11px] text-muted-foreground">Folder</span>
+                          <select
+                            value={newTplFolder}
+                            onChange={(e) => setNewTplFolder(e.target.value)}
+                            className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                          >
+                            <option value="">Uncategorized</option>
+                            {templateFolders.map((f) => (
+                              <option key={f} value={f}>
+                                {f}
+                              </option>
+                            ))}
+                          </select>
+                        </label>
+                      </div>
+                      <label className="mt-2 block">
+                        <span className="text-[11px] text-muted-foreground">Body</span>
+                        <textarea
+                          value={newTplBody}
+                          onChange={(e) => setNewTplBody(e.target.value)}
+                          rows={5}
+                          placeholder="Template content…"
+                          className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
+                        />
+                      </label>
+                      <div className="mt-2 flex justify-end gap-2">
+                        <button
+                          onClick={() => setCreatingTemplate(false)}
+                          className="rounded border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                        >
+                          Cancel
+                        </button>
+                        <button
+                          onClick={saveNewTemplate}
+                          className="rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                        >
+                          Save template
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Grid */}
+                  <div className="flex-1 overflow-y-auto p-4">
+                    {visible.length === 0 ? (
+                      <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
+                        <LayoutTemplate className="h-8 w-8 opacity-40" />
+                        <div>
+                          {templates.length === 0
+                            ? "No templates yet."
+                            : q
+                              ? "No templates match your search."
+                              : "This folder is empty."}
+                        </div>
+                        <button
+                          onClick={() => beginCreateTemplate(false)}
+                          className="mt-1 inline-flex items-center gap-1 rounded-lg border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Create your first template
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                        {visible.map((t) => (
+                          <div
+                            key={t.id}
+                            className="group flex flex-col overflow-hidden rounded-xl border border-border bg-background transition hover:border-primary/40 hover:shadow"
+                          >
+                            <div className="flex items-start justify-between gap-2 px-3 pb-1 pt-2.5">
+                              <div className="min-w-0 flex-1">
+                                <div className="truncate text-sm font-medium">{t.name}</div>
+                                <div className="mt-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                                  {t.folder && templateFolders.includes(t.folder)
+                                    ? t.folder
+                                    : "Uncategorized"}
+                                </div>
+                              </div>
+                              <button
+                                onClick={() => deleteTemplate(t.id)}
+                                aria-label="Delete template"
+                                className="rounded p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-destructive/15 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                            <div className="line-clamp-4 whitespace-pre-wrap px-3 pb-2 text-xs text-muted-foreground">
+                              {t.body}
+                            </div>
+                            <div className="mt-auto flex items-center gap-1.5 border-t border-border/60 bg-muted/30 px-2 py-1.5">
+                              <select
+                                value={t.folder ?? ""}
+                                onChange={(e) => moveTemplate(t.id, e.target.value)}
+                                className="flex-1 rounded border border-border bg-background px-1.5 py-1 text-[11px]"
+                                title="Move to folder"
+                              >
+                                <option value="">Uncategorized</option>
+                                {templateFolders.map((f) => (
+                                  <option key={f} value={f}>
+                                    {f}
+                                  </option>
+                                ))}
+                              </select>
+                              <button
+                                onClick={() => applyTemplate(t)}
+                                className="rounded bg-primary px-2.5 py-1 text-[11px] font-medium text-primary-foreground hover:opacity-90"
+                              >
+                                Apply
+                              </button>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                </main>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }
