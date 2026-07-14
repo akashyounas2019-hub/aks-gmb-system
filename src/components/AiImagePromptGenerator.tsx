@@ -70,18 +70,6 @@ const FILTERS: FilterDef[] = [
     ],
   },
   {
-    id: "lighting",
-    label: "Lighting",
-    options: [
-      "Golden hour",
-      "Soft studio",
-      "Dramatic rim",
-      "Overcast diffuse",
-      "Neon night",
-      "Backlit sunrise",
-    ],
-  },
-  {
     id: "mood",
     label: "Mood",
     options: [
@@ -91,17 +79,6 @@ const FILTERS: FilterDef[] = [
       "Calm & premium",
       "Playful",
       "Bold",
-    ],
-  },
-  {
-    id: "camera",
-    label: "Camera",
-    options: [
-      "35mm lens",
-      "85mm portrait",
-      "Wide-angle 24mm",
-      "Macro close-up",
-      "Drone top-down",
     ],
   },
   {
