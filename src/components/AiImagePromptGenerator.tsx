@@ -394,6 +394,52 @@ export function AiImagePromptGenerator() {
     setPrompts((prev) => prev.filter((p) => p.id !== id));
   }
 
+  function exportCSV() {
+    const rows = visiblePrompts.length > 0 ? visiblePrompts : prompts;
+    if (rows.length === 0) {
+      toast.error("No prompts to export");
+      return;
+    }
+    const esc = (v: string | number | boolean) => {
+      const s = String(v ?? "");
+      return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    };
+    const header = [
+      "title",
+      "body",
+      "folder",
+      "pinned",
+      "favorite",
+      "createdAt",
+    ];
+    const lines = [header.join(",")];
+    for (const p of rows) {
+      lines.push(
+        [
+          esc(p.title),
+          esc(p.body),
+          esc(p.folder),
+          esc(p.pinned),
+          esc(p.favorite),
+          esc(new Date(p.createdAt).toISOString()),
+        ].join(","),
+      );
+    }
+    const csv = "\uFEFF" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `saved-prompts-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} prompt${rows.length === 1 ? "" : "s"}`);
+  }
+
+
   function saveAsTemplate() {
     const body = bodyToUse || generated;
     if (!body.trim()) {
