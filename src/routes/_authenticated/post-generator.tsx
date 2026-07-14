@@ -2378,6 +2378,7 @@ export function PostGeneratorPage({
                   )}
 
                   {/* Grid */}
+                  {!previewingTemplate && (
                   <div className="flex-1 overflow-y-auto p-4">
                     {visible.length === 0 ? (
                       <div className="flex h-full flex-col items-center justify-center gap-2 text-center text-sm text-muted-foreground">
