@@ -20,6 +20,9 @@ import {
   Zap,
   ChevronRight,
   Loader2,
+  Send,
+  Rocket,
+  Flag,
 } from "lucide-react";
 import {
   Dialog,
@@ -38,9 +41,11 @@ import {
 } from "@/components/ui/select";
 import {
   approveTask as approveTaskFn,
+  assignTask as assignTaskFn,
   createAgent as createAgentFn,
   getAgentsState,
   rejectTask as rejectTaskFn,
+  updateTaskProgress as updateTaskProgressFn,
 } from "@/lib/agents.functions";
 
 export const Route = createFileRoute("/_authenticated/agents")({
@@ -80,6 +85,8 @@ type TaskRow = {
   status: string;
   major: boolean;
   relative_time: string;
+  progress?: number;
+  priority?: string;
 };
 
 const iconMap: Record<string, typeof Bot> = {
@@ -123,6 +130,8 @@ function AgentsPage() {
   const createAgent = useServerFn(createAgentFn);
   const approveTask = useServerFn(approveTaskFn);
   const rejectTask = useServerFn(rejectTaskFn);
+  const assignTask = useServerFn(assignTaskFn);
+  const updateTaskProgress = useServerFn(updateTaskProgressFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
@@ -139,6 +148,12 @@ function AgentsPage() {
     role: "writer",
     parentId: "",
   });
+  const [assign, setAssign] = useState<{
+    agent_id: string;
+    title: string;
+    priority: "low" | "normal" | "high";
+    major: boolean;
+  }>({ agent_id: "", title: "", priority: "normal", major: false });
 
   const leader = agents.find((a) => a.parent_id === null) ?? agents[0];
   const subAgents = leader ? agents.filter((a) => a.parent_id === leader.id) : [];
@@ -189,11 +204,44 @@ function AgentsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to spawn agent."),
   });
 
+  const assignMut = useMutation({
+    mutationFn: (input: {
+      agent_id: string;
+      title: string;
+      priority: "low" | "normal" | "high";
+      major: boolean;
+    }) => assignTask({ data: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      setAssign((p) => ({ ...p, title: "" }));
+      toast.success("Task launched. Progress will update in the queue.");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to assign task."),
+  });
+  const progressMut = useMutation({
+    mutationFn: (input: { id: string; progress?: number; status?: "running" | "done" }) =>
+      updateTaskProgress({ data: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
+  });
+
   function handleCreate() {
     if (!newAgent.name.trim()) return toast.error("Give the agent a name.");
     const parent = newAgent.parentId || leader?.id;
     if (!parent) return toast.error("Missing parent agent.");
     createMut.mutate({ name: newAgent.name.trim(), role: newAgent.role, parent_id: parent });
+  }
+
+  function handleAssign() {
+    const target = assign.agent_id || subAgents[0]?.id;
+    if (!target) return toast.error("No sub-agent available.");
+    if (assign.title.trim().length < 2) return toast.error("Describe the task.");
+    assignMut.mutate({
+      agent_id: target,
+      title: assign.title.trim(),
+      priority: assign.priority,
+      major: assign.major,
+    });
   }
 
   if (isLoading || !leader) {
@@ -292,6 +340,158 @@ function AgentsPage() {
               ))}
             </div>
           </div>
+        </section>
+
+        {/* Task assignment panel — Leader dispatches jobs */}
+        <section className="mb-8 rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/60 to-card/40 p-6 backdrop-blur-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-xl bg-gradient-to-br from-amber-400 to-orange-500 shadow-[0_10px_30px_-10px_rgba(251,191,36,0.6)]">
+                <Crown className="h-5 w-5 text-white" />
+              </div>
+              <div>
+                <h2 className="font-display text-lg tracking-tight">Assign a task</h2>
+                <p className="text-xs text-muted-foreground">
+                  Leader delegates to any sub-agent. Major tasks require your approval before running.
+                </p>
+              </div>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary">
+              <Rocket className="h-3 w-3" /> Dispatch center
+            </span>
+          </div>
+
+          <div className="grid gap-3 md:grid-cols-[1.4fr_1fr_0.9fr_auto]">
+            <div className="md:col-span-1">
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Task
+              </label>
+              <input
+                value={assign.title}
+                onChange={(e) => setAssign((p) => ({ ...p, title: e.target.value }))}
+                placeholder="e.g. Publish 3 review-response templates"
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary/60"
+              />
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Assign to
+              </label>
+              <Select
+                value={assign.agent_id || subAgents[0]?.id || ""}
+                onValueChange={(v) => setAssign((p) => ({ ...p, agent_id: v }))}
+              >
+                <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                <SelectContent>
+                  {subAgents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1 block text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Priority
+              </label>
+              <Select
+                value={assign.priority}
+                onValueChange={(v) => setAssign((p) => ({ ...p, priority: v as "low" | "normal" | "high" }))}
+              >
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="low">Low</SelectItem>
+                  <SelectItem value="normal">Normal</SelectItem>
+                  <SelectItem value="high">High</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex items-end">
+              <button
+                onClick={handleAssign}
+                disabled={assignMut.isPending}
+                className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-4 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110 disabled:opacity-60"
+              >
+                {assignMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                Launch
+              </button>
+            </div>
+          </div>
+
+          <div className="mt-3 flex flex-wrap items-center gap-3">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-muted-foreground">
+              <input
+                type="checkbox"
+                checked={assign.major}
+                onChange={(e) => setAssign((p) => ({ ...p, major: e.target.checked }))}
+                className="h-3.5 w-3.5 rounded border-border accent-amber-500"
+              />
+              <Flag className="h-3 w-3 text-amber-400" /> Major task (requires approval)
+            </label>
+            <span className="text-[11px] text-muted-foreground/70">
+              {subAgents.length} sub-agent{subAgents.length === 1 ? "" : "s"} available · Leader will queue &amp; monitor
+            </span>
+          </div>
+
+          {/* In-flight tasks with progress */}
+          {(() => {
+            const running = tasks.filter((t) => t.status === "running");
+            if (running.length === 0) return null;
+            return (
+              <div className="mt-6 space-y-2">
+                <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  In flight ({running.length})
+                </div>
+                <ul className="grid gap-2 md:grid-cols-2">
+                  {running.map((t) => {
+                    const a = agents.find((x) => x.id === t.agent_id);
+                    const p = Math.max(0, Math.min(100, t.progress ?? 0));
+                    return (
+                      <li key={t.id} className="rounded-xl border border-border/60 bg-card/70 p-3">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <div className="truncate text-sm font-medium">{t.title}</div>
+                            <div className="text-[11px] text-muted-foreground">
+                              {a?.name} · {t.relative_time}
+                              {t.priority && t.priority !== "normal" && (
+                                <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${t.priority === "high" ? "bg-rose-400/15 text-rose-400" : "bg-muted text-muted-foreground"}`}>
+                                  {t.priority}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          <span className="shrink-0 text-xs font-semibold tabular-nums text-primary">{p}%</span>
+                        </div>
+                        <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
+                          <div
+                            className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all"
+                            style={{ width: `${p}%` }}
+                          />
+                        </div>
+                        <div className="mt-2 flex gap-1.5">
+                          <button
+                            onClick={() =>
+                              progressMut.mutate({ id: t.id, progress: Math.min(100, p + 25) })
+                            }
+                            disabled={progressMut.isPending}
+                            className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-60"
+                          >
+                            +25%
+                          </button>
+                          <button
+                            onClick={() => progressMut.mutate({ id: t.id, progress: 100, status: "done" })}
+                            disabled={progressMut.isPending}
+                            className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                          >
+                            Complete
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            );
+          })()}
         </section>
 
         <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">

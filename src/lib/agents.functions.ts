@@ -270,3 +270,85 @@ export const updateAgentStatus = createServerFn({ method: "POST" })
     if (error) throw error;
     return { ok: true };
   });
+
+export const assignTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        agent_id: z.string().uuid(),
+        title: z.string().min(2).max(200),
+        priority: z.enum(["low", "normal", "high"]).default("normal"),
+        major: z.boolean().default(false),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    // Ensure agent belongs to user
+    const { data: agent, error: aErr } = await supabase
+      .from("agents")
+      .select("id, name")
+      .eq("id", data.agent_id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (aErr) throw aErr;
+    if (!agent) throw new Error("Agent not found.");
+
+    const { data: task, error } = await supabase
+      .from("agent_tasks")
+      .insert({
+        user_id: userId,
+        agent_id: data.agent_id,
+        title: data.title,
+        status: data.major ? "awaiting_approval" : "running",
+        major: data.major,
+        priority: data.priority,
+        progress: data.major ? 0 : 5,
+        relative_time: "just now",
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    // Bump agent activity
+    await supabase
+      .from("agents")
+      .update({
+        status: data.major ? "review" : "working",
+        last_activity: `Assigned: ${data.title}`,
+      })
+      .eq("id", data.agent_id)
+      .eq("user_id", userId);
+
+    return task;
+  });
+
+export const updateTaskProgress = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        progress: z.number().min(0).max(100).optional(),
+        status: z.enum(["queued", "running", "done", "awaiting_approval"]).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const patch: { progress?: number; status?: string } = {};
+    if (data.progress !== undefined) patch.progress = data.progress;
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.progress !== undefined && data.progress >= 100 && data.status === undefined) {
+      patch.status = "done";
+    }
+    const { error } = await supabase
+      .from("agent_tasks")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
