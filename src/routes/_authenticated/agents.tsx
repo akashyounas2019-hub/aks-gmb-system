@@ -1415,7 +1415,6 @@ function AgentNode({
   agent,
   selected,
   onClick,
-  size = "md",
 }: {
   agent: AgentRow;
   selected: boolean;
@@ -1425,37 +1424,47 @@ function AgentNode({
   const Icon = iconMap[agent.icon_key] ?? Bot;
   const imgSrc = agentImageMap[agent.icon_key];
   const meta = statusMeta[normalizeStatus(agent.status)];
-  const big = size === "lg";
+  const isLeader = agent.parent_id === null;
   return (
     <button
       onClick={onClick}
-      className={`group relative flex flex-col items-center rounded-2xl border bg-card/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/25 hover:bg-card ${
-        selected
-          ? "border-foreground/40 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
-          : "border-border/60"
-      } ${big ? "w-[300px]" : "w-full"}`}
+      className={`group relative flex w-full flex-col items-center rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
+        isLeader
+          ? "border-amber-300/50 bg-gradient-to-br from-amber-500/10 via-card/70 to-card/50 shadow-[0_10px_40px_-12px_rgba(251,191,36,0.35)] hover:border-amber-300/70"
+          : selected
+          ? "border-foreground/40 bg-card/60 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
+          : "border-border/60 bg-card/60 hover:border-foreground/25 hover:bg-card"
+      }`}
     >
+      {isLeader && (
+        <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-black shadow-[0_6px_16px_-6px_rgba(251,191,36,0.7)]">
+          <Crown className="h-2.5 w-2.5" /> Leader
+        </span>
+      )}
       <div className="relative mb-3">
-        <div className={`relative grid ${big ? "h-24 w-24" : "h-20 w-20"} place-items-center overflow-hidden rounded-2xl border border-border/70 bg-background/70`}>
+        <div
+          className={`relative grid h-20 w-20 place-items-center overflow-hidden rounded-2xl border bg-background/70 ${
+            isLeader ? "border-amber-300/60 ring-2 ring-amber-300/25 ring-offset-2 ring-offset-card/60" : "border-border/70"
+          }`}
+        >
           {imgSrc ? (
             <img
               src={imgSrc}
               alt={`${agent.name} portrait`}
               loading="lazy"
-              className={`${big ? "h-[92%] w-[92%]" : "h-[88%] w-[88%]"} object-contain`}
+              className="h-[88%] w-[88%] object-contain"
             />
           ) : (
-            <Icon className={`${big ? "h-10 w-10" : "h-8 w-8"} text-foreground/85`} />
+            <Icon className="h-8 w-8 text-foreground/85" />
           )}
           <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`} />
         </div>
       </div>
 
       <div className="flex items-center gap-1.5">
-        {big && <Crown className="h-3.5 w-3.5 text-amber-400" />}
-        <h4 className={`font-display tracking-tight ${big ? "text-lg" : "text-sm"}`}>{agent.name}</h4>
+        <h4 className={`font-display tracking-tight text-sm ${isLeader ? "text-amber-100" : ""}`}>{agent.name}</h4>
       </div>
-      <p className="mt-0.5 text-[11px] uppercase tracking-widest text-muted-foreground">{agent.role}</p>
+      <p className={`mt-0.5 text-[11px] uppercase tracking-widest ${isLeader ? "text-amber-300/80" : "text-muted-foreground"}`}>{agent.role}</p>
 
       <div className="mt-3 flex w-full items-center gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
@@ -1468,7 +1477,7 @@ function AgentNode({
       </div>
 
       <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
-        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${agent.load}%` }} />
+        <div className={`h-full rounded-full ${isLeader ? "bg-gradient-to-r from-amber-400 to-orange-400" : "bg-foreground/70"}`} style={{ width: `${agent.load}%` }} />
       </div>
     </button>
   );
