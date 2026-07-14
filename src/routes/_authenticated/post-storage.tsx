@@ -404,6 +404,7 @@ export function PostStoragePanel() {
                       key={p.id}
                       post={p}
                       folderName={folders.find((f) => f.id === p.folderId)?.name}
+                      imageMap={imageMap}
                       onOpen={() => setSelectedPost(p)}
                       onDelete={() => deletePost(p.id)}
                       onSchedule={() => setScheduling(p)}
