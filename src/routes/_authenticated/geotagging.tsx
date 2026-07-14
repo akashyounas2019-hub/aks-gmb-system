@@ -1286,7 +1286,6 @@ function StepLocation(props: {
   activeCoord: { lat: number; lng: number; label: string } | null;
   copyCoord: () => void;
   copied: boolean;
-  copied: boolean;
   onRefresh: () => void;
   refreshing: boolean;
   refreshKey: number;
@@ -1318,16 +1317,32 @@ function StepLocation(props: {
     activeCoord,
     copyCoord,
     copied,
+    onRefresh,
+    refreshing,
+    refreshKey,
+    cityOptions,
   } = props;
 
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-medium">Choose a location</h2>
-        <p className="text-sm text-muted-foreground">
-          Pick from a quick preset, browse the library, or drop a pin on the map.
-        </p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-medium">Choose a location</h2>
+          <p className="text-sm text-muted-foreground">
+            Pick from a quick preset, browse the library, or drop a pin on the map.
+          </p>
+        </div>
+        <button
+          onClick={onRefresh}
+          disabled={refreshing}
+          title="Refresh coordinates for all options"
+          className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent disabled:opacity-60"
+        >
+          <RefreshCw className={`h-3.5 w-3.5 ${refreshing ? "animate-spin" : ""}`} />
+          Refresh
+        </button>
       </div>
+
 
       {/* Selected coordinate summary */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
