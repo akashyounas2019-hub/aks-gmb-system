@@ -616,7 +616,7 @@ function AgentsPage() {
             {/* Leader — same size as sub-agents, uniquely styled */}
             <div
               className="grid w-full justify-center"
-              style={{ gridTemplateColumns: `repeat(${Math.max(subAgents.length, 1)}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
             >
               <div
                 className="relative col-start-1"
@@ -643,8 +643,8 @@ function AgentsPage() {
                     <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.35" />
                   </linearGradient>
                 </defs>
-                {subAgents.map((_, i) => {
-                  const step = 100 / Math.max(subAgents.length, 1);
+                {filteredSubAgents.map((_, i) => {
+                  const step = 100 / Math.max(filteredSubAgents.length, 1);
                   const x = step * (i + 0.5);
                   const d = `M 50 0 C 50 55, ${x} 45, ${x} 100`;
                   return (
@@ -680,14 +680,20 @@ function AgentsPage() {
               <style>{`@keyframes agent-wire-flow { to { stroke-dashoffset: -20; } }`}</style>
             </div>
 
-            <div
-              className="grid w-full gap-4"
-              style={{ gridTemplateColumns: `repeat(${Math.max(subAgents.length, 1)}, minmax(0, 1fr))` }}
-            >
-              {subAgents.map((a) => (
-                <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => openAgent(a.id)} />
-              ))}
-            </div>
+            {filteredSubAgents.length === 0 ? (
+              <div className="w-full rounded-xl border border-dashed border-border/60 py-8 text-center text-sm text-muted-foreground">
+                No agents match your filters.
+              </div>
+            ) : (
+              <div
+                className="grid w-full gap-4"
+                style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
+              >
+                {filteredSubAgents.map((a) => (
+                  <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => openAgent(a.id)} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
