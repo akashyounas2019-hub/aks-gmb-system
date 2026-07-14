@@ -469,6 +469,45 @@ export const assignTask = createServerFn({ method: "POST" })
       metadata: { priority: data.priority, major: data.major },
     });
 
+    {
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [];
+      // Notify the sub-agent it received a task (or a queued major task pending approval)
+      rows.push({
+        agent_id: data.agent_id,
+        related_agent_id: leaderId,
+        task_id: task.id,
+        kind: "assigned",
+        title: data.major ? "New major task queued" : "New task assigned",
+        message: data.major
+          ? `Leader queued "${data.title}" — awaiting your operator's approval.`
+          : `Leader assigned "${data.title}".`,
+      });
+      // Notify the leader for oversight
+      if (leaderId && leaderId !== data.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: data.agent_id,
+          task_id: task.id,
+          kind: "assigned",
+          title: "Dispatched a task",
+          message: `Sent "${data.title}" to ${agent.name}${data.major ? " (major — needs approval)" : ""}.`,
+        });
+      }
+      // Non-major tasks start immediately
+      if (!data.major) {
+        rows.push({
+          agent_id: data.agent_id,
+          related_agent_id: leaderId,
+          task_id: task.id,
+          kind: "started",
+          title: "Task started",
+          message: `Working on "${data.title}".`,
+        });
+      }
+      await notify(supabase, userId, rows);
+    }
+
     return task;
   });
 
