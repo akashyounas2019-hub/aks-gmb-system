@@ -717,7 +717,93 @@ function AgentsPage() {
           </div>
 
           <div className="space-y-6">
+            {/* Agent notifications inbox */}
+            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/60 to-card/40 p-5 backdrop-blur-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="inline-flex items-center gap-2 font-display text-base tracking-tight">
+                  <Bell className="h-4 w-4 text-primary" />
+                  {isLeaderSelected ? "Team alerts" : `${selected?.name ?? "Agent"} alerts`}
+                </h3>
+                <div className="flex items-center gap-2">
+                  {unreadNotifs > 0 && (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      {unreadNotifs} new
+                    </span>
+                  )}
+                  {unreadNotifs > 0 && (
+                    <button
+                      onClick={() => markAllNotifs.mutate()}
+                      disabled={markAllNotifs.isPending}
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+                    </button>
+                  )}
+                </div>
+              </div>
+              {notifications.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-4 py-6 text-center text-xs text-muted-foreground">
+                  No alerts yet. Assign, complete, or fail a task to see notifications here.
+                </p>
+              ) : (
+                <ul className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
+                  {notifications.map((n) => {
+                    const kindMeta =
+                      n.kind === "assigned"
+                        ? { color: "bg-primary", Icon: Send }
+                        : n.kind === "started"
+                          ? { color: "bg-sky-500", Icon: Rocket }
+                          : n.kind === "completed"
+                            ? { color: "bg-emerald-500", Icon: CheckCircle2 }
+                            : { color: "bg-rose-500", Icon: XCircle };
+                    const target = agents.find((a) => a.id === n.agent_id);
+                    const other = agents.find((a) => a.id === n.related_agent_id);
+                    const isUnread = !n.read_at;
+                    const ts = n.created_at ? new Date(n.created_at) : null;
+                    return (
+                      <li
+                        key={n.id}
+                        className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 ${isUnread ? "border-primary/30 bg-primary/5" : "border-border/50 bg-background/30"}`}
+                      >
+                        <span
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full ${kindMeta.color}`}
+                        >
+                          <kindMeta.Icon className="h-3 w-3 text-white" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium">{n.title}</span>
+                            {isUnread && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">{n.message}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                            <span>→ {target?.name ?? "Agent"}</span>
+                            {other && <span>· {other.name}</span>}
+                            <span className="ml-auto normal-case tracking-normal">
+                              {ts ? ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                            </span>
+                          </div>
+                        </div>
+                        {isUnread && (
+                          <button
+                            onClick={() => markOneNotif.mutate(n.id)}
+                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                            title="Mark read"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
             <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5">
+
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="inline-flex items-center gap-2 font-display text-base tracking-tight">
                   <AlertTriangle className="h-4 w-4 text-amber-400" /> Awaiting approval
