@@ -456,6 +456,7 @@ export const assignTask = createServerFn({ method: "POST" })
     if (aErr) throw aErr;
     if (!agent) throw new Error("Agent not found.");
 
+    const nowIso = new Date().toISOString();
     const { data: task, error } = await supabase
       .from("agent_tasks")
       .insert({
@@ -467,6 +468,8 @@ export const assignTask = createServerFn({ method: "POST" })
         priority: data.priority,
         progress: data.major ? 0 : 5,
         relative_time: "just now",
+        started_at: data.major ? null : nowIso,
+        eta_confidence: data.major ? null : "low",
       })
       .select("*")
       .single();
