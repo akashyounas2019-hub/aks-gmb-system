@@ -496,8 +496,8 @@ function AgentsPage() {
               <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="wire" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
+                    <stop offset="0%" stopColor="#22d3ee" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.35" />
                   </linearGradient>
                 </defs>
                 {subAgents.map((_, i) => {
@@ -510,20 +510,21 @@ function AgentsPage() {
                         d={d}
                         fill="none"
                         stroke="url(#wire)"
-                        strokeWidth="0.6"
+                        strokeWidth="1.6"
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
-                        opacity="0.85"
+                        opacity="0.95"
+                        style={{ filter: "drop-shadow(0 0 6px rgba(34, 211, 238, 0.55))" }}
                       />
                       <path
                         d={d}
                         fill="none"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth="0.8"
+                        stroke="#67e8f9"
+                        strokeWidth="1.4"
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
                         strokeDasharray="2 8"
-                        opacity="0.9"
+                        opacity="1"
                         style={{
                           animation: `agent-wire-flow 2.4s linear infinite`,
                           animationDelay: `${i * 0.35}s`,
