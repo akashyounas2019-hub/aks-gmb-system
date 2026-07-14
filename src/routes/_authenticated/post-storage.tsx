@@ -63,6 +63,31 @@ export function PostStoragePanel() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
+  const [imageMap, setImageMap] = useState<ImageMap>({});
+
+  useEffect(() => {
+    const ids = Array.from(
+      new Set(posts.flatMap((p) => p.imageIds ?? [])),
+    ).filter((id) => !imageMap[id]);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    supabase
+      .from("images")
+      .select("id,name,storage_path")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setImageMap((prev) => {
+          const next = { ...prev };
+          for (const row of data as ImageRow[]) next[row.id] = row;
+          return next;
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [posts, imageMap]);
+
 
   const loadDraftsFn = useServerFn(listDrafts);
   const loadFoldersFn = useServerFn(listFolders);
