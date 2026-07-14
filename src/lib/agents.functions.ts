@@ -653,7 +653,7 @@ export const pauseTask = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "paused" })
+      .update({ status: "paused", paused_at: new Date().toISOString(), eta_at: null })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "running")
