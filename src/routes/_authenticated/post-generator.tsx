@@ -723,7 +723,7 @@ export function PostGeneratorPage({
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-3xl">{pageTitle ?? "Post Generator"}</h1>
+          <h1 className="text-3xl">{pageTitle ?? "GMB Post Generator"}</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Enter your keywords, pick images + location, generate with AI, then
             push to GHL Social Planner.
@@ -1572,39 +1572,13 @@ export function PostGeneratorPage({
                 </div>
               </label>
 
-              {/* Multi-network selector */}
+              {/* Destination — GMB only */}
               <div>
-                <div className="text-xs text-muted-foreground">Networks</div>
-                <div className="mt-1.5 flex flex-wrap gap-1.5">
-                  {(
-                    [
-                      { id: "gmb", label: "Google" },
-                      { id: "facebook", label: "Facebook" },
-                      { id: "instagram", label: "Instagram" },
-                      { id: "linkedin", label: "LinkedIn" },
-                      { id: "twitter", label: "X / Twitter" },
-                    ] as const
-                  ).map((n) => {
-                    const on = networks.includes(n.id);
-                    return (
-                      <button
-                        key={n.id}
-                        type="button"
-                        onClick={() =>
-                          setNetworks((prev) =>
-                            on ? prev.filter((x) => x !== n.id) : [...prev, n.id],
-                          )
-                        }
-                        className={`rounded-full border px-3 py-1 text-xs transition ${
-                          on
-                            ? "border-primary bg-primary/15 text-primary"
-                            : "border-border text-muted-foreground hover:border-primary/40"
-                        }`}
-                      >
-                        {n.label}
-                      </button>
-                    );
-                  })}
+                <div className="text-xs text-muted-foreground">Destination</div>
+                <div className="mt-1.5">
+                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
+                    Google Business Profile
+                  </span>
                 </div>
               </div>
 
