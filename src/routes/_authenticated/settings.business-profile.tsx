@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { Building2, MapPin, Phone, Mail, Globe, Loader2 } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, Globe, Loader2, ChevronDown } from "lucide-react";
 import { getPreferences } from "@/lib/user-preferences.functions";
 import { loadGoogleMaps } from "@/lib/google-maps";
 import { geocodeAddress } from "@/lib/geocode.functions";
+import { getNearbyCities } from "@/lib/nearby-cities.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/business-profile")({
   component: BusinessProfilePage,
@@ -44,10 +45,15 @@ const TIERS = Array.from({ length: 8 }, (_, i) => ({
 function BusinessProfilePage() {
   const load = useServerFn(getPreferences);
   const geocode = useServerFn(geocodeAddress);
+  const fetchCities = useServerFn(getNearbyCities);
   const [general, setGeneral] = useState<General | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [cities, setCities] = useState<Array<{ name: string; distanceKm: number }>>([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [citiesError, setCitiesError] = useState<string | null>(null);
+  const [openTier, setOpenTier] = useState<number | null>(null);
 
   // Load general settings — prefer server, fall back to localStorage cache.
   useEffect(() => {
@@ -159,6 +165,39 @@ function BusinessProfilePage() {
     };
   }, [coords, general?.businessName]);
 
+  // Fetch nearby cities once coords resolve.
+  useEffect(() => {
+    if (!coords) return;
+    let cancelled = false;
+    setCitiesLoading(true);
+    setCitiesError(null);
+    fetchCities({ data: { lat: coords.lat, lng: coords.lng, radiusKm: 20 } })
+      .then((res) => {
+        if (cancelled) return;
+        setCities(res.cities);
+        setCitiesLoading(false);
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setCitiesError(e.message);
+        setCitiesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [coords, fetchCities]);
+
+  // Group cities by tier index (0..7) based on distance.
+  const citiesByTier = useMemo(() => {
+    const map = new Map<number, Array<{ name: string; distanceKm: number }>>();
+    for (const t of TIERS) map.set(t.level, []);
+    for (const c of cities) {
+      const idx = Math.min(TIERS.length - 1, Math.floor(c.distanceKm / 2.5));
+      map.get(idx + 1)!.push(c);
+    }
+    return map;
+  }, [cities]);
+
   if (!general) {
     return (
       <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
@@ -166,6 +205,7 @@ function BusinessProfilePage() {
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
@@ -243,20 +283,68 @@ function BusinessProfilePage() {
               )}
             </div>
             <ul className="space-y-1.5">
-              {TIERS.map((t) => (
-                <li
-                  key={t.level}
-                  className="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-1.5 text-xs"
-                >
-                  <span className="font-medium">Level {t.level}</span>
-                  <span className="text-muted-foreground">
-                    {t.from === 0 ? "0" : t.from} – {t.to} km
-                  </span>
-                </li>
-              ))}
+              {TIERS.map((t) => {
+                const tierCities = citiesByTier.get(t.level) ?? [];
+                const isOpen = openTier === t.level;
+                return (
+                  <li
+                    key={t.level}
+                    className="overflow-hidden rounded-md border border-border/60 bg-background text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOpenTier(isOpen ? null : t.level)}
+                      className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-muted/60"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                        />
+                        <span className="font-medium">Level {t.level}</span>
+                        <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
+                          {tierCities.length}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t.from === 0 ? "0" : t.from} – {t.to} km
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="border-t border-border/60 bg-muted/30 px-3 py-2">
+                        {citiesLoading ? (
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Loading cities…
+                          </div>
+                        ) : citiesError ? (
+                          <p className="text-[11px] text-destructive">{citiesError}</p>
+                        ) : tierCities.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            No cities found in this tier.
+                          </p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {tierCities.map((c) => (
+                              <li
+                                key={c.name}
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span className="truncate">{c.name}</span>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {c.distanceKm.toFixed(1)} km
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              20 km total service area, split into 8 concentric tiers of 2.5 km.
+              20 km total service area, split into 8 concentric tiers of 2.5 km. Click a
+              level to see its cities.
             </p>
           </div>
         </div>
