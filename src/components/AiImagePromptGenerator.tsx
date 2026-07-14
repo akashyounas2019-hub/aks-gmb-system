@@ -601,7 +601,7 @@ export function AiImagePromptGenerator() {
             const items = templatesByFolder.get(f) ?? [];
             const promptCount = prompts.filter((p) => p.folder === f).length;
             return (
-              <div key={f}>
+              <div key={f} className="group/folder">
                 <div
                   className={`flex items-center gap-1 rounded-md px-1 py-1 text-sm ${
                     activeFolder === f ? "bg-primary/15 text-primary" : ""
@@ -620,14 +620,32 @@ export function AiImagePromptGenerator() {
                   </button>
                   <button
                     onClick={() => setActiveFolder(f)}
-                    className="flex flex-1 items-center gap-2 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <Folder className="h-4 w-4" />
+                    <Folder className="h-4 w-4 shrink-0" />
                     <span className="truncate">{f}</span>
                     <span className="ml-auto text-[10px] text-muted-foreground">
                       {promptCount}
                     </span>
                   </button>
+                  <div className="ml-1 flex items-center opacity-0 transition group-hover/folder:opacity-100 focus-within:opacity-100">
+                    <button
+                      onClick={() => renameFolder(f)}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title="Rename folder"
+                      aria-label={`Rename folder ${f}`}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteFolder(f)}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete folder"
+                      aria-label={`Delete folder ${f}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
                 {isOpen && (
                   <ul className="ml-6 mt-0.5 space-y-0.5 border-l border-border pl-2">
@@ -637,13 +655,16 @@ export function AiImagePromptGenerator() {
                       </li>
                     ) : (
                       items.map((tpl) => (
-                        <li key={tpl.id}>
+                        <li
+                          key={tpl.id}
+                          className="group/tpl flex items-center gap-0.5"
+                        >
                           <button
                             onClick={() => {
                               setActiveTemplateId(tpl.id);
                               setActiveFolder(tpl.folder);
                             }}
-                            className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition ${
+                            className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition ${
                               activeTemplateId === tpl.id
                                 ? "bg-primary/10 text-primary"
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -652,12 +673,31 @@ export function AiImagePromptGenerator() {
                             <Sparkles className="h-3 w-3 shrink-0" />
                             <span className="truncate">{tpl.name}</span>
                           </button>
+                          <div className="flex items-center opacity-0 transition group-hover/tpl:opacity-100 focus-within:opacity-100">
+                            <button
+                              onClick={() => openTemplateEditor(tpl)}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                              title="Edit template"
+                              aria-label={`Edit template ${tpl.name}`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => deleteTemplate(tpl.id)}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              title="Delete template"
+                              aria-label={`Delete template ${tpl.name}`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </li>
                       ))
                     )}
                   </ul>
                 )}
               </div>
+
             );
           })}
         </div>
