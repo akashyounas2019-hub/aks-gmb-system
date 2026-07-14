@@ -543,6 +543,7 @@ export function PostGeneratorPage({
           {[
             { id: "compose" as const, label: "Compose", icon: PenSquare },
             { id: "storage" as const, label: "Post Storage", icon: Inbox },
+            { id: "history" as const, label: "History", icon: BarChart3 },
           ].map((t) => {
             const active = tab === t.id;
             return (
