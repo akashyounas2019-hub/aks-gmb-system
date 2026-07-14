@@ -198,6 +198,9 @@ function GeotaggingPage() {
   const [areaFilter, setAreaFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<PlaceType | "All">("All");
   const [placeSearch, setPlaceSearch] = useState("");
+  const [places, setPlaces] = useState<Place[]>(PLACES);
+  const [refreshKey, setRefreshKey] = useState(0);
+  const [refreshing, setRefreshing] = useState(false);
   const [activePlace, setActivePlace] = useState<Place | null>(PLACES[0]);
   const [customLocation, setCustomLocation] = useState<PickedLocation | null>(null);
   const [copied, setCopied] = useState(false);
@@ -209,10 +212,56 @@ function GeotaggingPage() {
   >(null);
 
   // Dedicated Home/Office quick pickers
-  const homePlaces = useMemo(() => PLACES.filter((p) => p.type === "home"), []);
-  const officePlaces = useMemo(() => PLACES.filter((p) => p.type === "office"), []);
-  const [homePickId, setHomePickId] = useState<string>(homePlaces[0]?.id ?? "");
-  const [officePickId, setOfficePickId] = useState<string>(officePlaces[0]?.id ?? "");
+  const homePlaces = useMemo(() => places.filter((p) => p.type === "home"), [places]);
+  const officePlaces = useMemo(() => places.filter((p) => p.type === "office"), [places]);
+  const [homePickId, setHomePickId] = useState<string>(() => PLACES.find((p) => p.type === "home")?.id ?? "");
+  const [officePickId, setOfficePickId] = useState<string>(() => PLACES.find((p) => p.type === "office")?.id ?? "");
+
+  // City centers (for map picker fallback) — derived once from seed data
+  const cityOptions = useMemo(() => {
+    const byArea = new Map<string, { lat: number; lng: number; count: number }>();
+    for (const p of places) {
+      const cur = byArea.get(p.area);
+      if (cur) {
+        cur.lat += p.lat;
+        cur.lng += p.lng;
+        cur.count += 1;
+      } else {
+        byArea.set(p.area, { lat: p.lat, lng: p.lng, count: 1 });
+      }
+    }
+    return Array.from(byArea.entries()).map(([name, v]) => ({
+      name,
+      lat: v.lat / v.count,
+      lng: v.lng / v.count,
+    }));
+  }, [places]);
+
+  const refreshLocations = useCallback(() => {
+    setRefreshing(true);
+    // Jitter every place coordinate slightly (~150m radius) — refreshes hardcoded values.
+    const jitter = () => (Math.random() - 0.5) * 0.003;
+    setPlaces((prev) =>
+      prev.map((p) => ({
+        ...p,
+        lat: +(p.lat + jitter()).toFixed(6),
+        lng: +(p.lng + jitter()).toFixed(6),
+      })),
+    );
+    setActivePlace((cur) =>
+      cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
+    );
+    setPinnedCoord((cur) =>
+      cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
+    );
+    setCustomLocation((cur) =>
+      cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
+    );
+    setRefreshKey((k) => k + 1);
+    toast.success("Coordinates refreshed");
+    setTimeout(() => setRefreshing(false), 400);
+  }, []);
+
 
   // Cloud library (existing user images)
   const [library, setLibrary] = useState<LibraryImage[]>([]);
