@@ -17,7 +17,6 @@ import {
   Cpu,
   Zap,
   ChevronRight,
-  X,
 } from "lucide-react";
 import {
   Dialog,
