@@ -1036,6 +1036,22 @@ function AgentsPage() {
                 </SelectContent>
               </Select>
             </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Configuration <span className="text-muted-foreground/60">(optional)</span>
+              </label>
+              <textarea
+                value={newAgent.scope}
+                onChange={(e) => setNewAgent((p) => ({ ...p, scope: e.target.value }))}
+                placeholder="Scope, guardrails, tools this agent can use, tone of voice…"
+                rows={4}
+                maxLength={500}
+                className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {newAgent.scope.length}/500 — describes what this agent owns and how it should behave.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <button onClick={() => setAddOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent">
