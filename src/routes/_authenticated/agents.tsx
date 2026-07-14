@@ -409,46 +409,41 @@ function AgentsPage() {
   }
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-[radial-gradient(ellipse_at_top,theme(colors.primary/12),transparent_60%),radial-gradient(ellipse_at_bottom_right,theme(colors.sky.500/10),transparent_55%)]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.15]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-        }}
-      />
-
-      <div className="relative mx-auto max-w-[1500px] p-6">
-        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
+    <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col">
+      <div className="mx-auto w-full max-w-[1500px] p-6">
+        {/* Header — title left, New Agent aligned right */}
+        <header className="mb-8 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:items-center">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               <Cpu className="h-3 w-3" /> Autonomous Team
             </div>
-            <h1 className="font-display text-4xl leading-tight tracking-tight">Agents Command Center</h1>
+            <h1 className="font-display text-3xl leading-tight tracking-tight sm:text-4xl">
+              Agents Command Center
+            </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute, and self-improve — major
-              decisions surface here for your approval.
+              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute, and self-improve —
+              major decisions surface here for your approval.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <TeamStat label="Agents" value={teamStats.total} icon={Bot} />
-            <TeamStat label="Active" value={teamStats.active} icon={Activity} tone="emerald" />
-            <TeamStat label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} tone="sky" />
-            <TeamStat label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} tone="primary" />
-            <button
-              onClick={() => {
-                setNewAgent((p) => ({ ...p, parentId: leader.id }));
-                setAddOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110"
-            >
-              <Plus className="h-3.5 w-3.5" /> New Agent
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setNewAgent((p) => ({ ...p, parentId: leader.id }));
+              setAddOpen(true);
+            }}
+            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/40 hover:bg-accent sm:self-center"
+          >
+            <Plus className="h-4 w-4" /> New Agent
+          </button>
         </header>
+
+        {/* Prominent metric cards */}
+        <section className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <MetricCard label="Agents" value={teamStats.total} icon={Bot} />
+          <MetricCard label="Active" value={teamStats.active} icon={Activity} />
+          <MetricCard label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} bar={teamStats.avgLoad} />
+          <MetricCard label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} bar={teamStats.success} />
+        </section>
+
 
         <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
