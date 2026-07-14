@@ -45,10 +45,15 @@ const TIERS = Array.from({ length: 8 }, (_, i) => ({
 function BusinessProfilePage() {
   const load = useServerFn(getPreferences);
   const geocode = useServerFn(geocodeAddress);
+  const fetchCities = useServerFn(getNearbyCities);
   const [general, setGeneral] = useState<General | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [cities, setCities] = useState<Array<{ name: string; distanceKm: number }>>([]);
+  const [citiesLoading, setCitiesLoading] = useState(false);
+  const [citiesError, setCitiesError] = useState<string | null>(null);
+  const [openTier, setOpenTier] = useState<number | null>(null);
 
   // Load general settings — prefer server, fall back to localStorage cache.
   useEffect(() => {
