@@ -106,6 +106,93 @@ function AutomationRoute() {
 
 type Kind = "rank_refresh" | "auto_publish" | "auto_tag" | "alert_scan";
 
+type PresetId =
+  | "prompt_generation"
+  | "content_writing"
+  | "post_scheduling"
+  | "image_geotag"
+  | "system_audit"
+  | "rank_refresh"
+  | "alert_scan";
+
+const PRESETS: Record<
+  PresetId,
+  {
+    label: string;
+    description: string;
+    icon: typeof Zap;
+    tone: string;
+    kind: Kind;
+    mode: string;
+    cron: string;
+  }
+> = {
+  prompt_generation: {
+    label: "Auto prompt generation",
+    description: "Generate on-brand prompts for upcoming posts using recent activity.",
+    icon: Sparkles,
+    tone: "bg-fuchsia-500/15 text-fuchsia-400",
+    kind: "auto_publish",
+    mode: "prompt_generation",
+    cron: "0 8 * * *",
+  },
+  content_writing: {
+    label: "Content writing",
+    description: "Draft captions and long-form content from your prompts and keywords.",
+    icon: FileText,
+    tone: "bg-violet-500/15 text-violet-400",
+    kind: "auto_publish",
+    mode: "content_writing",
+    cron: "0 9 * * *",
+  },
+  post_scheduling: {
+    label: "Post scheduling",
+    description: "Publish scheduled drafts as their time arrives.",
+    icon: CalendarClock,
+    tone: "bg-sky-500/15 text-sky-400",
+    kind: "auto_publish",
+    mode: "schedule",
+    cron: "*/15 * * * *",
+  },
+  image_geotag: {
+    label: "Image geo-tagging",
+    description: "Tag new uploads with venue location and matching keywords.",
+    icon: MapPin,
+    tone: "bg-emerald-500/15 text-emerald-400",
+    kind: "auto_tag",
+    mode: "geo_tag",
+    cron: "0 2 * * *",
+  },
+  system_audit: {
+    label: "System audit",
+    description: "Sweep listings, tags and integrations for issues and drift.",
+    icon: ShieldCheck,
+    tone: "bg-amber-500/15 text-amber-400",
+    kind: "alert_scan",
+    mode: "audit",
+    cron: "0 6 * * *",
+  },
+  rank_refresh: {
+    label: "Rank refresh",
+    description: "Re-check tracked keywords across your rank source on a schedule.",
+    icon: Target,
+    tone: "bg-rose-500/15 text-rose-400",
+    kind: "rank_refresh",
+    mode: "default",
+    cron: "0 */6 * * *",
+  },
+  alert_scan: {
+    label: "Rank alert scan",
+    description: "Review rank alerts and notify on threshold breaches.",
+    icon: Bell,
+    tone: "bg-indigo-500/15 text-indigo-400",
+    kind: "alert_scan",
+    mode: "alert",
+    cron: "0 8 * * *",
+  },
+};
+
+// Back-compat: map DB kind → visual meta so existing rows still render nicely.
 const KIND_META: Record<
   Kind,
   { label: string; description: string; icon: typeof Zap; tone: string; cron: string }
@@ -114,31 +201,52 @@ const KIND_META: Record<
     label: "Rank refresh",
     description: "Re-check tracked keywords across your rank source on a schedule.",
     icon: Target,
-    tone: "bg-rose-500/15 text-rose-500",
+    tone: "bg-rose-500/15 text-rose-400",
     cron: "0 */6 * * *",
   },
   auto_publish: {
     label: "Auto-publish scheduled posts",
     description: "Publish drafts whose scheduled time has arrived.",
-    icon: PenSquare,
-    tone: "bg-violet-500/15 text-violet-500",
+    icon: CalendarClock,
+    tone: "bg-sky-500/15 text-sky-400",
     cron: "*/15 * * * *",
   },
   auto_tag: {
     label: "Auto-tag new images",
     description: "Sweep untagged uploads and assign the best matching keywords.",
     icon: MapPin,
-    tone: "bg-emerald-500/15 text-emerald-500",
+    tone: "bg-emerald-500/15 text-emerald-400",
     cron: "0 2 * * *",
   },
   alert_scan: {
     label: "Rank alert scan",
     description: "Review rank alerts and notify on threshold breaches.",
     icon: Bell,
-    tone: "bg-sky-500/15 text-sky-500",
+    tone: "bg-indigo-500/15 text-indigo-400",
     cron: "0 8 * * *",
   },
 };
+
+type Frequency = "daily" | "weekly" | "interval" | "custom";
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function buildCron(opts: {
+  frequency: Frequency;
+  hour: number;
+  minute: number;
+  weekday: number;
+  intervalMinutes: number;
+  custom: string;
+}): string {
+  const { frequency, hour, minute, weekday, intervalMinutes, custom } = opts;
+  if (frequency === "custom") return custom.trim() || "0 * * * *";
+  if (frequency === "interval") {
+    const m = Math.max(1, Math.min(59, intervalMinutes));
+    return `*/${m} * * * *`;
+  }
+  if (frequency === "weekly") return `${minute} ${hour} * * ${weekday}`;
+  return `${minute} ${hour} * * *`; // daily
+}
 
 function AutomationPage() {
   const qc = useQueryClient();
