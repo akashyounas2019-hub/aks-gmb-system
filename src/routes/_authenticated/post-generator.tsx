@@ -1086,12 +1086,40 @@ export function PostGeneratorPage({
                     <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="text-xs font-medium">Post templates</div>
-                        <button
-                          onClick={saveCurrentAsTemplate}
-                          className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/25"
-                        >
-                          <Plus className="h-3 w-3" /> Save current
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <input
+                            ref={templateImportRef}
+                            type="file"
+                            accept="application/json,.json"
+                            hidden
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) importTemplatesFromFile(f);
+                              if (templateImportRef.current) templateImportRef.current.value = "";
+                            }}
+                          />
+                          <button
+                            onClick={() => templateImportRef.current?.click()}
+                            title="Import templates from JSON"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent"
+                          >
+                            Import
+                          </button>
+                          <button
+                            onClick={exportTemplates}
+                            disabled={!templates.length}
+                            title="Export templates as JSON"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+                          >
+                            Export
+                          </button>
+                          <button
+                            onClick={saveCurrentAsTemplate}
+                            className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/25"
+                          >
+                            <Plus className="h-3 w-3" /> Save current
+                          </button>
+                        </div>
                       </div>
                       <div className="max-h-64 overflow-auto">
                         {templates.length === 0 ? (
