@@ -39,9 +39,9 @@ export function SocialAccountScreen({
   title: string;
   libraryCategories?: CategoryDef[];
 }) {
-  const [tab, setTab] = useState<"library" | "upload" | "compose" | "calendar">(
-    "upload",
-  );
+  const [tab, setTab] = useState<
+    "library" | "upload" | "compose" | "calendar" | "ai-prompts"
+  >("upload");
   const [reloadKey, setReloadKey] = useState(0);
 
   return (
@@ -79,8 +79,20 @@ export function SocialAccountScreen({
             icon={<CalendarDays className="h-4 w-4" />}
             label={`${title} Calendar`}
           />
+          {platform === "facebook" && (
+            <TabButton
+              active={tab === "ai-prompts"}
+              onClick={() => setTab("ai-prompts")}
+              icon={<Wand2 className="h-4 w-4" />}
+              label="AI Image Prompt Generator"
+            />
+          )}
         </nav>
       </div>
+
+      {tab === "ai-prompts" && platform === "facebook" && (
+        <AiImagePromptGenerator />
+      )}
 
 
       {tab === "library" && (
