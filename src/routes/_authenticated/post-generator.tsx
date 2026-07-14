@@ -22,6 +22,7 @@ import {
   BarChart3,
   MapPin,
   TrendingUp,
+  Smile,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -145,6 +146,9 @@ export function PostGeneratorPage({
   const [ctaManuallyEdited, setCtaManuallyEdited] = useState(false);
   const loadPrefs = useServerFn(getPreferences);
   const captionMirrorRef = useRef<HTMLDivElement>(null);
+  const captionRef = useRef<HTMLTextAreaElement>(null);
+  const [symbolsOpen, setSymbolsOpen] = useState(false);
+  const symbolsPopupRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const importPopupRef = useRef<HTMLDivElement>(null);
@@ -355,9 +359,19 @@ export function PostGeneratorPage({
       if (importOpen && importPopupRef.current && !importPopupRef.current.contains(target)) {
         setImportOpen(false);
       }
+      if (
+        symbolsOpen &&
+        symbolsPopupRef.current &&
+        !symbolsPopupRef.current.contains(target)
+      ) {
+        setSymbolsOpen(false);
+      }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && templatesOpen) setTemplatesOpen(false);
+      if (e.key === "Escape") {
+        if (templatesOpen) setTemplatesOpen(false);
+        if (symbolsOpen) setSymbolsOpen(false);
+      }
     }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -365,7 +379,7 @@ export function PostGeneratorPage({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [importOpen, templatesOpen]);
+  }, [importOpen, templatesOpen, symbolsOpen]);
 
 
   // Load business phone + website from settings for CTA auto-populate.
@@ -807,6 +821,55 @@ export function PostGeneratorPage({
     await navigator.clipboard.writeText(caption);
     toast.success("Copied");
   }
+
+  // Symbol picker — cleaning-oriented glyphs grouped for quick browsing.
+  const SYMBOL_GROUPS: Array<{ label: string; symbols: string[] }> = [
+    {
+      label: "Check marks & bullets",
+      symbols: ["✅", "✔️", "☑️", "•", "◦", "▪️", "▫️", "→", "➡️", "»", "★", "☆"],
+    },
+    {
+      label: "Stars & ratings",
+      symbols: ["⭐", "🌟", "✨", "💫", "🏆", "🥇", "👑", "💯", "🔥", "❤️"],
+    },
+    {
+      label: "Location & contact",
+      symbols: ["📍", "🗺️", "🏠", "🏢", "📞", "☎️", "📱", "✉️", "🌐", "🕒", "📅", "💬"],
+    },
+    {
+      label: "What's included",
+      symbols: ["🧾", "📋", "📝", "🎁", "💼", "🛠️", "🧰", "🔧", "⚙️", "🔑", "🎯", "✔"],
+    },
+    {
+      label: "Cleaning & sparkle",
+      symbols: ["🧼", "🧽", "🧴", "🧻", "🧹", "🪣", "🚿", "🛁", "🛋️", "🛏️", "🪟", "💧", "🫧", "🌿"],
+    },
+    {
+      label: "Trust & offers",
+      symbols: ["💰", "💵", "🏷️", "🎉", "🎊", "⚡", "⏰", "⏳", "🚀", "🛡️", "🔒", "✅"],
+    },
+  ];
+
+  function insertSymbol(sym: string) {
+    const el = captionRef.current;
+    if (!el) {
+      setCaption((prev) => prev + sym);
+      return;
+    }
+    const start = el.selectionStart ?? caption.length;
+    const end = el.selectionEnd ?? caption.length;
+    const next = caption.slice(0, start) + sym + caption.slice(end);
+    setCaption(next);
+    // Restore caret after React re-render.
+    requestAnimationFrame(() => {
+      if (!captionRef.current) return;
+      const pos = start + sym.length;
+      captionRef.current.focus();
+      captionRef.current.setSelectionRange(pos, pos);
+    });
+  }
+
+
 
   return (
     <div
@@ -1400,6 +1463,7 @@ export function PostGeneratorPage({
                 )}
               </div>
               <textarea
+                ref={captionRef}
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 onScroll={(e) => {
@@ -1420,6 +1484,75 @@ export function PostGeneratorPage({
                 }`}
               />
             </div>
+
+            {/* Symbol picker */}
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="relative" ref={symbolsPopupRef}>
+                <button
+                  type="button"
+                  onClick={() => setSymbolsOpen((v) => !v)}
+                  aria-expanded={symbolsOpen}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  <Smile className="h-3.5 w-3.5" /> Insert symbol
+                  <ChevronDown className="h-3 w-3 opacity-70" />
+                </button>
+                {symbolsOpen && (
+                  <div className="absolute left-0 top-full z-30 mt-1.5 max-h-[420px] w-[360px] overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-xl">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-xs font-semibold">Insert a symbol</div>
+                      <button
+                        onClick={() => setSymbolsOpen(false)}
+                        aria-label="Close"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {SYMBOL_GROUPS.map((g) => (
+                        <div key={g.label}>
+                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            {g.label}
+                          </div>
+                          <div className="grid grid-cols-8 gap-1">
+                            {g.symbols.map((s, i) => (
+                              <button
+                                key={`${g.label}-${i}`}
+                                type="button"
+                                onClick={() => insertSymbol(s)}
+                                title={`Insert ${s}`}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-lg leading-none transition hover:border-primary/40 hover:bg-primary/10"
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[10px] text-muted-foreground">
+                      Click a symbol to insert at the cursor position.
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* Quick-insert row — most-used cleaning glyphs */}
+              <div className="hidden items-center gap-1 sm:flex">
+                {["✅", "⭐", "📍", "🧼", "✨", "🔥"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => insertSymbol(s)}
+                    title={`Insert ${s}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-base leading-none hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
                 {captionOver
