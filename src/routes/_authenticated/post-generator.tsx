@@ -868,14 +868,6 @@ export function PostGeneratorPage({
             )}
           </section>
 
-          {/* Location — hidden on Facebook/Instagram (GMB-only widget) */}
-          {!isSocial && (
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 text-sm font-medium">Location</div>
-              <LocationPicker value={location} onChange={setLocation} />
-            </section>
-          )}
-
           {/* Voice */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Voice</div>
@@ -905,30 +897,9 @@ export function PostGeneratorPage({
                   <option value="informative">Informative</option>
                 </select>
               </label>
-              <label className="col-span-2 block">
-                <span className="text-xs text-muted-foreground">
-                  Business name (optional)
-                </span>
-                <input
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Pearl Home Cleaning Dubai"
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                />
-              </label>
-              <label className="col-span-2 block">
-                <span className="text-xs text-muted-foreground">
-                  Call-to-action hint for AI (optional)
-                </span>
-                <input
-                  value={cta}
-                  onChange={(e) => setCta(e.target.value)}
-                  placeholder="e.g. Book on WhatsApp +971…"
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                />
-              </label>
             </div>
           </section>
+
 
           {/* GMB Call-to-action — hidden on Facebook/Instagram */}
           {!isSocial && (
