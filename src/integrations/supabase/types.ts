@@ -196,6 +196,7 @@ export type Database = {
           id: string
           last_activity: string
           load: number
+          main_skill: string | null
           name: string
           parent_id: string | null
           role: string
@@ -216,6 +217,7 @@ export type Database = {
           id?: string
           last_activity?: string
           load?: number
+          main_skill?: string | null
           name: string
           parent_id?: string | null
           role: string
@@ -236,6 +238,7 @@ export type Database = {
           id?: string
           last_activity?: string
           load?: number
+          main_skill?: string | null
           name?: string
           parent_id?: string | null
           role?: string
