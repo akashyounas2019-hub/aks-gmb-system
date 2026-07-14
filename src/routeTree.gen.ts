@@ -42,6 +42,7 @@ import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_auth
 import { Route as AuthenticatedSettingsBusinessProfileRouteImport } from './routes/_authenticated/settings.business-profile'
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
+import { Route as AuthenticatedAgentsAgentIdRouteImport } from './routes/_authenticated/agents.$agentId'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 
 const AuthRoute = AuthRouteImport.update({
@@ -226,6 +227,12 @@ const AuthenticatedLibraryImageIdRoute =
     path: '/$imageId',
     getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
+const AuthenticatedAgentsAgentIdRoute =
+  AuthenticatedAgentsAgentIdRouteImport.update({
+    id: '/$agentId',
+    path: '/$agentId',
+    getParentRoute: () => AuthenticatedAgentsRoute,
+  } as any)
 const ApiPublicHooksRunAutomationsRoute =
   ApiPublicHooksRunAutomationsRouteImport.update({
     id: '/api/public/hooks/run-automations',
@@ -236,7 +243,7 @@ const ApiPublicHooksRunAutomationsRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/agents': typeof AuthenticatedAgentsRoute
+  '/agents': typeof AuthenticatedAgentsRouteWithChildren
   '/automation': typeof AuthenticatedAutomationRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
@@ -253,6 +260,7 @@ export interface FileRoutesByFullPath {
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
+  '/agents/$agentId': typeof AuthenticatedAgentsAgentIdRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
@@ -271,7 +279,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
-  '/agents': typeof AuthenticatedAgentsRoute
+  '/agents': typeof AuthenticatedAgentsRouteWithChildren
   '/automation': typeof AuthenticatedAutomationRoute
   '/calendar': typeof AuthenticatedCalendarRoute
   '/competitors': typeof AuthenticatedCompetitorsRoute
@@ -288,6 +296,7 @@ export interface FileRoutesByTo {
   '/upload': typeof AuthenticatedUploadRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
+  '/agents/$agentId': typeof AuthenticatedAgentsAgentIdRoute
   '/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
@@ -308,7 +317,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/_authenticated': typeof AuthenticatedRouteRouteWithChildren
   '/auth': typeof AuthRoute
-  '/_authenticated/agents': typeof AuthenticatedAgentsRoute
+  '/_authenticated/agents': typeof AuthenticatedAgentsRouteWithChildren
   '/_authenticated/automation': typeof AuthenticatedAutomationRoute
   '/_authenticated/calendar': typeof AuthenticatedCalendarRoute
   '/_authenticated/competitors': typeof AuthenticatedCompetitorsRoute
@@ -325,6 +334,7 @@ export interface FileRoutesById {
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
+  '/_authenticated/agents/$agentId': typeof AuthenticatedAgentsAgentIdRoute
   '/_authenticated/library/$imageId': typeof AuthenticatedLibraryImageIdRoute
   '/_authenticated/settings/appearance': typeof AuthenticatedSettingsAppearanceRoute
   '/_authenticated/settings/business-profile': typeof AuthenticatedSettingsBusinessProfileRoute
@@ -362,6 +372,7 @@ export interface FileRouteTypes {
     | '/upload'
     | '/videos'
     | '/wizard'
+    | '/agents/$agentId'
     | '/library/$imageId'
     | '/settings/appearance'
     | '/settings/business-profile'
@@ -397,6 +408,7 @@ export interface FileRouteTypes {
     | '/upload'
     | '/videos'
     | '/wizard'
+    | '/agents/$agentId'
     | '/library/$imageId'
     | '/settings/appearance'
     | '/settings/business-profile'
@@ -433,6 +445,7 @@ export interface FileRouteTypes {
     | '/_authenticated/upload'
     | '/_authenticated/videos'
     | '/_authenticated/wizard'
+    | '/_authenticated/agents/$agentId'
     | '/_authenticated/library/$imageId'
     | '/_authenticated/settings/appearance'
     | '/_authenticated/settings/business-profile'
@@ -689,6 +702,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedLibraryImageIdRouteImport
       parentRoute: typeof AuthenticatedLibraryRoute
     }
+    '/_authenticated/agents/$agentId': {
+      id: '/_authenticated/agents/$agentId'
+      path: '/$agentId'
+      fullPath: '/agents/$agentId'
+      preLoaderRoute: typeof AuthenticatedAgentsAgentIdRouteImport
+      parentRoute: typeof AuthenticatedAgentsRoute
+    }
     '/api/public/hooks/run-automations': {
       id: '/api/public/hooks/run-automations'
       path: '/api/public/hooks/run-automations'
@@ -698,6 +718,17 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AuthenticatedAgentsRouteChildren {
+  AuthenticatedAgentsAgentIdRoute: typeof AuthenticatedAgentsAgentIdRoute
+}
+
+const AuthenticatedAgentsRouteChildren: AuthenticatedAgentsRouteChildren = {
+  AuthenticatedAgentsAgentIdRoute: AuthenticatedAgentsAgentIdRoute,
+}
+
+const AuthenticatedAgentsRouteWithChildren =
+  AuthenticatedAgentsRoute._addFileChildren(AuthenticatedAgentsRouteChildren)
 
 interface AuthenticatedLibraryRouteChildren {
   AuthenticatedLibraryImageIdRoute: typeof AuthenticatedLibraryImageIdRoute
@@ -743,7 +774,7 @@ const AuthenticatedSettingsRouteWithChildren =
   )
 
 interface AuthenticatedRouteRouteChildren {
-  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRoute
+  AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRouteWithChildren
   AuthenticatedAutomationRoute: typeof AuthenticatedAutomationRoute
   AuthenticatedCalendarRoute: typeof AuthenticatedCalendarRoute
   AuthenticatedCompetitorsRoute: typeof AuthenticatedCompetitorsRoute
@@ -766,7 +797,7 @@ interface AuthenticatedRouteRouteChildren {
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
-  AuthenticatedAgentsRoute: AuthenticatedAgentsRoute,
+  AuthenticatedAgentsRoute: AuthenticatedAgentsRouteWithChildren,
   AuthenticatedAutomationRoute: AuthenticatedAutomationRoute,
   AuthenticatedCalendarRoute: AuthenticatedCalendarRoute,
   AuthenticatedCompetitorsRoute: AuthenticatedCompetitorsRoute,
