@@ -1117,24 +1117,39 @@ function Metric({ label, value, bar, tone }: { label: string; value: string; bar
   );
 }
 
-function TeamStat({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: typeof Bot; tone?: "emerald" | "sky" | "primary" }) {
-  const toneCls =
-    tone === "emerald" ? "text-emerald-400 bg-emerald-400/10"
-    : tone === "sky" ? "text-sky-400 bg-sky-400/10"
-    : tone === "primary" ? "text-primary bg-primary/10"
-    : "text-foreground bg-muted";
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  bar,
+}: {
+  label: string;
+  value: number | string;
+  icon: typeof Bot;
+  bar?: number;
+}) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/70 px-3 py-2 backdrop-blur-sm">
-      <span className={`grid h-7 w-7 place-items-center rounded-md ${toneCls}`}>
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <div className="leading-tight">
-        <div className="text-sm font-semibold">{value}</div>
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/60 p-5 transition hover:border-foreground/20 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </div>
+        <span className="grid h-9 w-9 place-items-center rounded-xl border border-border/70 bg-background/60 text-muted-foreground">
+          <Icon className="h-4 w-4" />
+        </span>
       </div>
+      <div className="mt-4 font-display text-4xl font-semibold leading-none tracking-tight text-foreground sm:text-5xl">
+        {value}
+      </div>
+      {typeof bar === "number" && (
+        <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+          <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
+        </div>
+      )}
     </div>
   );
 }
+
 
 function TaskDot({ status }: { status: string }) {
   if (status === "done") return <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />;
