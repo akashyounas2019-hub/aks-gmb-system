@@ -1,0 +1,272 @@
+import { createServerFn } from "@tanstack/react-start";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
+import { z } from "zod";
+
+const DEFAULT_AGENTS = [
+  {
+    slug: "leader",
+    name: "GMB Leader",
+    role: "Orchestrator",
+    scope: "Strategy · Delegation · Autonomous decisions",
+    icon_key: "crown",
+    tone: "from-amber-400 to-orange-500",
+    glow: "shadow-[0_0_60px_-10px_rgba(251,191,36,0.55)]",
+    status: "online",
+    load: 62,
+    tasks_today: 24,
+    success_rate: 96,
+    parent_slug: null as string | null,
+    last_activity: "Approved citation cleanup plan",
+    sort_order: 0,
+  },
+  {
+    slug: "writer",
+    name: "GMB Content Writer",
+    role: "Content generation",
+    scope: "Posts · Descriptions · Q&A",
+    icon_key: "pen",
+    tone: "from-violet-400 to-fuchsia-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(217,70,239,0.55)]",
+    status: "working",
+    load: 78,
+    tasks_today: 11,
+    success_rate: 94,
+    parent_slug: "leader",
+    last_activity: "Drafting weekly service post",
+    sort_order: 1,
+  },
+  {
+    slug: "analyzer",
+    name: "GMB Analyzer",
+    role: "Signal analysis",
+    scope: "Insights · Anomalies · Trends",
+    icon_key: "chart",
+    tone: "from-sky-400 to-cyan-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(56,189,248,0.55)]",
+    status: "online",
+    load: 41,
+    tasks_today: 7,
+    success_rate: 98,
+    parent_slug: "leader",
+    last_activity: "Detected CTR dip on 'plumber near me'",
+    sort_order: 2,
+  },
+  {
+    slug: "auditor",
+    name: "GMB Auditor",
+    role: "Quality & compliance",
+    scope: "Profile health · Reviews · Policy",
+    icon_key: "shield",
+    tone: "from-emerald-400 to-teal-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(16,185,129,0.55)]",
+    status: "idle",
+    load: 18,
+    tasks_today: 3,
+    success_rate: 99,
+    parent_slug: "leader",
+    last_activity: "Full profile audit clean",
+    sort_order: 3,
+  },
+  {
+    slug: "ranker",
+    name: "GMB Ranker",
+    role: "Ranking growth",
+    scope: "Grid tracking · Boost tactics",
+    icon_key: "trending",
+    tone: "from-rose-400 to-pink-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(244,63,94,0.55)]",
+    status: "review",
+    load: 55,
+    tasks_today: 9,
+    success_rate: 91,
+    parent_slug: "leader",
+    last_activity: "Proposed geo-grid expansion (needs approval)",
+    sort_order: 4,
+  },
+];
+
+const DEFAULT_TASKS = [
+  { agent_slug: "writer", title: "Draft this week's promo post", status: "running", major: false, relative_time: "2m ago" },
+  { agent_slug: "analyzer", title: "Investigate impression drop", status: "done", major: false, relative_time: "8m ago" },
+  { agent_slug: "ranker", title: "Expand grid to 7×7 near HQ", status: "awaiting_approval", major: true, relative_time: "12m ago" },
+  { agent_slug: "auditor", title: "Review NAP consistency", status: "queued", major: false, relative_time: "20m ago" },
+  { agent_slug: "writer", title: "Reply to 3 new Q&A", status: "done", major: false, relative_time: "34m ago" },
+];
+
+async function ensureSeed(supabase: any, userId: string) {
+  const { data: existing } = await supabase.from("agents").select("id").eq("user_id", userId).limit(1);
+  if (existing && existing.length > 0) return;
+
+  const slugToId: Record<string, string> = {};
+  // Insert leader first (no parent)
+  for (const a of DEFAULT_AGENTS.filter((x) => x.parent_slug === null)) {
+    const { data, error } = await supabase
+      .from("agents")
+      .insert({
+        user_id: userId,
+        slug: a.slug,
+        name: a.name,
+        role: a.role,
+        scope: a.scope,
+        icon_key: a.icon_key,
+        tone: a.tone,
+        glow: a.glow,
+        status: a.status,
+        load: a.load,
+        tasks_today: a.tasks_today,
+        success_rate: a.success_rate,
+        parent_id: null,
+        last_activity: a.last_activity,
+        sort_order: a.sort_order,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    slugToId[a.slug] = data.id;
+  }
+  // Then sub-agents
+  for (const a of DEFAULT_AGENTS.filter((x) => x.parent_slug !== null)) {
+    const { data, error } = await supabase
+      .from("agents")
+      .insert({
+        user_id: userId,
+        slug: a.slug,
+        name: a.name,
+        role: a.role,
+        scope: a.scope,
+        icon_key: a.icon_key,
+        tone: a.tone,
+        glow: a.glow,
+        status: a.status,
+        load: a.load,
+        tasks_today: a.tasks_today,
+        success_rate: a.success_rate,
+        parent_id: slugToId[a.parent_slug!],
+        last_activity: a.last_activity,
+        sort_order: a.sort_order,
+      })
+      .select("id")
+      .single();
+    if (error) throw error;
+    slugToId[a.slug] = data.id;
+  }
+  // Seed tasks
+  for (const t of DEFAULT_TASKS) {
+    await supabase.from("agent_tasks").insert({
+      user_id: userId,
+      agent_id: slugToId[t.agent_slug],
+      title: t.title,
+      status: t.status,
+      major: t.major,
+      relative_time: t.relative_time,
+    });
+  }
+}
+
+export const getAgentsState = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    await ensureSeed(supabase, userId);
+    const [{ data: agents, error: aErr }, { data: tasks, error: tErr }] = await Promise.all([
+      supabase.from("agents").select("*").eq("user_id", userId).order("sort_order", { ascending: true }),
+      supabase.from("agent_tasks").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+    ]);
+    if (aErr) throw aErr;
+    if (tErr) throw tErr;
+    return { agents: agents ?? [], tasks: tasks ?? [] };
+  });
+
+export const createAgent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        name: z.string().min(1),
+        role: z.string().min(1),
+        parent_id: z.string().uuid(),
+        icon_key: z.string(),
+        tone: z.string(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { data: row, error } = await supabase
+      .from("agents")
+      .insert({
+        user_id: userId,
+        name: data.name,
+        role: data.role[0].toUpperCase() + data.role.slice(1),
+        scope: "Custom-defined scope",
+        icon_key: data.icon_key,
+        tone: data.tone,
+        glow: "shadow-[0_0_40px_-12px_rgba(129,140,248,0.55)]",
+        status: "idle",
+        load: 5,
+        tasks_today: 0,
+        success_rate: 100,
+        parent_id: data.parent_id,
+        last_activity: "Spawned by Leader",
+        sort_order: 99,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return row;
+  });
+
+export const approveTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("agent_tasks")
+      .update({ status: "running" })
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const rejectTask = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("agent_tasks")
+      .delete()
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const updateAgentStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(["online", "working", "idle", "review"]).optional(),
+        load: z.number().min(0).max(100).optional(),
+        last_activity: z.string().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const patch: { status?: string; load?: number; last_activity?: string } = {};
+    if (data.status !== undefined) patch.status = data.status;
+    if (data.load !== undefined) patch.load = data.load;
+    if (data.last_activity !== undefined) patch.last_activity = data.last_activity;
+    const { error } = await supabase
+      .from("agents")
+      .update(patch)
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
