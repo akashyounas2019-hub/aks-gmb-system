@@ -186,6 +186,10 @@ function KeywordsPage() {
   const [search, setSearch] = useState("");
   const [intentFilter, setIntentFilter] = useState<string>("all");
   const [minVolume, setMinVolume] = useState<string>("");
+  const [maxVolume, setMaxVolume] = useState<string>("");
+  const [maxKD, setMaxKD] = useState<string>("");
+  const [maxCPC, setMaxCPC] = useState<string>("");
+  const [clusterFilter, setClusterFilter] = useState<string>("all");
   const [scope, setScope] = useState<ScopeKey>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<Set<string>>(new Set());
