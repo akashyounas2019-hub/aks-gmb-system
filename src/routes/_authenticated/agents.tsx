@@ -174,6 +174,9 @@ function AgentsPage() {
   const resumeTask = useServerFn(resumeTaskFn);
   const cancelTask = useServerFn(cancelTaskFn);
   const fetchEvents = useServerFn(getTaskEventsFn);
+  const fetchNotifications = useServerFn(listAgentNotificationsFn);
+  const markNotifRead = useServerFn(markAgentNotificationReadFn);
+  const markAllNotifRead = useServerFn(markAllAgentNotificationsReadFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
