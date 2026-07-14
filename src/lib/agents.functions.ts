@@ -551,6 +551,30 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
           : `Progress ${updated.progress ?? 0}% — ${updated.title}`,
         progress: updated.progress ?? null,
       });
+      if (isDone) {
+        const leaderId = await getLeaderId(supabase, userId);
+        const rows: Parameters<typeof notify>[2] = [
+          {
+            agent_id: updated.agent_id,
+            related_agent_id: leaderId,
+            task_id: data.id,
+            kind: "completed",
+            title: "Task completed",
+            message: `Finished "${updated.title}".`,
+          },
+        ];
+        if (leaderId && leaderId !== updated.agent_id) {
+          rows.push({
+            agent_id: leaderId,
+            related_agent_id: updated.agent_id,
+            task_id: data.id,
+            kind: "completed",
+            title: "Task completed",
+            message: `Agent finished "${updated.title}".`,
+          });
+        }
+        await notify(supabase, userId, rows);
+      }
     }
     return { ok: true };
   });
