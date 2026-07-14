@@ -45,9 +45,12 @@ import {
 import {
   approveTask as approveTaskFn,
   assignTask as assignTaskFn,
+  cancelTask as cancelTaskFn,
   createAgent as createAgentFn,
   getAgentsState,
+  pauseTask as pauseTaskFn,
   rejectTask as rejectTaskFn,
+  resumeTask as resumeTaskFn,
   updateTaskProgress as updateTaskProgressFn,
 } from "@/lib/agents.functions";
 
