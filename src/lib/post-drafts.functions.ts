@@ -85,6 +85,7 @@ export const upsertDraft = createServerFn({ method: "POST" })
       ...existingMeta,
       ...(data.folderId !== undefined ? { folderId: data.folderId } : {}),
       ...(data.tags !== undefined ? { tags: data.tags } : {}),
+      ...(data.imageIds !== undefined ? { imageIds: data.imageIds } : {}),
     };
     const row = {
       ...(data.id ? { id: data.id } : {}),
