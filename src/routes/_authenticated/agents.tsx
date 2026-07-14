@@ -138,6 +138,9 @@ function AgentsPage() {
   const rejectTask = useServerFn(rejectTaskFn);
   const assignTask = useServerFn(assignTaskFn);
   const updateTaskProgress = useServerFn(updateTaskProgressFn);
+  const pauseTask = useServerFn(pauseTaskFn);
+  const resumeTask = useServerFn(resumeTaskFn);
+  const cancelTask = useServerFn(cancelTaskFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
