@@ -420,6 +420,7 @@ export function PostStoragePanel() {
                 key={selectedPost.id}
                 post={selectedPost}
                 folders={folders}
+                imageMap={imageMap}
                 onClose={() => setSelectedPost(null)}
                 onUpdate={(patch) => updatePost(selectedPost.id, patch)}
                 onDelete={() => deletePost(selectedPost.id)}
