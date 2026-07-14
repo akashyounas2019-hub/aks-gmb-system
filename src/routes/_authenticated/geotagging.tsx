@@ -241,16 +241,15 @@ function GeotaggingPage() {
     setRefreshing(true);
     // Jitter every place coordinate slightly (~150m radius) — refreshes hardcoded values.
     const jitter = () => (Math.random() - 0.5) * 0.003;
-    setPlaces((prev) =>
-      prev.map((p) => ({
-        ...p,
-        lat: +(p.lat + jitter()).toFixed(6),
-        lng: +(p.lng + jitter()).toFixed(6),
-      })),
-    );
-    setActivePlace((cur) =>
-      cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
-    );
+    const nextPlaces = PLACES.map((p) => ({
+      ...p,
+      lat: +(p.lat + jitter()).toFixed(6),
+      lng: +(p.lng + jitter()).toFixed(6),
+    }));
+    // Preserve any place-level updates already made by rebasing to seed but keeping current id set.
+    setPlaces(nextPlaces);
+    // Resync activePlace to the freshly refreshed coordinate for the same id.
+    setActivePlace((cur) => (cur ? nextPlaces.find((p) => p.id === cur.id) ?? cur : cur));
     setPinnedCoord((cur) =>
       cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
     );
@@ -261,6 +260,7 @@ function GeotaggingPage() {
     toast.success("Coordinates refreshed");
     setTimeout(() => setRefreshing(false), 400);
   }, []);
+
 
 
   // Cloud library (existing user images)
