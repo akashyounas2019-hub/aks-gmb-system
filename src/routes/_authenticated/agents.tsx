@@ -1079,6 +1079,252 @@ function AgentsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
+        <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
+          {selected && (() => {
+            const Icon = iconMap[selected.icon_key] ?? Bot;
+            const imgSrc = agentImageMap[selected.icon_key];
+            const meta = statusMeta[normalizeStatus(selected.status)];
+            const agentTasks = tasks.filter((t) => t.agent_id === selected.id);
+            const inFlight = agentTasks.filter((t) => t.status === "in_progress" || t.status === "paused");
+            const pending = agentTasks.filter((t) => t.status === "awaiting_approval");
+            const completed = agentTasks.filter((t) => t.status === "done").length;
+            const failed = agentTasks.filter((t) => t.status === "failed").length;
+            const isLeader = selected.parent_id === null;
+            return (
+              <>
+                <SheetHeader className="space-y-3">
+                  <div className="flex items-start gap-4">
+                    <div className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border/70 bg-background/70">
+                      {imgSrc ? (
+                        <img src={imgSrc} alt={`${selected.name} portrait`} className="h-[92%] w-[92%] object-contain" />
+                      ) : (
+                        <Icon className="h-8 w-8 text-foreground/85" />
+                      )}
+                      <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`} />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <SheetTitle className="flex items-center gap-2 font-display text-xl tracking-tight">
+                        <span className="truncate">{selected.name}</span>
+                        {isLeader && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                            <Crown className="h-3 w-3" /> Leader
+                          </span>
+                        )}
+                      </SheetTitle>
+                      <SheetDescription className="mt-0.5 text-xs text-muted-foreground">
+                        {selected.role} · {selected.scope}
+                      </SheetDescription>
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
+                          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                          {meta.label}
+                        </span>
+                        <span className="text-[11px] text-muted-foreground">
+                          Last: <span className="text-foreground/90">{selected.last_activity}</span>
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </SheetHeader>
+
+                {/* Metrics */}
+                <div className="mt-6">
+                  <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Metrics
+                  </h4>
+                  <div className="grid grid-cols-3 gap-2">
+                    <Metric label="Load" value={`${selected.load}%`} bar={selected.load} />
+                    <Metric label="Tasks today" value={selected.tasks_today.toString()} />
+                    <Metric label="Success" value={`${selected.success_rate}%`} bar={selected.success_rate} tone="emerald" />
+                  </div>
+                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                    <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
+                      <div className="text-muted-foreground">In-flight</div>
+                      <div className="font-semibold tabular-nums">{inFlight.length}</div>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
+                      <div className="text-muted-foreground">Completed</div>
+                      <div className="font-semibold tabular-nums text-emerald-400">{completed}</div>
+                    </div>
+                    <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
+                      <div className="text-muted-foreground">Failed</div>
+                      <div className={`font-semibold tabular-nums ${failed ? "text-destructive" : ""}`}>{failed}</div>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Recent activity */}
+                <div className="mt-6">
+                  <div className="mb-2 flex items-center justify-between">
+                    <h4 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Recent activity
+                    </h4>
+                    <span className="text-[10px] text-muted-foreground">
+                      {events.length} event{events.length === 1 ? "" : "s"}
+                    </span>
+                  </div>
+                  {events.length === 0 ? (
+                    <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-3 py-4 text-center text-xs text-muted-foreground">
+                      No activity yet.
+                    </p>
+                  ) : (
+                    <ol className="relative max-h-72 space-y-2 overflow-y-auto pl-5">
+                      <span aria-hidden className="absolute left-[7px] top-1 bottom-1 w-px bg-gradient-to-b from-primary/40 via-border to-transparent" />
+                      {events.slice(0, 12).map((ev) => {
+                        const { color, Icon: EvIcon, label } = timelineMeta(ev.event_type);
+                        const ts = ev.created_at ? new Date(ev.created_at) : null;
+                        return (
+                          <li key={ev.id} className="relative">
+                            <span className={`absolute -left-[18px] top-1.5 grid h-3.5 w-3.5 place-items-center rounded-full ring-2 ring-card ${color}`}>
+                              <EvIcon className="h-2 w-2 text-white" />
+                            </span>
+                            <div className="rounded-md border border-border/50 bg-background/40 px-2.5 py-1.5">
+                              <div className="flex items-center gap-2">
+                                <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                  {label}
+                                </span>
+                                {typeof ev.progress === "number" && (
+                                  <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold tabular-nums text-primary">
+                                    {ev.progress}%
+                                  </span>
+                                )}
+                                <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/70">
+                                  {ts ? ts.toLocaleString() : ""}
+                                </span>
+                              </div>
+                              <div className="text-xs">{ev.message}</div>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ol>
+                  )}
+                </div>
+
+                {/* In-flight tasks */}
+                {inFlight.length > 0 && (
+                  <div className="mt-6">
+                    <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      In-flight tasks
+                    </h4>
+                    <ul className="space-y-2">
+                      {inFlight.map((t) => {
+                        const busy = pauseMut.isPending || resumeMut.isPending || cancelMut.isPending;
+                        return (
+                          <li key={t.id} className="rounded-lg border border-border/60 bg-background/40 p-2.5">
+                            <div className="flex items-center gap-2">
+                              <span className="truncate text-xs font-medium">{t.title}</span>
+                              <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+                                {t.progress ?? 0}%
+                              </span>
+                            </div>
+                            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                              <div className="h-full rounded-full bg-primary" style={{ width: `${t.progress ?? 0}%` }} />
+                            </div>
+                            <div className="mt-2 flex gap-1.5">
+                              {t.status === "paused" ? (
+                                <button
+                                  onClick={() => resumeMut.mutate(t.id)}
+                                  disabled={busy}
+                                  className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                                >
+                                  Resume
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={() => pauseMut.mutate(t.id)}
+                                  disabled={busy}
+                                  className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                                >
+                                  Pause
+                                </button>
+                              )}
+                              <button
+                                onClick={() => cancelMut.mutate(t.id)}
+                                disabled={busy}
+                                className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
+                              >
+                                Cancel
+                              </button>
+                              <button
+                                onClick={() => progressMut.mutate({ id: t.id, progress: 100, status: "done" })}
+                                disabled={busy}
+                                className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
+                              >
+                                Complete
+                              </button>
+                            </div>
+                          </li>
+                        );
+                      })}
+                    </ul>
+                  </div>
+                )}
+
+                {pending.length > 0 && (
+                  <div className="mt-6 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 text-xs">
+                    <div className="mb-1 inline-flex items-center gap-1.5 font-semibold text-amber-400">
+                      <AlertTriangle className="h-3.5 w-3.5" /> {pending.length} awaiting your approval
+                    </div>
+                    <p className="text-muted-foreground">
+                      Approve or reject from the pending approvals panel.
+                    </p>
+                  </div>
+                )}
+
+                {/* Actions */}
+                <div className="mt-6 border-t border-border/60 pt-4">
+                  <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                    Actions
+                  </h4>
+                  <div className="grid grid-cols-2 gap-2">
+                    {!isLeader && (
+                      <button
+                        onClick={() => {
+                          setAssign((p) => ({ ...p, agent_id: selected.id }));
+                          setDetailsOpen(false);
+                          toast.message(`Assign panel targeted at ${selected.name}.`);
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Assign task
+                      </button>
+                    )}
+                    <button
+                      onClick={() => {
+                        setNewAgent((p) => ({ ...p, parentId: selected.id }));
+                        setDetailsOpen(false);
+                        setAddOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Spawn sub-agent
+                    </button>
+                    <button
+                      onClick={() => {
+                        qc.invalidateQueries({ queryKey: ["agents-state"] });
+                        qc.invalidateQueries({ queryKey: ["task-events"] });
+                        toast.success("Refreshed.");
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+                    >
+                      <Activity className="h-3.5 w-3.5" /> Refresh
+                    </button>
+                    <button
+                      onClick={() => setDetailsOpen(false)}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+                    >
+                      Close
+                    </button>
+                  </div>
+                </div>
+              </>
+            );
+          })()}
+        </SheetContent>
+      </Sheet>
     </div>
   );
 }
