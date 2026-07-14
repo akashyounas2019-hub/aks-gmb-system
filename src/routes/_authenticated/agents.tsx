@@ -1597,6 +1597,11 @@ function AgentNode({
         <h4 className={`font-display tracking-tight text-sm ${isLeader ? "text-amber-100" : ""}`}>{agent.name}</h4>
       </div>
       <p className={`mt-0.5 text-[11px] uppercase tracking-widest ${isLeader ? "text-amber-300/80" : "text-muted-foreground"}`}>{agent.role}</p>
+      {agent.main_skill && (
+        <p className="mt-1 line-clamp-2 text-center text-[10.5px] italic text-cyan-300/80" title={agent.main_skill}>
+          {agent.main_skill}
+        </p>
+      )}
 
       <div className="mt-3 flex w-full items-center gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
