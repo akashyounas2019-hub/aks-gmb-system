@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, MapPin, Phone, Mail, Globe, Loader2 } from "lucide-react";
 import { getPreferences } from "@/lib/user-preferences.functions";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { useServerFn } from "@tanstack/react-start";
+import { geocodeAddress } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/business-profile")({
   component: BusinessProfilePage,
