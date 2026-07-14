@@ -116,6 +116,8 @@ type TaskRow = {
 import agentLeaderImg from "@/assets/agent-leader.png";
 import agentWriterImg from "@/assets/agent-writer.png";
 import agentAnalyzerImg from "@/assets/agent-analyzer.png";
+import agentAuditorImg from "@/assets/agent-auditor.png";
+import agentRankerImg from "@/assets/agent-ranker.png";
 
 const iconMap: Record<string, typeof Bot> = {
   crown: Crown,
@@ -131,6 +133,8 @@ const agentImageMap: Record<string, string> = {
   crown: agentLeaderImg,
   pen: agentWriterImg,
   chart: agentAnalyzerImg,
+  shield: agentAuditorImg,
+  trending: agentRankerImg,
 };
 
 const roleToIconKey: Record<string, string> = {
