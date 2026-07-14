@@ -1117,6 +1117,21 @@ function AgentsPage() {
                 {newAgent.scope.length}/500 — describes what this agent owns and how it should behave.
               </p>
             </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Main skill
+              </label>
+              <input
+                value={newAgent.mainSkill}
+                onChange={(e) => setNewAgent((p) => ({ ...p, mainSkill: e.target.value }))}
+                placeholder="e.g. Local SEO copywriting, review triage, rank tracking…"
+                maxLength={200}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Determines how this agent performs tasks — its core specialty.
+              </p>
+            </div>
           </div>
           <DialogFooter>
             <button onClick={() => setAddOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent">
