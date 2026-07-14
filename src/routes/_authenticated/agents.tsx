@@ -246,7 +246,10 @@ function AgentsPage() {
   const progressMut = useMutation({
     mutationFn: (input: { id: string; progress?: number; status?: "running" | "done" }) =>
       updateTaskProgress({ data: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+    },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
   });
   const pauseMut = useMutation({
