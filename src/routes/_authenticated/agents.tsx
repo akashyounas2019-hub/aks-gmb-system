@@ -467,22 +467,38 @@ function AgentsPage() {
 
           {/* In-flight tasks with progress */}
           {(() => {
-            const running = tasks.filter((t) => t.status === "running");
-            if (running.length === 0) return null;
+            const active = tasks.filter((t) => t.status === "running" || t.status === "paused");
+            if (active.length === 0) return null;
             return (
               <div className="mt-6 space-y-2">
                 <div className="text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                  In flight ({running.length})
+                  In flight ({active.length})
                 </div>
                 <ul className="grid gap-2 md:grid-cols-2">
-                  {running.map((t) => {
+                  {active.map((t) => {
                     const a = agents.find((x) => x.id === t.agent_id);
                     const p = Math.max(0, Math.min(100, t.progress ?? 0));
+                    const paused = t.status === "paused";
+                    const busy =
+                      progressMut.isPending ||
+                      pauseMut.isPending ||
+                      resumeMut.isPending ||
+                      cancelMut.isPending;
                     return (
-                      <li key={t.id} className="rounded-xl border border-border/60 bg-card/70 p-3">
+                      <li
+                        key={t.id}
+                        className={`rounded-xl border p-3 ${paused ? "border-amber-400/40 bg-amber-400/5" : "border-border/60 bg-card/70"}`}
+                      >
                         <div className="mb-1 flex items-center justify-between gap-2">
                           <div className="min-w-0">
-                            <div className="truncate text-sm font-medium">{t.title}</div>
+                            <div className="flex items-center gap-1.5">
+                              <div className="truncate text-sm font-medium">{t.title}</div>
+                              {paused && (
+                                <span className="inline-flex items-center gap-1 rounded bg-amber-400/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-amber-400">
+                                  <Pause className="h-2.5 w-2.5" /> Paused
+                                </span>
+                              )}
+                            </div>
                             <div className="text-[11px] text-muted-foreground">
                               {a?.name} · {t.relative_time}
                               {t.priority && t.priority !== "normal" && (
@@ -492,31 +508,60 @@ function AgentsPage() {
                               )}
                             </div>
                           </div>
-                          <span className="shrink-0 text-xs font-semibold tabular-nums text-primary">{p}%</span>
+                          <span className={`shrink-0 text-xs font-semibold tabular-nums ${paused ? "text-amber-400" : "text-primary"}`}>{p}%</span>
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
                           <div
-                            className="h-full bg-gradient-to-r from-primary to-primary/70 transition-all"
+                            className={`h-full transition-all ${paused ? "bg-gradient-to-r from-amber-400 to-amber-500/70" : "bg-gradient-to-r from-primary to-primary/70"}`}
                             style={{ width: `${p}%` }}
                           />
                         </div>
-                        <div className="mt-2 flex gap-1.5">
+                        <div className="mt-2 flex flex-wrap gap-1.5">
                           <button
                             onClick={() =>
                               progressMut.mutate({ id: t.id, progress: Math.min(100, p + 25) })
                             }
-                            disabled={progressMut.isPending}
-                            className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-60"
+                            disabled={busy || paused}
+                            title={paused ? "Resume to continue progress" : "Advance progress"}
+                            className="flex-1 rounded-md border border-border px-2 py-1 text-[11px] hover:bg-accent disabled:opacity-50"
                           >
                             +25%
                           </button>
+                          {paused ? (
+                            <button
+                              onClick={() => resumeMut.mutate(t.id)}
+                              disabled={busy}
+                              className="inline-flex flex-1 items-center justify-center gap-1 rounded-md bg-sky-500/90 px-2 py-1 text-[11px] font-semibold text-white hover:bg-sky-500 disabled:opacity-60"
+                            >
+                              <Play className="h-3 w-3" /> Resume
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => pauseMut.mutate(t.id)}
+                              disabled={busy}
+                              className="inline-flex flex-1 items-center justify-center gap-1 rounded-md border border-amber-400/40 bg-amber-400/10 px-2 py-1 text-[11px] font-semibold text-amber-400 hover:bg-amber-400/20 disabled:opacity-60"
+                            >
+                              <Pause className="h-3 w-3" /> Pause
+                            </button>
+                          )}
                           <button
-                            onClick={() => progressMut.mutate({ id: t.id, progress: 100, status: "done" })}
-                            disabled={progressMut.isPending}
-                            className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                            onClick={() => {
+                              if (confirm(`Cancel "${t.title}"?`)) cancelMut.mutate(t.id);
+                            }}
+                            disabled={busy}
+                            className="inline-flex items-center justify-center gap-1 rounded-md border border-rose-400/40 bg-rose-400/5 px-2 py-1 text-[11px] font-semibold text-rose-400 hover:bg-rose-400/15 disabled:opacity-60"
                           >
-                            Complete
+                            <XCircle className="h-3 w-3" /> Cancel
                           </button>
+                          {!paused && (
+                            <button
+                              onClick={() => progressMut.mutate({ id: t.id, progress: 100, status: "done" })}
+                              disabled={busy}
+                              className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
+                            >
+                              Complete
+                            </button>
+                          )}
                         </div>
                       </li>
                     );
