@@ -457,10 +457,10 @@ function AgentsPage() {
 
         {/* Prominent metric cards */}
         <section className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <MetricCard label="Agents" value={teamStats.total} icon={Bot} />
-          <MetricCard label="Active" value={teamStats.active} icon={Activity} />
-          <MetricCard label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} bar={teamStats.avgLoad} />
-          <MetricCard label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} bar={teamStats.success} />
+          <MetricCard label="Agents" value={teamStats.total} icon={Bot} onClick={() => setMetricDetail("agents")} />
+          <MetricCard label="Active" value={teamStats.active} icon={Activity} onClick={() => setMetricDetail("active")} />
+          <MetricCard label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} bar={teamStats.avgLoad} onClick={() => setMetricDetail("load")} />
+          <MetricCard label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} bar={teamStats.success} onClick={() => setMetricDetail("success")} />
         </section>
 
 
