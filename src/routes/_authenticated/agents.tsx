@@ -411,6 +411,7 @@ function AgentsPage() {
       role: newAgent.role,
       parent_id: parent,
       scope: newAgent.scope.trim() || undefined,
+      main_skill: newAgent.mainSkill.trim() || undefined,
     });
   }
 
