@@ -137,6 +137,9 @@
     color: var(--color-foreground);
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
   }
 
   h1,
@@ -144,8 +147,46 @@
   h3 {
     font-family: var(--font-display);
     letter-spacing: -0.02em;
+    font-feature-settings: "ss01", "ss02";
+  }
+
+  h1 { letter-spacing: -0.035em; }
+  h2 { letter-spacing: -0.025em; }
+
+  a, button {
+    transition: color 150ms ease, background-color 150ms ease,
+                border-color 150ms ease, opacity 150ms ease,
+                transform 150ms ease, box-shadow 200ms ease;
+  }
+
+  /* Refined scrollbars */
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklab, var(--color-foreground) 12%, transparent);
+    border-radius: 999px;
+    border: 2px solid transparent;
+    background-clip: padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklab, var(--color-foreground) 22%, transparent);
+    background-clip: padding-box;
+    border: 2px solid transparent;
+  }
+
+  /* Focus ring polish */
+  :focus-visible {
+    outline: 2px solid var(--color-ring);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-primary) 35%, transparent);
+    color: var(--color-foreground);
   }
 }
+
 
 @utility bg-hero-gradient {
   background:
