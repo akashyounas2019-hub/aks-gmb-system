@@ -260,6 +260,91 @@ export function AiImagePromptGenerator() {
     toast.success(`Folder “${name}” added`);
   }
 
+  function renameFolder(oldName: string) {
+    const next = window.prompt("Rename folder", oldName)?.trim();
+    if (!next || next === oldName) return;
+    if (folders.includes(next)) {
+      toast.error("A folder with that name already exists");
+      return;
+    }
+    setFolders((prev) => prev.map((f) => (f === oldName ? next : f)));
+    setTemplates((prev) =>
+      prev.map((t) => (t.folder === oldName ? { ...t, folder: next } : t)),
+    );
+    setPrompts((prev) =>
+      prev.map((p) => (p.folder === oldName ? { ...p, folder: next } : p)),
+    );
+    setOpenFolders((prev) => {
+      const s = new Set(prev);
+      if (s.has(oldName)) {
+        s.delete(oldName);
+        s.add(next);
+      }
+      return s;
+    });
+    if (activeFolder === oldName) setActiveFolder(next);
+    toast.success(`Renamed to “${next}”`);
+  }
+
+  function deleteFolder(name: string) {
+    const tplCount = templates.filter((t) => t.folder === name).length;
+    const promptCount = prompts.filter((p) => p.folder === name).length;
+    const ok = window.confirm(
+      `Delete folder “${name}”?\n\nThis will also remove ${tplCount} template${
+        tplCount === 1 ? "" : "s"
+      } and ${promptCount} saved prompt${promptCount === 1 ? "" : "s"} inside it.`,
+    );
+    if (!ok) return;
+    setFolders((prev) => prev.filter((f) => f !== name));
+    setTemplates((prev) => prev.filter((t) => t.folder !== name));
+    setPrompts((prev) => prev.filter((p) => p.folder !== name));
+    setOpenFolders((prev) => {
+      const s = new Set(prev);
+      s.delete(name);
+      return s;
+    });
+    if (activeFolder === name) setActiveFolder("All");
+    if (activeTemplate?.folder === name) setActiveTemplateId(null);
+    toast.success(`Folder “${name}” deleted`);
+  }
+
+  function openTemplateEditor(tpl: Template) {
+    setEditingTemplate(tpl);
+    setEditName(tpl.name);
+    setEditBody(tpl.body);
+    setEditFolder(tpl.folder);
+  }
+
+  function saveTemplateEdits() {
+    if (!editingTemplate) return;
+    const name = editName.trim();
+    const body = editBody.trim();
+    const folder = editFolder.trim();
+    if (!name || !body || !folder) {
+      toast.error("Name, body, and folder are required");
+      return;
+    }
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === editingTemplate.id ? { ...t, name, body, folder } : t,
+      ),
+    );
+    setEditingTemplate(null);
+    toast.success("Template updated");
+  }
+
+  function deleteTemplate(id: string) {
+    const tpl = templates.find((t) => t.id === id);
+    if (!tpl) return;
+    const ok = window.confirm(`Delete template “${tpl.name}”?`);
+    if (!ok) return;
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (activeTemplateId === id) setActiveTemplateId(null);
+    if (editingTemplate?.id === id) setEditingTemplate(null);
+    toast.success("Template deleted");
+  }
+
+
   function pickFilter(id: FilterId, option: string) {
     setSelections((prev) => ({
       ...prev,
