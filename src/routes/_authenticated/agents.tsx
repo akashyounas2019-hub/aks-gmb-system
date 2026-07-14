@@ -1472,3 +1472,323 @@ function TaskDot({ status }: { status: string }) {
   if (status === "awaiting_approval") return <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-400" />;
   return <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />;
 }
+
+type MetricKey = "agents" | "active" | "load" | "success";
+
+function MetricDrilldownDialog({
+  metric,
+  onClose,
+  agents,
+  tasks,
+  stats,
+  onOpenAgent,
+}: {
+  metric: MetricKey | null;
+  onClose: () => void;
+  agents: AgentRow[];
+  tasks: TaskRow[];
+  stats: { total: number; active: number; avgLoad: number; success: number };
+  onOpenAgent: (id: string) => void;
+}) {
+  const meta: Record<MetricKey, { title: string; description: string; icon: typeof Bot; value: string }> = {
+    agents: {
+      title: "Agents",
+      description: "Team composition by role and hierarchy.",
+      icon: Bot,
+      value: `${stats.total}`,
+    },
+    active: {
+      title: "Active",
+      description: "Agents currently working or online, broken down by status.",
+      icon: Activity,
+      value: `${stats.active}`,
+    },
+    load: {
+      title: "Average load",
+      description: "Per-agent utilization contributing to the team average.",
+      icon: Zap,
+      value: `${stats.avgLoad}%`,
+    },
+    success: {
+      title: "Success rate",
+      description: "Per-agent success and recent task outcomes.",
+      icon: CheckCircle2,
+      value: `${stats.success}%`,
+    },
+  };
+
+  const open = metric !== null;
+  const m = metric ? meta[metric] : null;
+
+  // ----- data slices -----
+  const roleBreakdown = useMemo(() => {
+    const map = new Map<string, number>();
+    agents.forEach((a) => map.set(a.role, (map.get(a.role) ?? 0) + 1));
+    return Array.from(map.entries())
+      .map(([role, count]) => ({ role, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [agents]);
+
+  const statusBreakdown = useMemo(() => {
+    const map = new Map<string, number>();
+    agents.forEach((a) => map.set(a.status, (map.get(a.status) ?? 0) + 1));
+    return Array.from(map.entries())
+      .map(([status, count]) => ({ status, count }))
+      .sort((a, b) => b.count - a.count);
+  }, [agents]);
+
+  const loadByAgent = useMemo(
+    () => [...agents].sort((a, b) => b.load - a.load),
+    [agents],
+  );
+
+  const successByAgent = useMemo(
+    () => [...agents].sort((a, b) => b.success_rate - a.success_rate),
+    [agents],
+  );
+
+  const taskOutcomes = useMemo(() => {
+    const done = tasks.filter((t) => t.status === "done").length;
+    const running = tasks.filter((t) => t.status === "running").length;
+    const awaiting = tasks.filter((t) => t.status === "awaiting_approval").length;
+    const failed = tasks.filter((t) => t.status === "failed" || t.status === "cancelled").length;
+    const other = tasks.length - done - running - awaiting - failed;
+    return { done, running, awaiting, failed, other, total: tasks.length };
+  }, [tasks]);
+
+  const statusTone: Record<string, string> = {
+    working: "bg-emerald-400",
+    online: "bg-sky-400",
+    idle: "bg-muted-foreground/60",
+    offline: "bg-muted-foreground/30",
+    paused: "bg-amber-400",
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={(v) => (!v ? onClose() : null)}>
+      <DialogContent className="max-w-2xl">
+        {m && (
+          <>
+            <DialogHeader>
+              <div className="flex items-center gap-3">
+                <span className="grid h-10 w-10 place-items-center rounded-xl border border-border/70 bg-background/60 text-muted-foreground">
+                  <m.icon className="h-5 w-5" />
+                </span>
+                <div>
+                  <DialogTitle className="flex items-baseline gap-3">
+                    <span>{m.title}</span>
+                    <span className="font-display text-2xl tracking-tight text-foreground">{m.value}</span>
+                  </DialogTitle>
+                  <DialogDescription>{m.description}</DialogDescription>
+                </div>
+              </div>
+            </DialogHeader>
+
+            <div className="mt-2 max-h-[60vh] overflow-y-auto pr-1">
+              {metric === "agents" && (
+                <div className="space-y-6">
+                  <BarBreakdown
+                    title="By role"
+                    rows={roleBreakdown.map((r) => ({ label: r.role, value: r.count }))}
+                    max={Math.max(1, ...roleBreakdown.map((r) => r.count))}
+                    suffix=""
+                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <MiniStat label="Leaders" value={agents.filter((a) => a.parent_id === null).length} />
+                    <MiniStat label="Sub-agents" value={agents.filter((a) => a.parent_id !== null).length} />
+                    <MiniStat label="Roles" value={roleBreakdown.length} />
+                  </div>
+                </div>
+              )}
+
+              {metric === "active" && (
+                <div className="space-y-6">
+                  <BarBreakdown
+                    title="By status"
+                    rows={statusBreakdown.map((r) => ({
+                      label: r.status,
+                      value: r.count,
+                      dotClass: statusTone[r.status] ?? "bg-muted-foreground/60",
+                    }))}
+                    max={Math.max(1, ...statusBreakdown.map((r) => r.count))}
+                    suffix=""
+                  />
+                  <div>
+                    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Working right now
+                    </div>
+                    <AgentPickerList
+                      agents={agents.filter((a) => a.status === "working" || a.status === "online")}
+                      onOpenAgent={onOpenAgent}
+                      emptyLabel="No agents active."
+                    />
+                  </div>
+                </div>
+              )}
+
+              {metric === "load" && (
+                <div className="space-y-6">
+                  <BarBreakdown
+                    title="Load per agent"
+                    rows={loadByAgent.map((a) => ({ label: a.name, value: a.load, agentId: a.id }))}
+                    max={100}
+                    suffix="%"
+                    onClickRow={onOpenAgent}
+                  />
+                  <div className="grid grid-cols-3 gap-3">
+                    <MiniStat label="Average" value={`${stats.avgLoad}%`} />
+                    <MiniStat label="Peak" value={`${loadByAgent[0]?.load ?? 0}%`} />
+                    <MiniStat label=">80% busy" value={loadByAgent.filter((a) => a.load > 80).length} />
+                  </div>
+                </div>
+              )}
+
+              {metric === "success" && (
+                <div className="space-y-6">
+                  <BarBreakdown
+                    title="Success per agent"
+                    rows={successByAgent.map((a) => ({ label: a.name, value: a.success_rate, agentId: a.id }))}
+                    max={100}
+                    suffix="%"
+                    onClickRow={onOpenAgent}
+                  />
+                  <div>
+                    <div className="mb-2 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+                      Recent task outcomes
+                    </div>
+                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                      <MiniStat label="Done" value={taskOutcomes.done} />
+                      <MiniStat label="Running" value={taskOutcomes.running} />
+                      <MiniStat label="Awaiting" value={taskOutcomes.awaiting} />
+                      <MiniStat label="Failed" value={taskOutcomes.failed} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function BarBreakdown({
+  title,
+  rows,
+  max,
+  suffix,
+  onClickRow,
+}: {
+  title: string;
+  rows: { label: string; value: number; agentId?: string; dotClass?: string }[];
+  max: number;
+  suffix: string;
+  onClickRow?: (id: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-3 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {title}
+      </div>
+      {rows.length === 0 ? (
+        <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+          No data yet.
+        </div>
+      ) : (
+        <ul className="space-y-2.5">
+          {rows.map((r, i) => {
+            const pct = Math.max(0, Math.min(100, max === 0 ? 0 : (r.value / max) * 100));
+            const clickable = !!r.agentId && !!onClickRow;
+            const content = (
+              <>
+                <div className="mb-1 flex items-center justify-between gap-3 text-sm">
+                  <span className="inline-flex items-center gap-2 text-foreground">
+                    {r.dotClass && <span className={`h-2 w-2 rounded-full ${r.dotClass}`} />}
+                    <span className="capitalize">{r.label}</span>
+                  </span>
+                  <span className="font-mono text-xs text-muted-foreground">
+                    {r.value}
+                    {suffix}
+                  </span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
+                  <div className="h-full rounded-full bg-foreground/70" style={{ width: `${pct}%` }} />
+                </div>
+              </>
+            );
+            return (
+              <li key={`${r.label}-${i}`}>
+                {clickable ? (
+                  <button
+                    type="button"
+                    onClick={() => onClickRow!(r.agentId!)}
+                    className="w-full rounded-lg border border-transparent p-2 text-left transition hover:border-border/60 hover:bg-card/60"
+                  >
+                    {content}
+                  </button>
+                ) : (
+                  <div className="p-2">{content}</div>
+                )}
+              </li>
+            );
+          })}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function MiniStat({ label, value }: { label: string; value: number | string }) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/50 p-3">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-1 font-display text-xl tracking-tight text-foreground">{value}</div>
+    </div>
+  );
+}
+
+function AgentPickerList({
+  agents,
+  onOpenAgent,
+  emptyLabel,
+}: {
+  agents: AgentRow[];
+  onOpenAgent: (id: string) => void;
+  emptyLabel: string;
+}) {
+  if (agents.length === 0) {
+    return (
+      <div className="rounded-lg border border-dashed border-border/60 p-4 text-sm text-muted-foreground">
+        {emptyLabel}
+      </div>
+    );
+  }
+  return (
+    <ul className="divide-y divide-border/60 overflow-hidden rounded-lg border border-border/60">
+      {agents.map((a) => (
+        <li key={a.id}>
+          <button
+            type="button"
+            onClick={() => onOpenAgent(a.id)}
+            className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left transition hover:bg-card/60"
+          >
+            <div className="min-w-0">
+              <div className="truncate text-sm font-medium text-foreground">{a.name}</div>
+              <div className="truncate text-xs capitalize text-muted-foreground">
+                {a.role} · {a.status}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <span className="font-mono text-xs text-muted-foreground">{a.load}%</span>
+              <ChevronRight className="h-4 w-4 text-muted-foreground" />
+            </div>
+          </button>
+        </li>
+      ))}
+    </ul>
+  );
+}
+
