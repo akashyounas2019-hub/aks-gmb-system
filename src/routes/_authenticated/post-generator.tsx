@@ -114,7 +114,9 @@ export function PostGeneratorPage({
   >("none");
   const [ctaUrl, setCtaUrl] = useState("");
   const [businessPhone, setBusinessPhone] = useState("");
+  const [businessWebsite, setBusinessWebsite] = useState("");
   const [phoneManuallyEdited, setPhoneManuallyEdited] = useState(false);
+  const [ctaManuallyEdited, setCtaManuallyEdited] = useState(false);
   const loadPrefs = useServerFn(getPreferences);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
