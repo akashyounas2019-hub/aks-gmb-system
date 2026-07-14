@@ -20,6 +20,9 @@ import {
   Zap,
   ChevronRight,
   Loader2,
+  Send,
+  Rocket,
+  Flag,
 } from "lucide-react";
 import {
   Dialog,
