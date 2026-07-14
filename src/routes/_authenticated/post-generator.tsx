@@ -144,6 +144,7 @@ export function PostGeneratorPage({
   const [phoneManuallyEdited, setPhoneManuallyEdited] = useState(false);
   const [ctaManuallyEdited, setCtaManuallyEdited] = useState(false);
   const loadPrefs = useServerFn(getPreferences);
+  const captionMirrorRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const importPopupRef = useRef<HTMLDivElement>(null);
@@ -1351,19 +1352,55 @@ export function PostGeneratorPage({
               </div>
             </div>
 
-            <textarea
-              value={caption}
-              onChange={(e) => setCaption(e.target.value)}
-              rows={16}
-              dir={language === "ar" ? "rtl" : "ltr"}
-              aria-invalid={captionOver}
-              placeholder="Click Generate with AI to draft a post, then edit here."
-              className={`w-full rounded border bg-background p-3 text-sm outline-none transition ${
-                captionOver
-                  ? "border-red-500 text-red-600 focus:ring-2 focus:ring-red-500/40"
-                  : "border-border focus:ring-2 focus:ring-primary/40"
-              }`}
-            />
+            <div className="relative">
+              {/* Mirror layer — renders the text with the over-limit slice
+                  highlighted in red. Sits behind a transparent-text textarea. */}
+              <div
+                aria-hidden
+                ref={captionMirrorRef}
+                dir={language === "ar" ? "rtl" : "ltr"}
+                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm ${
+                  language === "ar" ? "text-right" : "text-left"
+                }`}
+                style={{ fontFamily: "inherit", lineHeight: "1.5" }}
+              >
+                {caption.length <= CAPTION_LIMIT ? (
+                  <>
+                    {caption}
+                    {/* trailing space keeps last line height stable */}
+                    {"\u200b"}
+                  </>
+                ) : (
+                  <>
+                    <span>{caption.slice(0, CAPTION_LIMIT)}</span>
+                    <span className="rounded-sm bg-red-500/25 text-red-500">
+                      {caption.slice(CAPTION_LIMIT)}
+                    </span>
+                    {"\u200b"}
+                  </>
+                )}
+              </div>
+              <textarea
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                onScroll={(e) => {
+                  if (captionMirrorRef.current) {
+                    captionMirrorRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
+                rows={16}
+                dir={language === "ar" ? "rtl" : "ltr"}
+                aria-invalid={captionOver}
+                placeholder="Click Generate with AI to draft a post, then edit here."
+                spellCheck
+                style={{ lineHeight: "1.5" }}
+                className={`relative w-full rounded border bg-transparent p-3 text-sm text-transparent caret-foreground outline-none transition selection:bg-primary/25 selection:text-transparent ${
+                  captionOver
+                    ? "border-red-500 focus:ring-2 focus:ring-red-500/40"
+                    : "border-border focus:ring-2 focus:ring-primary/40"
+                }`}
+              />
+            </div>
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
                 {captionOver
