@@ -130,6 +130,8 @@ function AgentsPage() {
   const createAgent = useServerFn(createAgentFn);
   const approveTask = useServerFn(approveTaskFn);
   const rejectTask = useServerFn(rejectTaskFn);
+  const assignTask = useServerFn(assignTaskFn);
+  const updateTaskProgress = useServerFn(updateTaskProgressFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
