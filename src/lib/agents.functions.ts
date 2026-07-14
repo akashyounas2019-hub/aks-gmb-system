@@ -281,6 +281,7 @@ export const createAgent = createServerFn({ method: "POST" })
         icon_key: z.string(),
         tone: z.string(),
         scope: z.string().max(500).optional(),
+        main_skill: z.string().max(200).optional(),
       })
       .parse(input),
   )
@@ -293,6 +294,7 @@ export const createAgent = createServerFn({ method: "POST" })
         name: data.name,
         role: data.role[0].toUpperCase() + data.role.slice(1),
         scope: data.scope?.trim() ? data.scope.trim() : "Custom-defined scope",
+        main_skill: data.main_skill?.trim() ? data.main_skill.trim() : null,
         icon_key: data.icon_key,
         tone: data.tone,
         glow: "shadow-[0_0_40px_-12px_rgba(129,140,248,0.55)]",
@@ -304,6 +306,42 @@ export const createAgent = createServerFn({ method: "POST" })
         last_activity: "Spawned by Leader",
         sort_order: 99,
       })
+      .select("*")
+      .single();
+    if (error) throw error;
+    return row;
+  });
+
+export const updateAgent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        name: z.string().min(1).max(80).optional(),
+        scope: z.string().max(500).optional(),
+        main_skill: z.string().max(200).nullable().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const patch: Record<string, unknown> = {};
+    if (data.name !== undefined) patch.name = data.name;
+    if (data.scope !== undefined) patch.scope = data.scope.trim() || "Custom-defined scope";
+    if (data.main_skill !== undefined) {
+      const v = data.main_skill;
+      patch.main_skill = v === null ? null : v.trim() || null;
+    }
+    if (Object.keys(patch).length === 0) {
+      const { data: row } = await supabase.from("agents").select("*").eq("id", data.id).eq("user_id", userId).single();
+      return row;
+    }
+    const { data: row, error } = await supabase
+      .from("agents")
+      .update(patch as never)
+      .eq("id", data.id)
+      .eq("user_id", userId)
       .select("*")
       .single();
     if (error) throw error;

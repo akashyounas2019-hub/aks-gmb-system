@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -97,6 +97,7 @@ type AgentRow = {
   success_rate: number;
   parent_id: string | null;
   last_activity: string;
+  main_skill?: string | null;
 };
 type TaskRow = {
   id: string;
@@ -223,11 +224,12 @@ function AgentsPage() {
     queryKey: ["agents-state"],
     queryFn: () => fetchState(),
   });
+  const navigate = useNavigate();
   const [detailsOpen, setDetailsOpen] = useState(false);
   const openAgent = (id: string) => {
-    setSelectedId(id);
-    setDetailsOpen(true);
+    navigate({ to: "/agents/$agentId", params: { agentId: id } });
   };
+
 
   const agents: AgentRow[] = data?.agents ?? [];
   const tasks: TaskRow[] = data?.tasks ?? [];
@@ -235,11 +237,12 @@ function AgentsPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
   const [metricDetail, setMetricDetail] = useState<null | "agents" | "active" | "load" | "success">(null);
-  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string; scope: string }>({
+  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string; scope: string; mainSkill: string }>({
     name: "",
     role: "writer",
     parentId: "",
     scope: "",
+    mainSkill: "",
   });
   const [assign, setAssign] = useState<{
     agent_id: string;
@@ -330,7 +333,7 @@ function AgentsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
   });
   const createMut = useMutation({
-    mutationFn: (input: { name: string; role: string; parent_id: string; scope?: string }) =>
+    mutationFn: (input: { name: string; role: string; parent_id: string; scope?: string; main_skill?: string }) =>
       createAgent({
         data: {
           name: input.name,
@@ -339,12 +342,13 @@ function AgentsPage() {
           icon_key: roleToIconKey[input.role] ?? "bot",
           tone: roleToTone[input.role] ?? "from-indigo-400 to-purple-500",
           scope: input.scope,
+          main_skill: input.main_skill,
         },
       }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAddOpen(false);
-      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "", scope: "" });
+      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "", scope: "", mainSkill: "" });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to spawn agent."),
@@ -407,6 +411,7 @@ function AgentsPage() {
       role: newAgent.role,
       parent_id: parent,
       scope: newAgent.scope.trim() || undefined,
+      main_skill: newAgent.mainSkill.trim() || undefined,
     });
   }
 
@@ -494,8 +499,8 @@ function AgentsPage() {
               <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="wire" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
+                    <stop offset="0%" stopColor="#22d3ee" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.35" />
                   </linearGradient>
                 </defs>
                 {subAgents.map((_, i) => {
@@ -508,20 +513,21 @@ function AgentsPage() {
                         d={d}
                         fill="none"
                         stroke="url(#wire)"
-                        strokeWidth="0.6"
+                        strokeWidth="1.6"
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
-                        opacity="0.85"
+                        opacity="0.95"
+                        style={{ filter: "drop-shadow(0 0 6px rgba(34, 211, 238, 0.55))" }}
                       />
                       <path
                         d={d}
                         fill="none"
-                        stroke="hsl(var(--primary))"
-                        strokeWidth="0.8"
+                        stroke="#67e8f9"
+                        strokeWidth="1.4"
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
                         strokeDasharray="2 8"
-                        opacity="0.9"
+                        opacity="1"
                         style={{
                           animation: `agent-wire-flow 2.4s linear infinite`,
                           animationDelay: `${i * 0.35}s`,
@@ -1109,6 +1115,21 @@ function AgentsPage() {
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
                 {newAgent.scope.length}/500 — describes what this agent owns and how it should behave.
+              </p>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Main skill
+              </label>
+              <input
+                value={newAgent.mainSkill}
+                onChange={(e) => setNewAgent((p) => ({ ...p, mainSkill: e.target.value }))}
+                placeholder="e.g. Local SEO copywriting, review triage, rank tracking…"
+                maxLength={200}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                Determines how this agent performs tasks — its core specialty.
               </p>
             </div>
           </div>
