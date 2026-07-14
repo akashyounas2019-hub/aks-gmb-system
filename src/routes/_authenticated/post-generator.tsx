@@ -164,6 +164,73 @@ export function PostGeneratorPage({
   function deleteTemplate(id: string) {
     persistTemplates(templates.filter((t) => t.id !== id));
   }
+  const templateImportRef = useRef<HTMLInputElement>(null);
+  function exportTemplates() {
+    if (!templates.length) {
+      toast.error("No templates to export");
+      return;
+    }
+    const payload = {
+      kind: "post-generator-templates",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      templates,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `post-templates-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${templates.length} template${templates.length === 1 ? "" : "s"}`);
+  }
+  async function importTemplatesFromFile(file: File) {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const incoming: unknown =
+        Array.isArray(parsed) ? parsed : parsed?.templates;
+      if (!Array.isArray(incoming)) throw new Error("Invalid template file");
+      const valid: PostTemplate[] = [];
+      for (const raw of incoming) {
+        if (!raw || typeof raw !== "object") continue;
+        const r = raw as Record<string, unknown>;
+        const name = typeof r.name === "string" ? r.name.trim() : "";
+        const body = typeof r.body === "string" ? r.body : "";
+        if (!name || !body) continue;
+        valid.push({ id: crypto.randomUUID(), name, body });
+      }
+      if (!valid.length) {
+        toast.error("No valid templates found in file");
+        return;
+      }
+      // Merge, skipping exact name+body duplicates
+      const seen = new Set(templates.map((t) => `${t.name}::${t.body}`));
+      const merged = [...templates];
+      let added = 0;
+      for (const t of valid) {
+        const key = `${t.name}::${t.body}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.unshift(t);
+        added++;
+      }
+      persistTemplates(merged);
+      toast.success(
+        added
+          ? `Imported ${added} template${added === 1 ? "" : "s"}`
+          : "Templates already present — nothing to import",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import failed");
+    }
+  }
+
 
   // Close popups when clicking outside
   useEffect(() => {
