@@ -348,19 +348,23 @@ export function PostGeneratorPage({
   }
 
 
-  // Close popups when clicking outside
+  // Close import popup on outside click; templates use a modal (Esc closes it).
   useEffect(() => {
     function onDown(e: MouseEvent) {
       const target = e.target as Node;
       if (importOpen && importPopupRef.current && !importPopupRef.current.contains(target)) {
         setImportOpen(false);
       }
-      if (templatesOpen && templatesPopupRef.current && !templatesPopupRef.current.contains(target)) {
-        setTemplatesOpen(false);
-      }
+    }
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && templatesOpen) setTemplatesOpen(false);
     }
     document.addEventListener("mousedown", onDown);
-    return () => document.removeEventListener("mousedown", onDown);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onDown);
+      document.removeEventListener("keydown", onKey);
+    };
   }, [importOpen, templatesOpen]);
 
 
