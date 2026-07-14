@@ -21,7 +21,13 @@ import {
   MoreHorizontal,
   FileText,
   ChevronRight,
+  ImageIcon,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { SignedImage } from "@/components/SignedImage";
+
+type ImageRow = { id: string; name: string | null; storage_path: string };
+type ImageMap = Record<string, ImageRow>;
 
 export const Route = createFileRoute("/_authenticated/post-storage")({
   component: PostStoragePage,
