@@ -1116,7 +1116,7 @@ export function AiImagePromptGenerator() {
           </ul>
         )}
       </aside>
-      </aside>
+
 
       {editingTemplate && (
         <div
