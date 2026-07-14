@@ -29,6 +29,48 @@ async function logEvent(
   }
 }
 
+type NotifyKind = "assigned" | "started" | "completed" | "failed";
+
+async function notify(
+  supabase: any,
+  userId: string,
+  rows: Array<{
+    agent_id: string;
+    related_agent_id?: string | null;
+    task_id?: string | null;
+    kind: NotifyKind;
+    title: string;
+    message: string;
+  }>,
+) {
+  try {
+    if (rows.length === 0) return;
+    await supabase.from("agent_notifications").insert(
+      rows.map((r) => ({
+        user_id: userId,
+        agent_id: r.agent_id,
+        related_agent_id: r.related_agent_id ?? null,
+        task_id: r.task_id ?? null,
+        kind: r.kind,
+        title: r.title,
+        message: r.message,
+      })),
+    );
+  } catch {
+    // best-effort — never break the primary action
+  }
+}
+
+async function getLeaderId(supabase: any, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("agents")
+    .select("id")
+    .eq("user_id", userId)
+    .is("parent_id", null)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 const DEFAULT_AGENTS = [
   {
     slug: "leader",
