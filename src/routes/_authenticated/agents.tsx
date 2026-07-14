@@ -313,7 +313,7 @@ function AgentsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
   });
   const createMut = useMutation({
-    mutationFn: (input: { name: string; role: string; parent_id: string }) =>
+    mutationFn: (input: { name: string; role: string; parent_id: string; scope?: string }) =>
       createAgent({
         data: {
           name: input.name,
@@ -321,12 +321,13 @@ function AgentsPage() {
           parent_id: input.parent_id,
           icon_key: roleToIconKey[input.role] ?? "bot",
           tone: roleToTone[input.role] ?? "from-indigo-400 to-purple-500",
+          scope: input.scope,
         },
       }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAddOpen(false);
-      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "" });
+      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "", scope: "" });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to spawn agent."),
