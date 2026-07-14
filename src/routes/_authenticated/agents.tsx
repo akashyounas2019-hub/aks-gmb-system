@@ -1574,11 +1574,17 @@ function AgentNode({
   agent,
   selected,
   onClick,
+  onHoverChange,
+  highlighted,
+  dimmed,
 }: {
   agent: AgentRow;
   selected: boolean;
   onClick: () => void;
   size?: "md" | "lg";
+  onHoverChange?: (hovered: boolean) => void;
+  highlighted?: boolean;
+  dimmed?: boolean;
 }) {
   const Icon = iconMap[agent.icon_key] ?? Bot;
   const imgSrc = agentImageMap[agent.icon_key];
@@ -1587,13 +1593,17 @@ function AgentNode({
   return (
     <button
       onClick={onClick}
-      className={`group relative flex w-full flex-col items-center rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 ${
+      onMouseEnter={() => onHoverChange?.(true)}
+      onMouseLeave={() => onHoverChange?.(false)}
+      onFocus={() => onHoverChange?.(true)}
+      onBlur={() => onHoverChange?.(false)}
+      className={`group relative flex w-full flex-col items-center rounded-2xl border p-4 text-left transition-all hover:-translate-y-0.5 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-300/60 ${
         isLeader
           ? "border-amber-300/50 bg-gradient-to-br from-amber-500/10 via-card/70 to-card/50 shadow-[0_10px_40px_-12px_rgba(251,191,36,0.35)] hover:border-amber-300/70"
           : selected
           ? "border-foreground/40 bg-card/60 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
           : "border-border/60 bg-card/60 hover:border-foreground/25 hover:bg-card"
-      }`}
+      } ${highlighted ? "ring-2 ring-amber-300/70 shadow-[0_0_28px_-4px_rgba(251,191,36,0.55)] -translate-y-0.5" : ""} ${dimmed ? "opacity-40 saturate-50" : "opacity-100"}`}
     >
       {isLeader && (
         <span className="absolute -top-2.5 left-1/2 -translate-x-1/2 inline-flex items-center gap-1 rounded-full border border-amber-300/60 bg-gradient-to-r from-amber-400 to-orange-500 px-2 py-0.5 text-[9px] font-bold uppercase tracking-[0.18em] text-black shadow-[0_6px_16px_-6px_rgba(251,191,36,0.7)]">
