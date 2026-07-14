@@ -85,6 +85,8 @@ type TaskRow = {
   status: string;
   major: boolean;
   relative_time: string;
+  progress?: number;
+  priority?: string;
 };
 
 const iconMap: Record<string, typeof Bot> = {
