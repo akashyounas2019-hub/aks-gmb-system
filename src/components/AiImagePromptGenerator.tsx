@@ -224,6 +224,10 @@ export function AiImagePromptGenerator() {
   );
   const [variations, setVariations] = useState<string[]>([]);
   const [variationCount, setVariationCount] = useState<number>(4);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [editFolder, setEditFolder] = useState("");
   const outputRef = useRef<HTMLTextAreaElement>(null);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? null;
