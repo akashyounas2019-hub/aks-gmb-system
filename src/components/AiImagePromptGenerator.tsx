@@ -16,6 +16,7 @@ import {
   ChevronDown,
   Save,
   Shuffle,
+  Download,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -392,6 +393,52 @@ export function AiImagePromptGenerator() {
   function removePrompt(id: string) {
     setPrompts((prev) => prev.filter((p) => p.id !== id));
   }
+
+  function exportCSV() {
+    const rows = visiblePrompts.length > 0 ? visiblePrompts : prompts;
+    if (rows.length === 0) {
+      toast.error("No prompts to export");
+      return;
+    }
+    const esc = (v: string | number | boolean) => {
+      const s = String(v ?? "");
+      return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
+    };
+    const header = [
+      "title",
+      "body",
+      "folder",
+      "pinned",
+      "favorite",
+      "createdAt",
+    ];
+    const lines = [header.join(",")];
+    for (const p of rows) {
+      lines.push(
+        [
+          esc(p.title),
+          esc(p.body),
+          esc(p.folder),
+          esc(p.pinned),
+          esc(p.favorite),
+          esc(new Date(p.createdAt).toISOString()),
+        ].join(","),
+      );
+    }
+    const csv = "\uFEFF" + lines.join("\r\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    const stamp = new Date().toISOString().slice(0, 10);
+    a.href = url;
+    a.download = `saved-prompts-${stamp}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${rows.length} prompt${rows.length === 1 ? "" : "s"}`);
+  }
+
 
   function saveAsTemplate() {
     const body = bodyToUse || generated;
@@ -803,14 +850,26 @@ export function AiImagePromptGenerator() {
       {/* Right: saved prompts (pinned + favorites)                           */}
       {/* ------------------------------------------------------------------ */}
       <aside className="rounded-2xl border border-border bg-card p-3">
-        <div className="mb-2 flex items-center justify-between px-1">
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Saved prompts
           </div>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
-            {visiblePrompts.length}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={exportCSV}
+              disabled={prompts.length === 0}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              title="Export current view as CSV"
+              aria-label="Export prompts as CSV"
+            >
+              <Download className="h-3 w-3" /> CSV
+            </button>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
+              {visiblePrompts.length}
+            </span>
+          </div>
         </div>
+
 
         <div className="mb-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
