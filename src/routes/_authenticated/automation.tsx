@@ -532,6 +532,93 @@ function AutomationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit automation</DialogTitle>
+            <DialogDescription>Rename this workflow or change its cron schedule.</DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-4 py-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</label>
+                <input
+                  value={editing.name}
+                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Cron schedule</label>
+                <input
+                  value={editing.cron}
+                  onChange={(e) => setEditing({ ...editing, cron: e.target.value })}
+                  placeholder="0 */6 * * *"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Standard 5-field cron. Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>.
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!editing?.name.trim() || !editing?.cron.trim() || editMut.isPending}
+              onClick={() => {
+                if (!editing) return;
+                editMut.mutate(
+                  { id: editing.id, name: editing.name.trim(), cron: editing.cron.trim() },
+                  { onSuccess: () => setEditing(null) },
+                );
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {editMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+              Save changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete automation?</DialogTitle>
+            <DialogDescription>
+              This permanently removes <span className="font-medium text-foreground">{confirmDelete?.name}</span> and stops its schedule. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              onClick={() => setConfirmDelete(null)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={deleteMut.isPending}
+              onClick={() => {
+                if (!confirmDelete) return;
+                deleteMut.mutate(confirmDelete.id, {
+                  onSuccess: () => setConfirmDelete(null),
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {deleteMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
       </div>
     </div>
   );
