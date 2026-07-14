@@ -235,10 +235,16 @@ export function PostGeneratorPage({
     setNewTplName(caption.trim().slice(0, 40));
   }
   function applyTemplate(t: PostTemplate) {
-    if (caption.trim() && !window.confirm("Replace current description with this template?")) return;
-    setCaption(t.body);
+    // Open the preview step; actual replacement happens in confirmApplyTemplate.
+    setPreviewingTemplate(t);
+  }
+  function confirmApplyTemplate() {
+    if (!previewingTemplate) return;
+    setCaption(previewingTemplate.body);
+    const name = previewingTemplate.name;
+    setPreviewingTemplate(null);
     setTemplatesOpen(false);
-    toast.success(`Applied "${t.name}"`);
+    toast.success(`Applied "${name}"`);
   }
   function deleteTemplate(id: string) {
     persistTemplates(templates.filter((t) => t.id !== id));
