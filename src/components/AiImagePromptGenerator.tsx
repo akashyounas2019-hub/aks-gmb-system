@@ -242,6 +242,8 @@ export function AiImagePromptGenerator() {
   const [filterView, setFilterView] = useState<"all" | "pinned" | "favorites">(
     "all",
   );
+  const [variations, setVariations] = useState<string[]>([]);
+  const [variationCount, setVariationCount] = useState<number>(4);
   const outputRef = useRef<HTMLTextAreaElement>(null);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? null;
