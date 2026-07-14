@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { toast } from "sonner";
 import {
   Zap,
@@ -19,6 +19,12 @@ import {
   Pencil,
   Clock,
   Loader2,
+  Sparkles,
+  FileText,
+  CalendarClock,
+  ShieldCheck,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
 import {
   Dialog,
@@ -100,6 +106,93 @@ function AutomationRoute() {
 
 type Kind = "rank_refresh" | "auto_publish" | "auto_tag" | "alert_scan";
 
+type PresetId =
+  | "prompt_generation"
+  | "content_writing"
+  | "post_scheduling"
+  | "image_geotag"
+  | "system_audit"
+  | "rank_refresh"
+  | "alert_scan";
+
+const PRESETS: Record<
+  PresetId,
+  {
+    label: string;
+    description: string;
+    icon: typeof Zap;
+    tone: string;
+    kind: Kind;
+    mode: string;
+    cron: string;
+  }
+> = {
+  prompt_generation: {
+    label: "Auto prompt generation",
+    description: "Generate on-brand prompts for upcoming posts using recent activity.",
+    icon: Sparkles,
+    tone: "bg-fuchsia-500/15 text-fuchsia-400",
+    kind: "auto_publish",
+    mode: "prompt_generation",
+    cron: "0 8 * * *",
+  },
+  content_writing: {
+    label: "Content writing",
+    description: "Draft captions and long-form content from your prompts and keywords.",
+    icon: FileText,
+    tone: "bg-violet-500/15 text-violet-400",
+    kind: "auto_publish",
+    mode: "content_writing",
+    cron: "0 9 * * *",
+  },
+  post_scheduling: {
+    label: "Post scheduling",
+    description: "Publish scheduled drafts as their time arrives.",
+    icon: CalendarClock,
+    tone: "bg-sky-500/15 text-sky-400",
+    kind: "auto_publish",
+    mode: "schedule",
+    cron: "*/15 * * * *",
+  },
+  image_geotag: {
+    label: "Image geo-tagging",
+    description: "Tag new uploads with venue location and matching keywords.",
+    icon: MapPin,
+    tone: "bg-emerald-500/15 text-emerald-400",
+    kind: "auto_tag",
+    mode: "geo_tag",
+    cron: "0 2 * * *",
+  },
+  system_audit: {
+    label: "System audit",
+    description: "Sweep listings, tags and integrations for issues and drift.",
+    icon: ShieldCheck,
+    tone: "bg-amber-500/15 text-amber-400",
+    kind: "alert_scan",
+    mode: "audit",
+    cron: "0 6 * * *",
+  },
+  rank_refresh: {
+    label: "Rank refresh",
+    description: "Re-check tracked keywords across your rank source on a schedule.",
+    icon: Target,
+    tone: "bg-rose-500/15 text-rose-400",
+    kind: "rank_refresh",
+    mode: "default",
+    cron: "0 */6 * * *",
+  },
+  alert_scan: {
+    label: "Rank alert scan",
+    description: "Review rank alerts and notify on threshold breaches.",
+    icon: Bell,
+    tone: "bg-indigo-500/15 text-indigo-400",
+    kind: "alert_scan",
+    mode: "alert",
+    cron: "0 8 * * *",
+  },
+};
+
+// Back-compat: map DB kind → visual meta so existing rows still render nicely.
 const KIND_META: Record<
   Kind,
   { label: string; description: string; icon: typeof Zap; tone: string; cron: string }
@@ -108,31 +201,52 @@ const KIND_META: Record<
     label: "Rank refresh",
     description: "Re-check tracked keywords across your rank source on a schedule.",
     icon: Target,
-    tone: "bg-rose-500/15 text-rose-500",
+    tone: "bg-rose-500/15 text-rose-400",
     cron: "0 */6 * * *",
   },
   auto_publish: {
     label: "Auto-publish scheduled posts",
     description: "Publish drafts whose scheduled time has arrived.",
-    icon: PenSquare,
-    tone: "bg-violet-500/15 text-violet-500",
+    icon: CalendarClock,
+    tone: "bg-sky-500/15 text-sky-400",
     cron: "*/15 * * * *",
   },
   auto_tag: {
     label: "Auto-tag new images",
     description: "Sweep untagged uploads and assign the best matching keywords.",
     icon: MapPin,
-    tone: "bg-emerald-500/15 text-emerald-500",
+    tone: "bg-emerald-500/15 text-emerald-400",
     cron: "0 2 * * *",
   },
   alert_scan: {
     label: "Rank alert scan",
     description: "Review rank alerts and notify on threshold breaches.",
     icon: Bell,
-    tone: "bg-sky-500/15 text-sky-500",
+    tone: "bg-indigo-500/15 text-indigo-400",
     cron: "0 8 * * *",
   },
 };
+
+type Frequency = "daily" | "weekly" | "interval" | "custom";
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+function buildCron(opts: {
+  frequency: Frequency;
+  hour: number;
+  minute: number;
+  weekday: number;
+  intervalMinutes: number;
+  custom: string;
+}): string {
+  const { frequency, hour, minute, weekday, intervalMinutes, custom } = opts;
+  if (frequency === "custom") return custom.trim() || "0 * * * *";
+  if (frequency === "interval") {
+    const m = Math.max(1, Math.min(59, intervalMinutes));
+    return `*/${m} * * * *`;
+  }
+  if (frequency === "weekly") return `${minute} ${hour} * * ${weekday}`;
+  return `${minute} ${hour} * * *`; // daily
+}
 
 function AutomationPage() {
   const qc = useQueryClient();
@@ -158,22 +272,34 @@ function AutomationPage() {
   };
 
   const createMut = useMutation({
-    mutationFn: (kind: Kind) =>
-      createFn({
+    mutationFn: (p: {
+      preset: PresetId;
+      name: string;
+      cron: string;
+      config: Record<string, unknown>;
+    }) => {
+      const meta = PRESETS[p.preset];
+      return createFn({
         data: {
-          name: KIND_META[kind].label,
-          kind,
-          cron: KIND_META[kind].cron,
-          config: {},
+          name: p.name || meta.label,
+          kind: meta.kind,
+          cron: p.cron,
+          config: { preset: p.preset, mode: meta.mode, ...p.config },
           enabled: true,
         },
-      }),
+      });
+    },
     onSuccess: () => {
-      toast.success("Automation added.");
+      toast.success("Workflow added.");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // Quick-add from preset grid (uses preset defaults).
+  const quickAdd = (preset: PresetId) =>
+    createMut.mutate({ preset, name: PRESETS[preset].label, cron: PRESETS[preset].cron, config: {} });
+
 
   const toggleMut = useMutation({
     mutationFn: (p: { id: string; enabled: boolean }) =>
@@ -219,7 +345,7 @@ function AutomationPage() {
   };
 
   const [addOpen, setAddOpen] = useState(false);
-  const [addKind, setAddKind] = useState<Kind | "">("");
+  const [addPreset, setAddPreset] = useState<PresetId | "">("");
   const [editing, setEditing] = useState<{ id: string; name: string; cron: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
@@ -236,20 +362,20 @@ function AutomationPage() {
               <Zap className="h-3 w-3" /> Automation
             </div>
             <h1 className="font-display text-4xl leading-tight tracking-tight">
-              Workflows & rules
+              Workflows
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              Scheduled workflows backed by <code className="rounded bg-muted px-1">pg_cron</code>.
-              Toggle any automation on and it runs on its cron; use “Run now” to trigger immediately.
+              Automate prompt generation, content writing, post scheduling, image geo-tagging and system audits.
+              Every workflow runs on its own schedule; use “Run now” to trigger immediately.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <StatChip label="Automations" value={stats.total} />
+            <StatChip label="Workflows" value={stats.total} />
             <StatChip label="Active" value={stats.active} tone="primary" />
             <StatChip label="Errors" value={stats.errors} tone={stats.errors ? "danger" : undefined} />
             <button
               onClick={() => {
-                setAddKind("");
+                setAddPreset("");
                 setAddOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110"
@@ -259,44 +385,36 @@ function AutomationPage() {
           </div>
         </header>
 
-        {/* Available kinds */}
+        {/* Available workflow presets */}
         <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="font-display text-lg tracking-tight">Add automation</h2>
+              <h2 className="font-display text-lg tracking-tight">Add a workflow</h2>
               <p className="text-xs text-muted-foreground">
-                Choose a specialist workflow — each one runs on its own schedule.
+                Quick-add a preset with its defaults, or open “Add New Workflow” for full scheduling options.
               </p>
             </div>
             <span className="rounded-full bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {Object.keys(KIND_META).length} kinds
+              {Object.keys(PRESETS).length} presets
             </span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {(Object.keys(KIND_META) as Kind[]).map((kind) => {
-              const meta = KIND_META[kind];
+            {(Object.keys(PRESETS) as PresetId[]).map((pid) => {
+              const meta = PRESETS[pid];
               const Icon = meta.icon;
-              const installed = items.some((a) => a.kind === kind);
               return (
                 <div
-                  key={kind}
+                  key={pid}
                   className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-gradient-to-b from-card/90 to-card/50 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
                 >
                   <div className="flex items-start gap-3">
                     <span
-                      className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl ${meta.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]`}
+                      className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl ${meta.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]`}
                     >
                       <Icon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-medium">{meta.label}</h3>
-                        {installed && (
-                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-                            Installed
-                          </span>
-                        )}
-                      </div>
+                      <h3 className="truncate font-medium">{meta.label}</h3>
                       <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
                     </div>
                   </div>
@@ -304,13 +422,24 @@ function AutomationPage() {
                     <Clock className="h-3 w-3" />
                     <code className="rounded bg-muted px-1">{meta.cron}</code>
                   </div>
-                  <button
-                    onClick={() => createMut.mutate(kind)}
-                    disabled={createMut.isPending}
-                    className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add
-                  </button>
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setAddPreset(pid);
+                        setAddOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                    >
+                      Configure
+                    </button>
+                    <button
+                      onClick={() => quickAdd(pid)}
+                      disabled={createMut.isPending}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -471,59 +600,15 @@ function AutomationPage() {
         </section>
 
 
-      <Dialog open={addOpen} onOpenChange={setAddOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Add new workflow</DialogTitle>
-            <DialogDescription>
-              Choose a task to automate. Each workflow runs on its own schedule.
-            </DialogDescription>
-          </DialogHeader>
-          <div className="py-2">
-            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
-              Automation type
-            </label>
-            <Select value={addKind} onValueChange={(v) => setAddKind(v as Kind)}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select a workflow…" />
-              </SelectTrigger>
-              <SelectContent>
-                {(Object.keys(KIND_META) as Kind[]).map((k) => (
-                  <SelectItem key={k} value={k}>
-                    {KIND_META[k].label}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-            {addKind && (
-              <p className="mt-2 text-xs text-muted-foreground">
-                {KIND_META[addKind as Kind].description}{" "}
-                <code className="rounded bg-muted px-1">{KIND_META[addKind as Kind].cron}</code>
-              </p>
-            )}
-          </div>
-          <DialogFooter>
-            <button
-              onClick={() => setAddOpen(false)}
-              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={!addKind || createMut.isPending}
-              onClick={() => {
-                if (!addKind) return;
-                createMut.mutate(addKind as Kind, {
-                  onSuccess: () => setAddOpen(false),
-                });
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-            >
-              <Plus className="h-3.5 w-3.5" /> Create workflow
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      <AddWorkflowDialog
+        open={addOpen}
+        onOpenChange={setAddOpen}
+        initialPreset={addPreset}
+        submitting={createMut.isPending}
+        onSubmit={(payload) =>
+          createMut.mutate(payload, { onSuccess: () => setAddOpen(false) })
+        }
+      />
 
       <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
         <DialogContent>
@@ -650,5 +735,296 @@ function SkeletonRow() {
         <div key={i} className="h-14 animate-pulse rounded-xl bg-muted/50" />
       ))}
     </div>
+  );
+}
+
+function AddWorkflowDialog({
+  open,
+  onOpenChange,
+  initialPreset,
+  submitting,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  initialPreset: PresetId | "";
+  submitting: boolean;
+  onSubmit: (p: {
+    preset: PresetId;
+    name: string;
+    cron: string;
+    config: Record<string, unknown>;
+  }) => void;
+}) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [preset, setPreset] = useState<PresetId | "">(initialPreset);
+  const [name, setName] = useState("");
+  const [frequency, setFrequency] = useState<Frequency>("daily");
+  const [hour, setHour] = useState(9);
+  const [minute, setMinute] = useState(0);
+  const [weekday, setWeekday] = useState(1);
+  const [intervalMinutes, setIntervalMinutes] = useState(15);
+  const [custom, setCustom] = useState("0 * * * *");
+
+  // Reset internal state when the dialog opens with a (possibly new) preset.
+  useMemo(() => {
+    if (open) {
+      setPreset(initialPreset);
+      setStep(initialPreset ? 2 : 1);
+      if (initialPreset) {
+        const p = PRESETS[initialPreset];
+        setName(p.label);
+        setCustom(p.cron);
+      } else {
+        setName("");
+      }
+      setFrequency("daily");
+      setHour(9);
+      setMinute(0);
+      setWeekday(1);
+      setIntervalMinutes(15);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialPreset]);
+
+  const cron = buildCron({ frequency, hour, minute, weekday, intervalMinutes, custom });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Add new workflow</DialogTitle>
+          <DialogDescription>
+            {step === 1
+              ? "Pick what this workflow should automate."
+              : "Name your workflow and choose when it should run."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {step === 1 && (
+          <div className="grid max-h-[420px] gap-2 overflow-y-auto py-1 sm:grid-cols-2">
+            {(Object.keys(PRESETS) as PresetId[]).map((pid) => {
+              const meta = PRESETS[pid];
+              const Icon = meta.icon;
+              const active = preset === pid;
+              return (
+                <button
+                  key={pid}
+                  onClick={() => {
+                    setPreset(pid);
+                    setName(meta.label);
+                    setCustom(meta.cron);
+                  }}
+                  className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
+                    active
+                      ? "border-primary/60 bg-primary/5"
+                      : "border-border/60 hover:border-primary/40 hover:bg-accent/40"
+                  }`}
+                >
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${meta.tone}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{meta.label}</div>
+                    <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                      {meta.description}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 2 && preset && (
+          <div className="space-y-5 py-1">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Workflow name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={PRESETS[preset].label}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                Schedule
+              </label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(
+                  [
+                    { id: "daily", label: "Daily" },
+                    { id: "weekly", label: "Weekly" },
+                    { id: "interval", label: "Interval" },
+                    { id: "custom", label: "Custom" },
+                  ] as { id: Frequency; label: string }[]
+                ).map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFrequency(f.id)}
+                    className={`rounded-md border px-3 py-2 text-xs font-medium transition ${
+                      frequency === f.id
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {(frequency === "daily" || frequency === "weekly") && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[11px] text-muted-foreground">Hour (0–23)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={hour}
+                        onChange={(e) => setHour(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] text-muted-foreground">Minute (0–59)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={minute}
+                        onChange={(e) => setMinute(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {frequency === "weekly" && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">Day of week</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WEEKDAYS.map((d, i) => (
+                        <button
+                          key={d}
+                          onClick={() => setWeekday(i)}
+                          className={`rounded-md border px-2.5 py-1.5 text-[11px] font-medium ${
+                            weekday === i
+                              ? "border-primary/60 bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {frequency === "interval" && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">
+                      Every N minutes (1–59)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={59}
+                      value={intervalMinutes}
+                      onChange={(e) =>
+                        setIntervalMinutes(Math.max(1, Math.min(59, Number(e.target.value) || 1)))
+                      }
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                )}
+
+                {frequency === "custom" && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">
+                      Cron expression (5 fields)
+                    </label>
+                    <input
+                      value={custom}
+                      onChange={(e) => setCustom(e.target.value)}
+                      placeholder="0 */6 * * *"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>, <code>0 */6 * * *</code>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                Effective cron: <code className="rounded bg-muted px-1 font-mono">{cron}</code>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="flex-row justify-between sm:justify-between">
+          <div>
+            {step === 2 && (
+              <button
+                onClick={() => setStep(1)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Back
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            {step === 1 ? (
+              <button
+                disabled={!preset}
+                onClick={() => {
+                  if (!preset) return;
+                  setStep(2);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <button
+                disabled={!preset || !name.trim() || submitting}
+                onClick={() => {
+                  if (!preset) return;
+                  onSubmit({
+                    preset,
+                    name: name.trim(),
+                    cron,
+                    config: {
+                      frequency,
+                      ...(frequency === "daily" && { hour, minute }),
+                      ...(frequency === "weekly" && { hour, minute, weekday }),
+                      ...(frequency === "interval" && { intervalMinutes }),
+                    },
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Create workflow
+              </button>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
   );
 }
