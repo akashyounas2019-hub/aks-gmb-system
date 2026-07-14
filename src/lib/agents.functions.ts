@@ -682,9 +682,32 @@ export const resumeTask = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Read current start/pause to shift start forward by paused duration.
+    const { data: prev } = await supabase
+      .from("agent_tasks")
+      .select("started_at, paused_at, progress")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const now = Date.now();
+    let newStarted: string | null = prev?.started_at ?? null;
+    if (prev?.started_at && prev?.paused_at) {
+      const shift = now - new Date(prev.paused_at).getTime();
+      if (shift > 0) newStarted = new Date(new Date(prev.started_at).getTime() + shift).toISOString();
+    } else if (!newStarted) {
+      newStarted = new Date(now).toISOString();
+    }
+    const { eta_at, eta_confidence } = computeEta(newStarted, prev?.progress ?? 0);
+
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "running" })
+      .update({
+        status: "running",
+        started_at: newStarted,
+        paused_at: null,
+        eta_at,
+        eta_confidence,
+      })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "paused")
