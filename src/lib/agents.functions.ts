@@ -71,6 +71,30 @@ async function getLeaderId(supabase: any, userId: string): Promise<string | null
   return data?.id ?? null;
 }
 
+/**
+ * Compute ETA + confidence from an effective start time and current progress.
+ * `started_at` is the wall-clock start adjusted forward across any paused
+ * intervals, so `now - started_at` = active working time.
+ */
+function computeEta(
+  startedAtIso: string | null | undefined,
+  progress: number,
+): { eta_at: string | null; eta_confidence: string | null } {
+  if (!startedAtIso) return { eta_at: null, eta_confidence: null };
+  const p = Math.max(0, Math.min(100, progress ?? 0));
+  if (p <= 0 || p >= 100) return { eta_at: null, eta_confidence: null };
+  const startedMs = new Date(startedAtIso).getTime();
+  if (!Number.isFinite(startedMs)) return { eta_at: null, eta_confidence: null };
+  const elapsedMs = Math.max(1000, Date.now() - startedMs);
+  const remainingMs = (elapsedMs / p) * (100 - p);
+  const etaMs = Date.now() + remainingMs;
+  // Confidence: needs both enough progress AND enough elapsed time to trust the rate.
+  let confidence: "low" | "medium" | "high" = "low";
+  if (p >= 50 && elapsedMs >= 120_000) confidence = "high";
+  else if (p >= 20 && elapsedMs >= 45_000) confidence = "medium";
+  return { eta_at: new Date(etaMs).toISOString(), eta_confidence: confidence };
+}
+
 const DEFAULT_AGENTS = [
   {
     slug: "leader",
@@ -292,7 +316,7 @@ export const approveTask = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "running" })
+      .update({ status: "running", started_at: new Date().toISOString(), paused_at: null, eta_at: null, eta_confidence: "low" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .select("agent_id, title")
@@ -432,6 +456,7 @@ export const assignTask = createServerFn({ method: "POST" })
     if (aErr) throw aErr;
     if (!agent) throw new Error("Agent not found.");
 
+    const nowIso = new Date().toISOString();
     const { data: task, error } = await supabase
       .from("agent_tasks")
       .insert({
@@ -443,6 +468,8 @@ export const assignTask = createServerFn({ method: "POST" })
         priority: data.priority,
         progress: data.major ? 0 : 5,
         relative_time: "just now",
+        started_at: data.major ? null : nowIso,
+        eta_confidence: data.major ? null : "low",
       })
       .select("*")
       .single();
@@ -526,12 +553,52 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const patch: { progress?: number; status?: string } = {};
+    // Load current task to compute ETA off its started_at
+    const { data: current } = await supabase
+      .from("agent_tasks")
+      .select("started_at, progress, status")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const patch: {
+      progress?: number;
+      status?: string;
+      started_at?: string | null;
+      eta_at?: string | null;
+      eta_confidence?: string | null;
+    } = {};
     if (data.progress !== undefined) patch.progress = data.progress;
     if (data.status !== undefined) patch.status = data.status;
     if (data.progress !== undefined && data.progress >= 100 && data.status === undefined) {
       patch.status = "done";
     }
+
+    // If moving to running and no started_at yet, stamp one now.
+    const nextStatus = patch.status ?? current?.status;
+    let effectiveStartedAt = current?.started_at ?? null;
+    if (nextStatus === "running" && !effectiveStartedAt) {
+      effectiveStartedAt = new Date().toISOString();
+      patch.started_at = effectiveStartedAt;
+    }
+
+    const nextProgress = data.progress ?? current?.progress ?? 0;
+    if (nextStatus === "running") {
+      const { eta_at, eta_confidence } = computeEta(effectiveStartedAt, nextProgress);
+      patch.eta_at = eta_at;
+      patch.eta_confidence = eta_confidence;
+    } else if (
+      nextStatus === "done" ||
+      nextStatus === "cancelled" ||
+      nextStatus === "paused"
+    ) {
+      // Keep eta stable while paused? Simpler: clear on non-running terminal transitions.
+      if (nextStatus !== "paused") {
+        patch.eta_at = null;
+        patch.eta_confidence = null;
+      }
+    }
+
     const { data: updated, error } = await supabase
       .from("agent_tasks")
       .update(patch)
@@ -586,7 +653,7 @@ export const pauseTask = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "paused" })
+      .update({ status: "paused", paused_at: new Date().toISOString(), eta_at: null })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "running")
@@ -615,9 +682,32 @@ export const resumeTask = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    // Read current start/pause to shift start forward by paused duration.
+    const { data: prev } = await supabase
+      .from("agent_tasks")
+      .select("started_at, paused_at, progress")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    const now = Date.now();
+    let newStarted: string | null = prev?.started_at ?? null;
+    if (prev?.started_at && prev?.paused_at) {
+      const shift = now - new Date(prev.paused_at).getTime();
+      if (shift > 0) newStarted = new Date(new Date(prev.started_at).getTime() + shift).toISOString();
+    } else if (!newStarted) {
+      newStarted = new Date(now).toISOString();
+    }
+    const { eta_at, eta_confidence } = computeEta(newStarted, prev?.progress ?? 0);
+
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "running" })
+      .update({
+        status: "running",
+        started_at: newStarted,
+        paused_at: null,
+        eta_at,
+        eta_confidence,
+      })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "paused")

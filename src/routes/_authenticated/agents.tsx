@@ -100,6 +100,10 @@ type TaskRow = {
   relative_time: string;
   progress?: number;
   priority?: string;
+  started_at?: string | null;
+  paused_at?: string | null;
+  eta_at?: string | null;
+  eta_confidence?: string | null;
 };
 
 const iconMap: Record<string, typeof Bot> = {
@@ -135,6 +139,21 @@ const statusMeta: Record<AgentStatus, { label: string; dot: string; ring: string
 
 function normalizeStatus(s: string): AgentStatus {
   return (["online", "working", "idle", "review"].includes(s) ? s : "idle") as AgentStatus;
+}
+
+function formatEta(etaIso: string | null | undefined): string {
+  if (!etaIso) return "ETA — gathering data…";
+  const target = new Date(etaIso).getTime();
+  if (!Number.isFinite(target)) return "ETA — gathering data…";
+  const diff = target - Date.now();
+  if (diff <= 0) return "ETA any moment";
+  const s = Math.round(diff / 1000);
+  if (s < 60) return `ETA in ~${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `ETA in ~${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm ? `ETA in ~${h}h ${rm}m` : `ETA in ~${h}h`;
 }
 
 function timelineMeta(type: string): { color: string; Icon: typeof Bot; label: string } {
@@ -600,6 +619,26 @@ function AgentsPage() {
                             </div>
                           </div>
                           <span className={`shrink-0 text-xs font-semibold tabular-nums ${paused ? "text-amber-400" : "text-primary"}`}>{p}%</span>
+                        </div>
+                        <div className="mb-1.5 flex items-center justify-between gap-2 text-[10.5px] text-muted-foreground">
+                          <span className="inline-flex items-center gap-1">
+                            <Clock className="h-3 w-3" />
+                            {paused ? "Paused — ETA on hold" : formatEta(t.eta_at)}
+                          </span>
+                          {!paused && t.eta_confidence && (
+                            <span
+                              className={`rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide ${
+                                t.eta_confidence === "high"
+                                  ? "bg-emerald-400/15 text-emerald-400"
+                                  : t.eta_confidence === "medium"
+                                    ? "bg-sky-400/15 text-sky-400"
+                                    : "bg-muted text-muted-foreground"
+                              }`}
+                              title="Confidence in the ETA, based on progress and elapsed time"
+                            >
+                              {t.eta_confidence} confidence
+                            </span>
+                          )}
                         </div>
                         <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/60">
                           <div
