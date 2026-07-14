@@ -19,7 +19,7 @@ import {
   Settings as SettingsIcon,
   ShieldCheck,
   Target,
-  
+  BookOpen,
   User,
   Users,
 } from "lucide-react";
