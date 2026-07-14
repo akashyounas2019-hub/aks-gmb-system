@@ -69,6 +69,19 @@ type KFolder = {
 
 type ScopeKey = "all" | "unfiled" | string; // folder id or special
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+const BULK_KEYWORD_ACTION_CHUNK_SIZE = 100;
+
+function normalizeKeywordIds(ids: string[]): string[] {
+  return Array.from(new Set(ids.filter((id): id is string => typeof id === "string" && UUID_RE.test(id))));
+}
+
+function chunkArray<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 const FOLDER_COLORS = [
   { name: "Slate", value: "#64748b" },
   { name: "Blue", value: "#3b82f6" },
@@ -400,27 +413,73 @@ function KeywordsPage() {
 
   // ---------- Keyword ops ----------
   async function moveKeywords(ids: string[], targetFolderId: string | null) {
-    if (!ids.length) return;
-    const { error } = await supabase
-      .from("keywords")
-      .update({ folder_id: targetFolderId })
-      .in("id", ids);
-    if (error) return toast.error(error.message);
-    toast.success(
-      `Moved ${ids.length} keyword${ids.length === 1 ? "" : "s"} to ${
+    const keywordIds = normalizeKeywordIds(ids);
+    if (!keywordIds.length) return toast.error("No valid keywords selected");
+    if (targetFolderId && !UUID_RE.test(targetFolderId)) return toast.error("Invalid folder selected");
+
+    const chunks = chunkArray(keywordIds, BULK_KEYWORD_ACTION_CHUNK_SIZE);
+    const toastId =
+      keywordIds.length > BULK_KEYWORD_ACTION_CHUNK_SIZE
+        ? toast.loading(`Moving ${keywordIds.length.toLocaleString()} keywords…`)
+        : undefined;
+
+    for (const [index, chunk] of chunks.entries()) {
+      const { error } = await supabase
+        .from("keywords")
+        .update({ folder_id: targetFolderId })
+        .in("id", chunk);
+      if (error) {
+        console.error("[moveKeywords] Failed keyword move batch", {
+          batch: index + 1,
+          batchSize: chunk.length,
+          targetFolderId,
+          message: error.message,
+          details: error.details,
+        });
+        if (toastId) toast.dismiss(toastId);
+        return toast.error(error.message);
+      }
+    }
+
+    const message =
+      `Moved ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"} to ${
         targetFolderId ? folderById.get(targetFolderId)?.name ?? "folder" : "Unfiled"
-      }`,
-    );
+      }`;
+    if (toastId) toast.success(message, { id: toastId });
+    else toast.success(message);
     setSelection(new Set());
     await load();
   }
 
   async function deleteKeywords(ids: string[]) {
-    if (!ids.length) return;
-    if (!confirm(`Delete ${ids.length} keyword${ids.length === 1 ? "" : "s"}?`)) return;
-    const { error } = await supabase.from("keywords").delete().in("id", ids);
-    if (error) return toast.error(error.message);
-    setRows((r) => r.filter((k) => !ids.includes(k.id)));
+    const keywordIds = normalizeKeywordIds(ids);
+    if (!keywordIds.length) return toast.error("No valid keywords selected");
+    if (!confirm(`Delete ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"}?`)) return;
+
+    const chunks = chunkArray(keywordIds, BULK_KEYWORD_ACTION_CHUNK_SIZE);
+    const toastId =
+      keywordIds.length > BULK_KEYWORD_ACTION_CHUNK_SIZE
+        ? toast.loading(`Deleting ${keywordIds.length.toLocaleString()} keywords…`)
+        : undefined;
+
+    for (const [index, chunk] of chunks.entries()) {
+      const { error } = await supabase.from("keywords").delete().in("id", chunk);
+      if (error) {
+        console.error("[deleteKeywords] Failed keyword delete batch", {
+          batch: index + 1,
+          batchSize: chunk.length,
+          message: error.message,
+          details: error.details,
+        });
+        if (toastId) toast.dismiss(toastId);
+        return toast.error(error.message);
+      }
+    }
+
+    const removedIds = new Set(keywordIds);
+    if (toastId) toast.success(`Deleted ${keywordIds.length.toLocaleString()} keywords`, { id: toastId });
+    else toast.success(`Deleted ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"}`);
+    setRows((r) => r.filter((k) => !removedIds.has(k.id)));
     setSelection(new Set());
   }
 
