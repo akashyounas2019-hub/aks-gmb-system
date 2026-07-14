@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { Building2, MapPin, Phone, Mail, Globe, Loader2 } from "lucide-react";
 import { getPreferences } from "@/lib/user-preferences.functions";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { geocodeAddress } from "@/lib/geocode.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/business-profile")({
   component: BusinessProfilePage,
@@ -42,6 +43,7 @@ const TIERS = Array.from({ length: 8 }, (_, i) => ({
 
 function BusinessProfilePage() {
   const load = useServerFn(getPreferences);
+  const geocode = useServerFn(geocodeAddress);
   const [general, setGeneral] = useState<General | null>(null);
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
@@ -85,27 +87,19 @@ function BusinessProfilePage() {
       .join(", ");
   }, [general]);
 
-  // Geocode the business address to a lat/lng using the Google Maps JS API
-  // once the browser key is loaded. Uses window.google.maps.Geocoder.
+  // Geocode the business address server-side via the Google Maps connector
+  // gateway. The browser key is not authorized for the Geocoding API, so we
+  // must not use window.google.maps.Geocoder here.
   useEffect(() => {
     if (!fullAddress) return;
     let cancelled = false;
     setGeocoding(true);
     setGeoError(null);
-    loadGoogleMaps()
-      .then((google) => {
+    geocode({ data: { address: fullAddress } })
+      .then((res) => {
         if (cancelled) return;
-        const geocoder = new google.maps.Geocoder();
-        geocoder.geocode({ address: fullAddress }, (results, status) => {
-          if (cancelled) return;
-          setGeocoding(false);
-          if (status === "OK" && results && results[0]) {
-            const loc = results[0].geometry.location;
-            setCoords({ lat: loc.lat(), lng: loc.lng() });
-          } else {
-            setGeoError(`Could not resolve address (${status}).`);
-          }
-        });
+        setGeocoding(false);
+        setCoords({ lat: res.lat, lng: res.lng });
       })
       .catch((e: Error) => {
         if (cancelled) return;
@@ -115,7 +109,8 @@ function BusinessProfilePage() {
     return () => {
       cancelled = true;
     };
-  }, [fullAddress]);
+  }, [fullAddress, geocode]);
+
 
   // Render map once coords resolve.
   useEffect(() => {
