@@ -822,12 +822,12 @@ export function AiImagePromptGenerator() {
           )}
         </div>
       </section>
-
+      </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Right: saved prompts (pinned + favorites)                           */}
+      {/* Below: saved prompts (pinned + favorites) — full width               */}
       {/* ------------------------------------------------------------------ */}
-      <aside className="rounded-2xl border border-border bg-card p-3">
+      <aside className="rounded-2xl border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Saved prompts
