@@ -64,6 +64,32 @@ type ImageRow = {
 
 const PREVIEW_COUNT = 8;
 
+function isHttpsUrl(v: string): boolean {
+  const s = v.trim();
+  if (!s) return false;
+  try {
+    const u = new URL(s);
+    return (
+      (u.protocol === "https:" || u.protocol === "http:") &&
+      !!u.hostname &&
+      u.hostname.includes(".")
+    );
+  } catch {
+    return false;
+  }
+}
+
+function isValidPhone(v: string): boolean {
+  const digits = v.replace(/[^\d]/g, "");
+  return digits.length >= 7 && digits.length <= 15;
+}
+
+function joinPath(base: string, path: string): string {
+  const b = base.trim().replace(/\/+$/, "");
+  if (!b) return "";
+  return `${b}${path.startsWith("/") ? path : `/${path}`}`;
+}
+
 
 export function PostGeneratorPage({
   defaultPlatform,
