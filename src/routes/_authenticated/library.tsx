@@ -291,17 +291,33 @@ function LibraryPage() {
   }
 
   async function moveImagesToFolder(imageIds: string[], folderId: string | null) {
-    if (imageIds.length === 0) return;
-    const { error } = await supabase
-      .from("images")
-      .update({ folder_id: folderId } as never)
-      .in("id", imageIds);
-    if (error) return toast.error(error.message);
+    // Defensive: strip null/undefined/non-uuid ids that can slip in when
+    // selections span mixed tabs or stale rows — those cause PostgREST 400.
+    const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    const cleanIds = Array.from(new Set(imageIds.filter((id): id is string => typeof id === "string" && uuidRe.test(id))));
+    if (cleanIds.length === 0) {
+      toast.error("No valid images selected.");
+      return;
+    }
+    // Chunk to keep the URL length safe for very large selections.
+    const chunk = 200;
+    for (let i = 0; i < cleanIds.length; i += chunk) {
+      const slice = cleanIds.slice(i, i + chunk);
+      const { error } = await supabase
+        .from("images")
+        .update({ folder_id: folderId } as never)
+        .in("id", slice);
+      if (error) {
+        console.error("[moveImagesToFolder]", { folderId, slice, error });
+        return toast.error(`Move failed: ${error.message}`);
+      }
+    }
     toast.success(
       folderId
-        ? `Moved ${imageIds.length} image${imageIds.length === 1 ? "" : "s"} to folder.`
-        : `Removed ${imageIds.length} image${imageIds.length === 1 ? "" : "s"} from folder.`,
+        ? `Moved ${cleanIds.length} image${cleanIds.length === 1 ? "" : "s"} to folder.`
+        : `Removed ${cleanIds.length} image${cleanIds.length === 1 ? "" : "s"} from folder.`,
     );
+    clearSelection();
     qc.invalidateQueries({ queryKey: ["library"] });
   }
 
