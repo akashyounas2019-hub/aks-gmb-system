@@ -70,18 +70,6 @@ const FILTERS: FilterDef[] = [
     ],
   },
   {
-    id: "lighting",
-    label: "Lighting",
-    options: [
-      "Golden hour",
-      "Soft studio",
-      "Dramatic rim",
-      "Overcast diffuse",
-      "Neon night",
-      "Backlit sunrise",
-    ],
-  },
-  {
     id: "mood",
     label: "Mood",
     options: [
@@ -91,17 +79,6 @@ const FILTERS: FilterDef[] = [
       "Calm & premium",
       "Playful",
       "Bold",
-    ],
-  },
-  {
-    id: "camera",
-    label: "Camera",
-    options: [
-      "35mm lens",
-      "85mm portrait",
-      "Wide-angle 24mm",
-      "Macro close-up",
-      "Drone top-down",
     ],
   },
   {
@@ -493,7 +470,8 @@ export function AiImagePromptGenerator() {
   }, [templates, folders]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
+    <div className="flex flex-col gap-6">
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
       {/* ------------------------------------------------------------------ */}
       {/* Left: Folders / template tree                                       */}
       {/* ------------------------------------------------------------------ */}
@@ -844,12 +822,12 @@ export function AiImagePromptGenerator() {
           )}
         </div>
       </section>
-
+      </div>
 
       {/* ------------------------------------------------------------------ */}
-      {/* Right: saved prompts (pinned + favorites)                           */}
+      {/* Below: saved prompts (pinned + favorites) — full width               */}
       {/* ------------------------------------------------------------------ */}
-      <aside className="rounded-2xl border border-border bg-card p-3">
+      <aside className="rounded-2xl border border-border bg-card p-4">
         <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Saved prompts
@@ -871,31 +849,33 @@ export function AiImagePromptGenerator() {
         </div>
 
 
-        <div className="mb-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search prompts"
-            className="w-full bg-transparent text-xs outline-none"
-          />
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search prompts"
+              className="w-full bg-transparent text-xs outline-none"
+            />
+          </div>
+          <div className="flex gap-1">
+            {(["all", "pinned", "favorites"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setFilterView(v)}
+                className={`rounded-md border px-2.5 py-1 text-[11px] capitalize transition ${
+                  filterView === v
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="mb-2 flex gap-1">
-          {(["all", "pinned", "favorites"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setFilterView(v)}
-              className={`flex-1 rounded-md border px-2 py-1 text-[11px] capitalize transition ${
-                filterView === v
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/40"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
 
         {visiblePrompts.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-4 text-center text-[11px] text-muted-foreground">
@@ -904,7 +884,7 @@ export function AiImagePromptGenerator() {
               : "Nothing here — try a different filter."}
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visiblePrompts.map((p) => (
               <li
                 key={p.id}
