@@ -316,7 +316,7 @@ export const approveTask = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "running" })
+      .update({ status: "running", started_at: new Date().toISOString(), paused_at: null, eta_at: null, eta_confidence: "low" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .select("agent_id, title")
