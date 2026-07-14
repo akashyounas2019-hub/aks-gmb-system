@@ -257,7 +257,7 @@ function AgentsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-notifications"] }),
   });
 
-
+  const teamStats = useMemo(() => {
     if (agents.length === 0) return { avgLoad: 0, active: 0, success: 0, total: 0 };
     const avgLoad = Math.round(agents.reduce((s, a) => s + a.load, 0) / agents.length);
     const active = agents.filter((a) => a.status === "working" || a.status === "online").length;
