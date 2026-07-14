@@ -821,6 +821,55 @@ export function PostGeneratorPage({
     toast.success("Copied");
   }
 
+  // Symbol picker — cleaning-oriented glyphs grouped for quick browsing.
+  const SYMBOL_GROUPS: Array<{ label: string; symbols: string[] }> = [
+    {
+      label: "Check marks & bullets",
+      symbols: ["✅", "✔️", "☑️", "•", "◦", "▪️", "▫️", "→", "➡️", "»", "★", "☆"],
+    },
+    {
+      label: "Stars & ratings",
+      symbols: ["⭐", "🌟", "✨", "💫", "🏆", "🥇", "👑", "💯", "🔥", "❤️"],
+    },
+    {
+      label: "Location & contact",
+      symbols: ["📍", "🗺️", "🏠", "🏢", "📞", "☎️", "📱", "✉️", "🌐", "🕒", "📅", "💬"],
+    },
+    {
+      label: "What's included",
+      symbols: ["🧾", "📋", "📝", "🎁", "💼", "🛠️", "🧰", "🔧", "⚙️", "🔑", "🎯", "✔"],
+    },
+    {
+      label: "Cleaning & sparkle",
+      symbols: ["🧼", "🧽", "🧴", "🧻", "🧹", "🪣", "🚿", "🛁", "🛋️", "🛏️", "🪟", "💧", "🫧", "🌿"],
+    },
+    {
+      label: "Trust & offers",
+      symbols: ["💰", "💵", "🏷️", "🎉", "🎊", "⚡", "⏰", "⏳", "🚀", "🛡️", "🔒", "✅"],
+    },
+  ];
+
+  function insertSymbol(sym: string) {
+    const el = captionRef.current;
+    if (!el) {
+      setCaption((prev) => prev + sym);
+      return;
+    }
+    const start = el.selectionStart ?? caption.length;
+    const end = el.selectionEnd ?? caption.length;
+    const next = caption.slice(0, start) + sym + caption.slice(end);
+    setCaption(next);
+    // Restore caret after React re-render.
+    requestAnimationFrame(() => {
+      if (!captionRef.current) return;
+      const pos = start + sym.length;
+      captionRef.current.focus();
+      captionRef.current.setSelectionRange(pos, pos);
+    });
+  }
+
+
+
   return (
     <div
       className="w-full py-6 pl-6 md:py-10 md:pl-10"
