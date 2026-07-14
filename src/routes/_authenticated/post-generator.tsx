@@ -358,9 +358,19 @@ export function PostGeneratorPage({
       if (importOpen && importPopupRef.current && !importPopupRef.current.contains(target)) {
         setImportOpen(false);
       }
+      if (
+        symbolsOpen &&
+        symbolsPopupRef.current &&
+        !symbolsPopupRef.current.contains(target)
+      ) {
+        setSymbolsOpen(false);
+      }
     }
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape" && templatesOpen) setTemplatesOpen(false);
+      if (e.key === "Escape") {
+        if (templatesOpen) setTemplatesOpen(false);
+        if (symbolsOpen) setSymbolsOpen(false);
+      }
     }
     document.addEventListener("mousedown", onDown);
     document.addEventListener("keydown", onKey);
@@ -368,7 +378,7 @@ export function PostGeneratorPage({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [importOpen, templatesOpen]);
+  }, [importOpen, templatesOpen, symbolsOpen]);
 
 
   // Load business phone + website from settings for CTA auto-populate.
