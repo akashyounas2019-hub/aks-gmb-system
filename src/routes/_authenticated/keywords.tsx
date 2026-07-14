@@ -1369,6 +1369,7 @@ function KeywordsPage() {
             value={intentFilter}
             onChange={(e) => setIntentFilter(e.target.value)}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+            title="Search intent"
           >
             <option value="all">All intents</option>
             {availableIntents.map((i) => (
@@ -1377,18 +1378,63 @@ function KeywordsPage() {
               </option>
             ))}
           </select>
-          <input
-            value={minVolume}
-            onChange={(e) => setMinVolume(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="Min volume"
-            className="w-32 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-          />
-          {(search || intentFilter !== "all" || minVolume) && (
+          <select
+            value={clusterFilter}
+            onChange={(e) => setClusterFilter(e.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm max-w-[180px]"
+            title="Cluster / topic"
+          >
+            <option value="all">All clusters</option>
+            {availableClusters.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Search volume range">
+            <Target className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={minVolume}
+              onChange={(e) => setMinVolume(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Min vol"
+              className="w-20 bg-transparent px-1 text-sm outline-none"
+            />
+            <span className="text-muted-foreground">–</span>
+            <input
+              value={maxVolume}
+              onChange={(e) => setMaxVolume(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Max"
+              className="w-20 bg-transparent px-1 text-sm outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Max keyword difficulty (0-100)">
+            <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={maxKD}
+              onChange={(e) => setMaxKD(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Max KD"
+              className="w-16 bg-transparent px-1 text-sm outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Max cost per click ($)">
+            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={maxCPC}
+              onChange={(e) => setMaxCPC(e.target.value.replace(/[^0-9.]/g, ""))}
+              placeholder="Max CPC"
+              className="w-16 bg-transparent px-1 text-sm outline-none"
+            />
+          </div>
+          {(search || intentFilter !== "all" || clusterFilter !== "all" || minVolume || maxVolume || maxKD || maxCPC) && (
             <button
               onClick={() => {
                 setSearch("");
                 setIntentFilter("all");
+                setClusterFilter("all");
                 setMinVolume("");
+                setMaxVolume("");
+                setMaxKD("");
+                setMaxCPC("");
               }}
               className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:border-primary/50"
             >
@@ -1396,6 +1442,7 @@ function KeywordsPage() {
             </button>
           )}
         </div>
+
 
         {/* Bulk action bar */}
         {selection.size > 0 && (
