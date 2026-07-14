@@ -41,9 +41,11 @@ import {
 } from "@/components/ui/select";
 import {
   approveTask as approveTaskFn,
+  assignTask as assignTaskFn,
   createAgent as createAgentFn,
   getAgentsState,
   rejectTask as rejectTaskFn,
+  updateTaskProgress as updateTaskProgressFn,
 } from "@/lib/agents.functions";
 
 export const Route = createFileRoute("/_authenticated/agents")({
