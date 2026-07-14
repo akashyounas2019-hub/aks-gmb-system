@@ -239,7 +239,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </Link>
           <div className="hidden md:block" />
           <div className="flex items-center gap-2">
-            {pathname.startsWith("/social/facebook") && (
+            {location.pathname.startsWith("/social/facebook") && (
               <Link
                 to="/resources"
                 className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium hover:bg-accent"
