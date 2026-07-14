@@ -487,11 +487,25 @@ function AgentsPage() {
           </div>
 
           <div className="flex flex-col items-center">
-            {/* Leader with pulsing halo */}
-            <div className="relative">
-              <span className="pointer-events-none absolute inset-0 -m-3 rounded-3xl bg-primary/10 blur-2xl" aria-hidden />
-              <span className="pointer-events-none absolute inset-0 -m-1 animate-ping rounded-2xl border border-primary/30" aria-hidden />
-              <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => openAgent(leader.id)} size="lg" />
+            {/* Leader — same size as sub-agents, uniquely styled */}
+            <div
+              className="grid w-full justify-center"
+              style={{ gridTemplateColumns: `repeat(${Math.max(subAgents.length, 1)}, minmax(0, 1fr))` }}
+            >
+              <div
+                className="relative col-start-1"
+                style={{ gridColumn: `1 / -1`, display: "flex", justifyContent: "center" }}
+              >
+                <div className="relative w-full max-w-[240px]">
+                  <span className="pointer-events-none absolute inset-0 -m-2 rounded-3xl bg-gradient-to-br from-amber-400/20 via-primary/10 to-transparent blur-2xl" aria-hidden />
+                  <span className="pointer-events-none absolute inset-0 -m-0.5 animate-ping rounded-2xl border border-amber-300/30" aria-hidden />
+                  <AgentNode
+                    agent={leader}
+                    selected={(selected?.id ?? leader.id) === leader.id}
+                    onClick={() => openAgent(leader.id)}
+                  />
+                </div>
+              </div>
             </div>
 
             {/* Wired connections — curved paths with animated data flow */}
