@@ -1004,6 +1004,18 @@ function AgentsPage() {
       </div>
 
 
+      <MetricDrilldownDialog
+        metric={metricDetail}
+        onClose={() => setMetricDetail(null)}
+        agents={agents}
+        tasks={tasks}
+        stats={teamStats}
+        onOpenAgent={(id) => {
+          setMetricDetail(null);
+          openAgent(id);
+        }}
+      />
+
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
           <DialogHeader>
