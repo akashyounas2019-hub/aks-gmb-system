@@ -509,6 +509,7 @@ function AutomationPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      </div>
     </div>
   );
 }
