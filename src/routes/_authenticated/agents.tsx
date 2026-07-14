@@ -504,7 +504,7 @@ function AgentsPage() {
               style={{ gridTemplateColumns: `repeat(${Math.max(subAgents.length, 1)}, minmax(0, 1fr))` }}
             >
               {subAgents.map((a) => (
-                <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => setSelectedId(a.id)} />
+                <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => openAgent(a.id)} />
               ))}
             </div>
           </div>
