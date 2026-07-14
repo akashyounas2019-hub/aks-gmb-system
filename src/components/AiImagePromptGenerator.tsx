@@ -800,12 +800,3 @@ export function AiImagePromptGenerator() {
     </div>
   );
 }
-
-              </li>
-            ))}
-          </ul>
-        )}
-      </aside>
-    </div>
-  );
-}
