@@ -886,7 +886,7 @@ function KeywordsPage() {
                   <h3 className="font-semibold">Import from file</h3>
                 </div>
                 <p className="mt-1 text-sm text-muted-foreground">
-                  Bulk import from Semrush exports or any CSV / TSV / TXT / JSON.
+                  Bulk import from Semrush exports or any CSV / TSV / TXT / JSON / XLSX.
                 </p>
                 <input
                   ref={semrushRef}
@@ -902,7 +902,7 @@ function KeywordsPage() {
                 <input
                   ref={genericRef}
                   type="file"
-                  accept=".csv,.tsv,.txt,.json,text/*,application/json"
+                  accept=".csv,.tsv,.txt,.json,.xlsx,.xls,text/*,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
                   className="hidden"
                   onChange={(e) => {
                     const f = e.target.files?.[0];
@@ -921,7 +921,7 @@ function KeywordsPage() {
                     onClick={() => genericRef.current?.click()}
                     className="flex items-center gap-2 rounded-lg border border-border bg-background px-3 py-2 text-sm hover:border-primary/50"
                   >
-                    <FileUp className="h-4 w-4" /> CSV / TSV / TXT / JSON
+                    <FileUp className="h-4 w-4" /> CSV / TSV / TXT / JSON / XLSX
                   </button>
                 </div>
               </div>
@@ -1054,14 +1054,7 @@ function KeywordsPage() {
                 )}
               </div>
 
-              <button
-                onClick={() =>
-                  setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
-                }
-                className="inline-flex shrink-0 items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
-              >
-                <FolderPlus className="h-3.5 w-3.5" /> New folder
-              </button>
+              {/* Duplicate "New folder" removed — the header action button below is the single source of truth. */}
             </div>
           </div>
           )}
@@ -1134,10 +1127,11 @@ function KeywordsPage() {
                 </button>
               )}
             </div>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-              {currentFolder?.description ??
-                "Organize your keyword universe into folders — one folder per service, campaign, or client theme. Import from Semrush or any CSV, then research and cluster from a single workspace."}
-            </p>
+            {currentFolder?.description ? (
+              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                {currentFolder.description}
+              </p>
+            ) : null}
           </div>
 
           <div className="flex flex-wrap gap-2">
@@ -1155,7 +1149,7 @@ function KeywordsPage() {
             <input
               ref={genericRef}
               type="file"
-              accept=".csv,.tsv,.txt,.json,text/*,application/json"
+              accept=".csv,.tsv,.txt,.json,.xlsx,.xls,text/*,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
               className="hidden"
               onChange={(e) => {
                 const f = e.target.files?.[0];
@@ -1192,7 +1186,7 @@ function KeywordsPage() {
                   <Upload className="mr-2 h-4 w-4" /> Semrush CSV
                 </DropdownMenuItem>
                 <DropdownMenuItem onClick={() => genericRef.current?.click()}>
-                  <FileUp className="mr-2 h-4 w-4" /> CSV / TSV / TXT / JSON
+                  <FileUp className="mr-2 h-4 w-4" /> CSV / TSV / TXT / JSON / XLSX
                 </DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
