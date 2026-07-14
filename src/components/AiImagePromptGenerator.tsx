@@ -376,29 +376,68 @@ export function AiImagePromptGenerator() {
       toast.error("Pick a template or write a custom body first");
       return;
     }
-    const count = Math.max(3, Math.min(5, variationCount || 4));
+    const count = Math.max(1, variationCount || 4);
+
+    // Deduplicate filter list (defensive against duplicate FILTERS entries)
+    const uniqueFilters = FILTERS.filter(
+      (f, i, arr) => arr.findIndex((x) => x.id === f.id) === i,
+    );
+
+    // Independently shuffle each unlocked filter's options so each variation
+    // pulls a distinct option per filter until the pool is exhausted, then
+    // cycles. This guarantees the applied filters actually change between
+    // variations rather than randomly collapsing to duplicates.
+    const shuffle = <T,>(arr: T[]): T[] => {
+      const a = [...arr];
+      for (let i = a.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [a[i], a[j]] = [a[j], a[i]];
+      }
+      return a;
+    };
+    const unlocked = uniqueFilters.filter((f) => !selections[f.id]);
+    const shuffled: Record<string, string[]> = {};
+    for (const f of unlocked) shuffled[f.id] = shuffle(f.options);
+
+    // Distinguishing descriptors used to guarantee uniqueness when the
+    // filter combination space is too small (e.g. all filters locked, or
+    // template has no filter placeholders).
+    const distinguishers = [
+      "wide establishing shot",
+      "tight close-up crop",
+      "low-angle perspective",
+      "overhead flat-lay perspective",
+      "off-center rule-of-thirds composition",
+      "symmetrical centered composition",
+      "shallow depth of field",
+      "deep focus throughout",
+    ];
+
     const results: string[] = [];
     const seen = new Set<string>();
-    const maxAttempts = count * 8;
-    let attempts = 0;
-    while (results.length < count && attempts < maxAttempts) {
-      attempts++;
+    for (let i = 0; i < count; i++) {
       const varSel: Partial<Record<FilterId, string>> = { ...selections };
-      for (const f of FILTERS) {
-        // Keep user-locked filters; randomize the rest for variety
-        if (!selections[f.id]) {
-          const opts = f.options;
-          varSel[f.id] = opts[Math.floor(Math.random() * opts.length)];
+      for (const f of unlocked) {
+        const opts = shuffled[f.id];
+        varSel[f.id] = opts[i % opts.length];
+      }
+      let text = fillTemplate(bodyToUse, subject, varSel);
+      if (seen.has(text)) {
+        // Append a distinguishing detail to force a distinct output while
+        // still reflecting the locked filters.
+        const detail = distinguishers[i % distinguishers.length];
+        let candidate = `${text} ${detail}.`;
+        let n = 1;
+        while (seen.has(candidate)) {
+          candidate = `${text} ${detail} (v${++n}).`;
         }
+        text = candidate;
       }
-      const text = fillTemplate(bodyToUse, subject, varSel);
-      if (!seen.has(text)) {
-        seen.add(text);
-        results.push(text);
-      }
+      seen.add(text);
+      results.push(text);
     }
     setVariations(results);
-    toast.success(`Generated ${results.length} variations`);
+    toast.success(`Generated ${results.length} unique variations`);
   }
 
   function saveVariation(text: string) {
