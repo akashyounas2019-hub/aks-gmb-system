@@ -169,6 +169,7 @@ export function PostStoragePanel() {
       createdAt: now,
       updatedAt: now,
       tags: [],
+      imageIds: [],
     };
     setPosts((prev) => [draft, ...prev]);
     setSelectedPost(draft);
