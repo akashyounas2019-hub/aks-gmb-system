@@ -145,6 +145,28 @@ type ScheduledTask = {
 
 type MemoryFact = { id: string; text: string; at: string };
 
+// Main skill: required, 3–200 chars, letters/numbers/spaces and a small set of punctuation.
+const MAIN_SKILL_MIN = 3;
+const MAIN_SKILL_MAX = 200;
+const MAIN_SKILL_ALLOWED = /^[\p{L}\p{N}\s,.'&/()+\-–—]+$/u;
+
+const mainSkillSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Main skill is required." })
+  .min(MAIN_SKILL_MIN, { message: `Use at least ${MAIN_SKILL_MIN} characters.` })
+  .max(MAIN_SKILL_MAX, { message: `Keep it under ${MAIN_SKILL_MAX} characters.` })
+  .regex(MAIN_SKILL_ALLOWED, {
+    message: "Only letters, numbers, spaces, and , . ' & / ( ) + - are allowed.",
+  })
+  .refine((v) => !/(.)\1{4,}/.test(v), { message: "Avoid long runs of the same character." })
+  .refine((v) => /[\p{L}\p{N}]/u.test(v), { message: "Must contain at least one letter or number." });
+
+function validateMainSkill(value: string): string | null {
+  const result = mainSkillSchema.safeParse(value);
+  return result.success ? null : (result.error.issues[0]?.message ?? "Invalid value.");
+}
+
 function AgentProfilePage() {
   const { agentId } = Route.useParams();
   const navigate = useNavigate();
