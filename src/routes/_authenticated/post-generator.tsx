@@ -1110,13 +1110,20 @@ export function PostGeneratorPage({
               </div>
               <div className="grid grid-cols-2 gap-3 text-sm">
                 <label className="block">
-                  <span className="text-xs text-muted-foreground">Action</span>
+                  <span className="text-xs text-muted-foreground">Post type / action</span>
                   <select
                     value={ctaType}
-                    onChange={(e) => setCtaType(e.target.value as typeof ctaType)}
+                    onChange={(e) => {
+                      setCtaType(e.target.value as typeof ctaType);
+                      // Reset "manually edited" flags so auto-suggest kicks in
+                      // for the newly selected action.
+                      setCtaUrl("");
+                      setPhoneManuallyEdited(false);
+                      setCtaManuallyEdited(false);
+                    }}
                     className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
                   >
-                    <option value="none">None</option>
+                    <option value="none">No button</option>
                     <option value="book">Book</option>
                     <option value="order">Order online</option>
                     <option value="shop">Buy</option>
@@ -1129,8 +1136,10 @@ export function PostGeneratorPage({
                   <label className="block">
                     <span className="flex items-center justify-between text-xs text-muted-foreground">
                       <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
-                      {ctaType === "call" && businessPhone && ctaUrl === businessPhone && !phoneManuallyEdited && (
-                        <span className="text-[10px] uppercase tracking-widest text-primary">From settings</span>
+                      {ctaSuggestion && ctaUrl === ctaSuggestion && (
+                        <span className="text-[10px] uppercase tracking-widest text-primary">
+                          From settings
+                        </span>
                       )}
                     </span>
                     <div className="relative mt-1">
@@ -1139,14 +1148,16 @@ export function PostGeneratorPage({
                         onChange={(e) => {
                           setCtaUrl(e.target.value);
                           if (ctaType === "call") setPhoneManuallyEdited(true);
+                          else setCtaManuallyEdited(true);
                         }}
-                        placeholder={
-                          ctaType === "call"
-                            ? "+971 50 000 0000"
-                            : "https://example.com/book"
-                        }
-                        inputMode={ctaType === "call" ? "tel" : "url"}
-                        className="w-full rounded border border-border bg-background p-2 pr-9 text-sm"
+                        placeholder={ctaMeta.placeholder}
+                        inputMode={ctaMeta.inputMode}
+                        aria-invalid={!!ctaError}
+                        className={`w-full rounded border bg-background p-2 pr-9 text-sm outline-none transition ${
+                          ctaError
+                            ? "border-red-500 focus:ring-2 focus:ring-red-500/40"
+                            : "border-border focus:ring-2 focus:ring-primary/40"
+                        }`}
                       />
                       {ctaUrl && (
                         <button
@@ -1154,6 +1165,7 @@ export function PostGeneratorPage({
                           onClick={() => {
                             setCtaUrl("");
                             if (ctaType === "call") setPhoneManuallyEdited(true);
+                            else setCtaManuallyEdited(true);
                           }}
                           aria-label="Clear"
                           className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -1165,9 +1177,57 @@ export function PostGeneratorPage({
                   </label>
                 )}
               </div>
+
+              {ctaType !== "none" && (
+                <div className="mt-2 space-y-1.5">
+                  <p className="text-[11px] text-muted-foreground">{ctaMeta.help}</p>
+                  {/* Live button preview */}
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                      Button
+                    </span>
+                    <span
+                      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium ${
+                        ctaError || ctaMissing
+                          ? "border-red-500/40 bg-red-500/10 text-red-500"
+                          : "border-primary/40 bg-primary/10 text-primary"
+                      }`}
+                    >
+                      {ctaMeta.buttonLabel}
+                    </span>
+                  </div>
+                  {/* Suggestion chips */}
+                  {ctaSuggestion && ctaUrl !== ctaSuggestion && (
+                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
+                      <span className="text-[11px] text-muted-foreground">Suggested:</span>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setCtaUrl(ctaSuggestion);
+                          if (ctaType === "call") setPhoneManuallyEdited(false);
+                          else setCtaManuallyEdited(false);
+                        }}
+                        className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/20"
+                      >
+                        {ctaSuggestion}
+                      </button>
+                    </div>
+                  )}
+                  {/* Inline validation */}
+                  {ctaError && (
+                    <p className="text-[11px] font-medium text-red-500">{ctaError}</p>
+                  )}
+                  {!ctaError && ctaMissing && (
+                    <p className="text-[11px] text-amber-500">
+                      Add a {ctaType === "call" ? "phone number" : "URL"} — the button will be
+                      hidden until you do.
+                    </p>
+                  )}
+                </div>
+              )}
               <p className="mt-2 text-[11px] text-muted-foreground">
-                These map to Google Business Profile's standard actions (Book,
-                Order, Buy, Learn more, Sign up, Call).
+                These map to Google Business Profile's standard action buttons (Book, Order, Buy,
+                Learn more, Sign up, Call).
               </p>
             </section>
           )}
