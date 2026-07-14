@@ -106,6 +106,10 @@ type TaskRow = {
   eta_confidence?: string | null;
 };
 
+import agentLeaderImg from "@/assets/agent-leader.png";
+import agentWriterImg from "@/assets/agent-writer.png";
+import agentAnalyzerImg from "@/assets/agent-analyzer.png";
+
 const iconMap: Record<string, typeof Bot> = {
   crown: Crown,
   pen: PenSquare,
@@ -113,6 +117,13 @@ const iconMap: Record<string, typeof Bot> = {
   shield: ShieldCheck,
   trending: TrendingUp,
   bot: Bot,
+};
+
+// Refined portrait for select agents — falls back to the lucide icon when absent.
+const agentImageMap: Record<string, string> = {
+  crown: agentLeaderImg,
+  pen: agentWriterImg,
+  chart: agentAnalyzerImg,
 };
 
 const roleToIconKey: Record<string, string> = {
