@@ -310,19 +310,44 @@ function AgentProfilePage() {
     <div className="min-h-[calc(100vh-4rem)] w-full">
       <div className="mx-auto w-full max-w-[1200px] p-6">
         {/* Breadcrumb + back */}
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <button
-            onClick={() => navigate({ to: "/agents" })}
-            className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-foreground/30 hover:text-foreground"
-          >
-            <ArrowLeft className="h-3.5 w-3.5" /> Back to {meta.headline.split(" ")[0]}
-          </button>
-          <div className="text-xs text-muted-foreground">
-            Console <span className="mx-1.5 text-border">/</span> {meta.headline}
-            <span className="mx-1.5 text-border">/</span>
-            <span className="text-foreground">{agent.name}</span>
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                if (typeof window !== "undefined" && window.history.length > 1) {
+                  window.history.back();
+                } else {
+                  navigate({ to: "/agents" });
+                }
+              }}
+              aria-label="Go back to previous page"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-foreground/30 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+            >
+              <ArrowLeft className="h-3.5 w-3.5" /> Back
+            </button>
+            <Link
+              to="/agents"
+              className="inline-flex items-center gap-1.5 rounded-md border border-border/60 bg-card/60 px-3 py-1.5 text-xs text-muted-foreground transition hover:border-foreground/30 hover:text-foreground focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40"
+            >
+              Agent graph
+            </Link>
           </div>
+          <nav aria-label="Breadcrumb" className="min-w-0 text-xs text-muted-foreground">
+            <ol className="flex flex-wrap items-center gap-1.5">
+              <li>
+                <Link to="/" className="transition hover:text-foreground">Console</Link>
+              </li>
+              <li aria-hidden className="text-border">/</li>
+              <li>
+                <Link to="/agents" className="transition hover:text-foreground">{meta.headline}</Link>
+              </li>
+              <li aria-hidden className="text-border">/</li>
+              <li aria-current="page" className="max-w-[220px] truncate font-medium text-foreground">{agent.name}</li>
+            </ol>
+          </nav>
         </div>
+
 
         {/* Header card */}
         <header
