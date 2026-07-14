@@ -170,6 +170,20 @@ function AgentsPage() {
   const subAgents = leader ? agents.filter((a) => a.parent_id === leader.id) : [];
   const selected = agents.find((a) => a.id === selectedId) ?? leader;
   const pendingApprovals = tasks.filter((t) => t.status === "awaiting_approval");
+  const isLeaderSelected = !!selected && selected.parent_id === null;
+
+  const eventsKey = ["task-events", isLeaderSelected ? "team" : selected?.id ?? "team"] as const;
+  const { data: events = [] } = useQuery({
+    queryKey: [...eventsKey],
+    queryFn: () =>
+      fetchEvents({
+        data:
+          isLeaderSelected || !selected
+            ? { limit: 100 }
+            : { agent_id: selected.id, limit: 100 },
+      }),
+    enabled: !!selected,
+  });
 
   const teamStats = useMemo(() => {
     if (agents.length === 0) return { avgLoad: 0, active: 0, success: 0, total: 0 };
