@@ -487,9 +487,18 @@ function AgentProfilePage() {
                     Reset
                   </button>
                   <button
-                    onClick={() => saveMut.mutate()}
-                    disabled={!dirty || saveMut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
+                    onClick={() => {
+                      setSkillTouched(true);
+                      if (skillError) {
+                        toast.error(skillError);
+                        document.getElementById("agent-main-skill")?.focus();
+                        return;
+                      }
+                      saveMut.mutate();
+                    }}
+                    disabled={!dirty || saveMut.isPending || !!skillError}
+                    title={skillError ?? undefined}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-cyan-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {saveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                     Save changes
