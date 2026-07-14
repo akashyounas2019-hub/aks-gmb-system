@@ -469,39 +469,69 @@ function AgentsPage() {
         </section>
 
 
-        <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
+        <section className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="font-display text-lg tracking-tight">Team hierarchy</h2>
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">Live topology</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              Live topology
+            </span>
           </div>
 
           <div className="flex flex-col items-center">
-            <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => openAgent(leader.id)} size="lg" />
+            {/* Leader with pulsing halo */}
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-0 -m-3 rounded-3xl bg-primary/10 blur-2xl" aria-hidden />
+              <span className="pointer-events-none absolute inset-0 -m-1 animate-ping rounded-2xl border border-primary/30" aria-hidden />
+              <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => openAgent(leader.id)} size="lg" />
+            </div>
 
-            <div className="relative h-14 w-full">
-              <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+            {/* Wired connections — curved paths with animated data flow */}
+            <div className="relative h-24 w-full">
+              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="wire" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.8" />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
                   </linearGradient>
                 </defs>
-                <line x1="50%" y1="0" x2="50%" y2="50%" stroke="url(#wire)" strokeWidth="2" />
-                {subAgents.length > 0 && (
-                  <line
-                    x1={`${100 / (subAgents.length * 2)}%`}
-                    y1="50%"
-                    x2={`${100 - 100 / (subAgents.length * 2)}%`}
-                    y2="50%"
-                    stroke="url(#wire)"
-                    strokeWidth="2"
-                  />
-                )}
                 {subAgents.map((_, i) => {
-                  const x = `${(100 / subAgents.length) * (i + 0.5)}%`;
-                  return <line key={i} x1={x} y1="50%" x2={x} y2="100%" stroke="url(#wire)" strokeWidth="2" />;
+                  const step = 100 / Math.max(subAgents.length, 1);
+                  const x = step * (i + 0.5);
+                  const d = `M 50 0 C 50 55, ${x} 45, ${x} 100`;
+                  return (
+                    <g key={i}>
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="url(#wire)"
+                        strokeWidth="0.6"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                        opacity="0.85"
+                      />
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                        strokeDasharray="2 8"
+                        opacity="0.9"
+                        style={{
+                          animation: `agent-wire-flow 2.4s linear infinite`,
+                          animationDelay: `${i * 0.35}s`,
+                        }}
+                      />
+                    </g>
+                  );
                 })}
               </svg>
+              <style>{`@keyframes agent-wire-flow { to { stroke-dashoffset: -20; } }`}</style>
             </div>
 
             <div
