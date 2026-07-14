@@ -731,6 +731,7 @@ function PostCard({
 function PostEditor({
   post,
   folders,
+  imageMap,
   onClose,
   onUpdate,
   onDelete,
@@ -738,11 +739,18 @@ function PostEditor({
 }: {
   post: Post;
   folders: Folder[];
+  imageMap: ImageMap;
   onClose: () => void;
   onUpdate: (patch: Partial<Post>) => void;
   onDelete: () => void;
   onSchedule: () => void;
 }) {
+  const attached = (post.imageIds ?? [])
+    .map((id) => imageMap[id])
+    .filter((r): r is ImageRow => Boolean(r));
+  function removeImage(id: string) {
+    onUpdate({ imageIds: (post.imageIds ?? []).filter((x) => x !== id) });
+  }
   return (
     <aside className="w-96 shrink-0 border-l border-border bg-card/40 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
