@@ -849,31 +849,33 @@ export function AiImagePromptGenerator() {
         </div>
 
 
-        <div className="mb-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
-          <Search className="h-3.5 w-3.5 text-muted-foreground" />
-          <input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search prompts"
-            className="w-full bg-transparent text-xs outline-none"
-          />
+        <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+          <div className="flex flex-1 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
+            <Search className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Search prompts"
+              className="w-full bg-transparent text-xs outline-none"
+            />
+          </div>
+          <div className="flex gap-1">
+            {(["all", "pinned", "favorites"] as const).map((v) => (
+              <button
+                key={v}
+                onClick={() => setFilterView(v)}
+                className={`rounded-md border px-2.5 py-1 text-[11px] capitalize transition ${
+                  filterView === v
+                    ? "border-primary bg-primary/15 text-primary"
+                    : "border-border text-muted-foreground hover:border-primary/40"
+                }`}
+              >
+                {v}
+              </button>
+            ))}
+          </div>
         </div>
 
-        <div className="mb-2 flex gap-1">
-          {(["all", "pinned", "favorites"] as const).map((v) => (
-            <button
-              key={v}
-              onClick={() => setFilterView(v)}
-              className={`flex-1 rounded-md border px-2 py-1 text-[11px] capitalize transition ${
-                filterView === v
-                  ? "border-primary bg-primary/15 text-primary"
-                  : "border-border text-muted-foreground hover:border-primary/40"
-              }`}
-            >
-              {v}
-            </button>
-          ))}
-        </div>
 
         {visiblePrompts.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-4 text-center text-[11px] text-muted-foreground">
