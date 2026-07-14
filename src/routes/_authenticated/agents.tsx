@@ -48,6 +48,7 @@ import {
   cancelTask as cancelTaskFn,
   createAgent as createAgentFn,
   getAgentsState,
+  getTaskEvents as getTaskEventsFn,
   pauseTask as pauseTaskFn,
   rejectTask as rejectTaskFn,
   resumeTask as resumeTaskFn,
