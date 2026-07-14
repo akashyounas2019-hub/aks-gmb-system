@@ -882,7 +882,7 @@ export function AiImagePromptGenerator() {
               : "Nothing here — try a different filter."}
           </div>
         ) : (
-          <ul className="space-y-2">
+          <ul className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {visiblePrompts.map((p) => (
               <li
                 key={p.id}
