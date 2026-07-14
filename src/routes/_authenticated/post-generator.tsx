@@ -1462,6 +1462,7 @@ export function PostGeneratorPage({
                 )}
               </div>
               <textarea
+                ref={captionRef}
                 value={caption}
                 onChange={(e) => setCaption(e.target.value)}
                 onScroll={(e) => {
@@ -1482,6 +1483,75 @@ export function PostGeneratorPage({
                 }`}
               />
             </div>
+
+            {/* Symbol picker */}
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="relative" ref={symbolsPopupRef}>
+                <button
+                  type="button"
+                  onClick={() => setSymbolsOpen((v) => !v)}
+                  aria-expanded={symbolsOpen}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  <Smile className="h-3.5 w-3.5" /> Insert symbol
+                  <ChevronDown className="h-3 w-3 opacity-70" />
+                </button>
+                {symbolsOpen && (
+                  <div className="absolute left-0 top-full z-30 mt-1.5 max-h-[420px] w-[360px] overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-xl">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-xs font-semibold">Insert a symbol</div>
+                      <button
+                        onClick={() => setSymbolsOpen(false)}
+                        aria-label="Close"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {SYMBOL_GROUPS.map((g) => (
+                        <div key={g.label}>
+                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            {g.label}
+                          </div>
+                          <div className="grid grid-cols-8 gap-1">
+                            {g.symbols.map((s, i) => (
+                              <button
+                                key={`${g.label}-${i}`}
+                                type="button"
+                                onClick={() => insertSymbol(s)}
+                                title={`Insert ${s}`}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-lg leading-none transition hover:border-primary/40 hover:bg-primary/10"
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[10px] text-muted-foreground">
+                      Click a symbol to insert at the cursor position.
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* Quick-insert row — most-used cleaning glyphs */}
+              <div className="hidden items-center gap-1 sm:flex">
+                {["✅", "⭐", "📍", "🧼", "✨", "🔥"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => insertSymbol(s)}
+                    title={`Insert ${s}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-base leading-none hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <div className="mt-2 flex items-center justify-between text-xs">
               <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
                 {captionOver
