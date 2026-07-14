@@ -2450,6 +2450,7 @@ export function PostGeneratorPage({
                       </div>
                     )}
                   </div>
+                  )}
                 </main>
               </div>
             </div>
