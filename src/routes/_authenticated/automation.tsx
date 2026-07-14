@@ -737,3 +737,295 @@ function SkeletonRow() {
     </div>
   );
 }
+
+function AddWorkflowDialog({
+  open,
+  onOpenChange,
+  initialPreset,
+  submitting,
+  onSubmit,
+}: {
+  open: boolean;
+  onOpenChange: (o: boolean) => void;
+  initialPreset: PresetId | "";
+  submitting: boolean;
+  onSubmit: (p: {
+    preset: PresetId;
+    name: string;
+    cron: string;
+    config: Record<string, unknown>;
+  }) => void;
+}) {
+  const [step, setStep] = useState<1 | 2>(1);
+  const [preset, setPreset] = useState<PresetId | "">(initialPreset);
+  const [name, setName] = useState("");
+  const [frequency, setFrequency] = useState<Frequency>("daily");
+  const [hour, setHour] = useState(9);
+  const [minute, setMinute] = useState(0);
+  const [weekday, setWeekday] = useState(1);
+  const [intervalMinutes, setIntervalMinutes] = useState(15);
+  const [custom, setCustom] = useState("0 * * * *");
+
+  // Reset internal state when the dialog opens with a (possibly new) preset.
+  useMemo(() => {
+    if (open) {
+      setPreset(initialPreset);
+      setStep(initialPreset ? 2 : 1);
+      if (initialPreset) {
+        const p = PRESETS[initialPreset];
+        setName(p.label);
+        setCustom(p.cron);
+      } else {
+        setName("");
+      }
+      setFrequency("daily");
+      setHour(9);
+      setMinute(0);
+      setWeekday(1);
+      setIntervalMinutes(15);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [open, initialPreset]);
+
+  const cron = buildCron({ frequency, hour, minute, weekday, intervalMinutes, custom });
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>Add new workflow</DialogTitle>
+          <DialogDescription>
+            {step === 1
+              ? "Pick what this workflow should automate."
+              : "Name your workflow and choose when it should run."}
+          </DialogDescription>
+        </DialogHeader>
+
+        {step === 1 && (
+          <div className="grid max-h-[420px] gap-2 overflow-y-auto py-1 sm:grid-cols-2">
+            {(Object.keys(PRESETS) as PresetId[]).map((pid) => {
+              const meta = PRESETS[pid];
+              const Icon = meta.icon;
+              const active = preset === pid;
+              return (
+                <button
+                  key={pid}
+                  onClick={() => {
+                    setPreset(pid);
+                    setName(meta.label);
+                    setCustom(meta.cron);
+                  }}
+                  className={`flex items-start gap-3 rounded-xl border p-3 text-left transition ${
+                    active
+                      ? "border-primary/60 bg-primary/5"
+                      : "border-border/60 hover:border-primary/40 hover:bg-accent/40"
+                  }`}
+                >
+                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${meta.tone}`}>
+                    <Icon className="h-5 w-5" />
+                  </span>
+                  <div className="min-w-0">
+                    <div className="truncate text-sm font-medium">{meta.label}</div>
+                    <div className="mt-0.5 line-clamp-2 text-[11px] text-muted-foreground">
+                      {meta.description}
+                    </div>
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
+        {step === 2 && preset && (
+          <div className="space-y-5 py-1">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Workflow name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={PRESETS[preset].label}
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+
+            <div>
+              <label className="mb-2 block text-xs font-medium text-muted-foreground">
+                Schedule
+              </label>
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+                {(
+                  [
+                    { id: "daily", label: "Daily" },
+                    { id: "weekly", label: "Weekly" },
+                    { id: "interval", label: "Interval" },
+                    { id: "custom", label: "Custom" },
+                  ] as { id: Frequency; label: string }[]
+                ).map((f) => (
+                  <button
+                    key={f.id}
+                    onClick={() => setFrequency(f.id)}
+                    className={`rounded-md border px-3 py-2 text-xs font-medium transition ${
+                      frequency === f.id
+                        ? "border-primary/60 bg-primary/10 text-primary"
+                        : "border-border text-muted-foreground hover:bg-accent"
+                    }`}
+                  >
+                    {f.label}
+                  </button>
+                ))}
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {(frequency === "daily" || frequency === "weekly") && (
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className="mb-1 block text-[11px] text-muted-foreground">Hour (0–23)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={23}
+                        value={hour}
+                        onChange={(e) => setHour(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                    <div>
+                      <label className="mb-1 block text-[11px] text-muted-foreground">Minute (0–59)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={59}
+                        value={minute}
+                        onChange={(e) => setMinute(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
+                        className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {frequency === "weekly" && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">Day of week</label>
+                    <div className="flex flex-wrap gap-1.5">
+                      {WEEKDAYS.map((d, i) => (
+                        <button
+                          key={d}
+                          onClick={() => setWeekday(i)}
+                          className={`rounded-md border px-2.5 py-1.5 text-[11px] font-medium ${
+                            weekday === i
+                              ? "border-primary/60 bg-primary/10 text-primary"
+                              : "border-border text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          {d}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {frequency === "interval" && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">
+                      Every N minutes (1–59)
+                    </label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={59}
+                      value={intervalMinutes}
+                      onChange={(e) =>
+                        setIntervalMinutes(Math.max(1, Math.min(59, Number(e.target.value) || 1)))
+                      }
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                    />
+                  </div>
+                )}
+
+                {frequency === "custom" && (
+                  <div>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">
+                      Cron expression (5 fields)
+                    </label>
+                    <input
+                      value={custom}
+                      onChange={(e) => setCustom(e.target.value)}
+                      placeholder="0 */6 * * *"
+                      className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
+                    />
+                    <p className="mt-1 text-[11px] text-muted-foreground">
+                      Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>, <code>0 */6 * * *</code>
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="mt-3 flex items-center gap-2 rounded-md border border-border/60 bg-muted/30 px-3 py-2 text-[11px] text-muted-foreground">
+                <Clock className="h-3.5 w-3.5" />
+                Effective cron: <code className="rounded bg-muted px-1 font-mono">{cron}</code>
+              </div>
+            </div>
+          </div>
+        )}
+
+        <DialogFooter className="flex-row justify-between sm:justify-between">
+          <div>
+            {step === 2 && (
+              <button
+                onClick={() => setStep(1)}
+                className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+              >
+                <ChevronLeft className="h-3.5 w-3.5" /> Back
+              </button>
+            )}
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => onOpenChange(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            {step === 1 ? (
+              <button
+                disabled={!preset}
+                onClick={() => {
+                  if (!preset) return;
+                  setStep(2);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                Next <ChevronRight className="h-3.5 w-3.5" />
+              </button>
+            ) : (
+              <button
+                disabled={!preset || !name.trim() || submitting}
+                onClick={() => {
+                  if (!preset) return;
+                  onSubmit({
+                    preset,
+                    name: name.trim(),
+                    cron,
+                    config: {
+                      frequency,
+                      ...(frequency === "daily" && { hour, minute }),
+                      ...(frequency === "weekly" && { hour, minute, weekday }),
+                      ...(frequency === "interval" && { intervalMinutes }),
+                    },
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                Create workflow
+              </button>
+            )}
+          </div>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+}
