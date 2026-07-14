@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Workflow as WorkflowIcon,
   Trash2,
+  Pencil,
   Clock,
   Loader2,
 } from "lucide-react";
