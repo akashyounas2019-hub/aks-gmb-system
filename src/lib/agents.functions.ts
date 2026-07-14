@@ -407,12 +407,26 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
     if (data.progress !== undefined && data.progress >= 100 && data.status === undefined) {
       patch.status = "done";
     }
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("agent_tasks")
       .update(patch)
       .eq("id", data.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("agent_id, title, progress, status")
+      .maybeSingle();
     if (error) throw error;
+    if (updated) {
+      const isDone = updated.status === "done";
+      await logEvent(supabase, userId, {
+        agent_id: updated.agent_id,
+        task_id: data.id,
+        event_type: isDone ? "completed" : "progress",
+        message: isDone
+          ? `Completed: ${updated.title}`
+          : `Progress ${updated.progress ?? 0}% — ${updated.title}`,
+        progress: updated.progress ?? null,
+      });
+    }
     return { ok: true };
   });
 
@@ -427,7 +441,7 @@ export const pauseTask = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "running")
-      .select("agent_id")
+      .select("agent_id, title, progress")
       .maybeSingle();
     if (error) throw error;
     if (task?.agent_id) {
