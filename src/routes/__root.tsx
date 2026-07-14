@@ -107,11 +107,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
   errorComponent: ErrorComponent,
 });
 
+// Applied inline in <head> so the theme is set before first paint and there's
+// no flash of the wrong palette. Reads the same key as src/lib/theme.ts.
+const THEME_BOOT_SCRIPT = `(function(){try{var t=localStorage.getItem('app:theme')||'system';var d=t==='dark'||(t==='system'&&window.matchMedia('(prefers-color-scheme: dark)').matches);var r=document.documentElement;r.classList.toggle('dark',d);r.classList.toggle('light',!d);r.style.colorScheme=d?'dark':'light';}catch(e){}})();`;
+
 function RootShell({ children }: { children: ReactNode }) {
   return (
     <html lang="en">
       <head>
         <HeadContent />
+        <script dangerouslySetInnerHTML={{ __html: THEME_BOOT_SCRIPT }} />
       </head>
       <body>
         {children}
@@ -124,6 +129,21 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
   const router = useRouter();
+
+  // Re-apply the persisted theme on mount and keep it in sync with OS
+  // preference while the user has "system" selected.
+  useEffect(() => {
+    let cancelled = false;
+    void import("@/lib/theme").then((m) => {
+      if (cancelled) return;
+      const t = m.getStoredTheme();
+      m.applyTheme(t);
+      m.watchSystemTheme(t === "system");
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
