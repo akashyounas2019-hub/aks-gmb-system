@@ -14,6 +14,121 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_tasks: {
+        Row: {
+          agent_id: string
+          created_at: string
+          id: string
+          major: boolean
+          relative_time: string
+          status: string
+          title: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          id?: string
+          major?: boolean
+          relative_time?: string
+          status?: string
+          title: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          id?: string
+          major?: boolean
+          relative_time?: string
+          status?: string
+          title?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_tasks_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      agents: {
+        Row: {
+          created_at: string
+          glow: string
+          icon_key: string
+          id: string
+          last_activity: string
+          load: number
+          name: string
+          parent_id: string | null
+          role: string
+          scope: string
+          slug: string | null
+          sort_order: number
+          status: string
+          success_rate: number
+          tasks_today: number
+          tone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          glow?: string
+          icon_key?: string
+          id?: string
+          last_activity?: string
+          load?: number
+          name: string
+          parent_id?: string | null
+          role: string
+          scope?: string
+          slug?: string | null
+          sort_order?: number
+          status?: string
+          success_rate?: number
+          tasks_today?: number
+          tone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          glow?: string
+          icon_key?: string
+          id?: string
+          last_activity?: string
+          load?: number
+          name?: string
+          parent_id?: string | null
+          role?: string
+          scope?: string
+          slug?: string | null
+          sort_order?: number
+          status?: string
+          success_rate?: number
+          tasks_today?: number
+          tone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agents_parent_id_fkey"
+            columns: ["parent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       alert_settings: {
         Row: {
           created_at: string
