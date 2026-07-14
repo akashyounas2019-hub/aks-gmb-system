@@ -22,6 +22,7 @@ import {
   BookOpen,
   User,
   Users,
+  Bot,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -36,6 +37,7 @@ const groups: NavGroup[] = [
     label: "Workflow",
     items: [
       { to: "/automation", label: "Automation", icon: Zap },
+      { to: "/agents", label: "Agents", icon: Bot },
     ],
   },
   {

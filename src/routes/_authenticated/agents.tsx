@@ -1,0 +1,704 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useMemo, useState } from "react";
+import { toast } from "sonner";
+import {
+  Bot,
+  Crown,
+  PenSquare,
+  BarChart3,
+  ShieldCheck,
+  TrendingUp,
+  Plus,
+  Sparkles,
+  Activity,
+  CheckCircle2,
+  Clock,
+  AlertTriangle,
+  Cpu,
+  Zap,
+  ChevronRight,
+} from "lucide-react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+export const Route = createFileRoute("/_authenticated/agents")({
+  component: AgentsPage,
+  head: () => ({
+    meta: [
+      { title: "Agents — Autonomous GMB Team" },
+      {
+        name: "description",
+        content:
+          "Hierarchical AI agent team: a GMB Leader coordinates specialist sub-agents to grow your local rankings.",
+      },
+    ],
+  }),
+});
+
+type AgentStatus = "online" | "working" | "idle" | "review";
+type Agent = {
+  id: string;
+  name: string;
+  role: string;
+  scope: string;
+  icon: typeof Bot;
+  tone: string; // hex-ish tailwind class base
+  glow: string; // rgba shadow
+  status: AgentStatus;
+  load: number; // 0-100
+  tasksToday: number;
+  successRate: number;
+  parentId: string | null;
+  lastActivity: string;
+};
+
+type Task = {
+  id: string;
+  agentId: string;
+  title: string;
+  status: "queued" | "running" | "done" | "awaiting_approval";
+  createdAt: string;
+  major?: boolean;
+};
+
+const initialAgents: Agent[] = [
+  {
+    id: "leader",
+    name: "GMB Leader",
+    role: "Orchestrator",
+    scope: "Strategy · Delegation · Autonomous decisions",
+    icon: Crown,
+    tone: "from-amber-400 to-orange-500",
+    glow: "shadow-[0_0_60px_-10px_rgba(251,191,36,0.55)]",
+    status: "online",
+    load: 62,
+    tasksToday: 24,
+    successRate: 96,
+    parentId: null,
+    lastActivity: "Approved citation cleanup plan",
+  },
+  {
+    id: "writer",
+    name: "GMB Content Writer",
+    role: "Content generation",
+    scope: "Posts · Descriptions · Q&A",
+    icon: PenSquare,
+    tone: "from-violet-400 to-fuchsia-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(217,70,239,0.55)]",
+    status: "working",
+    load: 78,
+    tasksToday: 11,
+    successRate: 94,
+    parentId: "leader",
+    lastActivity: "Drafting weekly service post",
+  },
+  {
+    id: "analyzer",
+    name: "GMB Analyzer",
+    role: "Signal analysis",
+    scope: "Insights · Anomalies · Trends",
+    icon: BarChart3,
+    tone: "from-sky-400 to-cyan-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(56,189,248,0.55)]",
+    status: "online",
+    load: 41,
+    tasksToday: 7,
+    successRate: 98,
+    parentId: "leader",
+    lastActivity: "Detected CTR dip on 'plumber near me'",
+  },
+  {
+    id: "auditor",
+    name: "GMB Auditor",
+    role: "Quality & compliance",
+    scope: "Profile health · Reviews · Policy",
+    icon: ShieldCheck,
+    tone: "from-emerald-400 to-teal-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(16,185,129,0.55)]",
+    status: "idle",
+    load: 18,
+    tasksToday: 3,
+    successRate: 99,
+    parentId: "leader",
+    lastActivity: "Full profile audit clean",
+  },
+  {
+    id: "ranker",
+    name: "GMB Ranker",
+    role: "Ranking growth",
+    scope: "Grid tracking · Boost tactics",
+    icon: TrendingUp,
+    tone: "from-rose-400 to-pink-500",
+    glow: "shadow-[0_0_40px_-12px_rgba(244,63,94,0.55)]",
+    status: "review",
+    load: 55,
+    tasksToday: 9,
+    successRate: 91,
+    parentId: "leader",
+    lastActivity: "Proposed geo-grid expansion (needs approval)",
+  },
+];
+
+const initialTasks: Task[] = [
+  { id: "t1", agentId: "writer", title: "Draft this week's promo post", status: "running", createdAt: "2m ago" },
+  { id: "t2", agentId: "analyzer", title: "Investigate impression drop", status: "done", createdAt: "8m ago" },
+  { id: "t3", agentId: "ranker", title: "Expand grid to 7×7 near HQ", status: "awaiting_approval", createdAt: "12m ago", major: true },
+  { id: "t4", agentId: "auditor", title: "Review NAP consistency", status: "queued", createdAt: "20m ago" },
+  { id: "t5", agentId: "writer", title: "Reply to 3 new Q&A", status: "done", createdAt: "34m ago" },
+];
+
+const statusMeta: Record<AgentStatus, { label: string; dot: string; ring: string }> = {
+  online: { label: "Online", dot: "bg-emerald-400", ring: "ring-emerald-400/40" },
+  working: { label: "Working", dot: "bg-sky-400 animate-pulse", ring: "ring-sky-400/40" },
+  idle: { label: "Idle", dot: "bg-muted-foreground", ring: "ring-border" },
+  review: { label: "Needs review", dot: "bg-amber-400 animate-pulse", ring: "ring-amber-400/40" },
+};
+
+function AgentsPage() {
+  const [agents, setAgents] = useState<Agent[]>(initialAgents);
+  const [tasks, setTasks] = useState<Task[]>(initialTasks);
+  const [selectedId, setSelectedId] = useState<string>("leader");
+  const [addOpen, setAddOpen] = useState(false);
+  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string }>({
+    name: "",
+    role: "writer",
+    parentId: "leader",
+  });
+
+  const leader = agents.find((a) => a.parentId === null)!;
+  const subAgents = agents.filter((a) => a.parentId === leader.id);
+  const selected = agents.find((a) => a.id === selectedId) ?? leader;
+  const pendingApprovals = tasks.filter((t) => t.status === "awaiting_approval");
+
+  const teamStats = useMemo(() => {
+    const avgLoad = Math.round(agents.reduce((s, a) => s + a.load, 0) / agents.length);
+    const active = agents.filter((a) => a.status === "working" || a.status === "online").length;
+    const success = Math.round(agents.reduce((s, a) => s + a.successRate, 0) / agents.length);
+    return { avgLoad, active, success, total: agents.length };
+  }, [agents]);
+
+  function approve(id: string) {
+    setTasks((prev) => prev.map((t) => (t.id === id ? { ...t, status: "running" } : t)));
+    toast.success("Major task approved. Leader dispatching to sub-agent.");
+  }
+  function reject(id: string) {
+    setTasks((prev) => prev.filter((t) => t.id !== id));
+    toast.message("Task rejected.");
+  }
+
+  function addAgent() {
+    if (!newAgent.name.trim()) {
+      toast.error("Give the agent a name.");
+      return;
+    }
+    const iconMap: Record<string, typeof Bot> = {
+      writer: PenSquare,
+      analyzer: BarChart3,
+      auditor: ShieldCheck,
+      ranker: TrendingUp,
+      generalist: Bot,
+    };
+    const toneMap: Record<string, string> = {
+      writer: "from-violet-400 to-fuchsia-500",
+      analyzer: "from-sky-400 to-cyan-500",
+      auditor: "from-emerald-400 to-teal-500",
+      ranker: "from-rose-400 to-pink-500",
+      generalist: "from-indigo-400 to-purple-500",
+    };
+    const created: Agent = {
+      id: crypto.randomUUID(),
+      name: newAgent.name.trim(),
+      role: newAgent.role[0].toUpperCase() + newAgent.role.slice(1),
+      scope: "Custom-defined scope",
+      icon: iconMap[newAgent.role] ?? Bot,
+      tone: toneMap[newAgent.role] ?? "from-indigo-400 to-purple-500",
+      glow: "shadow-[0_0_40px_-12px_rgba(129,140,248,0.55)]",
+      status: "idle",
+      load: 5,
+      tasksToday: 0,
+      successRate: 100,
+      parentId: newAgent.parentId,
+      lastActivity: "Spawned by Leader",
+    };
+    setAgents((prev) => [...prev, created]);
+    setAddOpen(false);
+    setNewAgent({ name: "", role: "writer", parentId: "leader" });
+    toast.success(`${created.name} joined the team.`);
+  }
+
+  return (
+    <div className="relative min-h-full overflow-hidden bg-[radial-gradient(ellipse_at_top,theme(colors.primary/12),transparent_60%),radial-gradient(ellipse_at_bottom_right,theme(colors.sky.500/10),transparent_55%)]">
+      {/* animated grid backdrop */}
+      <div
+        aria-hidden
+        className="pointer-events-none absolute inset-0 opacity-[0.15]"
+        style={{
+          backgroundImage:
+            "linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)",
+          backgroundSize: "44px 44px",
+          maskImage:
+            "radial-gradient(ellipse at center, black 40%, transparent 80%)",
+        }}
+      />
+
+      <div className="relative mx-auto max-w-[1500px] p-6">
+        {/* Header */}
+        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
+              <Cpu className="h-3 w-3" /> Autonomous Team
+            </div>
+            <h1 className="font-display text-4xl leading-tight tracking-tight">
+              Agents Command Center
+            </h1>
+            <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
+              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute,
+              and self-improve — major decisions surface here for your approval.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <TeamStat label="Agents" value={teamStats.total} icon={Bot} />
+            <TeamStat label="Active" value={teamStats.active} icon={Activity} tone="emerald" />
+            <TeamStat label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} tone="sky" />
+            <TeamStat label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} tone="primary" />
+            <button
+              onClick={() => setAddOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110"
+            >
+              <Plus className="h-3.5 w-3.5" /> New Agent
+            </button>
+          </div>
+        </header>
+
+        {/* Hierarchy canvas */}
+        <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
+          <div className="mb-6 flex items-center justify-between">
+            <h2 className="font-display text-lg tracking-tight">Team hierarchy</h2>
+            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">
+              Live topology
+            </span>
+          </div>
+
+          {/* Leader node */}
+          <div className="flex flex-col items-center">
+            <AgentNode
+              agent={leader}
+              selected={selectedId === leader.id}
+              onClick={() => setSelectedId(leader.id)}
+              size="lg"
+            />
+
+            {/* connector */}
+            <div className="relative h-14 w-full">
+              <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+                <defs>
+                  <linearGradient id="wire" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.8" />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
+                  </linearGradient>
+                </defs>
+                <line x1="50%" y1="0" x2="50%" y2="50%" stroke="url(#wire)" strokeWidth="2" />
+                <line
+                  x1={`${100 / (subAgents.length * 2)}%`}
+                  y1="50%"
+                  x2={`${100 - 100 / (subAgents.length * 2)}%`}
+                  y2="50%"
+                  stroke="url(#wire)"
+                  strokeWidth="2"
+                />
+                {subAgents.map((_, i) => {
+                  const x = `${(100 / subAgents.length) * (i + 0.5)}%`;
+                  return (
+                    <line
+                      key={i}
+                      x1={x}
+                      y1="50%"
+                      x2={x}
+                      y2="100%"
+                      stroke="url(#wire)"
+                      strokeWidth="2"
+                    />
+                  );
+                })}
+              </svg>
+            </div>
+
+            {/* Sub-agents grid */}
+            <div
+              className="grid w-full gap-4"
+              style={{ gridTemplateColumns: `repeat(${subAgents.length}, minmax(0, 1fr))` }}
+            >
+              {subAgents.map((a) => (
+                <AgentNode
+                  key={a.id}
+                  agent={a}
+                  selected={selectedId === a.id}
+                  onClick={() => setSelectedId(a.id)}
+                />
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* Details + activity */}
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_1fr]">
+          {/* Selected agent panel */}
+          <div className="rounded-2xl border border-border/60 bg-gradient-to-b from-card/80 to-card/40 p-6 backdrop-blur-sm">
+            <div className="flex items-start gap-4">
+              <div
+                className={`relative grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br ${selected.tone} ${selected.glow}`}
+              >
+                <selected.icon className="h-8 w-8 text-white drop-shadow" />
+                <span
+                  className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${statusMeta[selected.status].dot}`}
+                />
+              </div>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2">
+                  <h3 className="font-display text-2xl tracking-tight">{selected.name}</h3>
+                  {selected.parentId === null && (
+                    <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                      <Crown className="h-3 w-3" /> Leader
+                    </span>
+                  )}
+                </div>
+                <p className="text-sm text-muted-foreground">{selected.role} · {selected.scope}</p>
+                <p className="mt-1 text-xs text-muted-foreground/80">
+                  Last: <span className="text-foreground/90">{selected.lastActivity}</span>
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-6 grid grid-cols-3 gap-3">
+              <Metric label="Load" value={`${selected.load}%`} bar={selected.load} />
+              <Metric label="Tasks today" value={selected.tasksToday.toString()} />
+              <Metric label="Success" value={`${selected.successRate}%`} bar={selected.successRate} tone="emerald" />
+            </div>
+
+            {selected.parentId === null && (
+              <div className="mt-6 rounded-xl border border-primary/20 bg-primary/5 p-4">
+                <div className="mb-2 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
+                  <Sparkles className="h-3.5 w-3.5" /> Leader authority
+                </div>
+                <ul className="space-y-1.5 text-sm text-muted-foreground">
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Assign tasks to any sub-agent
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Spawn new specialist agents
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Autonomous decisions for ranking growth
+                  </li>
+                  <li className="flex items-center gap-2">
+                    <AlertTriangle className="h-4 w-4 text-amber-400" /> Major tasks require your approval
+                  </li>
+                </ul>
+              </div>
+            )}
+          </div>
+
+          {/* Approvals + activity */}
+          <div className="space-y-6">
+            <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="inline-flex items-center gap-2 font-display text-base tracking-tight">
+                  <AlertTriangle className="h-4 w-4 text-amber-400" /> Awaiting approval
+                </h3>
+                <span className="rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold text-amber-400">
+                  {pendingApprovals.length}
+                </span>
+              </div>
+              {pendingApprovals.length === 0 ? (
+                <p className="text-xs text-muted-foreground">No major decisions pending.</p>
+              ) : (
+                <ul className="space-y-2">
+                  {pendingApprovals.map((t) => {
+                    const a = agents.find((x) => x.id === t.agentId);
+                    return (
+                      <li key={t.id} className="rounded-lg border border-border/50 bg-card/60 p-3">
+                        <div className="mb-1.5 text-xs text-muted-foreground">
+                          {a?.name} · {t.createdAt}
+                        </div>
+                        <div className="mb-2 text-sm">{t.title}</div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => approve(t.id)}
+                            className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-xs font-semibold text-white hover:bg-emerald-500"
+                          >
+                            Approve
+                          </button>
+                          <button
+                            onClick={() => reject(t.id)}
+                            className="flex-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                          >
+                            Reject
+                          </button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
+            <div className="rounded-2xl border border-border/60 bg-card/60 p-5 backdrop-blur-sm">
+              <h3 className="mb-3 inline-flex items-center gap-2 font-display text-base tracking-tight">
+                <Activity className="h-4 w-4 text-primary" /> Live activity
+              </h3>
+              <ul className="space-y-2">
+                {tasks.map((t) => {
+                  const a = agents.find((x) => x.id === t.agentId);
+                  return (
+                    <li key={t.id} className="flex items-start gap-2 rounded-md p-2 hover:bg-accent/60">
+                      <TaskDot status={t.status} />
+                      <div className="min-w-0 flex-1">
+                        <div className="truncate text-xs font-medium">{t.title}</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          {a?.name} · {t.createdAt}
+                        </div>
+                      </div>
+                      <ChevronRight className="mt-0.5 h-3.5 w-3.5 text-muted-foreground/50" />
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Add agent dialog */}
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Spawn a new agent</DialogTitle>
+            <DialogDescription>
+              Leader will onboard the new specialist and begin delegating small tasks.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-2">
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Agent name
+              </label>
+              <input
+                value={newAgent.name}
+                onChange={(e) => setNewAgent((p) => ({ ...p, name: e.target.value }))}
+                placeholder="e.g. GMB Review Responder"
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Specialty
+              </label>
+              <Select
+                value={newAgent.role}
+                onValueChange={(v) => setNewAgent((p) => ({ ...p, role: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="writer">Content Writer</SelectItem>
+                  <SelectItem value="analyzer">Analyzer</SelectItem>
+                  <SelectItem value="auditor">Auditor</SelectItem>
+                  <SelectItem value="ranker">Ranker</SelectItem>
+                  <SelectItem value="generalist">Generalist</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Reports to
+              </label>
+              <Select
+                value={newAgent.parentId}
+                onValueChange={(v) => setNewAgent((p) => ({ ...p, parentId: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {agents.map((a) => (
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setAddOpen(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={addAgent}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90"
+            >
+              <Plus className="h-3.5 w-3.5" /> Spawn agent
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+    </div>
+  );
+}
+
+function AgentNode({
+  agent,
+  selected,
+  onClick,
+  size = "md",
+}: {
+  agent: Agent;
+  selected: boolean;
+  onClick: () => void;
+  size?: "md" | "lg";
+}) {
+  const Icon = agent.icon;
+  const meta = statusMeta[agent.status];
+  const big = size === "lg";
+  return (
+    <button
+      onClick={onClick}
+      className={`group relative flex flex-col items-center rounded-2xl border bg-gradient-to-b from-card/90 to-card/50 p-4 text-left backdrop-blur-md transition-all hover:-translate-y-0.5 hover:shadow-xl ${
+        selected
+          ? "border-primary/60 shadow-[0_0_0_2px_hsl(var(--primary)/0.35),0_20px_50px_-20px_hsl(var(--primary)/0.6)]"
+          : "border-border/60"
+      } ${big ? "w-[280px]" : "w-full"}`}
+    >
+      {/* 3D avatar */}
+      <div className="relative mb-3">
+        <div
+          className={`absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br ${agent.tone} blur-2xl opacity-60 ${agent.glow}`}
+        />
+        <div
+          className={`relative grid ${big ? "h-20 w-20" : "h-16 w-16"} place-items-center rounded-2xl bg-gradient-to-br ${agent.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_30px_-10px_rgba(0,0,0,0.6)]`}
+        >
+          {/* glossy highlight */}
+          <span className="pointer-events-none absolute inset-x-2 top-1 h-1/3 rounded-xl bg-white/25 blur-sm" />
+          <Icon className={`${big ? "h-10 w-10" : "h-8 w-8"} text-white drop-shadow-lg`} />
+          <span
+            className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`}
+          />
+        </div>
+      </div>
+
+      <div className="flex items-center gap-1.5">
+        {big && <Crown className="h-3.5 w-3.5 text-amber-400" />}
+        <h4 className={`font-display tracking-tight ${big ? "text-lg" : "text-sm"}`}>
+          {agent.name}
+        </h4>
+      </div>
+      <p className="mt-0.5 text-[11px] uppercase tracking-widest text-muted-foreground">
+        {agent.role}
+      </p>
+
+      <div className="mt-3 flex w-full items-center gap-2">
+        <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
+          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+          {meta.label}
+        </span>
+        <span className="ml-auto inline-flex items-center gap-1 text-[10px] text-muted-foreground">
+          <Clock className="h-3 w-3" /> {agent.tasksToday}
+        </span>
+      </div>
+
+      {/* load bar */}
+      <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
+        <div
+          className={`h-full bg-gradient-to-r ${agent.tone}`}
+          style={{ width: `${agent.load}%` }}
+        />
+      </div>
+    </button>
+  );
+}
+
+function Metric({
+  label,
+  value,
+  bar,
+  tone,
+}: {
+  label: string;
+  value: string;
+  bar?: number;
+  tone?: "emerald";
+}) {
+  return (
+    <div className="rounded-xl border border-border/60 bg-card/60 p-3">
+      <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="mt-1 font-display text-xl tracking-tight">{value}</div>
+      {typeof bar === "number" && (
+        <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
+          <div
+            className={`h-full ${tone === "emerald" ? "bg-emerald-400" : "bg-primary"}`}
+            style={{ width: `${bar}%` }}
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
+function TeamStat({
+  label,
+  value,
+  icon: Icon,
+  tone,
+}: {
+  label: string;
+  value: number | string;
+  icon: typeof Bot;
+  tone?: "emerald" | "sky" | "primary";
+}) {
+  const toneCls =
+    tone === "emerald"
+      ? "text-emerald-400 bg-emerald-400/10"
+      : tone === "sky"
+        ? "text-sky-400 bg-sky-400/10"
+        : tone === "primary"
+          ? "text-primary bg-primary/10"
+          : "text-foreground bg-muted";
+  return (
+    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/70 px-3 py-2 backdrop-blur-sm">
+      <span className={`grid h-7 w-7 place-items-center rounded-md ${toneCls}`}>
+        <Icon className="h-3.5 w-3.5" />
+      </span>
+      <div className="leading-tight">
+        <div className="text-sm font-semibold">{value}</div>
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+      </div>
+    </div>
+  );
+}
+
+function TaskDot({ status }: { status: Task["status"] }) {
+  if (status === "done") return <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />;
+  if (status === "running") return <Activity className="mt-0.5 h-4 w-4 animate-pulse text-sky-400" />;
+  if (status === "awaiting_approval")
+    return <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-400" />;
+  return <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />;
+}
+
+
