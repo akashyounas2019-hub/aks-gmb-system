@@ -71,6 +71,30 @@ async function getLeaderId(supabase: any, userId: string): Promise<string | null
   return data?.id ?? null;
 }
 
+/**
+ * Compute ETA + confidence from an effective start time and current progress.
+ * `started_at` is the wall-clock start adjusted forward across any paused
+ * intervals, so `now - started_at` = active working time.
+ */
+function computeEta(
+  startedAtIso: string | null | undefined,
+  progress: number,
+): { eta_at: string | null; eta_confidence: string | null } {
+  if (!startedAtIso) return { eta_at: null, eta_confidence: null };
+  const p = Math.max(0, Math.min(100, progress ?? 0));
+  if (p <= 0 || p >= 100) return { eta_at: null, eta_confidence: null };
+  const startedMs = new Date(startedAtIso).getTime();
+  if (!Number.isFinite(startedMs)) return { eta_at: null, eta_confidence: null };
+  const elapsedMs = Math.max(1000, Date.now() - startedMs);
+  const remainingMs = (elapsedMs / p) * (100 - p);
+  const etaMs = Date.now() + remainingMs;
+  // Confidence: needs both enough progress AND enough elapsed time to trust the rate.
+  let confidence: "low" | "medium" | "high" = "low";
+  if (p >= 50 && elapsedMs >= 120_000) confidence = "high";
+  else if (p >= 20 && elapsedMs >= 45_000) confidence = "medium";
+  return { eta_at: new Date(etaMs).toISOString(), eta_confidence: confidence };
+}
+
 const DEFAULT_AGENTS = [
   {
     slug: "leader",
