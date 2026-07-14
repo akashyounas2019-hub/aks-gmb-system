@@ -522,11 +522,6 @@ function KeywordsPage() {
         );
       }
     } else if (name.endsWith(".json")) {
-      phrase: string;
-      volume?: number | null;
-      cluster?: string | null;
-    }> = [];
-    if (name.endsWith(".json")) {
       try {
         const parsed = JSON.parse(text);
         const arr = Array.isArray(parsed)
