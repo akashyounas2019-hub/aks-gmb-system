@@ -320,7 +320,19 @@ export const updateAgent = createServerFn({ method: "POST" })
         id: z.string().uuid(),
         name: z.string().min(1).max(80).optional(),
         scope: z.string().max(500).optional(),
-        main_skill: z.string().max(200).nullable().optional(),
+        main_skill: z
+          .string()
+          .trim()
+          .min(3, { message: "Main skill must be at least 3 characters." })
+          .max(200, { message: "Main skill must be under 200 characters." })
+          .regex(/^[\p{L}\p{N}\s,.'&/()+\-–—]+$/u, {
+            message: "Main skill contains unsupported characters.",
+          })
+          .refine((v) => /[\p{L}\p{N}]/u.test(v), {
+            message: "Main skill must contain letters or numbers.",
+          })
+          .nullable()
+          .optional(),
       })
       .parse(input),
   )

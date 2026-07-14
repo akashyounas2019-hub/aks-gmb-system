@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   ArrowLeft,
   Bot,
@@ -24,6 +25,7 @@ import {
   Plus,
   Trash2,
   ListChecks,
+  AlertCircle,
 } from "lucide-react";
 import {
   getAgentsState,
@@ -143,6 +145,28 @@ type ScheduledTask = {
 
 type MemoryFact = { id: string; text: string; at: string };
 
+// Main skill: required, 3–200 chars, letters/numbers/spaces and a small set of punctuation.
+const MAIN_SKILL_MIN = 3;
+const MAIN_SKILL_MAX = 200;
+const MAIN_SKILL_ALLOWED = /^[\p{L}\p{N}\s,.'&/()+\-–—]+$/u;
+
+const mainSkillSchema = z
+  .string()
+  .trim()
+  .min(1, { message: "Main skill is required." })
+  .min(MAIN_SKILL_MIN, { message: `Use at least ${MAIN_SKILL_MIN} characters.` })
+  .max(MAIN_SKILL_MAX, { message: `Keep it under ${MAIN_SKILL_MAX} characters.` })
+  .regex(MAIN_SKILL_ALLOWED, {
+    message: "Only letters, numbers, spaces, and , . ' & / ( ) + - are allowed.",
+  })
+  .refine((v) => !/(.)\1{4,}/.test(v), { message: "Avoid long runs of the same character." })
+  .refine((v) => /[\p{L}\p{N}]/u.test(v), { message: "Must contain at least one letter or number." });
+
+function validateMainSkill(value: string): string | null {
+  const result = mainSkillSchema.safeParse(value);
+  return result.success ? null : (result.error.issues[0]?.message ?? "Invalid value.");
+}
+
 function AgentProfilePage() {
   const { agentId } = Route.useParams();
   const navigate = useNavigate();
@@ -169,6 +193,7 @@ function AgentProfilePage() {
 
   // Editable / persisted
   const [skill, setSkill] = useState("");
+  const [skillTouched, setSkillTouched] = useState(false);
   const [name, setName] = useState("");
   const [scope, setScope] = useState("");
 
@@ -195,7 +220,10 @@ function AgentProfilePage() {
     setSkill(agent.main_skill ?? "");
     setName(agent.name);
     setScope(agent.scope ?? "");
+    setSkillTouched(false);
   }, [agent?.id, agent?.main_skill, agent?.name, agent?.scope]);
+
+  const skillError = useMemo(() => validateMainSkill(skill), [skill]);
 
   const meta = agent ? roleMeta(agent.role) : null;
   const agentTasks = useMemo(() => tasks.filter((t) => t.agent_id === agentId), [tasks, agentId]);
@@ -203,15 +231,20 @@ function AgentProfilePage() {
   const completed = agentTasks.filter((t) => t.status === "done").length;
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      updateAgent({
+    mutationFn: () => {
+      const parsed = mainSkillSchema.safeParse(skill);
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues[0]?.message ?? "Main skill is invalid.");
+      }
+      return updateAgent({
         data: {
           id: agentId,
           name: name.trim() || undefined,
           scope: scope.trim() || undefined,
-          main_skill: skill.trim() ? skill.trim() : null,
+          main_skill: parsed.data,
         },
-      }),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents-state"] });
       toast.success("Profile updated.");
@@ -333,17 +366,40 @@ function AgentProfilePage() {
           <div className="space-y-4">
             {/* Skill set */}
             <Panel icon={Brain} title="Skill set" accent={isLeader ? "amber" : "cyan"}>
+              <label htmlFor="agent-main-skill" className="sr-only">Main skill</label>
               <textarea
+                id="agent-main-skill"
                 value={skill}
                 onChange={(e) => setSkill(e.target.value)}
+                onBlur={() => setSkillTouched(true)}
                 placeholder={meta.skillHint}
                 rows={5}
-                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-cyan-400/60"
+                maxLength={MAIN_SKILL_MAX + 40}
+                required
+                aria-invalid={skillTouched && !!skillError}
+                aria-describedby="agent-main-skill-help agent-main-skill-error"
+                className={`w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-cyan-400/60 ${
+                  skillTouched && skillError
+                    ? "border-rose-400/60 focus:border-rose-400"
+                    : "border-border"
+                }`}
               />
-              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Auto-saved locally as you type.</span>
-                <span>{skill.length}/200</span>
+              <div id="agent-main-skill-help" className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Required. Defines how this agent performs tasks.</span>
+                <span className={skill.length > MAIN_SKILL_MAX ? "text-rose-400" : ""}>
+                  {skill.trim().length}/{MAIN_SKILL_MAX}
+                </span>
               </div>
+              {skillTouched && skillError && (
+                <div
+                  id="agent-main-skill-error"
+                  role="alert"
+                  className="mt-2 inline-flex items-start gap-1.5 rounded-md border border-rose-400/40 bg-rose-500/10 px-2.5 py-1.5 text-[11px] text-rose-300"
+                >
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{skillError}</span>
+                </div>
+              )}
             </Panel>
 
             {/* Agent settings */}
@@ -431,9 +487,18 @@ function AgentProfilePage() {
                     Reset
                   </button>
                   <button
-                    onClick={() => saveMut.mutate()}
-                    disabled={!dirty || saveMut.isPending}
-                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-cyan-950 hover:bg-cyan-400 disabled:opacity-50"
+                    onClick={() => {
+                      setSkillTouched(true);
+                      if (skillError) {
+                        toast.error(skillError);
+                        document.getElementById("agent-main-skill")?.focus();
+                        return;
+                      }
+                      saveMut.mutate();
+                    }}
+                    disabled={!dirty || saveMut.isPending || !!skillError}
+                    title={skillError ?? undefined}
+                    className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-cyan-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
                     {saveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
                     Save changes
