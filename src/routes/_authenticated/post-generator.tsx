@@ -569,6 +569,10 @@ export function PostGeneratorPage({
         <div className="mt-6">
           <PostStoragePanel />
         </div>
+      ) : tab === "history" ? (
+        <div className="mt-6">
+          <PostHistoryPanel />
+        </div>
       ) : (
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 
