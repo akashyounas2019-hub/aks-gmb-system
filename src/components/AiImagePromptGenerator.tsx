@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronDown,
   Save,
+  Shuffle,
 } from "lucide-react";
 import { toast } from "sonner";
 
