@@ -23,6 +23,9 @@ import {
   Send,
   Rocket,
   Flag,
+  Pause,
+  Play,
+  XCircle,
 } from "lucide-react";
 import {
   Dialog,
