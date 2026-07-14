@@ -713,7 +713,73 @@ function AgentsPage() {
             </div>
           </div>
         </div>
+
+        {/* Task history timeline */}
+        <section className="mt-8 rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg tracking-tight">Task history</h2>
+              <p className="text-xs text-muted-foreground">
+                {isLeaderSelected
+                  ? "Every assignment and progress change across the team."
+                  : `Timeline for ${selected?.name ?? "agent"}.`}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary">
+              <Clock className="h-3 w-3" /> {events.length} event{events.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          {events.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-4 py-6 text-center text-xs text-muted-foreground">
+              No history yet. Assign a task to start the timeline.
+            </p>
+          ) : (
+            <ol className="relative space-y-3 pl-6">
+              <span
+                aria-hidden
+                className="absolute left-[9px] top-1 bottom-1 w-px bg-gradient-to-b from-primary/40 via-border to-transparent"
+              />
+              {events.map((ev) => {
+                const a = agents.find((x) => x.id === ev.agent_id);
+                const { color, Icon, label } = timelineMeta(ev.event_type);
+                const ts = ev.created_at ? new Date(ev.created_at) : null;
+                return (
+                  <li key={ev.id} className="relative">
+                    <span
+                      className={`absolute -left-[22px] top-1 grid h-4 w-4 place-items-center rounded-full ring-2 ring-card ${color}`}
+                    >
+                      <Icon className="h-2.5 w-2.5 text-white" />
+                    </span>
+                    <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          {label}
+                        </span>
+                        {a && (
+                          <span className="text-[11px] text-muted-foreground/90">
+                            {a.name}
+                          </span>
+                        )}
+                        {typeof ev.progress === "number" && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+                            {ev.progress}%
+                          </span>
+                        )}
+                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/70">
+                          {ts ? ts.toLocaleString() : ""}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-sm">{ev.message}</div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
       </div>
+
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
