@@ -164,6 +164,7 @@ export function PostGeneratorPage({
   const [activeFolder, setActiveFolder] = useState<string>("__all");
   const [templateSearch, setTemplateSearch] = useState("");
   const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [previewingTemplate, setPreviewingTemplate] = useState<PostTemplate | null>(null);
   const [newTplName, setNewTplName] = useState("");
   const [newTplBody, setNewTplBody] = useState("");
   const [newTplFolder, setNewTplFolder] = useState("");
