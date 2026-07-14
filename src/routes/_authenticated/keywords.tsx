@@ -310,6 +310,9 @@ function KeywordsPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const min = minVolume ? Number(minVolume) : null;
+    const max = maxVolume ? Number(maxVolume) : null;
+    const kdMax = maxKD ? Number(maxKD) : null;
+    const cpcMax = maxCPC ? Number(maxCPC) : null;
     return scopedRows.filter((r) => {
       if (q) {
         const hay = `${r.phrase} ${r.cluster ?? ""}`.toLowerCase();
@@ -318,12 +321,24 @@ function KeywordsPage() {
       if (intentFilter !== "all") {
         if ((r.intent ?? "").toLowerCase() !== intentFilter) return false;
       }
+      if (clusterFilter !== "all") {
+        if ((r.cluster ?? "") !== clusterFilter) return false;
+      }
       if (min != null && Number.isFinite(min)) {
         if ((r.volume ?? 0) < min) return false;
       }
+      if (max != null && Number.isFinite(max)) {
+        if ((r.volume ?? 0) > max) return false;
+      }
+      if (kdMax != null && Number.isFinite(kdMax)) {
+        if ((r.keyword_difficulty ?? 0) > kdMax) return false;
+      }
+      if (cpcMax != null && Number.isFinite(cpcMax)) {
+        if (Number(r.cpc ?? 0) > cpcMax) return false;
+      }
       return true;
     });
-  }, [scopedRows, search, intentFilter, minVolume]);
+  }, [scopedRows, search, intentFilter, clusterFilter, minVolume, maxVolume, maxKD, maxCPC]);
 
   const stats = useMemo(() => {
     const totalKw = scopedRows.length;
@@ -344,6 +359,12 @@ function KeywordsPage() {
   const availableIntents = useMemo(() => {
     const s = new Set<string>();
     rows.forEach((r) => r.intent && s.add(r.intent.toLowerCase()));
+    return Array.from(s).sort();
+  }, [rows]);
+
+  const availableClusters = useMemo(() => {
+    const s = new Set<string>();
+    rows.forEach((r) => r.cluster && s.add(r.cluster));
     return Array.from(s).sort();
   }, [rows]);
 
