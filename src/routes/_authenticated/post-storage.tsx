@@ -672,7 +672,40 @@ function PostCard({
           )}
         </div>
       </div>
+      {attached.length > 0 && (
+        <button
+          onClick={onOpen}
+          className="mt-3 grid w-full grid-cols-4 gap-1.5"
+          aria-label="Open post"
+        >
+          {attached.slice(0, 4).map((img, i) => (
+            <div
+              key={img.id}
+              className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+            >
+              <SignedImage
+                bucket="images"
+                path={img.storage_path}
+                alt={img.name ?? "Attached image"}
+                className="h-full w-full object-cover"
+              />
+              {i === 3 && attached.length > 4 && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-xs font-medium">
+                  +{attached.length - 4}
+                </div>
+              )}
+            </div>
+          ))}
+        </button>
+      )}
+      {(post.imageIds?.length ?? 0) > 0 && attached.length === 0 && (
+        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <ImageIcon className="h-3 w-3" /> Loading {post.imageIds.length} image
+          {post.imageIds.length === 1 ? "" : "s"}…
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+
         <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
           {post.status}
         </span>
