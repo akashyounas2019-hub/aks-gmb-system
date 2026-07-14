@@ -26,6 +26,9 @@ import {
   Pause,
   Play,
   XCircle,
+  Bell,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import {
   Dialog,
