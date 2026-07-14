@@ -17,6 +17,8 @@ import {
   Save,
   Shuffle,
   Download,
+  Pencil,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -222,6 +224,10 @@ export function AiImagePromptGenerator() {
   );
   const [variations, setVariations] = useState<string[]>([]);
   const [variationCount, setVariationCount] = useState<number>(4);
+  const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
+  const [editName, setEditName] = useState("");
+  const [editBody, setEditBody] = useState("");
+  const [editFolder, setEditFolder] = useState("");
   const outputRef = useRef<HTMLTextAreaElement>(null);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? null;
@@ -253,6 +259,91 @@ export function AiImagePromptGenerator() {
     setOpenFolders((prev) => new Set(prev).add(name));
     toast.success(`Folder “${name}” added`);
   }
+
+  function renameFolder(oldName: string) {
+    const next = window.prompt("Rename folder", oldName)?.trim();
+    if (!next || next === oldName) return;
+    if (folders.includes(next)) {
+      toast.error("A folder with that name already exists");
+      return;
+    }
+    setFolders((prev) => prev.map((f) => (f === oldName ? next : f)));
+    setTemplates((prev) =>
+      prev.map((t) => (t.folder === oldName ? { ...t, folder: next } : t)),
+    );
+    setPrompts((prev) =>
+      prev.map((p) => (p.folder === oldName ? { ...p, folder: next } : p)),
+    );
+    setOpenFolders((prev) => {
+      const s = new Set(prev);
+      if (s.has(oldName)) {
+        s.delete(oldName);
+        s.add(next);
+      }
+      return s;
+    });
+    if (activeFolder === oldName) setActiveFolder(next);
+    toast.success(`Renamed to “${next}”`);
+  }
+
+  function deleteFolder(name: string) {
+    const tplCount = templates.filter((t) => t.folder === name).length;
+    const promptCount = prompts.filter((p) => p.folder === name).length;
+    const ok = window.confirm(
+      `Delete folder “${name}”?\n\nThis will also remove ${tplCount} template${
+        tplCount === 1 ? "" : "s"
+      } and ${promptCount} saved prompt${promptCount === 1 ? "" : "s"} inside it.`,
+    );
+    if (!ok) return;
+    setFolders((prev) => prev.filter((f) => f !== name));
+    setTemplates((prev) => prev.filter((t) => t.folder !== name));
+    setPrompts((prev) => prev.filter((p) => p.folder !== name));
+    setOpenFolders((prev) => {
+      const s = new Set(prev);
+      s.delete(name);
+      return s;
+    });
+    if (activeFolder === name) setActiveFolder("All");
+    if (activeTemplate?.folder === name) setActiveTemplateId(null);
+    toast.success(`Folder “${name}” deleted`);
+  }
+
+  function openTemplateEditor(tpl: Template) {
+    setEditingTemplate(tpl);
+    setEditName(tpl.name);
+    setEditBody(tpl.body);
+    setEditFolder(tpl.folder);
+  }
+
+  function saveTemplateEdits() {
+    if (!editingTemplate) return;
+    const name = editName.trim();
+    const body = editBody.trim();
+    const folder = editFolder.trim();
+    if (!name || !body || !folder) {
+      toast.error("Name, body, and folder are required");
+      return;
+    }
+    setTemplates((prev) =>
+      prev.map((t) =>
+        t.id === editingTemplate.id ? { ...t, name, body, folder } : t,
+      ),
+    );
+    setEditingTemplate(null);
+    toast.success("Template updated");
+  }
+
+  function deleteTemplate(id: string) {
+    const tpl = templates.find((t) => t.id === id);
+    if (!tpl) return;
+    const ok = window.confirm(`Delete template “${tpl.name}”?`);
+    if (!ok) return;
+    setTemplates((prev) => prev.filter((t) => t.id !== id));
+    if (activeTemplateId === id) setActiveTemplateId(null);
+    if (editingTemplate?.id === id) setEditingTemplate(null);
+    toast.success("Template deleted");
+  }
+
 
   function pickFilter(id: FilterId, option: string) {
     setSelections((prev) => ({
@@ -510,7 +601,7 @@ export function AiImagePromptGenerator() {
             const items = templatesByFolder.get(f) ?? [];
             const promptCount = prompts.filter((p) => p.folder === f).length;
             return (
-              <div key={f}>
+              <div key={f} className="group/folder">
                 <div
                   className={`flex items-center gap-1 rounded-md px-1 py-1 text-sm ${
                     activeFolder === f ? "bg-primary/15 text-primary" : ""
@@ -529,14 +620,32 @@ export function AiImagePromptGenerator() {
                   </button>
                   <button
                     onClick={() => setActiveFolder(f)}
-                    className="flex flex-1 items-center gap-2 text-left"
+                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
                   >
-                    <Folder className="h-4 w-4" />
+                    <Folder className="h-4 w-4 shrink-0" />
                     <span className="truncate">{f}</span>
                     <span className="ml-auto text-[10px] text-muted-foreground">
                       {promptCount}
                     </span>
                   </button>
+                  <div className="ml-1 flex items-center opacity-0 transition group-hover/folder:opacity-100 focus-within:opacity-100">
+                    <button
+                      onClick={() => renameFolder(f)}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title="Rename folder"
+                      aria-label={`Rename folder ${f}`}
+                    >
+                      <Pencil className="h-3 w-3" />
+                    </button>
+                    <button
+                      onClick={() => deleteFolder(f)}
+                      className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete folder"
+                      aria-label={`Delete folder ${f}`}
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
                 {isOpen && (
                   <ul className="ml-6 mt-0.5 space-y-0.5 border-l border-border pl-2">
@@ -546,13 +655,16 @@ export function AiImagePromptGenerator() {
                       </li>
                     ) : (
                       items.map((tpl) => (
-                        <li key={tpl.id}>
+                        <li
+                          key={tpl.id}
+                          className="group/tpl flex items-center gap-0.5"
+                        >
                           <button
                             onClick={() => {
                               setActiveTemplateId(tpl.id);
                               setActiveFolder(tpl.folder);
                             }}
-                            className={`flex w-full items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition ${
+                            className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition ${
                               activeTemplateId === tpl.id
                                 ? "bg-primary/10 text-primary"
                                 : "text-muted-foreground hover:bg-accent hover:text-foreground"
@@ -561,12 +673,31 @@ export function AiImagePromptGenerator() {
                             <Sparkles className="h-3 w-3 shrink-0" />
                             <span className="truncate">{tpl.name}</span>
                           </button>
+                          <div className="flex items-center opacity-0 transition group-hover/tpl:opacity-100 focus-within:opacity-100">
+                            <button
+                              onClick={() => openTemplateEditor(tpl)}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                              title="Edit template"
+                              aria-label={`Edit template ${tpl.name}`}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </button>
+                            <button
+                              onClick={() => deleteTemplate(tpl.id)}
+                              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                              title="Delete template"
+                              aria-label={`Delete template ${tpl.name}`}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </button>
+                          </div>
                         </li>
                       ))
                     )}
                   </ul>
                 )}
               </div>
+
             );
           })}
         </div>
@@ -985,6 +1116,94 @@ export function AiImagePromptGenerator() {
           </ul>
         )}
       </aside>
+
+
+      {editingTemplate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+          onClick={() => setEditingTemplate(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-lg"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Edit template</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Use {"{subject}"}, {"{style}"}, {"{mood}"}, {"{aspect}"}, {"{palette}"} as placeholders.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingTemplate(null)}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Name
+            </label>
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Folder
+            </label>
+            <select
+              value={editFolder}
+              onChange={(e) => setEditFolder(e.target.value)}
+              className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            >
+              {folders.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Body
+            </label>
+            <textarea
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              rows={6}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <button
+                onClick={() => {
+                  if (editingTemplate) deleteTemplate(editingTemplate.id);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditingTemplate(null)}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTemplateEdits}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                >
+                  <Save className="h-3.5 w-3.5" /> Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
