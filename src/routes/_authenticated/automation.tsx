@@ -385,44 +385,36 @@ function AutomationPage() {
           </div>
         </header>
 
-        {/* Available kinds */}
+        {/* Available workflow presets */}
         <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm">
           <div className="mb-4 flex items-center justify-between">
             <div>
-              <h2 className="font-display text-lg tracking-tight">Add automation</h2>
+              <h2 className="font-display text-lg tracking-tight">Add a workflow</h2>
               <p className="text-xs text-muted-foreground">
-                Choose a specialist workflow — each one runs on its own schedule.
+                Quick-add a preset with its defaults, or open “Add New Workflow” for full scheduling options.
               </p>
             </div>
             <span className="rounded-full bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-              {Object.keys(KIND_META).length} kinds
+              {Object.keys(PRESETS).length} presets
             </span>
           </div>
           <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            {(Object.keys(KIND_META) as Kind[]).map((kind) => {
-              const meta = KIND_META[kind];
+            {(Object.keys(PRESETS) as PresetId[]).map((pid) => {
+              const meta = PRESETS[pid];
               const Icon = meta.icon;
-              const installed = items.some((a) => a.kind === kind);
               return (
                 <div
-                  key={kind}
+                  key={pid}
                   className="group relative flex flex-col gap-3 overflow-hidden rounded-xl border border-border/60 bg-gradient-to-b from-card/90 to-card/50 p-4 transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg"
                 >
                   <div className="flex items-start gap-3">
                     <span
-                      className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl ${meta.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.25)]`}
+                      className={`relative grid h-11 w-11 shrink-0 place-items-center rounded-xl ${meta.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.15)]`}
                     >
                       <Icon className="h-5 w-5" />
                     </span>
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <h3 className="truncate font-medium">{meta.label}</h3>
-                        {installed && (
-                          <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
-                            Installed
-                          </span>
-                        )}
-                      </div>
+                      <h3 className="truncate font-medium">{meta.label}</h3>
                       <p className="mt-0.5 text-xs text-muted-foreground">{meta.description}</p>
                     </div>
                   </div>
@@ -430,13 +422,24 @@ function AutomationPage() {
                     <Clock className="h-3 w-3" />
                     <code className="rounded bg-muted px-1">{meta.cron}</code>
                   </div>
-                  <button
-                    onClick={() => createMut.mutate(kind)}
-                    disabled={createMut.isPending}
-                    className="mt-auto inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    <Plus className="h-3.5 w-3.5" /> Add
-                  </button>
+                  <div className="mt-auto grid grid-cols-2 gap-2">
+                    <button
+                      onClick={() => {
+                        setAddPreset(pid);
+                        setAddOpen(true);
+                      }}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                    >
+                      Configure
+                    </button>
+                    <button
+                      onClick={() => quickAdd(pid)}
+                      disabled={createMut.isPending}
+                      className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                    >
+                      <Plus className="h-3.5 w-3.5" /> Add
+                    </button>
+                  </div>
                 </div>
               );
             })}
