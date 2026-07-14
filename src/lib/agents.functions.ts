@@ -2,6 +2,33 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+async function logEvent(
+  supabase: any,
+  userId: string,
+  input: {
+    agent_id: string;
+    task_id?: string | null;
+    event_type: string;
+    message: string;
+    progress?: number | null;
+    metadata?: Record<string, unknown> | null;
+  },
+) {
+  try {
+    await supabase.from("agent_task_events").insert({
+      user_id: userId,
+      agent_id: input.agent_id,
+      task_id: input.task_id ?? null,
+      event_type: input.event_type,
+      message: input.message,
+      progress: input.progress ?? null,
+      metadata: input.metadata ?? null,
+    });
+  } catch {
+    // history logging is best-effort — never break the primary action
+  }
+}
+
 const DEFAULT_AGENTS = [
   {
     slug: "leader",
