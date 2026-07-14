@@ -1,10 +1,11 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
-import { Building2, MapPin, Phone, Mail, Globe, Loader2 } from "lucide-react";
+import { Building2, MapPin, Phone, Mail, Globe, Loader2, ChevronDown } from "lucide-react";
 import { getPreferences } from "@/lib/user-preferences.functions";
 import { loadGoogleMaps } from "@/lib/google-maps";
 import { geocodeAddress } from "@/lib/geocode.functions";
+import { getNearbyCities } from "@/lib/nearby-cities.functions";
 
 export const Route = createFileRoute("/_authenticated/settings/business-profile")({
   component: BusinessProfilePage,
