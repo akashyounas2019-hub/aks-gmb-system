@@ -372,6 +372,17 @@ export const assignTask = createServerFn({ method: "POST" })
       .eq("id", data.agent_id)
       .eq("user_id", userId);
 
+    await logEvent(supabase, userId, {
+      agent_id: data.agent_id,
+      task_id: task.id,
+      event_type: data.major ? "awaiting_approval" : "assigned",
+      message: data.major
+        ? `Awaiting approval: ${data.title}`
+        : `Assigned: ${data.title}`,
+      progress: task.progress ?? 0,
+      metadata: { priority: data.priority, major: data.major },
+    });
+
     return task;
   });
 
