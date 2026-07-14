@@ -624,12 +624,15 @@ function AgentsPage() {
                 style={{ gridColumn: `1 / -1`, display: "flex", justifyContent: "center" }}
               >
                 <div className="relative w-full max-w-[240px]">
-                  <span className="pointer-events-none absolute inset-0 -m-2 rounded-3xl bg-gradient-to-br from-amber-400/20 via-primary/10 to-transparent blur-2xl" aria-hidden />
+                  <span className={`pointer-events-none absolute inset-0 -m-2 rounded-3xl bg-gradient-to-br from-amber-400/20 via-primary/10 to-transparent blur-2xl transition-opacity ${hoveredId && hoveredId !== leader.id ? "opacity-40" : "opacity-100"}`} aria-hidden />
                   <span className="pointer-events-none absolute inset-0 -m-0.5 animate-ping rounded-2xl border border-amber-300/30" aria-hidden />
                   <AgentNode
                     agent={leader}
                     selected={(selected?.id ?? leader.id) === leader.id}
                     onClick={() => openAgent(leader.id)}
+                    onHoverChange={(h) => setHoveredId(h ? leader.id : null)}
+                    highlighted={!!hoveredId}
+                    dimmed={false}
                   />
                 </div>
               </div>
@@ -643,35 +646,44 @@ function AgentsPage() {
                     <stop offset="0%" stopColor="#22d3ee" stopOpacity="1" />
                     <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.35" />
                   </linearGradient>
+                  <linearGradient id="wire-active" x1="0" x2="0" y1="0" y2="1">
+                    <stop offset="0%" stopColor="#fde68a" stopOpacity="1" />
+                    <stop offset="100%" stopColor="#f59e0b" stopOpacity="1" />
+                  </linearGradient>
                 </defs>
-                {filteredSubAgents.map((_, i) => {
+                {filteredSubAgents.map((a, i) => {
                   const step = 100 / Math.max(filteredSubAgents.length, 1);
                   const x = step * (i + 0.5);
                   const d = `M 50 0 C 50 55, ${x} 45, ${x} 100`;
+                  const isLeaderHover = hoveredId === leader.id;
+                  const isThisHover = hoveredId === a.id;
+                  const isActive = isLeaderHover || isThisHover;
+                  const isDimmed = !!hoveredId && !isActive;
                   return (
-                    <g key={i}>
+                    <g key={a.id} style={{ transition: "opacity 200ms" }} opacity={isDimmed ? 0.18 : 1}>
                       <path
                         d={d}
                         fill="none"
-                        stroke="url(#wire)"
-                        strokeWidth="1.6"
+                        stroke={isActive ? "url(#wire-active)" : "url(#wire)"}
+                        strokeWidth={isActive ? 2.4 : 1.6}
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
                         opacity="0.95"
-                        style={{ filter: "drop-shadow(0 0 6px rgba(34, 211, 238, 0.55))" }}
+                        style={{ filter: isActive ? "drop-shadow(0 0 10px rgba(251, 191, 36, 0.85))" : "drop-shadow(0 0 6px rgba(34, 211, 238, 0.55))", transition: "all 200ms" }}
                       />
                       <path
                         d={d}
                         fill="none"
-                        stroke="#67e8f9"
-                        strokeWidth="1.4"
+                        stroke={isActive ? "#fef3c7" : "#67e8f9"}
+                        strokeWidth={isActive ? 1.8 : 1.4}
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
                         strokeDasharray="2 8"
                         opacity="1"
                         style={{
-                          animation: `agent-wire-flow 2.4s linear infinite`,
+                          animation: `agent-wire-flow ${isActive ? 1.1 : 2.4}s linear infinite`,
                           animationDelay: `${i * 0.35}s`,
+                          transition: "stroke 200ms",
                         }}
                       />
                     </g>
@@ -690,9 +702,23 @@ function AgentsPage() {
                 className="grid w-full gap-4"
                 style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
               >
-                {filteredSubAgents.map((a) => (
-                  <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => openAgent(a.id)} />
-                ))}
+                {filteredSubAgents.map((a) => {
+                  const isLeaderHover = hoveredId === leader.id;
+                  const isThisHover = hoveredId === a.id;
+                  const highlighted = isLeaderHover || isThisHover;
+                  const dimmed = !!hoveredId && !highlighted;
+                  return (
+                    <AgentNode
+                      key={a.id}
+                      agent={a}
+                      selected={selected?.id === a.id}
+                      onClick={() => openAgent(a.id)}
+                      onHoverChange={(h) => setHoveredId(h ? a.id : null)}
+                      highlighted={highlighted}
+                      dimmed={dimmed}
+                    />
+                  );
+                })}
               </div>
             )}
           </div>
