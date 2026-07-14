@@ -15,6 +15,7 @@ import {
   ChevronRight,
   ChevronDown,
   Save,
+  Shuffle,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -241,6 +242,8 @@ export function AiImagePromptGenerator() {
   const [filterView, setFilterView] = useState<"all" | "pinned" | "favorites">(
     "all",
   );
+  const [variations, setVariations] = useState<string[]>([]);
+  const [variationCount, setVariationCount] = useState<number>(4);
   const outputRef = useRef<HTMLTextAreaElement>(null);
 
   const activeTemplate = templates.find((t) => t.id === activeTemplateId) ?? null;
@@ -291,6 +294,66 @@ export function AiImagePromptGenerator() {
       () => toast.error("Copy failed"),
     );
   }
+
+  function copyText(text: string) {
+    navigator.clipboard.writeText(text).then(
+      () => toast.success("Prompt copied"),
+      () => toast.error("Copy failed"),
+    );
+  }
+
+  function generateVariations() {
+    if (!bodyToUse.trim()) {
+      toast.error("Pick a template or write a custom body first");
+      return;
+    }
+    const count = Math.max(3, Math.min(5, variationCount || 4));
+    const results: string[] = [];
+    const seen = new Set<string>();
+    const maxAttempts = count * 8;
+    let attempts = 0;
+    while (results.length < count && attempts < maxAttempts) {
+      attempts++;
+      const varSel: Partial<Record<FilterId, string>> = { ...selections };
+      for (const f of FILTERS) {
+        // Keep user-locked filters; randomize the rest for variety
+        if (!selections[f.id]) {
+          const opts = f.options;
+          varSel[f.id] = opts[Math.floor(Math.random() * opts.length)];
+        }
+      }
+      const text = fillTemplate(bodyToUse, subject, varSel);
+      if (!seen.has(text)) {
+        seen.add(text);
+        results.push(text);
+      }
+    }
+    setVariations(results);
+    toast.success(`Generated ${results.length} variations`);
+  }
+
+  function saveVariation(text: string) {
+    const folder =
+      activeFolder !== "All"
+        ? activeFolder
+        : activeTemplate?.folder ?? folders[0] ?? "Inspiration";
+    const title =
+      (subject.trim() && `${subject.trim()} — variation`) ||
+      activeTemplate?.name ||
+      text.slice(0, 48);
+    const item: SavedPrompt = {
+      id: crypto.randomUUID(),
+      title,
+      body: text,
+      folder,
+      pinned: false,
+      favorite: false,
+      createdAt: Date.now(),
+    };
+    setPrompts((prev) => [item, ...prev]);
+    toast.success("Variation saved");
+  }
+
 
   function savePrompt() {
     if (!generated.trim()) {
@@ -648,7 +711,93 @@ export function AiImagePromptGenerator() {
             </button>
           </div>
         </div>
+
+        {/* Variations */}
+        <div className="mt-5 rounded-xl border border-border bg-background/40 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                Generate variations
+              </div>
+              <p className="text-[11px] text-muted-foreground">
+                Uses the current template & locked filters. Unlocked filters rotate for variety.
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <label className="text-[11px] text-muted-foreground">Count</label>
+              <select
+                value={variationCount}
+                onChange={(e) => setVariationCount(Number(e.target.value))}
+                className="rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+              >
+                {[3, 4, 5].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={generateVariations}
+                disabled={!bodyToUse}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                <Shuffle className="h-3.5 w-3.5" /> Generate
+              </button>
+            </div>
+          </div>
+
+          {variations.length > 0 && (
+            <ul className="mt-3 space-y-2">
+              {variations.map((v, i) => (
+                <li
+                  key={i}
+                  className="rounded-lg border border-border bg-card p-2 text-xs"
+                >
+                  <div className="mb-1 flex items-center justify-between">
+                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Variation {i + 1}
+                    </span>
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => copyText(v)}
+                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="Copy"
+                        aria-label="Copy variation"
+                      >
+                        <Copy className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => saveVariation(v)}
+                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="Save to folder"
+                        aria-label="Save variation"
+                      >
+                        <Save className="h-3 w-3" />
+                      </button>
+                      <button
+                        onClick={() => {
+                          setCustomBody(v);
+                          setActiveTemplateId(null);
+                          toast.success("Loaded into builder");
+                        }}
+                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="Load into builder"
+                        aria-label="Load variation"
+                      >
+                        <Plus className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </div>
+                  <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground/90">
+                    {v}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
       </section>
+
 
       {/* ------------------------------------------------------------------ */}
       {/* Right: saved prompts (pinned + favorites)                           */}
