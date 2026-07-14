@@ -250,25 +250,117 @@ export function PostGeneratorPage({
   }, [importOpen, templatesOpen]);
 
 
-  // Load business phone from settings for the Call CTA auto-populate.
+  // Load business phone + website from settings for CTA auto-populate.
   useEffect(() => {
     loadPrefs()
       .then((p) => {
-        const g = (p?.general ?? {}) as { phone?: string };
+        const g = (p?.general ?? {}) as { phone?: string; website?: string };
         if (g.phone) setBusinessPhone(g.phone);
+        if (g.website) setBusinessWebsite(g.website);
       })
       .catch(() => {
-        /* ignore — user may not have saved a business phone yet */
+        /* ignore — user may not have saved business settings yet */
       });
   }, [loadPrefs]);
 
-  // Auto-populate the Call CTA phone number from business settings whenever
-  // the user switches the action to "Call now" and hasn't manually edited it.
-  useEffect(() => {
-    if (ctaType === "call" && !phoneManuallyEdited && !ctaUrl && businessPhone) {
-      setCtaUrl(businessPhone);
+  // CTA metadata — button label, help copy, placeholder, validator, and
+  // suggested URL derived from business settings. Keeps the CTA input
+  // aware of the "post type" (action) the user picked.
+  const CTA_META: Record<
+    typeof ctaType,
+    {
+      buttonLabel: string;
+      help: string;
+      placeholder: string;
+      inputMode: "tel" | "url" | "text";
+      validate: (v: string) => string | null;
+      suggest: (ctx: { phone: string; website: string }) => string;
     }
-  }, [ctaType, businessPhone, phoneManuallyEdited, ctaUrl]);
+  > = {
+    none: {
+      buttonLabel: "No button",
+      help: "No action button will appear on the post.",
+      placeholder: "",
+      inputMode: "text",
+      validate: () => null,
+      suggest: () => "",
+    },
+    book: {
+      buttonLabel: "Book",
+      help: "Sends customers to a booking or reservation page.",
+      placeholder: "https://example.com/book",
+      inputMode: "url",
+      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// booking link."),
+      suggest: ({ website }) => (website ? joinPath(website, "/book") : ""),
+    },
+    order: {
+      buttonLabel: "Order online",
+      help: "Links to your online-ordering page.",
+      placeholder: "https://example.com/order",
+      inputMode: "url",
+      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// ordering link."),
+      suggest: ({ website }) => (website ? joinPath(website, "/order") : ""),
+    },
+    shop: {
+      buttonLabel: "Buy",
+      help: "Links to a product or storefront page.",
+      placeholder: "https://example.com/product",
+      inputMode: "url",
+      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// product or shop link."),
+      suggest: ({ website }) => (website ? joinPath(website, "/shop") : ""),
+    },
+    learn_more: {
+      buttonLabel: "Learn more",
+      help: "Sends customers to a landing or info page.",
+      placeholder: "https://example.com/services",
+      inputMode: "url",
+      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// link."),
+      suggest: ({ website }) => website || "",
+    },
+    sign_up: {
+      buttonLabel: "Sign up",
+      help: "Links to a newsletter, waitlist, or account sign-up page.",
+      placeholder: "https://example.com/signup",
+      inputMode: "url",
+      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// sign-up link."),
+      suggest: ({ website }) => (website ? joinPath(website, "/signup") : ""),
+    },
+    call: {
+      buttonLabel: "Call now",
+      help: "Dials your business phone from the customer's device.",
+      placeholder: "+971 50 000 0000",
+      inputMode: "tel",
+      validate: (v) =>
+        isValidPhone(v)
+          ? null
+          : "Enter a phone number with at least 7 digits (international format recommended).",
+      suggest: ({ phone }) => phone,
+    },
+  };
+
+  const ctaMeta = CTA_META[ctaType];
+  const ctaSuggestion =
+    ctaType === "none" ? "" : ctaMeta.suggest({ phone: businessPhone, website: businessWebsite });
+  const ctaError =
+    ctaType === "none" || !ctaUrl.trim() ? null : ctaMeta.validate(ctaUrl.trim());
+  const ctaMissing = ctaType !== "none" && !ctaUrl.trim();
+
+  // Auto-populate the CTA value when the action changes and the user hasn't
+  // manually edited it. Works for phone (Call) and URL (all others).
+  useEffect(() => {
+    if (ctaType === "none") return;
+    const suggestion = CTA_META[ctaType].suggest({
+      phone: businessPhone,
+      website: businessWebsite,
+    });
+    if (!suggestion) return;
+    if (ctaType === "call") {
+      if (!phoneManuallyEdited && !ctaUrl) setCtaUrl(suggestion);
+    } else {
+      if (!ctaManuallyEdited && !ctaUrl) setCtaUrl(suggestion);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ctaType, businessPhone, businessWebsite]);
 
 
   const CAPTION_LIMIT = 1500;
