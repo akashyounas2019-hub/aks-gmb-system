@@ -14,6 +14,7 @@ import {
   CircleDashed,
   LayoutGrid,
   List as ListIcon,
+  Plus,
 } from "lucide-react";
 import { toast } from "sonner";
 
