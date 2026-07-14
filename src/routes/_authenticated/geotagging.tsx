@@ -1568,7 +1568,14 @@ function StepLocation(props: {
           )
         }
       >
-        <LocationPicker value={customLocation} onChange={setCustomLocation} compact />
+        <LocationPicker
+          value={customLocation}
+          onChange={setCustomLocation}
+          compact
+          cityOptions={cityOptions}
+          refreshKey={refreshKey}
+        />
+
       </Collapsible>
     </div>
   );
