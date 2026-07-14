@@ -70,7 +70,7 @@ type KFolder = {
 type ScopeKey = "all" | "unfiled" | string; // folder id or special
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
-const BULK_KEYWORD_ACTION_CHUNK_SIZE = 100;
+const BULK_KEYWORD_ACTION_CHUNK_SIZE = 50;
 
 function normalizeKeywordIds(ids: string[]): string[] {
   return Array.from(new Set(ids.filter((id): id is string => typeof id === "string" && UUID_RE.test(id))));
@@ -186,6 +186,10 @@ function KeywordsPage() {
   const [search, setSearch] = useState("");
   const [intentFilter, setIntentFilter] = useState<string>("all");
   const [minVolume, setMinVolume] = useState<string>("");
+  const [maxVolume, setMaxVolume] = useState<string>("");
+  const [maxKD, setMaxKD] = useState<string>("");
+  const [maxCPC, setMaxCPC] = useState<string>("");
+  const [clusterFilter, setClusterFilter] = useState<string>("all");
   const [scope, setScope] = useState<ScopeKey>("all");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [selection, setSelection] = useState<Set<string>>(new Set());
@@ -306,6 +310,9 @@ function KeywordsPage() {
   const filtered = useMemo(() => {
     const q = search.trim().toLowerCase();
     const min = minVolume ? Number(minVolume) : null;
+    const max = maxVolume ? Number(maxVolume) : null;
+    const kdMax = maxKD ? Number(maxKD) : null;
+    const cpcMax = maxCPC ? Number(maxCPC) : null;
     return scopedRows.filter((r) => {
       if (q) {
         const hay = `${r.phrase} ${r.cluster ?? ""}`.toLowerCase();
@@ -314,12 +321,24 @@ function KeywordsPage() {
       if (intentFilter !== "all") {
         if ((r.intent ?? "").toLowerCase() !== intentFilter) return false;
       }
+      if (clusterFilter !== "all") {
+        if ((r.cluster ?? "") !== clusterFilter) return false;
+      }
       if (min != null && Number.isFinite(min)) {
         if ((r.volume ?? 0) < min) return false;
       }
+      if (max != null && Number.isFinite(max)) {
+        if ((r.volume ?? 0) > max) return false;
+      }
+      if (kdMax != null && Number.isFinite(kdMax)) {
+        if ((r.keyword_difficulty ?? 0) > kdMax) return false;
+      }
+      if (cpcMax != null && Number.isFinite(cpcMax)) {
+        if (Number(r.cpc ?? 0) > cpcMax) return false;
+      }
       return true;
     });
-  }, [scopedRows, search, intentFilter, minVolume]);
+  }, [scopedRows, search, intentFilter, clusterFilter, minVolume, maxVolume, maxKD, maxCPC]);
 
   const stats = useMemo(() => {
     const totalKw = scopedRows.length;
@@ -340,6 +359,12 @@ function KeywordsPage() {
   const availableIntents = useMemo(() => {
     const s = new Set<string>();
     rows.forEach((r) => r.intent && s.add(r.intent.toLowerCase()));
+    return Array.from(s).sort();
+  }, [rows]);
+
+  const availableClusters = useMemo(() => {
+    const s = new Set<string>();
+    rows.forEach((r) => r.cluster && s.add(r.cluster));
     return Array.from(s).sort();
   }, [rows]);
 
@@ -1344,6 +1369,7 @@ function KeywordsPage() {
             value={intentFilter}
             onChange={(e) => setIntentFilter(e.target.value)}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+            title="Search intent"
           >
             <option value="all">All intents</option>
             {availableIntents.map((i) => (
@@ -1352,18 +1378,63 @@ function KeywordsPage() {
               </option>
             ))}
           </select>
-          <input
-            value={minVolume}
-            onChange={(e) => setMinVolume(e.target.value.replace(/[^0-9]/g, ""))}
-            placeholder="Min volume"
-            className="w-32 rounded-lg border border-border bg-card px-3 py-2 text-sm"
-          />
-          {(search || intentFilter !== "all" || minVolume) && (
+          <select
+            value={clusterFilter}
+            onChange={(e) => setClusterFilter(e.target.value)}
+            className="rounded-lg border border-border bg-card px-3 py-2 text-sm max-w-[180px]"
+            title="Cluster / topic"
+          >
+            <option value="all">All clusters</option>
+            {availableClusters.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </select>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Search volume range">
+            <Target className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={minVolume}
+              onChange={(e) => setMinVolume(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Min vol"
+              className="w-20 bg-transparent px-1 text-sm outline-none"
+            />
+            <span className="text-muted-foreground">–</span>
+            <input
+              value={maxVolume}
+              onChange={(e) => setMaxVolume(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Max"
+              className="w-20 bg-transparent px-1 text-sm outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Max keyword difficulty (0-100)">
+            <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={maxKD}
+              onChange={(e) => setMaxKD(e.target.value.replace(/[^0-9]/g, ""))}
+              placeholder="Max KD"
+              className="w-16 bg-transparent px-1 text-sm outline-none"
+            />
+          </div>
+          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Max cost per click ($)">
+            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+            <input
+              value={maxCPC}
+              onChange={(e) => setMaxCPC(e.target.value.replace(/[^0-9.]/g, ""))}
+              placeholder="Max CPC"
+              className="w-16 bg-transparent px-1 text-sm outline-none"
+            />
+          </div>
+          {(search || intentFilter !== "all" || clusterFilter !== "all" || minVolume || maxVolume || maxKD || maxCPC) && (
             <button
               onClick={() => {
                 setSearch("");
                 setIntentFilter("all");
+                setClusterFilter("all");
                 setMinVolume("");
+                setMaxVolume("");
+                setMaxKD("");
+                setMaxCPC("");
               }}
               className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:border-primary/50"
             >
@@ -1371,6 +1442,7 @@ function KeywordsPage() {
             </button>
           )}
         </div>
+
 
         {/* Bulk action bar */}
         {selection.size > 0 && (
