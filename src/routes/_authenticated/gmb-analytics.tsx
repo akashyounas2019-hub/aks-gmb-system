@@ -937,7 +937,7 @@ function GmbAnalyticsPage() {
               </tr>
             </thead>
             <tbody>
-              {filteredKw.map((k) => (
+              {(showAllKeywords || search.trim() ? filteredKw : filteredKw.slice(0, 10)).map((k) => (
                 <tr
                   key={k.keyword}
                   className={`border-t border-border transition ${
@@ -975,8 +975,22 @@ function GmbAnalyticsPage() {
               ))}
             </tbody>
           </table>
+          {!search.trim() && filteredKw.length > 10 && (
+            <div className="flex items-center justify-between border-t border-border bg-card/40 px-4 py-3 text-xs text-muted-foreground">
+              <span>
+                Showing {showAllKeywords ? filteredKw.length : Math.min(10, filteredKw.length)} of {filteredKw.length} keywords
+              </span>
+              <button
+                onClick={() => setShowAllKeywords((v) => !v)}
+                className="rounded-md border border-border bg-card px-3 py-1.5 text-xs font-medium text-foreground hover:bg-accent"
+              >
+                {showAllKeywords ? "Show top 10" : `View all (${filteredKw.length})`}
+              </button>
+            </div>
+          )}
         </div>
       </section>
+
 
       {/* Competitor rank comparison */}
       <section className="mt-10">
