@@ -220,7 +220,10 @@ function AgentProfilePage() {
     setSkill(agent.main_skill ?? "");
     setName(agent.name);
     setScope(agent.scope ?? "");
+    setSkillTouched(false);
   }, [agent?.id, agent?.main_skill, agent?.name, agent?.scope]);
+
+  const skillError = useMemo(() => validateMainSkill(skill), [skill]);
 
   const meta = agent ? roleMeta(agent.role) : null;
   const agentTasks = useMemo(() => tasks.filter((t) => t.agent_id === agentId), [tasks, agentId]);
