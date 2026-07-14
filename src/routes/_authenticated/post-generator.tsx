@@ -17,6 +17,8 @@ import {
   PenSquare,
   Inbox,
   Save,
+  LayoutTemplate,
+  Trash2,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -27,7 +29,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import {
-  LocationPicker,
   type PickedLocation,
 } from "@/components/LocationPicker";
 import {
@@ -114,6 +115,68 @@ export function PostGeneratorPage({
   const loadPrefs = useServerFn(getPreferences);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const importPopupRef = useRef<HTMLDivElement>(null);
+
+  // Post-body templates persisted in localStorage
+  type PostTemplate = { id: string; name: string; body: string };
+  const TEMPLATES_KEY = "post-generator:templates";
+  const [templates, setTemplates] = useState<PostTemplate[]>([]);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const templatesPopupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      if (raw) setTemplates(JSON.parse(raw) as PostTemplate[]);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function persistTemplates(next: PostTemplate[]) {
+    setTemplates(next);
+    try {
+      localStorage.setItem(TEMPLATES_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  function saveCurrentAsTemplate() {
+    const body = caption.trim();
+    if (!body) {
+      toast.error("Post body is empty");
+      return;
+    }
+    const name = window.prompt("Template name", body.slice(0, 40))?.trim();
+    if (!name) return;
+    persistTemplates([{ id: crypto.randomUUID(), name, body }, ...templates]);
+    toast.success("Template saved");
+  }
+  function applyTemplate(t: PostTemplate) {
+    if (caption.trim() && !window.confirm("Replace current post body with this template?")) return;
+    setCaption(t.body);
+    setTemplatesOpen(false);
+    toast.success(`Applied "${t.name}"`);
+  }
+  function deleteTemplate(id: string) {
+    persistTemplates(templates.filter((t) => t.id !== id));
+  }
+
+  // Close popups when clicking outside
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (importOpen && importPopupRef.current && !importPopupRef.current.contains(target)) {
+        setImportOpen(false);
+      }
+      if (templatesOpen && templatesPopupRef.current && !templatesPopupRef.current.contains(target)) {
+        setTemplatesOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [importOpen, templatesOpen]);
+
 
   // Load business phone from settings for the Call CTA auto-populate.
   useEffect(() => {
@@ -525,13 +588,14 @@ export function PostGeneratorPage({
                   ({manualKw.length} added)
                 </span>
               </div>
-              <div className="relative">
+              <div className="relative" ref={importPopupRef}>
                 <button
                   onClick={() => setImportOpen((v) => !v)}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm transition hover:border-primary hover:from-primary/25 hover:to-primary/10 hover:shadow"
                 >
+                  <Sparkles className="h-3.5 w-3.5" />
                   Import from Semrush
-                  <ChevronDown className="h-3 w-3" />
+                  <ChevronDown className="h-3 w-3 opacity-70" />
                 </button>
                 {importOpen && (
                   <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
@@ -803,14 +867,6 @@ export function PostGeneratorPage({
             )}
           </section>
 
-          {/* Location — hidden on Facebook/Instagram (GMB-only widget) */}
-          {!isSocial && (
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 text-sm font-medium">Location</div>
-              <LocationPicker value={location} onChange={setLocation} />
-            </section>
-          )}
-
           {/* Voice */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Voice</div>
@@ -840,30 +896,9 @@ export function PostGeneratorPage({
                   <option value="informative">Informative</option>
                 </select>
               </label>
-              <label className="col-span-2 block">
-                <span className="text-xs text-muted-foreground">
-                  Business name (optional)
-                </span>
-                <input
-                  value={businessName}
-                  onChange={(e) => setBusinessName(e.target.value)}
-                  placeholder="e.g. Pearl Home Cleaning Dubai"
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                />
-              </label>
-              <label className="col-span-2 block">
-                <span className="text-xs text-muted-foreground">
-                  Call-to-action hint for AI (optional)
-                </span>
-                <input
-                  value={cta}
-                  onChange={(e) => setCta(e.target.value)}
-                  placeholder="e.g. Book on WhatsApp +971…"
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                />
-              </label>
             </div>
           </section>
+
 
           {/* GMB Call-to-action — hidden on Facebook/Instagram */}
           {!isSocial && (
@@ -963,14 +998,72 @@ export function PostGeneratorPage({
                   This is what will be posted. Max {CAPTION_LIMIT} characters.
                 </div>
               </div>
-              <button
-                onClick={copyOut}
-                disabled={!caption}
-                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
-              >
-                <Copy className="h-3 w-3" /> Copy
-              </button>
+              <div className="flex items-center gap-1.5">
+                <div className="relative" ref={templatesPopupRef}>
+                  <button
+                    onClick={() => setTemplatesOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+                  >
+                    <LayoutTemplate className="h-3 w-3" /> Templates
+                    <ChevronDown className="h-3 w-3 opacity-70" />
+                  </button>
+                  {templatesOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="text-xs font-medium">Post templates</div>
+                        <button
+                          onClick={saveCurrentAsTemplate}
+                          className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/25"
+                        >
+                          <Plus className="h-3 w-3" /> Save current
+                        </button>
+                      </div>
+                      <div className="max-h-64 overflow-auto">
+                        {templates.length === 0 ? (
+                          <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                            No templates yet. Paste content into the post body,
+                            then click "Save current".
+                          </div>
+                        ) : (
+                          templates.map((t) => (
+                            <div
+                              key={t.id}
+                              className="group flex items-start gap-2 rounded px-2 py-1.5 hover:bg-accent"
+                            >
+                              <button
+                                onClick={() => applyTemplate(t)}
+                                className="flex-1 text-left"
+                              >
+                                <div className="truncate text-xs font-medium">{t.name}</div>
+                                <div className="truncate text-[11px] text-muted-foreground">
+                                  {t.body.slice(0, 60)}
+                                  {t.body.length > 60 ? "…" : ""}
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => deleteTemplate(t.id)}
+                                aria-label="Delete template"
+                                className="rounded p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-destructive/15 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={copyOut}
+                  disabled={!caption}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
+                >
+                  <Copy className="h-3 w-3" /> Copy
+                </button>
+              </div>
             </div>
+
             <textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
