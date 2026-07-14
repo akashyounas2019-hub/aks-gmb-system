@@ -116,6 +116,68 @@ export function PostGeneratorPage({
   const loadPrefs = useServerFn(getPreferences);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
+  const importPopupRef = useRef<HTMLDivElement>(null);
+
+  // Post-body templates persisted in localStorage
+  type PostTemplate = { id: string; name: string; body: string };
+  const TEMPLATES_KEY = "post-generator:templates";
+  const [templates, setTemplates] = useState<PostTemplate[]>([]);
+  const [templatesOpen, setTemplatesOpen] = useState(false);
+  const templatesPopupRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(TEMPLATES_KEY);
+      if (raw) setTemplates(JSON.parse(raw) as PostTemplate[]);
+    } catch {
+      /* ignore */
+    }
+  }, []);
+
+  function persistTemplates(next: PostTemplate[]) {
+    setTemplates(next);
+    try {
+      localStorage.setItem(TEMPLATES_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  function saveCurrentAsTemplate() {
+    const body = caption.trim();
+    if (!body) {
+      toast.error("Post body is empty");
+      return;
+    }
+    const name = window.prompt("Template name", body.slice(0, 40))?.trim();
+    if (!name) return;
+    persistTemplates([{ id: crypto.randomUUID(), name, body }, ...templates]);
+    toast.success("Template saved");
+  }
+  function applyTemplate(t: PostTemplate) {
+    if (caption.trim() && !window.confirm("Replace current post body with this template?")) return;
+    setCaption(t.body);
+    setTemplatesOpen(false);
+    toast.success(`Applied "${t.name}"`);
+  }
+  function deleteTemplate(id: string) {
+    persistTemplates(templates.filter((t) => t.id !== id));
+  }
+
+  // Close popups when clicking outside
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      const target = e.target as Node;
+      if (importOpen && importPopupRef.current && !importPopupRef.current.contains(target)) {
+        setImportOpen(false);
+      }
+      if (templatesOpen && templatesPopupRef.current && !templatesPopupRef.current.contains(target)) {
+        setTemplatesOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [importOpen, templatesOpen]);
+
 
   // Load business phone from settings for the Call CTA auto-populate.
   useEffect(() => {
