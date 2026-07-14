@@ -199,6 +199,7 @@ export function PostGeneratorPage({
   function openTemplatesModal() {
     setTemplatesOpen(true);
     setTemplateSearch("");
+    setPreviewingTemplate(null);
   }
   function beginCreateTemplate(seedFromCaption: boolean) {
     setCreatingTemplate(true);
