@@ -998,6 +998,14 @@ export function AiImagePromptGenerator() {
                         <Save className="h-3 w-3" />
                       </button>
                       <button
+                        onClick={() => saveVariationAsTemplate(v)}
+                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="Save as template"
+                        aria-label="Save variation as template"
+                      >
+                        <Sparkles className="h-3 w-3" />
+                      </button>
+                      <button
                         onClick={() => {
                           setCustomBody(v);
                           setActiveTemplateId(null);
