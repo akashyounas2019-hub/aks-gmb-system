@@ -29,7 +29,6 @@ import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import {
-  LocationPicker,
   type PickedLocation,
 } from "@/components/LocationPicker";
 import {
