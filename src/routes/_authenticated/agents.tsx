@@ -385,7 +385,12 @@ function AgentsPage() {
     if (!newAgent.name.trim()) return toast.error("Give the agent a name.");
     const parent = newAgent.parentId || leader?.id;
     if (!parent) return toast.error("Missing parent agent.");
-    createMut.mutate({ name: newAgent.name.trim(), role: newAgent.role, parent_id: parent });
+    createMut.mutate({
+      name: newAgent.name.trim(),
+      role: newAgent.role,
+      parent_id: parent,
+      scope: newAgent.scope.trim() || undefined,
+    });
   }
 
   function handleAssign() {
