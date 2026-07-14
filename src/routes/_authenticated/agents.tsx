@@ -219,7 +219,45 @@ function AgentsPage() {
     enabled: !!selected,
   });
 
-  const teamStats = useMemo(() => {
+  type NotifRow = {
+    id: string;
+    agent_id: string;
+    related_agent_id: string | null;
+    task_id: string | null;
+    kind: string;
+    title: string;
+    message: string;
+    read_at: string | null;
+    created_at: string;
+  };
+  const notifKey = ["agent-notifications", isLeaderSelected ? "team" : selected?.id ?? "team"] as const;
+  const { data: notifications = [] } = useQuery<NotifRow[]>({
+    queryKey: [...notifKey],
+    queryFn: () =>
+      fetchNotifications({
+        data:
+          isLeaderSelected || !selected
+            ? { limit: 50 }
+            : { agent_id: selected.id, limit: 50 },
+      }) as Promise<NotifRow[]>,
+    enabled: !!selected,
+    refetchInterval: 30_000,
+  });
+  const unreadNotifs = notifications.filter((n) => !n.read_at).length;
+
+  const markOneNotif = useMutation({
+    mutationFn: (id: string) => markNotifRead({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-notifications"] }),
+  });
+  const markAllNotifs = useMutation({
+    mutationFn: () =>
+      markAllNotifRead({
+        data: isLeaderSelected || !selected ? {} : { agent_id: selected.id },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-notifications"] }),
+  });
+
+
     if (agents.length === 0) return { avgLoad: 0, active: 0, success: 0, total: 0 };
     const avgLoad = Math.round(agents.reduce((s, a) => s + a.load, 0) / agents.length);
     const active = agents.filter((a) => a.status === "working" || a.status === "online").length;
