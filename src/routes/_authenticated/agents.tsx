@@ -26,6 +26,9 @@ import {
   Pause,
   Play,
   XCircle,
+  Bell,
+  Check,
+  CheckCheck,
 } from "lucide-react";
 import {
   Dialog,
@@ -49,6 +52,9 @@ import {
   createAgent as createAgentFn,
   getAgentsState,
   getTaskEvents as getTaskEventsFn,
+  listAgentNotifications as listAgentNotificationsFn,
+  markAgentNotificationRead as markAgentNotificationReadFn,
+  markAllAgentNotificationsRead as markAllAgentNotificationsReadFn,
   pauseTask as pauseTaskFn,
   rejectTask as rejectTaskFn,
   resumeTask as resumeTaskFn,
@@ -168,6 +174,9 @@ function AgentsPage() {
   const resumeTask = useServerFn(resumeTaskFn);
   const cancelTask = useServerFn(cancelTaskFn);
   const fetchEvents = useServerFn(getTaskEventsFn);
+  const fetchNotifications = useServerFn(listAgentNotificationsFn);
+  const markNotifRead = useServerFn(markAgentNotificationReadFn);
+  const markAllNotifRead = useServerFn(markAllAgentNotificationsReadFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
@@ -210,6 +219,44 @@ function AgentsPage() {
     enabled: !!selected,
   });
 
+  type NotifRow = {
+    id: string;
+    agent_id: string;
+    related_agent_id: string | null;
+    task_id: string | null;
+    kind: string;
+    title: string;
+    message: string;
+    read_at: string | null;
+    created_at: string;
+  };
+  const notifKey = ["agent-notifications", isLeaderSelected ? "team" : selected?.id ?? "team"] as const;
+  const { data: notifications = [] } = useQuery<NotifRow[]>({
+    queryKey: [...notifKey],
+    queryFn: () =>
+      fetchNotifications({
+        data:
+          isLeaderSelected || !selected
+            ? { limit: 50 }
+            : { agent_id: selected.id, limit: 50 },
+      }) as Promise<NotifRow[]>,
+    enabled: !!selected,
+    refetchInterval: 30_000,
+  });
+  const unreadNotifs = notifications.filter((n) => !n.read_at).length;
+
+  const markOneNotif = useMutation({
+    mutationFn: (id: string) => markNotifRead({ data: { id } }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-notifications"] }),
+  });
+  const markAllNotifs = useMutation({
+    mutationFn: () =>
+      markAllNotifRead({
+        data: isLeaderSelected || !selected ? {} : { agent_id: selected.id },
+      }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agent-notifications"] }),
+  });
+
   const teamStats = useMemo(() => {
     if (agents.length === 0) return { avgLoad: 0, active: 0, success: 0, total: 0 };
     const avgLoad = Math.round(agents.reduce((s, a) => s + a.load, 0) / agents.length);
@@ -221,7 +268,7 @@ function AgentsPage() {
   const approveMut = useMutation({
     mutationFn: (id: string) => approveTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.success("Major task approved. Leader dispatching to sub-agent.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to approve."),
@@ -229,7 +276,7 @@ function AgentsPage() {
   const rejectMut = useMutation({
     mutationFn: (id: string) => rejectTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.message("Task rejected.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
@@ -246,7 +293,7 @@ function AgentsPage() {
         },
       }),
     onSuccess: (row) => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAddOpen(false);
       setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "" });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
@@ -262,7 +309,7 @@ function AgentsPage() {
       major: boolean;
     }) => assignTask({ data: input }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAssign((p) => ({ ...p, title: "" }));
       toast.success("Task launched. Progress will update in the queue.");
     },
@@ -273,14 +320,14 @@ function AgentsPage() {
       updateTaskProgress({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents-state"] });
-      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
   });
   const pauseMut = useMutation({
     mutationFn: (id: string) => pauseTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.message("Task paused.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to pause."),
@@ -288,7 +335,7 @@ function AgentsPage() {
   const resumeMut = useMutation({
     mutationFn: (id: string) => resumeTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.success("Task resumed.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to resume."),
@@ -296,7 +343,7 @@ function AgentsPage() {
   const cancelMut = useMutation({
     mutationFn: (id: string) => cancelTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.message("Task cancelled.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to cancel."),
@@ -670,7 +717,93 @@ function AgentsPage() {
           </div>
 
           <div className="space-y-6">
+            {/* Agent notifications inbox */}
+            <div className="rounded-2xl border border-primary/20 bg-gradient-to-br from-primary/10 via-card/60 to-card/40 p-5 backdrop-blur-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <h3 className="inline-flex items-center gap-2 font-display text-base tracking-tight">
+                  <Bell className="h-4 w-4 text-primary" />
+                  {isLeaderSelected ? "Team alerts" : `${selected?.name ?? "Agent"} alerts`}
+                </h3>
+                <div className="flex items-center gap-2">
+                  {unreadNotifs > 0 && (
+                    <span className="rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-semibold text-primary">
+                      {unreadNotifs} new
+                    </span>
+                  )}
+                  {unreadNotifs > 0 && (
+                    <button
+                      onClick={() => markAllNotifs.mutate()}
+                      disabled={markAllNotifs.isPending}
+                      className="inline-flex items-center gap-1 text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      <CheckCheck className="h-3.5 w-3.5" /> Mark all read
+                    </button>
+                  )}
+                </div>
+              </div>
+              {notifications.length === 0 ? (
+                <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-4 py-6 text-center text-xs text-muted-foreground">
+                  No alerts yet. Assign, complete, or fail a task to see notifications here.
+                </p>
+              ) : (
+                <ul className="max-h-[320px] space-y-1.5 overflow-y-auto pr-1">
+                  {notifications.map((n) => {
+                    const kindMeta =
+                      n.kind === "assigned"
+                        ? { color: "bg-primary", Icon: Send }
+                        : n.kind === "started"
+                          ? { color: "bg-sky-500", Icon: Rocket }
+                          : n.kind === "completed"
+                            ? { color: "bg-emerald-500", Icon: CheckCircle2 }
+                            : { color: "bg-rose-500", Icon: XCircle };
+                    const target = agents.find((a) => a.id === n.agent_id);
+                    const other = agents.find((a) => a.id === n.related_agent_id);
+                    const isUnread = !n.read_at;
+                    const ts = n.created_at ? new Date(n.created_at) : null;
+                    return (
+                      <li
+                        key={n.id}
+                        className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 ${isUnread ? "border-primary/30 bg-primary/5" : "border-border/50 bg-background/30"}`}
+                      >
+                        <span
+                          className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded-full ${kindMeta.color}`}
+                        >
+                          <kindMeta.Icon className="h-3 w-3 text-white" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-center gap-1.5">
+                            <span className="text-sm font-medium">{n.title}</span>
+                            {isUnread && (
+                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
+                            )}
+                          </div>
+                          <div className="mt-0.5 text-xs text-muted-foreground">{n.message}</div>
+                          <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">
+                            <span>→ {target?.name ?? "Agent"}</span>
+                            {other && <span>· {other.name}</span>}
+                            <span className="ml-auto normal-case tracking-normal">
+                              {ts ? ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                            </span>
+                          </div>
+                        </div>
+                        {isUnread && (
+                          <button
+                            onClick={() => markOneNotif.mutate(n.id)}
+                            className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+                            title="Mark read"
+                          >
+                            <Check className="h-3.5 w-3.5" />
+                          </button>
+                        )}
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
+            </div>
+
             <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5">
+
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="inline-flex items-center gap-2 font-display text-base tracking-tight">
                   <AlertTriangle className="h-4 w-4 text-amber-400" /> Awaiting approval

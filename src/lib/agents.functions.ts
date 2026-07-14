@@ -29,6 +29,48 @@ async function logEvent(
   }
 }
 
+type NotifyKind = "assigned" | "started" | "completed" | "failed";
+
+async function notify(
+  supabase: any,
+  userId: string,
+  rows: Array<{
+    agent_id: string;
+    related_agent_id?: string | null;
+    task_id?: string | null;
+    kind: NotifyKind;
+    title: string;
+    message: string;
+  }>,
+) {
+  try {
+    if (rows.length === 0) return;
+    await supabase.from("agent_notifications").insert(
+      rows.map((r) => ({
+        user_id: userId,
+        agent_id: r.agent_id,
+        related_agent_id: r.related_agent_id ?? null,
+        task_id: r.task_id ?? null,
+        kind: r.kind,
+        title: r.title,
+        message: r.message,
+      })),
+    );
+  } catch {
+    // best-effort — never break the primary action
+  }
+}
+
+async function getLeaderId(supabase: any, userId: string): Promise<string | null> {
+  const { data } = await supabase
+    .from("agents")
+    .select("id")
+    .eq("user_id", userId)
+    .is("parent_id", null)
+    .maybeSingle();
+  return data?.id ?? null;
+}
+
 const DEFAULT_AGENTS = [
   {
     slug: "leader",
@@ -263,6 +305,28 @@ export const approveTask = createServerFn({ method: "POST" })
         event_type: "approved",
         message: `Approved: ${task.title}`,
       });
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [
+        {
+          agent_id: task.agent_id,
+          related_agent_id: leaderId,
+          task_id: data.id,
+          kind: "started",
+          title: "Task started",
+          message: `Leader approved and started "${task.title}".`,
+        },
+      ];
+      if (leaderId && leaderId !== task.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: task.agent_id,
+          task_id: data.id,
+          kind: "started",
+          title: "Task started",
+          message: `Approved "${task.title}" — now running.`,
+        });
+      }
+      await notify(supabase, userId, rows);
     }
     return { ok: true };
   });
@@ -285,6 +349,28 @@ export const rejectTask = createServerFn({ method: "POST" })
         event_type: "rejected",
         message: `Rejected: ${task.title}`,
       });
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [
+        {
+          agent_id: task.agent_id,
+          related_agent_id: leaderId,
+          task_id: null,
+          kind: "failed",
+          title: "Task rejected",
+          message: `Leader rejected "${task.title}".`,
+        },
+      ];
+      if (leaderId && leaderId !== task.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: task.agent_id,
+          task_id: null,
+          kind: "failed",
+          title: "Task rejected",
+          message: `You rejected "${task.title}".`,
+        });
+      }
+      await notify(supabase, userId, rows);
     }
     const { error } = await supabase
       .from("agent_tasks")
@@ -383,6 +469,45 @@ export const assignTask = createServerFn({ method: "POST" })
       metadata: { priority: data.priority, major: data.major },
     });
 
+    {
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [];
+      // Notify the sub-agent it received a task (or a queued major task pending approval)
+      rows.push({
+        agent_id: data.agent_id,
+        related_agent_id: leaderId,
+        task_id: task.id,
+        kind: "assigned",
+        title: data.major ? "New major task queued" : "New task assigned",
+        message: data.major
+          ? `Leader queued "${data.title}" — awaiting your operator's approval.`
+          : `Leader assigned "${data.title}".`,
+      });
+      // Notify the leader for oversight
+      if (leaderId && leaderId !== data.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: data.agent_id,
+          task_id: task.id,
+          kind: "assigned",
+          title: "Dispatched a task",
+          message: `Sent "${data.title}" to ${agent.name}${data.major ? " (major — needs approval)" : ""}.`,
+        });
+      }
+      // Non-major tasks start immediately
+      if (!data.major) {
+        rows.push({
+          agent_id: data.agent_id,
+          related_agent_id: leaderId,
+          task_id: task.id,
+          kind: "started",
+          title: "Task started",
+          message: `Working on "${data.title}".`,
+        });
+      }
+      await notify(supabase, userId, rows);
+    }
+
     return task;
   });
 
@@ -426,6 +551,30 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
           : `Progress ${updated.progress ?? 0}% — ${updated.title}`,
         progress: updated.progress ?? null,
       });
+      if (isDone) {
+        const leaderId = await getLeaderId(supabase, userId);
+        const rows: Parameters<typeof notify>[2] = [
+          {
+            agent_id: updated.agent_id,
+            related_agent_id: leaderId,
+            task_id: data.id,
+            kind: "completed",
+            title: "Task completed",
+            message: `Finished "${updated.title}".`,
+          },
+        ];
+        if (leaderId && leaderId !== updated.agent_id) {
+          rows.push({
+            agent_id: leaderId,
+            related_agent_id: updated.agent_id,
+            task_id: data.id,
+            kind: "completed",
+            title: "Task completed",
+            message: `Agent finished "${updated.title}".`,
+          });
+        }
+        await notify(supabase, userId, rows);
+      }
     }
     return { ok: true };
   });
@@ -519,6 +668,28 @@ export const cancelTask = createServerFn({ method: "POST" })
         message: `Cancelled: ${task.title ?? "task"}`,
         progress: task.progress ?? null,
       });
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [
+        {
+          agent_id: task.agent_id,
+          related_agent_id: leaderId,
+          task_id: data.id,
+          kind: "failed",
+          title: "Task cancelled",
+          message: `Operator cancelled "${task.title ?? "task"}".`,
+        },
+      ];
+      if (leaderId && leaderId !== task.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: task.agent_id,
+          task_id: data.id,
+          kind: "failed",
+          title: "Task cancelled",
+          message: `Cancelled "${task.title ?? "task"}" — agent stood down.`,
+        });
+      }
+      await notify(supabase, userId, rows);
     }
     return { ok: true };
   });
@@ -550,3 +721,61 @@ export const getTaskEvents = createServerFn({ method: "GET" })
   });
 
 
+
+export const listAgentNotifications = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        onlyUnread: z.boolean().optional(),
+        agent_id: z.string().uuid().optional(),
+        limit: z.number().min(1).max(200).default(50),
+      })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let q = supabase
+      .from("agent_notifications")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.onlyUnread) q = q.is("read_at", null);
+    if (data.agent_id) q = q.eq("agent_id", data.agent_id);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    return rows ?? [];
+  });
+
+export const markAgentNotificationRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { error } = await supabase
+      .from("agent_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("id", data.id)
+      .eq("user_id", userId);
+    if (error) throw error;
+    return { ok: true };
+  });
+
+export const markAllAgentNotificationsRead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z.object({ agent_id: z.string().uuid().optional() }).parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let q = supabase
+      .from("agent_notifications")
+      .update({ read_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .is("read_at", null);
+    if (data.agent_id) q = q.eq("agent_id", data.agent_id);
+    const { error } = await q;
+    if (error) throw error;
+    return { ok: true };
+  });
