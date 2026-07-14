@@ -144,6 +144,7 @@ export function PostGeneratorPage({
   const [phoneManuallyEdited, setPhoneManuallyEdited] = useState(false);
   const [ctaManuallyEdited, setCtaManuallyEdited] = useState(false);
   const loadPrefs = useServerFn(getPreferences);
+  const captionMirrorRef = useRef<HTMLDivElement>(null);
   const [uploading, setUploading] = useState(false);
   const uploadRef = useRef<HTMLInputElement>(null);
   const importPopupRef = useRef<HTMLDivElement>(null);
