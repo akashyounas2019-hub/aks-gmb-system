@@ -553,12 +553,52 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const patch: { progress?: number; status?: string } = {};
+    // Load current task to compute ETA off its started_at
+    const { data: current } = await supabase
+      .from("agent_tasks")
+      .select("started_at, progress, status")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+
+    const patch: {
+      progress?: number;
+      status?: string;
+      started_at?: string | null;
+      eta_at?: string | null;
+      eta_confidence?: string | null;
+    } = {};
     if (data.progress !== undefined) patch.progress = data.progress;
     if (data.status !== undefined) patch.status = data.status;
     if (data.progress !== undefined && data.progress >= 100 && data.status === undefined) {
       patch.status = "done";
     }
+
+    // If moving to running and no started_at yet, stamp one now.
+    const nextStatus = patch.status ?? current?.status;
+    let effectiveStartedAt = current?.started_at ?? null;
+    if (nextStatus === "running" && !effectiveStartedAt) {
+      effectiveStartedAt = new Date().toISOString();
+      patch.started_at = effectiveStartedAt;
+    }
+
+    const nextProgress = data.progress ?? current?.progress ?? 0;
+    if (nextStatus === "running") {
+      const { eta_at, eta_confidence } = computeEta(effectiveStartedAt, nextProgress);
+      patch.eta_at = eta_at;
+      patch.eta_confidence = eta_confidence;
+    } else if (
+      nextStatus === "done" ||
+      nextStatus === "cancelled" ||
+      nextStatus === "paused"
+    ) {
+      // Keep eta stable while paused? Simpler: clear on non-running terminal transitions.
+      if (nextStatus !== "paused") {
+        patch.eta_at = null;
+        patch.eta_confidence = null;
+      }
+    }
+
     const { data: updated, error } = await supabase
       .from("agent_tasks")
       .update(patch)
