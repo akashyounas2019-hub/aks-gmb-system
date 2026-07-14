@@ -553,12 +553,16 @@ export function PostGeneratorPage({
       toast.error(`Post body exceeds ${CAPTION_LIMIT} characters (${captionLen}).`);
       return;
     }
-    if (ctaType !== "none" && ctaType !== "call" && !ctaUrl.trim()) {
-      toast.error("Add a URL for the selected call-to-action");
+    if (ctaMissing) {
+      toast.error(
+        ctaType === "call"
+          ? "Add a phone number for the Call CTA"
+          : `Add a destination for the "${ctaMeta.buttonLabel}" button`,
+      );
       return;
     }
-    if (ctaType === "call" && !ctaUrl.trim()) {
-      toast.error("Add a phone number for the Call CTA");
+    if (ctaError) {
+      toast.error(`${ctaMeta.buttonLabel} button: ${ctaError}`);
       return;
     }
     setSending(true);
