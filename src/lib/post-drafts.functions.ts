@@ -13,6 +13,7 @@ export type PostDraft = {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  imageIds: string[];
 };
 
 export type UpsertDraftInput = {
@@ -23,6 +24,7 @@ export type UpsertDraftInput = {
   status?: string;
   scheduledAt?: string | null;
   tags?: string[];
+  imageIds?: string[];
 };
 
 // Simple row shape returned by the DB query
