@@ -48,10 +48,14 @@ export function LocationPicker({
   value,
   onChange,
   compact = false,
+  cityOptions,
+  refreshKey = 0,
 }: {
   value: PickedLocation | null;
   onChange: (loc: PickedLocation | null) => void;
   compact?: boolean;
+  cityOptions?: { name: string; lat: number; lng: number }[];
+  refreshKey?: number;
 }) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<
@@ -60,7 +64,9 @@ export function LocationPicker({
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const sessionTokenRef = useRef<any>(null);
+
 
   useEffect(() => {
     loadMaps().then(() => setReady(true)).catch((e) => setError(e.message));
