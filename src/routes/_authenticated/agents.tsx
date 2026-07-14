@@ -131,6 +131,31 @@ function normalizeStatus(s: string): AgentStatus {
   return (["online", "working", "idle", "review"].includes(s) ? s : "idle") as AgentStatus;
 }
 
+function timelineMeta(type: string): { color: string; Icon: typeof Bot; label: string } {
+  switch (type) {
+    case "assigned":
+      return { color: "bg-primary", Icon: Send, label: "Assigned" };
+    case "progress":
+      return { color: "bg-sky-500", Icon: Activity, label: "Progress" };
+    case "paused":
+      return { color: "bg-amber-500", Icon: Pause, label: "Paused" };
+    case "resumed":
+      return { color: "bg-sky-500", Icon: Play, label: "Resumed" };
+    case "cancelled":
+      return { color: "bg-rose-500", Icon: XCircle, label: "Cancelled" };
+    case "completed":
+      return { color: "bg-emerald-500", Icon: CheckCircle2, label: "Completed" };
+    case "approved":
+      return { color: "bg-emerald-500", Icon: CheckCircle2, label: "Approved" };
+    case "rejected":
+      return { color: "bg-rose-500", Icon: XCircle, label: "Rejected" };
+    case "awaiting_approval":
+      return { color: "bg-amber-500", Icon: Flag, label: "Awaiting approval" };
+    default:
+      return { color: "bg-muted-foreground", Icon: Activity, label: type };
+  }
+}
+
 function AgentsPage() {
   const qc = useQueryClient();
   const fetchState = useServerFn(getAgentsState);
