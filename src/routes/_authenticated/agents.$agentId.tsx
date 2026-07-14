@@ -366,17 +366,40 @@ function AgentProfilePage() {
           <div className="space-y-4">
             {/* Skill set */}
             <Panel icon={Brain} title="Skill set" accent={isLeader ? "amber" : "cyan"}>
+              <label htmlFor="agent-main-skill" className="sr-only">Main skill</label>
               <textarea
+                id="agent-main-skill"
                 value={skill}
                 onChange={(e) => setSkill(e.target.value)}
+                onBlur={() => setSkillTouched(true)}
                 placeholder={meta.skillHint}
                 rows={5}
-                className="w-full resize-none rounded-lg border border-border bg-background px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-cyan-400/60"
+                maxLength={MAIN_SKILL_MAX + 40}
+                required
+                aria-invalid={skillTouched && !!skillError}
+                aria-describedby="agent-main-skill-help agent-main-skill-error"
+                className={`w-full resize-none rounded-lg border bg-background px-3 py-2.5 text-sm outline-none placeholder:text-muted-foreground/60 focus:border-cyan-400/60 ${
+                  skillTouched && skillError
+                    ? "border-rose-400/60 focus:border-rose-400"
+                    : "border-border"
+                }`}
               />
-              <div className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
-                <span>Auto-saved locally as you type.</span>
-                <span>{skill.length}/200</span>
+              <div id="agent-main-skill-help" className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+                <span>Required. Defines how this agent performs tasks.</span>
+                <span className={skill.length > MAIN_SKILL_MAX ? "text-rose-400" : ""}>
+                  {skill.trim().length}/{MAIN_SKILL_MAX}
+                </span>
               </div>
+              {skillTouched && skillError && (
+                <div
+                  id="agent-main-skill-error"
+                  role="alert"
+                  className="mt-2 inline-flex items-start gap-1.5 rounded-md border border-rose-400/40 bg-rose-500/10 px-2.5 py-1.5 text-[11px] text-rose-300"
+                >
+                  <AlertCircle className="mt-0.5 h-3 w-3 shrink-0" />
+                  <span>{skillError}</span>
+                </div>
+              )}
             </Panel>
 
             {/* Agent settings */}
