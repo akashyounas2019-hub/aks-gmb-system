@@ -190,6 +190,16 @@ function AutomationPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const editMut = useMutation({
+    mutationFn: (p: { id: string; name: string; cron: string }) =>
+      updateFn({ data: { id: p.id, patch: { name: p.name, cron: p.cron } } }),
+    onSuccess: () => {
+      toast.success("Automation updated.");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const runMut = useMutation({
     mutationFn: (id: string) => runFn({ data: { id } }),
     onSuccess: (res) => {
@@ -209,6 +219,9 @@ function AutomationPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<Kind | "">("");
+  const [editing, setEditing] = useState<{ id: string; name: string; cron: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+
 
   return (
     <div className="relative min-h-full overflow-hidden bg-[radial-gradient(ellipse_at_top_left,theme(colors.primary/10),transparent_55%),radial-gradient(ellipse_at_bottom_right,theme(colors.sky.500/8),transparent_55%)]">
