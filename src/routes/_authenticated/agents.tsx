@@ -218,10 +218,11 @@ function AgentsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string }>({
+  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string; scope: string }>({
     name: "",
     role: "writer",
     parentId: "",
+    scope: "",
   });
   const [assign, setAssign] = useState<{
     agent_id: string;
