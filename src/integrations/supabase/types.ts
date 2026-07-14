@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      agent_task_events: {
+        Row: {
+          agent_id: string
+          created_at: string
+          event_type: string
+          id: string
+          message: string
+          metadata: Json | null
+          progress: number | null
+          task_id: string | null
+          user_id: string
+        }
+        Insert: {
+          agent_id: string
+          created_at?: string
+          event_type: string
+          id?: string
+          message: string
+          metadata?: Json | null
+          progress?: number | null
+          task_id?: string | null
+          user_id: string
+        }
+        Update: {
+          agent_id?: string
+          created_at?: string
+          event_type?: string
+          id?: string
+          message?: string
+          metadata?: Json | null
+          progress?: number | null
+          task_id?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "agent_task_events_agent_id_fkey"
+            columns: ["agent_id"]
+            isOneToOne: false
+            referencedRelation: "agents"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "agent_task_events_task_id_fkey"
+            columns: ["task_id"]
+            isOneToOne: false
+            referencedRelation: "agent_tasks"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       agent_tasks: {
         Row: {
           agent_id: string

@@ -2,6 +2,33 @@ import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { z } from "zod";
 
+async function logEvent(
+  supabase: any,
+  userId: string,
+  input: {
+    agent_id: string;
+    task_id?: string | null;
+    event_type: string;
+    message: string;
+    progress?: number | null;
+    metadata?: Record<string, unknown> | null;
+  },
+) {
+  try {
+    await supabase.from("agent_task_events").insert({
+      user_id: userId,
+      agent_id: input.agent_id,
+      task_id: input.task_id ?? null,
+      event_type: input.event_type,
+      message: input.message,
+      progress: input.progress ?? null,
+      metadata: input.metadata ?? null,
+    });
+  } catch {
+    // history logging is best-effort — never break the primary action
+  }
+}
+
 const DEFAULT_AGENTS = [
   {
     slug: "leader",
@@ -221,12 +248,22 @@ export const approveTask = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase
+    const { data: task, error } = await supabase
       .from("agent_tasks")
       .update({ status: "running" })
       .eq("id", data.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("agent_id, title")
+      .maybeSingle();
     if (error) throw error;
+    if (task) {
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "approved",
+        message: `Approved: ${task.title}`,
+      });
+    }
     return { ok: true };
   });
 
@@ -235,6 +272,20 @@ export const rejectTask = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const { data: task } = await supabase
+      .from("agent_tasks")
+      .select("agent_id, title")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (task) {
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: null,
+        event_type: "rejected",
+        message: `Rejected: ${task.title}`,
+      });
+    }
     const { error } = await supabase
       .from("agent_tasks")
       .delete()
@@ -321,6 +372,17 @@ export const assignTask = createServerFn({ method: "POST" })
       .eq("id", data.agent_id)
       .eq("user_id", userId);
 
+    await logEvent(supabase, userId, {
+      agent_id: data.agent_id,
+      task_id: task.id,
+      event_type: data.major ? "awaiting_approval" : "assigned",
+      message: data.major
+        ? `Awaiting approval: ${data.title}`
+        : `Assigned: ${data.title}`,
+      progress: task.progress ?? 0,
+      metadata: { priority: data.priority, major: data.major },
+    });
+
     return task;
   });
 
@@ -345,12 +407,26 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
     if (data.progress !== undefined && data.progress >= 100 && data.status === undefined) {
       patch.status = "done";
     }
-    const { error } = await supabase
+    const { data: updated, error } = await supabase
       .from("agent_tasks")
       .update(patch)
       .eq("id", data.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("agent_id, title, progress, status")
+      .maybeSingle();
     if (error) throw error;
+    if (updated) {
+      const isDone = updated.status === "done";
+      await logEvent(supabase, userId, {
+        agent_id: updated.agent_id,
+        task_id: data.id,
+        event_type: isDone ? "completed" : "progress",
+        message: isDone
+          ? `Completed: ${updated.title}`
+          : `Progress ${updated.progress ?? 0}% — ${updated.title}`,
+        progress: updated.progress ?? null,
+      });
+    }
     return { ok: true };
   });
 
@@ -365,7 +441,7 @@ export const pauseTask = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "running")
-      .select("agent_id")
+      .select("agent_id, title, progress")
       .maybeSingle();
     if (error) throw error;
     if (task?.agent_id) {
@@ -374,6 +450,13 @@ export const pauseTask = createServerFn({ method: "POST" })
         .update({ status: "idle", last_activity: "Task paused by operator" })
         .eq("id", task.agent_id)
         .eq("user_id", userId);
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "paused",
+        message: `Paused: ${task.title ?? "task"}`,
+        progress: task.progress ?? null,
+      });
     }
     return { ok: true };
   });
@@ -389,7 +472,7 @@ export const resumeTask = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "paused")
-      .select("agent_id, title")
+      .select("agent_id, title, progress")
       .maybeSingle();
     if (error) throw error;
     if (task?.agent_id) {
@@ -398,6 +481,13 @@ export const resumeTask = createServerFn({ method: "POST" })
         .update({ status: "working", last_activity: `Resumed: ${task.title}` })
         .eq("id", task.agent_id)
         .eq("user_id", userId);
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "resumed",
+        message: `Resumed: ${task.title}`,
+        progress: task.progress ?? null,
+      });
     }
     return { ok: true };
   });
@@ -413,7 +503,7 @@ export const cancelTask = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .in("status", ["running", "paused", "queued", "awaiting_approval"])
-      .select("agent_id")
+      .select("agent_id, title, progress")
       .maybeSingle();
     if (error) throw error;
     if (task?.agent_id) {
@@ -422,7 +512,41 @@ export const cancelTask = createServerFn({ method: "POST" })
         .update({ status: "idle", last_activity: "Task cancelled by operator" })
         .eq("id", task.agent_id)
         .eq("user_id", userId);
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "cancelled",
+        message: `Cancelled: ${task.title ?? "task"}`,
+        progress: task.progress ?? null,
+      });
     }
     return { ok: true };
   });
+
+export const getTaskEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        agent_id: z.string().uuid().optional(),
+        task_id: z.string().uuid().optional(),
+        limit: z.number().min(1).max(500).default(100),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let q = supabase
+      .from("agent_task_events")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.agent_id) q = q.eq("agent_id", data.agent_id);
+    if (data.task_id) q = q.eq("task_id", data.task_id);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    return rows ?? [];
+  });
+
 

@@ -48,6 +48,7 @@ import {
   cancelTask as cancelTaskFn,
   createAgent as createAgentFn,
   getAgentsState,
+  getTaskEvents as getTaskEventsFn,
   pauseTask as pauseTaskFn,
   rejectTask as rejectTaskFn,
   resumeTask as resumeTaskFn,
@@ -130,6 +131,31 @@ function normalizeStatus(s: string): AgentStatus {
   return (["online", "working", "idle", "review"].includes(s) ? s : "idle") as AgentStatus;
 }
 
+function timelineMeta(type: string): { color: string; Icon: typeof Bot; label: string } {
+  switch (type) {
+    case "assigned":
+      return { color: "bg-primary", Icon: Send, label: "Assigned" };
+    case "progress":
+      return { color: "bg-sky-500", Icon: Activity, label: "Progress" };
+    case "paused":
+      return { color: "bg-amber-500", Icon: Pause, label: "Paused" };
+    case "resumed":
+      return { color: "bg-sky-500", Icon: Play, label: "Resumed" };
+    case "cancelled":
+      return { color: "bg-rose-500", Icon: XCircle, label: "Cancelled" };
+    case "completed":
+      return { color: "bg-emerald-500", Icon: CheckCircle2, label: "Completed" };
+    case "approved":
+      return { color: "bg-emerald-500", Icon: CheckCircle2, label: "Approved" };
+    case "rejected":
+      return { color: "bg-rose-500", Icon: XCircle, label: "Rejected" };
+    case "awaiting_approval":
+      return { color: "bg-amber-500", Icon: Flag, label: "Awaiting approval" };
+    default:
+      return { color: "bg-muted-foreground", Icon: Activity, label: type };
+  }
+}
+
 function AgentsPage() {
   const qc = useQueryClient();
   const fetchState = useServerFn(getAgentsState);
@@ -141,6 +167,7 @@ function AgentsPage() {
   const pauseTask = useServerFn(pauseTaskFn);
   const resumeTask = useServerFn(resumeTaskFn);
   const cancelTask = useServerFn(cancelTaskFn);
+  const fetchEvents = useServerFn(getTaskEventsFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
@@ -168,6 +195,20 @@ function AgentsPage() {
   const subAgents = leader ? agents.filter((a) => a.parent_id === leader.id) : [];
   const selected = agents.find((a) => a.id === selectedId) ?? leader;
   const pendingApprovals = tasks.filter((t) => t.status === "awaiting_approval");
+  const isLeaderSelected = !!selected && selected.parent_id === null;
+
+  const eventsKey = ["task-events", isLeaderSelected ? "team" : selected?.id ?? "team"] as const;
+  const { data: events = [] } = useQuery({
+    queryKey: [...eventsKey],
+    queryFn: () =>
+      fetchEvents({
+        data:
+          isLeaderSelected || !selected
+            ? { limit: 100 }
+            : { agent_id: selected.id, limit: 100 },
+      }),
+    enabled: !!selected,
+  });
 
   const teamStats = useMemo(() => {
     if (agents.length === 0) return { avgLoad: 0, active: 0, success: 0, total: 0 };
@@ -180,7 +221,7 @@ function AgentsPage() {
   const approveMut = useMutation({
     mutationFn: (id: string) => approveTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.success("Major task approved. Leader dispatching to sub-agent.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to approve."),
@@ -188,7 +229,7 @@ function AgentsPage() {
   const rejectMut = useMutation({
     mutationFn: (id: string) => rejectTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.message("Task rejected.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
@@ -205,7 +246,7 @@ function AgentsPage() {
         },
       }),
     onSuccess: (row) => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       setAddOpen(false);
       setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "" });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
@@ -221,7 +262,7 @@ function AgentsPage() {
       major: boolean;
     }) => assignTask({ data: input }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       setAssign((p) => ({ ...p, title: "" }));
       toast.success("Task launched. Progress will update in the queue.");
     },
@@ -230,13 +271,16 @@ function AgentsPage() {
   const progressMut = useMutation({
     mutationFn: (input: { id: string; progress?: number; status?: "running" | "done" }) =>
       updateTaskProgress({ data: input }),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+    },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
   });
   const pauseMut = useMutation({
     mutationFn: (id: string) => pauseTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.message("Task paused.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to pause."),
@@ -244,7 +288,7 @@ function AgentsPage() {
   const resumeMut = useMutation({
     mutationFn: (id: string) => resumeTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.success("Task resumed.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to resume."),
@@ -252,7 +296,7 @@ function AgentsPage() {
   const cancelMut = useMutation({
     mutationFn: (id: string) => cancelTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] });
       toast.message("Task cancelled.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to cancel."),
@@ -694,7 +738,73 @@ function AgentsPage() {
             </div>
           </div>
         </div>
+
+        {/* Task history timeline */}
+        <section className="mt-8 rounded-2xl border border-border/60 bg-card/60 p-6 backdrop-blur-sm">
+          <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <h2 className="font-display text-lg tracking-tight">Task history</h2>
+              <p className="text-xs text-muted-foreground">
+                {isLeaderSelected
+                  ? "Every assignment and progress change across the team."
+                  : `Timeline for ${selected?.name ?? "agent"}.`}
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-1 text-[10px] font-semibold uppercase tracking-widest text-primary">
+              <Clock className="h-3 w-3" /> {events.length} event{events.length === 1 ? "" : "s"}
+            </span>
+          </div>
+
+          {events.length === 0 ? (
+            <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-4 py-6 text-center text-xs text-muted-foreground">
+              No history yet. Assign a task to start the timeline.
+            </p>
+          ) : (
+            <ol className="relative space-y-3 pl-6">
+              <span
+                aria-hidden
+                className="absolute left-[9px] top-1 bottom-1 w-px bg-gradient-to-b from-primary/40 via-border to-transparent"
+              />
+              {events.map((ev) => {
+                const a = agents.find((x) => x.id === ev.agent_id);
+                const { color, Icon, label } = timelineMeta(ev.event_type);
+                const ts = ev.created_at ? new Date(ev.created_at) : null;
+                return (
+                  <li key={ev.id} className="relative">
+                    <span
+                      className={`absolute -left-[22px] top-1 grid h-4 w-4 place-items-center rounded-full ring-2 ring-card ${color}`}
+                    >
+                      <Icon className="h-2.5 w-2.5 text-white" />
+                    </span>
+                    <div className="rounded-lg border border-border/50 bg-background/40 px-3 py-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                          {label}
+                        </span>
+                        {a && (
+                          <span className="text-[11px] text-muted-foreground/90">
+                            {a.name}
+                          </span>
+                        )}
+                        {typeof ev.progress === "number" && (
+                          <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+                            {ev.progress}%
+                          </span>
+                        )}
+                        <span className="ml-auto text-[10px] tabular-nums text-muted-foreground/70">
+                          {ts ? ts.toLocaleString() : ""}
+                        </span>
+                      </div>
+                      <div className="mt-0.5 text-sm">{ev.message}</div>
+                    </div>
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </section>
       </div>
+
 
       <Dialog open={addOpen} onOpenChange={setAddOpen}>
         <DialogContent>
