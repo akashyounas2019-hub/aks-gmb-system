@@ -164,6 +164,73 @@ export function PostGeneratorPage({
   function deleteTemplate(id: string) {
     persistTemplates(templates.filter((t) => t.id !== id));
   }
+  const templateImportRef = useRef<HTMLInputElement>(null);
+  function exportTemplates() {
+    if (!templates.length) {
+      toast.error("No templates to export");
+      return;
+    }
+    const payload = {
+      kind: "post-generator-templates",
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      templates,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], {
+      type: "application/json",
+    });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `post-templates-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+    toast.success(`Exported ${templates.length} template${templates.length === 1 ? "" : "s"}`);
+  }
+  async function importTemplatesFromFile(file: File) {
+    try {
+      const text = await file.text();
+      const parsed = JSON.parse(text);
+      const incoming: unknown =
+        Array.isArray(parsed) ? parsed : parsed?.templates;
+      if (!Array.isArray(incoming)) throw new Error("Invalid template file");
+      const valid: PostTemplate[] = [];
+      for (const raw of incoming) {
+        if (!raw || typeof raw !== "object") continue;
+        const r = raw as Record<string, unknown>;
+        const name = typeof r.name === "string" ? r.name.trim() : "";
+        const body = typeof r.body === "string" ? r.body : "";
+        if (!name || !body) continue;
+        valid.push({ id: crypto.randomUUID(), name, body });
+      }
+      if (!valid.length) {
+        toast.error("No valid templates found in file");
+        return;
+      }
+      // Merge, skipping exact name+body duplicates
+      const seen = new Set(templates.map((t) => `${t.name}::${t.body}`));
+      const merged = [...templates];
+      let added = 0;
+      for (const t of valid) {
+        const key = `${t.name}::${t.body}`;
+        if (seen.has(key)) continue;
+        seen.add(key);
+        merged.unshift(t);
+        added++;
+      }
+      persistTemplates(merged);
+      toast.success(
+        added
+          ? `Imported ${added} template${added === 1 ? "" : "s"}`
+          : "Templates already present — nothing to import",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Import failed");
+    }
+  }
+
 
   // Close popups when clicking outside
   useEffect(() => {
@@ -1019,12 +1086,40 @@ export function PostGeneratorPage({
                     <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
                       <div className="mb-2 flex items-center justify-between gap-2">
                         <div className="text-xs font-medium">Post templates</div>
-                        <button
-                          onClick={saveCurrentAsTemplate}
-                          className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/25"
-                        >
-                          <Plus className="h-3 w-3" /> Save current
-                        </button>
+                        <div className="flex items-center gap-1">
+                          <input
+                            ref={templateImportRef}
+                            type="file"
+                            accept="application/json,.json"
+                            hidden
+                            onChange={(e) => {
+                              const f = e.target.files?.[0];
+                              if (f) importTemplatesFromFile(f);
+                              if (templateImportRef.current) templateImportRef.current.value = "";
+                            }}
+                          />
+                          <button
+                            onClick={() => templateImportRef.current?.click()}
+                            title="Import templates from JSON"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent"
+                          >
+                            Import
+                          </button>
+                          <button
+                            onClick={exportTemplates}
+                            disabled={!templates.length}
+                            title="Export templates as JSON"
+                            className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-[11px] font-medium hover:bg-accent disabled:opacity-40"
+                          >
+                            Export
+                          </button>
+                          <button
+                            onClick={saveCurrentAsTemplate}
+                            className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/25"
+                          >
+                            <Plus className="h-3 w-3" /> Save current
+                          </button>
+                        </div>
                       </div>
                       <div className="max-h-64 overflow-auto">
                         {templates.length === 0 ? (
