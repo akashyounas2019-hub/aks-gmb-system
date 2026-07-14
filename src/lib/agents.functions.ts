@@ -349,6 +349,28 @@ export const rejectTask = createServerFn({ method: "POST" })
         event_type: "rejected",
         message: `Rejected: ${task.title}`,
       });
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [
+        {
+          agent_id: task.agent_id,
+          related_agent_id: leaderId,
+          task_id: null,
+          kind: "failed",
+          title: "Task rejected",
+          message: `Leader rejected "${task.title}".`,
+        },
+      ];
+      if (leaderId && leaderId !== task.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: task.agent_id,
+          task_id: null,
+          kind: "failed",
+          title: "Task rejected",
+          message: `You rejected "${task.title}".`,
+        });
+      }
+      await notify(supabase, userId, rows);
     }
     const { error } = await supabase
       .from("agent_tasks")
