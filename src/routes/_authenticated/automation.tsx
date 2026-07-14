@@ -421,6 +421,60 @@ function AutomationPage() {
           </div>
         </aside>
       </div>
+
+      <Dialog open={addOpen} onOpenChange={setAddOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Add new workflow</DialogTitle>
+            <DialogDescription>
+              Choose a task to automate. Each workflow runs on its own schedule.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-2">
+            <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+              Automation type
+            </label>
+            <Select value={addKind} onValueChange={(v) => setAddKind(v as Kind)}>
+              <SelectTrigger>
+                <SelectValue placeholder="Select a workflow…" />
+              </SelectTrigger>
+              <SelectContent>
+                {(Object.keys(KIND_META) as Kind[]).map((k) => (
+                  <SelectItem key={k} value={k}>
+                    {KIND_META[k].label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {addKind && (
+              <p className="mt-2 text-xs text-muted-foreground">
+                {KIND_META[addKind as Kind].description}{" "}
+                <code className="rounded bg-muted px-1">{KIND_META[addKind as Kind].cron}</code>
+              </p>
+            )}
+          </div>
+          <DialogFooter>
+            <button
+              onClick={() => setAddOpen(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!addKind || createMut.isPending}
+              onClick={() => {
+                if (!addKind) return;
+                createMut.mutate(addKind as Kind, {
+                  onSuccess: () => setAddOpen(false),
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              <Plus className="h-3.5 w-3.5" /> Create workflow
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
