@@ -598,6 +598,7 @@ function FolderTreeNode({
 function PostCard({
   post,
   folderName,
+  imageMap,
   onOpen,
   onDelete,
   onSchedule,
@@ -605,11 +606,15 @@ function PostCard({
 }: {
   post: Post;
   folderName?: string;
+  imageMap: ImageMap;
   onOpen: () => void;
   onDelete: () => void;
   onSchedule: () => void;
   onStatus: (s: PostStatus) => void;
 }) {
+  const attached = (post.imageIds ?? [])
+    .map((id) => imageMap[id])
+    .filter((r): r is ImageRow => Boolean(r));
   const [menu, setMenu] = useState(false);
   return (
     <div className="group rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
