@@ -470,7 +470,8 @@ export function AiImagePromptGenerator() {
   }, [templates, folders]);
 
   return (
-    <div className="grid gap-6 lg:grid-cols-[260px_minmax(0,1fr)_320px]">
+    <div className="flex flex-col gap-6">
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
       {/* ------------------------------------------------------------------ */}
       {/* Left: Folders / template tree                                       */}
       {/* ------------------------------------------------------------------ */}
