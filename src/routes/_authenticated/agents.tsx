@@ -116,6 +116,8 @@ type TaskRow = {
 import agentLeaderImg from "@/assets/agent-leader.png";
 import agentWriterImg from "@/assets/agent-writer.png";
 import agentAnalyzerImg from "@/assets/agent-analyzer.png";
+import agentAuditorImg from "@/assets/agent-auditor.png";
+import agentRankerImg from "@/assets/agent-ranker.png";
 
 const iconMap: Record<string, typeof Bot> = {
   crown: Crown,
@@ -131,6 +133,8 @@ const agentImageMap: Record<string, string> = {
   crown: agentLeaderImg,
   pen: agentWriterImg,
   chart: agentAnalyzerImg,
+  shield: agentAuditorImg,
+  trending: agentRankerImg,
 };
 
 const roleToIconKey: Record<string, string> = {
@@ -465,39 +469,69 @@ function AgentsPage() {
         </section>
 
 
-        <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
+        <section className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="font-display text-lg tracking-tight">Team hierarchy</h2>
-            <span className="text-[11px] uppercase tracking-widest text-muted-foreground">Live topology</span>
+            <span className="inline-flex items-center gap-1.5 text-[11px] uppercase tracking-widest text-muted-foreground">
+              <span className="relative flex h-2 w-2">
+                <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-70" />
+                <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-400" />
+              </span>
+              Live topology
+            </span>
           </div>
 
           <div className="flex flex-col items-center">
-            <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => openAgent(leader.id)} size="lg" />
+            {/* Leader with pulsing halo */}
+            <div className="relative">
+              <span className="pointer-events-none absolute inset-0 -m-3 rounded-3xl bg-primary/10 blur-2xl" aria-hidden />
+              <span className="pointer-events-none absolute inset-0 -m-1 animate-ping rounded-2xl border border-primary/30" aria-hidden />
+              <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => openAgent(leader.id)} size="lg" />
+            </div>
 
-            <div className="relative h-14 w-full">
-              <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
+            {/* Wired connections — curved paths with animated data flow */}
+            <div className="relative h-24 w-full">
+              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
                 <defs>
                   <linearGradient id="wire" x1="0" x2="0" y1="0" y2="1">
-                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.8" />
-                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.05" />
+                    <stop offset="0%" stopColor="hsl(var(--primary))" stopOpacity="0.9" />
+                    <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity="0.15" />
                   </linearGradient>
                 </defs>
-                <line x1="50%" y1="0" x2="50%" y2="50%" stroke="url(#wire)" strokeWidth="2" />
-                {subAgents.length > 0 && (
-                  <line
-                    x1={`${100 / (subAgents.length * 2)}%`}
-                    y1="50%"
-                    x2={`${100 - 100 / (subAgents.length * 2)}%`}
-                    y2="50%"
-                    stroke="url(#wire)"
-                    strokeWidth="2"
-                  />
-                )}
                 {subAgents.map((_, i) => {
-                  const x = `${(100 / subAgents.length) * (i + 0.5)}%`;
-                  return <line key={i} x1={x} y1="50%" x2={x} y2="100%" stroke="url(#wire)" strokeWidth="2" />;
+                  const step = 100 / Math.max(subAgents.length, 1);
+                  const x = step * (i + 0.5);
+                  const d = `M 50 0 C 50 55, ${x} 45, ${x} 100`;
+                  return (
+                    <g key={i}>
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="url(#wire)"
+                        strokeWidth="0.6"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                        opacity="0.85"
+                      />
+                      <path
+                        d={d}
+                        fill="none"
+                        stroke="hsl(var(--primary))"
+                        strokeWidth="0.8"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                        strokeDasharray="2 8"
+                        opacity="0.9"
+                        style={{
+                          animation: `agent-wire-flow 2.4s linear infinite`,
+                          animationDelay: `${i * 0.35}s`,
+                        }}
+                      />
+                    </g>
+                  );
                 })}
               </svg>
+              <style>{`@keyframes agent-wire-flow { to { stroke-dashoffset: -20; } }`}</style>
             </div>
 
             <div
@@ -1438,27 +1472,27 @@ function MetricCard({
     <Comp
       type={clickable ? "button" : undefined}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border border-border/70 bg-card/60 p-5 text-left transition sm:p-6 ${clickable ? "cursor-pointer hover:border-foreground/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40" : "hover:border-foreground/20"}`}
+      className={`group relative overflow-hidden rounded-xl border border-border/70 bg-card/60 p-4 text-left transition ${clickable ? "cursor-pointer hover:border-foreground/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40" : "hover:border-foreground/20"}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </div>
-        <span className="grid h-9 w-9 place-items-center rounded-xl border border-border/70 bg-background/60 text-muted-foreground">
-          <Icon className="h-4 w-4" />
+        <span className="grid h-7 w-7 place-items-center rounded-lg border border-border/70 bg-background/60 text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
         </span>
       </div>
-      <div className="mt-4 font-display text-4xl font-semibold leading-none tracking-tight text-foreground sm:text-5xl">
+      <div className="mt-2 font-display text-2xl font-semibold leading-none tracking-tight text-foreground sm:text-3xl">
         {value}
       </div>
       {typeof bar === "number" && (
-        <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/50">
           <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
         </div>
       )}
       {clickable && (
-        <div className="mt-3 inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 transition group-hover:text-foreground">
-          View breakdown <ChevronRight className="h-3 w-3" />
+        <div className="mt-2 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 transition group-hover:text-foreground">
+          Breakdown <ChevronRight className="h-3 w-3" />
         </div>
       )}
     </Comp>
