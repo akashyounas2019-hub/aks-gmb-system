@@ -339,7 +339,7 @@ export const updateAgent = createServerFn({ method: "POST" })
     }
     const { data: row, error } = await supabase
       .from("agents")
-      .update(patch)
+      .update(patch as never)
       .eq("id", data.id)
       .eq("user_id", userId)
       .select("*")
