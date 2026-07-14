@@ -142,6 +142,7 @@ function AgentsPage() {
   const pauseTask = useServerFn(pauseTaskFn);
   const resumeTask = useServerFn(resumeTaskFn);
   const cancelTask = useServerFn(cancelTaskFn);
+  const fetchEvents = useServerFn(getTaskEventsFn);
 
   const { data, isLoading } = useQuery({
     queryKey: ["agents-state"],
