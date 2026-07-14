@@ -165,10 +165,39 @@ function BusinessProfilePage() {
     };
   }, [coords, general?.businessName]);
 
-  if (!general) {
-    return (
-      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
-        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading business profile…
+  // Fetch nearby cities once coords resolve.
+  useEffect(() => {
+    if (!coords) return;
+    let cancelled = false;
+    setCitiesLoading(true);
+    setCitiesError(null);
+    fetchCities({ data: { lat: coords.lat, lng: coords.lng, radiusKm: 20 } })
+      .then((res) => {
+        if (cancelled) return;
+        setCities(res.cities);
+        setCitiesLoading(false);
+      })
+      .catch((e: Error) => {
+        if (cancelled) return;
+        setCitiesError(e.message);
+        setCitiesLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [coords, fetchCities]);
+
+  // Group cities by tier index (0..7) based on distance.
+  const citiesByTier = useMemo(() => {
+    const map = new Map<number, Array<{ name: string; distanceKm: number }>>();
+    for (const t of TIERS) map.set(t.level, []);
+    for (const c of cities) {
+      const idx = Math.min(TIERS.length - 1, Math.floor(c.distanceKm / 2.5));
+      map.get(idx + 1)!.push(c);
+    }
+    return map;
+  }, [cities]);
+
       </div>
     );
   }
