@@ -230,6 +230,7 @@ function AgentsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
+  const [metricDetail, setMetricDetail] = useState<null | "agents" | "active" | "load" | "success">(null);
   const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string; scope: string }>({
     name: "",
     role: "writer",
