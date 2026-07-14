@@ -1252,7 +1252,7 @@ export function PostGeneratorPage({
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-2 flex items-center justify-between">
               <div>
-                <div className="text-sm font-medium">Post body</div>
+                <div className="text-sm font-medium">Description</div>
                 <div className="text-[11px] text-muted-foreground">
                   This is what will be posted. Max {CAPTION_LIMIT} characters.
                 </div>
