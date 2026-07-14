@@ -19,6 +19,9 @@ import {
   Save,
   LayoutTemplate,
   Trash2,
+  BarChart3,
+  MapPin,
+  TrendingUp,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -69,7 +72,7 @@ export function PostGeneratorPage({
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
   const saveDraft = useServerFn(upsertDraft);
-  const [tab, setTab] = useState<"compose" | "storage">("compose");
+  const [tab, setTab] = useState<"compose" | "storage" | "history">("compose");
   const [saving, setSaving] = useState(false);
 
 
@@ -543,6 +546,7 @@ export function PostGeneratorPage({
           {[
             { id: "compose" as const, label: "Compose", icon: PenSquare },
             { id: "storage" as const, label: "Post Storage", icon: Inbox },
+            { id: "history" as const, label: "History", icon: BarChart3 },
           ].map((t) => {
             const active = tab === t.id;
             return (
@@ -568,6 +572,10 @@ export function PostGeneratorPage({
       {tab === "storage" ? (
         <div className="mt-6">
           <PostStoragePanel />
+        </div>
+      ) : tab === "history" ? (
+        <div className="mt-6">
+          <PostHistoryPanel />
         </div>
       ) : (
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
@@ -1452,5 +1460,282 @@ function ImageThumb({
         </div>
       )}
     </button>
+  );
+}
+
+type HistoryPost = {
+  id: string;
+  caption: string;
+  status: string;
+  created_at: string;
+  scheduled_at: string | null;
+  location_label: string | null;
+  primary_keyword_id: string | null;
+  keywords: { phrase: string } | null;
+};
+
+function PostHistoryPanel() {
+  const [range, setRange] = useState<7 | 14 | 28>(28);
+  const [loading, setLoading] = useState(true);
+  const [posts, setPosts] = useState<HistoryPost[]>([]);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    const since = new Date(Date.now() - range * 24 * 60 * 60 * 1000).toISOString();
+    supabase
+      .from("social_posts")
+      .select(
+        "id,caption,status,created_at,scheduled_at,location_label,primary_keyword_id,keywords:primary_keyword_id(phrase)",
+      )
+      .gte("created_at", since)
+      .order("created_at", { ascending: false })
+      .limit(1000)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setError(error.message);
+        setPosts((data ?? []) as unknown as HistoryPost[]);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [range]);
+
+  const totalPosts = posts.length;
+  const sentCount = posts.filter((p) => p.status === "sent" || p.status === "queued").length;
+  const failedCount = posts.filter((p) => p.status === "failed").length;
+
+  const topicCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of posts) {
+      const phrase = p.keywords?.phrase?.trim();
+      const key = phrase && phrase.length ? phrase : "Untagged";
+      map.set(key, (map.get(key) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [posts]);
+
+  const cityCounts = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const p of posts) {
+      const label = (p.location_label ?? "").trim();
+      if (!label) continue;
+      // Take the first component before a comma as the "city/area" name
+      const city = label.split(",")[0].trim();
+      if (!city) continue;
+      map.set(city, (map.get(city) ?? 0) + 1);
+    }
+    return Array.from(map.entries()).sort((a, b) => b[1] - a[1]);
+  }, [posts]);
+
+  const topicMax = topicCounts[0]?.[1] ?? 1;
+  const cityMax = cityCounts[0]?.[1] ?? 1;
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <BarChart3 className="h-4 w-4 text-primary" /> Post history
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Track how many posts you've published, by topic and by area.
+            </div>
+          </div>
+          <div className="inline-flex rounded-lg border border-border bg-background p-0.5">
+            {([7, 14, 28] as const).map((d) => {
+              const active = range === d;
+              return (
+                <button
+                  key={d}
+                  onClick={() => setRange(d)}
+                  className={`rounded-md px-3 py-1.5 text-xs font-medium transition ${
+                    active
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  Last {d} days
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+          <StatCard label="Total posts" value={totalPosts} icon={TrendingUp} />
+          <StatCard label="Sent / queued" value={sentCount} tone="ok" />
+          <StatCard label="Failed" value={failedCount} tone={failedCount ? "bad" : "muted"} />
+          <StatCard label="Unique cities" value={cityCounts.length} icon={MapPin} />
+        </div>
+      </section>
+
+      {error && (
+        <div className="rounded-md border border-destructive/40 bg-destructive/10 p-3 text-xs text-destructive">
+          {error}
+        </div>
+      )}
+
+      <div className="grid gap-6 lg:grid-cols-2">
+        <section className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="text-sm font-medium">Topics</div>
+            <div className="text-[11px] text-muted-foreground">
+              {topicCounts.length} unique
+            </div>
+          </div>
+          {loading ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
+          ) : topicCounts.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+              No posts in this window.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {topicCounts.map(([topic, count]) => (
+                <li key={topic} className="text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-medium">{topic}</span>
+                    <span className="tabular-nums text-muted-foreground">{count}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-primary transition-all"
+                      style={{ width: `${(count / topicMax) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="rounded-xl border border-border bg-card p-4">
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <MapPin className="h-4 w-4 text-primary" /> Locations
+            </div>
+            <div className="text-[11px] text-muted-foreground">
+              {cityCounts.length} unique
+            </div>
+          </div>
+          {loading ? (
+            <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
+          ) : cityCounts.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+              No location-tagged posts in this window.
+            </div>
+          ) : (
+            <ul className="space-y-2">
+              {cityCounts.map(([city, count]) => (
+                <li key={city} className="text-xs">
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="truncate font-medium">{city}</span>
+                    <span className="tabular-nums text-muted-foreground">{count}</span>
+                  </div>
+                  <div className="mt-1 h-1.5 overflow-hidden rounded-full bg-muted">
+                    <div
+                      className="h-full rounded-full bg-emerald-500 transition-all"
+                      style={{ width: `${(count / cityMax) * 100}%` }}
+                    />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      </div>
+
+      <section className="rounded-xl border border-border bg-card p-4">
+        <div className="mb-3 text-sm font-medium">Recent posts</div>
+        {loading ? (
+          <div className="py-8 text-center text-xs text-muted-foreground">Loading…</div>
+        ) : posts.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+            Nothing yet in the last {range} days.
+          </div>
+        ) : (
+          <div className="max-h-96 overflow-auto">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-card text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+                <tr>
+                  <th className="py-2 pr-3">Date</th>
+                  <th className="py-2 pr-3">Topic</th>
+                  <th className="py-2 pr-3">City</th>
+                  <th className="py-2 pr-3">Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {posts.slice(0, 100).map((p) => {
+                  const city = (p.location_label ?? "").split(",")[0].trim();
+                  return (
+                    <tr key={p.id} className="border-t border-border/60">
+                      <td className="py-2 pr-3 whitespace-nowrap text-muted-foreground">
+                        {new Date(p.created_at).toLocaleDateString()}
+                      </td>
+                      <td className="py-2 pr-3">{p.keywords?.phrase ?? "—"}</td>
+                      <td className="py-2 pr-3">{city || "—"}</td>
+                      <td className="py-2 pr-3">
+                        <span
+                          className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
+                            p.status === "sent"
+                              ? "bg-emerald-500/15 text-emerald-500"
+                              : p.status === "queued"
+                                ? "bg-sky-500/15 text-sky-500"
+                                : p.status === "failed"
+                                  ? "bg-destructive/15 text-destructive"
+                                  : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {p.status}
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
+
+function StatCard({
+  label,
+  value,
+  icon: Icon,
+  tone = "default",
+}: {
+  label: string;
+  value: number;
+  icon?: React.ComponentType<{ className?: string }>;
+  tone?: "default" | "ok" | "bad" | "muted";
+}) {
+  const toneClass =
+    tone === "ok"
+      ? "text-emerald-500"
+      : tone === "bad"
+        ? "text-destructive"
+        : tone === "muted"
+          ? "text-muted-foreground"
+          : "text-foreground";
+  return (
+    <div className="rounded-lg border border-border bg-background p-3">
+      <div className="flex items-center justify-between">
+        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">
+          {label}
+        </div>
+        {Icon && <Icon className="h-3.5 w-3.5 text-muted-foreground" />}
+      </div>
+      <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>
+        {value.toLocaleString()}
+      </div>
+    </div>
   );
 }
