@@ -850,14 +850,26 @@ export function AiImagePromptGenerator() {
       {/* Right: saved prompts (pinned + favorites)                           */}
       {/* ------------------------------------------------------------------ */}
       <aside className="rounded-2xl border border-border bg-card p-3">
-        <div className="mb-2 flex items-center justify-between px-1">
+        <div className="mb-2 flex items-center justify-between gap-2 px-1">
           <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
             Saved prompts
           </div>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
-            {visiblePrompts.length}
-          </span>
+          <div className="flex items-center gap-1.5">
+            <button
+              onClick={exportCSV}
+              disabled={prompts.length === 0}
+              className="inline-flex items-center gap-1 rounded-md border border-border px-1.5 py-0.5 text-[10px] text-muted-foreground hover:bg-accent hover:text-foreground disabled:opacity-50"
+              title="Export current view as CSV"
+              aria-label="Export prompts as CSV"
+            >
+              <Download className="h-3 w-3" /> CSV
+            </button>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px]">
+              {visiblePrompts.length}
+            </span>
+          </div>
         </div>
+
 
         <div className="mb-2 flex items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
           <Search className="h-3.5 w-3.5 text-muted-foreground" />
