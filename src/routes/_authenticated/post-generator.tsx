@@ -1200,6 +1200,155 @@ export function PostGeneratorPage({
             </div>
           </section>
 
+          {/* Live GMB preview */}
+          {(() => {
+            const GMB_TRUNCATE = 100;
+            const GMB_SWEET_MIN = 150;
+            const GMB_SWEET_MAX = 300;
+            const len = captionLen;
+            const pct = Math.min(100, (len / CAPTION_LIMIT) * 100);
+            const status =
+              len === 0
+                ? { label: "Start typing to see a live preview", tone: "text-muted-foreground" }
+                : len < GMB_TRUNCATE
+                  ? {
+                      label: `Short — add ${GMB_TRUNCATE - len} more chars so it isn't truncated on mobile.`,
+                      tone: "text-amber-500",
+                    }
+                  : len <= GMB_SWEET_MAX
+                    ? { label: "Optimal length for Google Business Profile.", tone: "text-emerald-600 dark:text-emerald-400" }
+                    : len <= CAPTION_LIMIT
+                      ? { label: "Longer than recommended — Google trims to ~100 chars on mobile feeds.", tone: "text-amber-500" }
+                      : { label: `Over the ${CAPTION_LIMIT}-char limit.`, tone: "text-red-500" };
+            const truncated =
+              len > GMB_TRUNCATE ? caption.slice(0, GMB_TRUNCATE).trimEnd() + "…" : caption;
+            const previewImgs = Array.from(selectedImages)
+              .map((id) => images.find((i) => i.id === id))
+              .filter((i): i is ImageRow => !!i)
+              .slice(0, 4);
+            return (
+              <section className="rounded-xl border border-border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div>
+                    <div className="text-sm font-medium">Live Google Business preview</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      Updates as you type. Ideal length {GMB_SWEET_MIN}–{GMB_SWEET_MAX} characters.
+                    </div>
+                  </div>
+                  <span className={`text-[11px] font-medium ${status.tone}`}>{status.label}</span>
+                </div>
+
+                {/* Segmented length meter */}
+                <div className="mb-4">
+                  <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+                    {/* sweet-spot band */}
+                    <div
+                      className="absolute inset-y-0 bg-emerald-500/20"
+                      style={{
+                        left: `${(GMB_SWEET_MIN / CAPTION_LIMIT) * 100}%`,
+                        width: `${((GMB_SWEET_MAX - GMB_SWEET_MIN) / CAPTION_LIMIT) * 100}%`,
+                      }}
+                    />
+                    {/* progress */}
+                    <div
+                      className={`absolute inset-y-0 left-0 transition-all ${
+                        len > CAPTION_LIMIT
+                          ? "bg-red-500"
+                          : len >= GMB_SWEET_MIN && len <= GMB_SWEET_MAX
+                            ? "bg-emerald-500"
+                            : "bg-primary"
+                      }`}
+                      style={{ width: `${pct}%` }}
+                    />
+                    {/* truncation marker */}
+                    <div
+                      className="absolute inset-y-0 w-px bg-foreground/40"
+                      style={{ left: `${(GMB_TRUNCATE / CAPTION_LIMIT) * 100}%` }}
+                      title="Mobile truncation (~100 chars)"
+                    />
+                  </div>
+                  <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                    <span>0</span>
+                    <span>~{GMB_TRUNCATE} (mobile cut-off)</span>
+                    <span>
+                      {GMB_SWEET_MIN}–{GMB_SWEET_MAX} ideal
+                    </span>
+                    <span>{CAPTION_LIMIT}</span>
+                  </div>
+                </div>
+
+                {/* Mock GMB card */}
+                <div className="rounded-lg border border-border bg-background p-3">
+                  <div className="flex items-center gap-2.5">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                      {(businessName || "B").slice(0, 1).toUpperCase()}
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-semibold">
+                        {businessName || "Your Business"}
+                      </div>
+                      <div className="truncate text-[11px] text-muted-foreground">
+                        {location?.label ?? "No location set"} · now
+                      </div>
+                    </div>
+                    <div className="text-muted-foreground/60">⋯</div>
+                  </div>
+
+                  {previewImgs.length > 0 && (
+                    <div
+                      className={`mt-3 grid gap-1 overflow-hidden rounded ${
+                        previewImgs.length === 1
+                          ? "grid-cols-1"
+                          : previewImgs.length === 2
+                            ? "grid-cols-2"
+                            : "grid-cols-2"
+                      }`}
+                    >
+                      {previewImgs.map((img) => (
+                        <SignedImage
+                          key={img.id}
+                          bucket="frames"
+                          path={img.storage_path}
+                          alt={img.name}
+                          className="aspect-video w-full object-cover"
+                        />
+                      ))}
+                    </div>
+                  )}
+
+                  <div
+                    className="mt-3 whitespace-pre-wrap text-sm leading-relaxed"
+                    dir={language === "ar" ? "rtl" : "ltr"}
+                  >
+                    {caption ? (
+                      <>
+                        {truncated}
+                        {len > GMB_TRUNCATE && (
+                          <button
+                            type="button"
+                            className="ml-1 text-primary hover:underline"
+                            tabIndex={-1}
+                          >
+                            Read more
+                          </button>
+                        )}
+                      </>
+                    ) : (
+                      <span className="italic text-muted-foreground">
+                        Your post preview will appear here…
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-4 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+                    <span>👍 Like</span>
+                    <span>💬 Comment</span>
+                    <span>↗ Share</span>
+                  </div>
+                </div>
+              </section>
+            );
+          })()}
 
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Publish</div>
