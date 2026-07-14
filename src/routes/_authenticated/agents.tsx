@@ -471,7 +471,7 @@ function AgentsPage() {
           </div>
 
           <div className="flex flex-col items-center">
-            <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => setSelectedId(leader.id)} size="lg" />
+            <AgentNode agent={leader} selected={(selected?.id ?? leader.id) === leader.id} onClick={() => openAgent(leader.id)} size="lg" />
 
             <div className="relative h-14 w-full">
               <svg className="absolute inset-0 h-full w-full" preserveAspectRatio="none">
