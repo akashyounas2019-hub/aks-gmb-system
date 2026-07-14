@@ -17,6 +17,8 @@ import {
   Save,
   Shuffle,
   Download,
+  Pencil,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
