@@ -272,22 +272,34 @@ function AutomationPage() {
   };
 
   const createMut = useMutation({
-    mutationFn: (kind: Kind) =>
-      createFn({
+    mutationFn: (p: {
+      preset: PresetId;
+      name: string;
+      cron: string;
+      config: Record<string, unknown>;
+    }) => {
+      const meta = PRESETS[p.preset];
+      return createFn({
         data: {
-          name: KIND_META[kind].label,
-          kind,
-          cron: KIND_META[kind].cron,
-          config: {},
+          name: p.name || meta.label,
+          kind: meta.kind,
+          cron: p.cron,
+          config: { preset: p.preset, mode: meta.mode, ...p.config },
           enabled: true,
         },
-      }),
+      });
+    },
     onSuccess: () => {
-      toast.success("Automation added.");
+      toast.success("Workflow added.");
       invalidate();
     },
     onError: (e: Error) => toast.error(e.message),
   });
+
+  // Quick-add from preset grid (uses preset defaults).
+  const quickAdd = (preset: PresetId) =>
+    createMut.mutate({ preset, name: PRESETS[preset].label, cron: PRESETS[preset].cron, config: {} });
+
 
   const toggleMut = useMutation({
     mutationFn: (p: { id: string; enabled: boolean }) =>
