@@ -204,11 +204,44 @@ function AgentsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to spawn agent."),
   });
 
+  const assignMut = useMutation({
+    mutationFn: (input: {
+      agent_id: string;
+      title: string;
+      priority: "low" | "normal" | "high";
+      major: boolean;
+    }) => assignTask({ data: input }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      setAssign((p) => ({ ...p, title: "" }));
+      toast.success("Task launched. Progress will update in the queue.");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to assign task."),
+  });
+  const progressMut = useMutation({
+    mutationFn: (input: { id: string; progress?: number; status?: "running" | "done" }) =>
+      updateTaskProgress({ data: input }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }),
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
+  });
+
   function handleCreate() {
     if (!newAgent.name.trim()) return toast.error("Give the agent a name.");
     const parent = newAgent.parentId || leader?.id;
     if (!parent) return toast.error("Missing parent agent.");
     createMut.mutate({ name: newAgent.name.trim(), role: newAgent.role, parent_id: parent });
+  }
+
+  function handleAssign() {
+    const target = assign.agent_id || subAgents[0]?.id;
+    if (!target) return toast.error("No sub-agent available.");
+    if (assign.title.trim().length < 2) return toast.error("Describe the task.");
+    assignMut.mutate({
+      agent_id: target,
+      title: assign.title.trim(),
+      priority: assign.priority,
+      major: assign.major,
+    });
   }
 
   if (isLoading || !leader) {
