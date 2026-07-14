@@ -193,6 +193,7 @@ function AgentProfilePage() {
 
   // Editable / persisted
   const [skill, setSkill] = useState("");
+  const [skillTouched, setSkillTouched] = useState(false);
   const [name, setName] = useState("");
   const [scope, setScope] = useState("");
 
