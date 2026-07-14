@@ -413,6 +413,21 @@ export function AiImagePromptGenerator() {
       "deep focus throughout",
     ];
 
+    // Rotating creative directions — always applied so every variation is
+    // visibly different even when all filters are locked.
+    const directions = shuffle([
+      "wide establishing shot with generous negative space",
+      "tight close-up crop emphasizing texture",
+      "low-angle hero perspective for a heroic feel",
+      "overhead flat-lay perspective, geometric arrangement",
+      "off-center rule-of-thirds composition",
+      "symmetrical centered composition with leading lines",
+      "shallow depth of field with a soft bokeh background",
+      "deep focus with layered foreground and background detail",
+      "golden-hour warmth and long directional shadows",
+      "moody blue-hour ambience with cool highlights",
+    ]);
+
     const results: string[] = [];
     const seen = new Set<string>();
     for (let i = 0; i < count; i++) {
@@ -421,23 +436,36 @@ export function AiImagePromptGenerator() {
         const opts = shuffled[f.id];
         varSel[f.id] = opts[i % opts.length];
       }
-      let text = fillTemplate(bodyToUse, subject, varSel);
-      if (seen.has(text)) {
-        // Append a distinguishing detail to force a distinct output while
-        // still reflecting the locked filters.
-        const detail = distinguishers[i % distinguishers.length];
-        let candidate = `${text} ${detail}.`;
-        let n = 1;
-        while (seen.has(candidate)) {
-          candidate = `${text} ${detail} (v${++n}).`;
-        }
-        text = candidate;
+      const base = fillTemplate(bodyToUse, subject, varSel);
+      const direction = directions[i % directions.length];
+      let text = `${base} Creative direction: ${direction}.`;
+      let n = 1;
+      while (seen.has(text)) {
+        const fallback = distinguishers[(i + n) % distinguishers.length];
+        text = `${base} Creative direction: ${direction}; ${fallback} (v${++n}).`;
       }
       seen.add(text);
       results.push(text);
     }
     setVariations(results);
     toast.success(`Generated ${results.length} unique variations`);
+  }
+
+  function saveVariationAsTemplate(text: string) {
+    const name = window.prompt("Template name")?.trim();
+    if (!name) return;
+    const folder =
+      activeFolder !== "All"
+        ? activeFolder
+        : activeTemplate?.folder ?? folders[0] ?? "Inspiration";
+    const tpl: Template = {
+      id: crypto.randomUUID(),
+      name,
+      body: text,
+      folder,
+    };
+    setTemplates((prev) => [tpl, ...prev]);
+    toast.success(`Template “${name}” added`);
   }
 
   function saveVariation(text: string) {
