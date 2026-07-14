@@ -106,6 +106,10 @@ type TaskRow = {
   eta_confidence?: string | null;
 };
 
+import agentLeaderImg from "@/assets/agent-leader.png";
+import agentWriterImg from "@/assets/agent-writer.png";
+import agentAnalyzerImg from "@/assets/agent-analyzer.png";
+
 const iconMap: Record<string, typeof Bot> = {
   crown: Crown,
   pen: PenSquare,
@@ -113,6 +117,13 @@ const iconMap: Record<string, typeof Bot> = {
   shield: ShieldCheck,
   trending: TrendingUp,
   bot: Bot,
+};
+
+// Refined portrait for select agents — falls back to the lucide icon when absent.
+const agentImageMap: Record<string, string> = {
+  crown: agentLeaderImg,
+  pen: agentWriterImg,
+  chart: agentAnalyzerImg,
 };
 
 const roleToIconKey: Record<string, string> = {
@@ -398,46 +409,41 @@ function AgentsPage() {
   }
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-[radial-gradient(ellipse_at_top,theme(colors.primary/12),transparent_60%),radial-gradient(ellipse_at_bottom_right,theme(colors.sky.500/10),transparent_55%)]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.15]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 80%)",
-        }}
-      />
-
-      <div className="relative mx-auto max-w-[1500px] p-6">
-        <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
+    <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col">
+      <div className="mx-auto w-full max-w-[1500px] p-6">
+        {/* Header — title left, New Agent aligned right */}
+        <header className="mb-8 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-4 sm:items-center">
+          <div className="min-w-0">
+            <div className="mb-2 inline-flex items-center gap-2 rounded-full border border-border/70 bg-card/60 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
               <Cpu className="h-3 w-3" /> Autonomous Team
             </div>
-            <h1 className="font-display text-4xl leading-tight tracking-tight">Agents Command Center</h1>
+            <h1 className="font-display text-3xl leading-tight tracking-tight sm:text-4xl">
+              Agents Command Center
+            </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute, and self-improve — major
-              decisions surface here for your approval.
+              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute, and self-improve —
+              major decisions surface here for your approval.
             </p>
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <TeamStat label="Agents" value={teamStats.total} icon={Bot} />
-            <TeamStat label="Active" value={teamStats.active} icon={Activity} tone="emerald" />
-            <TeamStat label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} tone="sky" />
-            <TeamStat label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} tone="primary" />
-            <button
-              onClick={() => {
-                setNewAgent((p) => ({ ...p, parentId: leader.id }));
-                setAddOpen(true);
-              }}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110"
-            >
-              <Plus className="h-3.5 w-3.5" /> New Agent
-            </button>
-          </div>
+          <button
+            onClick={() => {
+              setNewAgent((p) => ({ ...p, parentId: leader.id }));
+              setAddOpen(true);
+            }}
+            className="inline-flex shrink-0 items-center gap-1.5 self-start rounded-lg border border-border bg-card px-4 py-2.5 text-sm font-semibold text-foreground shadow-sm transition hover:border-foreground/40 hover:bg-accent sm:self-center"
+          >
+            <Plus className="h-4 w-4" /> New Agent
+          </button>
         </header>
+
+        {/* Prominent metric cards */}
+        <section className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          <MetricCard label="Agents" value={teamStats.total} icon={Bot} />
+          <MetricCard label="Active" value={teamStats.active} icon={Activity} />
+          <MetricCard label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} bar={teamStats.avgLoad} />
+          <MetricCard label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} bar={teamStats.success} />
+        </section>
+
 
         <section className="mb-8 rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
@@ -1054,22 +1060,30 @@ function AgentNode({
   size?: "md" | "lg";
 }) {
   const Icon = iconMap[agent.icon_key] ?? Bot;
+  const imgSrc = agentImageMap[agent.icon_key];
   const meta = statusMeta[normalizeStatus(agent.status)];
   const big = size === "lg";
   return (
     <button
       onClick={onClick}
-      className={`group relative flex flex-col items-center rounded-2xl border bg-gradient-to-b from-card/90 to-card/50 p-4 text-left backdrop-blur-md transition-all hover:-translate-y-0.5 hover:shadow-xl ${
+      className={`group relative flex flex-col items-center rounded-2xl border bg-card/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/25 hover:bg-card ${
         selected
-          ? "border-primary/60 shadow-[0_0_0_2px_hsl(var(--primary)/0.35),0_20px_50px_-20px_hsl(var(--primary)/0.6)]"
+          ? "border-foreground/40 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
           : "border-border/60"
-      } ${big ? "w-[280px]" : "w-full"}`}
+      } ${big ? "w-[300px]" : "w-full"}`}
     >
       <div className="relative mb-3">
-        <div className={`absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br ${agent.tone} blur-2xl opacity-60 ${agent.glow}`} />
-        <div className={`relative grid ${big ? "h-20 w-20" : "h-16 w-16"} place-items-center rounded-2xl bg-gradient-to-br ${agent.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_30px_-10px_rgba(0,0,0,0.6)]`}>
-          <span className="pointer-events-none absolute inset-x-2 top-1 h-1/3 rounded-xl bg-white/25 blur-sm" />
-          <Icon className={`${big ? "h-10 w-10" : "h-8 w-8"} text-white drop-shadow-lg`} />
+        <div className={`relative grid ${big ? "h-24 w-24" : "h-20 w-20"} place-items-center overflow-hidden rounded-2xl border border-border/70 bg-background/70`}>
+          {imgSrc ? (
+            <img
+              src={imgSrc}
+              alt={`${agent.name} portrait`}
+              loading="lazy"
+              className={`${big ? "h-[92%] w-[92%]" : "h-[88%] w-[88%]"} object-contain`}
+            />
+          ) : (
+            <Icon className={`${big ? "h-10 w-10" : "h-8 w-8"} text-foreground/85`} />
+          )}
           <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`} />
         </div>
       </div>
@@ -1091,7 +1105,7 @@ function AgentNode({
       </div>
 
       <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
-        <div className={`h-full bg-gradient-to-r ${agent.tone}`} style={{ width: `${agent.load}%` }} />
+        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${agent.load}%` }} />
       </div>
     </button>
   );
@@ -1111,24 +1125,39 @@ function Metric({ label, value, bar, tone }: { label: string; value: string; bar
   );
 }
 
-function TeamStat({ label, value, icon: Icon, tone }: { label: string; value: number | string; icon: typeof Bot; tone?: "emerald" | "sky" | "primary" }) {
-  const toneCls =
-    tone === "emerald" ? "text-emerald-400 bg-emerald-400/10"
-    : tone === "sky" ? "text-sky-400 bg-sky-400/10"
-    : tone === "primary" ? "text-primary bg-primary/10"
-    : "text-foreground bg-muted";
+function MetricCard({
+  label,
+  value,
+  icon: Icon,
+  bar,
+}: {
+  label: string;
+  value: number | string;
+  icon: typeof Bot;
+  bar?: number;
+}) {
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-border/60 bg-card/70 px-3 py-2 backdrop-blur-sm">
-      <span className={`grid h-7 w-7 place-items-center rounded-md ${toneCls}`}>
-        <Icon className="h-3.5 w-3.5" />
-      </span>
-      <div className="leading-tight">
-        <div className="text-sm font-semibold">{value}</div>
-        <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
+    <div className="group relative overflow-hidden rounded-2xl border border-border/70 bg-card/60 p-5 transition hover:border-foreground/20 sm:p-6">
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+          {label}
+        </div>
+        <span className="grid h-9 w-9 place-items-center rounded-xl border border-border/70 bg-background/60 text-muted-foreground">
+          <Icon className="h-4 w-4" />
+        </span>
       </div>
+      <div className="mt-4 font-display text-4xl font-semibold leading-none tracking-tight text-foreground sm:text-5xl">
+        {value}
+      </div>
+      {typeof bar === "number" && (
+        <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+          <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
+        </div>
+      )}
     </div>
   );
 }
+
 
 function TaskDot({ status }: { status: string }) {
   if (status === "done") return <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />;
