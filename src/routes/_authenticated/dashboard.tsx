@@ -168,7 +168,7 @@ function DashboardPage() {
     {
       to: "/post-generator",
       icon: PenSquare,
-      title: "Post Generator",
+      title: "GMB Post Generator",
       description: "AI-crafted GBP posts aligned to your keywords and brand voice.",
       accent: "from-violet-500/20 to-transparent",
     },
