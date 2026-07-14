@@ -231,15 +231,20 @@ function AgentProfilePage() {
   const completed = agentTasks.filter((t) => t.status === "done").length;
 
   const saveMut = useMutation({
-    mutationFn: () =>
-      updateAgent({
+    mutationFn: () => {
+      const parsed = mainSkillSchema.safeParse(skill);
+      if (!parsed.success) {
+        throw new Error(parsed.error.issues[0]?.message ?? "Main skill is invalid.");
+      }
+      return updateAgent({
         data: {
           id: agentId,
           name: name.trim() || undefined,
           scope: scope.trim() || undefined,
-          main_skill: skill.trim() ? skill.trim() : null,
+          main_skill: parsed.data,
         },
-      }),
+      });
+    },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents-state"] });
       toast.success("Profile updated.");
