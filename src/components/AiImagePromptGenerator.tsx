@@ -782,15 +782,25 @@ export function AiImagePromptGenerator() {
                   >
                     <Plus className="h-3 w-3" />
                   </button>
-                  <button
-                    onClick={() => removePrompt(p.id)}
-                    className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    title="Delete"
-                    aria-label="Delete"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
+                    <button
+                      onClick={() => removePrompt(p.id)}
+                      className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                      title="Delete"
+                      aria-label="Delete"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </div>
                 </div>
+              </li>
+            ))}
+          </ul>
+        )}
+      </aside>
+    </div>
+  );
+}
+
               </li>
             ))}
           </ul>
