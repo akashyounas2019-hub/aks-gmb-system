@@ -441,7 +441,7 @@ function GeotaggingPage() {
 
   const filteredPlaces = useMemo(() => {
     const q = placeSearch.trim().toLowerCase();
-    return PLACES.filter((p) => {
+    return places.filter((p) => {
       if (areaFilter !== "All" && p.area !== areaFilter) return false;
       if (typeFilter !== "All" && p.type !== typeFilter) return false;
       if (
@@ -451,7 +451,8 @@ function GeotaggingPage() {
         return false;
       return true;
     });
-  }, [areaFilter, typeFilter, placeSearch]);
+  }, [places, areaFilter, typeFilter, placeSearch]);
+
 
   /* ----------------------------- apply coords ---------------------------- */
 
