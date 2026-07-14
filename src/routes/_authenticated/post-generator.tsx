@@ -2461,6 +2461,19 @@ export function PostGeneratorPage({
   );
 }
 
+function FieldPill({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-md border border-border bg-background px-2 py-1.5">
+      <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
+      <div className="mt-0.5 truncate text-[11px]" title={value}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
 function InfoRow({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border border-border bg-card/50 p-2">
