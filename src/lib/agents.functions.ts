@@ -258,7 +258,7 @@ export const updateAgentStatus = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const patch: Record<string, unknown> = {};
+    const patch: { status?: string; load?: number; last_activity?: string } = {};
     if (data.status !== undefined) patch.status = data.status;
     if (data.load !== undefined) patch.load = data.load;
     if (data.last_activity !== undefined) patch.last_activity = data.last_activity;
