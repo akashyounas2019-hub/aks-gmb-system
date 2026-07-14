@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Workflow as WorkflowIcon,
   Trash2,
+  Pencil,
   Clock,
   Loader2,
 } from "lucide-react";
@@ -190,6 +191,16 @@ function AutomationPage() {
     onError: (e: Error) => toast.error(e.message),
   });
 
+  const editMut = useMutation({
+    mutationFn: (p: { id: string; name: string; cron: string }) =>
+      updateFn({ data: { id: p.id, patch: { name: p.name, cron: p.cron } } }),
+    onSuccess: () => {
+      toast.success("Automation updated.");
+      invalidate();
+    },
+    onError: (e: Error) => toast.error(e.message),
+  });
+
   const runMut = useMutation({
     mutationFn: (id: string) => runFn({ data: { id } }),
     onSuccess: (res) => {
@@ -209,6 +220,9 @@ function AutomationPage() {
 
   const [addOpen, setAddOpen] = useState(false);
   const [addKind, setAddKind] = useState<Kind | "">("");
+  const [editing, setEditing] = useState<{ id: string; name: string; cron: string } | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+
 
   return (
     <div className="relative min-h-full overflow-hidden bg-[radial-gradient(ellipse_at_top_left,theme(colors.primary/10),transparent_55%),radial-gradient(ellipse_at_bottom_right,theme(colors.sky.500/8),transparent_55%)]">
@@ -383,9 +397,18 @@ function AutomationPage() {
                         {a.enabled ? "Active" : "Paused"}
                       </button>
                       <button
-                        onClick={() => deleteMut.mutate(a.id)}
-                        className="rounded-md border border-border p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        onClick={() => setEditing({ id: a.id, name: a.name, cron: a.cron })}
+                        className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        aria-label="Edit"
+                        title="Edit"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={() => setConfirmDelete({ id: a.id, name: a.name })}
+                        className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
                         aria-label="Delete"
+                        title="Delete"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </button>
@@ -505,6 +528,93 @@ function AutomationPage() {
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
               <Plus className="h-3.5 w-3.5" /> Create workflow
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Edit automation</DialogTitle>
+            <DialogDescription>Rename this workflow or change its cron schedule.</DialogDescription>
+          </DialogHeader>
+          {editing && (
+            <div className="space-y-4 py-2">
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</label>
+                <input
+                  value={editing.name}
+                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                />
+              </div>
+              <div>
+                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Cron schedule</label>
+                <input
+                  value={editing.cron}
+                  onChange={(e) => setEditing({ ...editing, cron: e.target.value })}
+                  placeholder="0 */6 * * *"
+                  className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
+                />
+                <p className="mt-1 text-[11px] text-muted-foreground">
+                  Standard 5-field cron. Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>.
+                </p>
+              </div>
+            </div>
+          )}
+          <DialogFooter>
+            <button
+              onClick={() => setEditing(null)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={!editing?.name.trim() || !editing?.cron.trim() || editMut.isPending}
+              onClick={() => {
+                if (!editing) return;
+                editMut.mutate(
+                  { id: editing.id, name: editing.name.trim(), cron: editing.cron.trim() },
+                  { onSuccess: () => setEditing(null) },
+                );
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {editMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
+              Save changes
+            </button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete automation?</DialogTitle>
+            <DialogDescription>
+              This permanently removes <span className="font-medium text-foreground">{confirmDelete?.name}</span> and stops its schedule. This cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <button
+              onClick={() => setConfirmDelete(null)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              disabled={deleteMut.isPending}
+              onClick={() => {
+                if (!confirmDelete) return;
+                deleteMut.mutate(confirmDelete.id, {
+                  onSuccess: () => setConfirmDelete(null),
+                });
+              }}
+              className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {deleteMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+              Delete
             </button>
           </DialogFooter>
         </DialogContent>
