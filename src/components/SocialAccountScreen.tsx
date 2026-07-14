@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft } from "lucide-react";
+import { CalendarDays, Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft, Wand2 } from "lucide-react";
+import { AiImagePromptGenerator } from "@/components/AiImagePromptGenerator";
 import { CalendarPage } from "@/routes/_authenticated/calendar";
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
