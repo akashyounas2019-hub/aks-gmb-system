@@ -1442,27 +1442,27 @@ function MetricCard({
     <Comp
       type={clickable ? "button" : undefined}
       onClick={onClick}
-      className={`group relative overflow-hidden rounded-2xl border border-border/70 bg-card/60 p-5 text-left transition sm:p-6 ${clickable ? "cursor-pointer hover:border-foreground/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40" : "hover:border-foreground/20"}`}
+      className={`group relative overflow-hidden rounded-xl border border-border/70 bg-card/60 p-4 text-left transition ${clickable ? "cursor-pointer hover:border-foreground/40 hover:bg-card/80 focus:outline-none focus-visible:ring-2 focus-visible:ring-foreground/40" : "hover:border-foreground/20"}`}
     >
-      <div className="flex items-center justify-between gap-3">
-        <div className="text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           {label}
         </div>
-        <span className="grid h-9 w-9 place-items-center rounded-xl border border-border/70 bg-background/60 text-muted-foreground">
-          <Icon className="h-4 w-4" />
+        <span className="grid h-7 w-7 place-items-center rounded-lg border border-border/70 bg-background/60 text-muted-foreground">
+          <Icon className="h-3.5 w-3.5" />
         </span>
       </div>
-      <div className="mt-4 font-display text-4xl font-semibold leading-none tracking-tight text-foreground sm:text-5xl">
+      <div className="mt-2 font-display text-2xl font-semibold leading-none tracking-tight text-foreground sm:text-3xl">
         {value}
       </div>
       {typeof bar === "number" && (
-        <div className="mt-5 h-1.5 w-full overflow-hidden rounded-full bg-muted/50">
+        <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/50">
           <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
         </div>
       )}
       {clickable && (
-        <div className="mt-3 inline-flex items-center gap-1 text-[10.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/80 transition group-hover:text-foreground">
-          View breakdown <ChevronRight className="h-3 w-3" />
+        <div className="mt-2 inline-flex items-center gap-1 text-[9.5px] font-semibold uppercase tracking-[0.18em] text-muted-foreground/70 transition group-hover:text-foreground">
+          Breakdown <ChevronRight className="h-3 w-3" />
         </div>
       )}
     </Comp>
