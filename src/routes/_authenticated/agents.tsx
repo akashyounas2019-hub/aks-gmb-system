@@ -233,6 +233,30 @@ function AgentsPage() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["agents-state"] }),
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
   });
+  const pauseMut = useMutation({
+    mutationFn: (id: string) => pauseTask({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      toast.message("Task paused.");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to pause."),
+  });
+  const resumeMut = useMutation({
+    mutationFn: (id: string) => resumeTask({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      toast.success("Task resumed.");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to resume."),
+  });
+  const cancelMut = useMutation({
+    mutationFn: (id: string) => cancelTask({ data: { id } }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      toast.message("Task cancelled.");
+    },
+    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to cancel."),
+  });
 
   function handleCreate() {
     if (!newAgent.name.trim()) return toast.error("Give the agent a name.");
