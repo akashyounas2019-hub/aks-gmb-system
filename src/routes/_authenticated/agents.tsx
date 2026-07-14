@@ -701,5 +701,4 @@ function TaskDot({ status }: { status: Task["status"] }) {
   return <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />;
 }
 
-// keep X icon reachable to avoid unused import
-void X;
+
