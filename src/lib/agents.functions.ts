@@ -317,7 +317,6 @@ export const assignTask = createServerFn({ method: "POST" })
       .update({
         status: data.major ? "review" : "working",
         last_activity: `Assigned: ${data.title}`,
-        tasks_today: (undefined as unknown as number) ?? 0,
       })
       .eq("id", data.agent_id)
       .eq("user_id", userId);
