@@ -999,14 +999,72 @@ export function PostGeneratorPage({
                   This is what will be posted. Max {CAPTION_LIMIT} characters.
                 </div>
               </div>
-              <button
-                onClick={copyOut}
-                disabled={!caption}
-                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
-              >
-                <Copy className="h-3 w-3" /> Copy
-              </button>
+              <div className="flex items-center gap-1.5">
+                <div className="relative" ref={templatesPopupRef}>
+                  <button
+                    onClick={() => setTemplatesOpen((v) => !v)}
+                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+                  >
+                    <LayoutTemplate className="h-3 w-3" /> Templates
+                    <ChevronDown className="h-3 w-3 opacity-70" />
+                  </button>
+                  {templatesOpen && (
+                    <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
+                      <div className="mb-2 flex items-center justify-between gap-2">
+                        <div className="text-xs font-medium">Post templates</div>
+                        <button
+                          onClick={saveCurrentAsTemplate}
+                          className="inline-flex items-center gap-1 rounded bg-primary/15 px-2 py-1 text-[11px] font-medium text-primary hover:bg-primary/25"
+                        >
+                          <Plus className="h-3 w-3" /> Save current
+                        </button>
+                      </div>
+                      <div className="max-h-64 overflow-auto">
+                        {templates.length === 0 ? (
+                          <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                            No templates yet. Paste content into the post body,
+                            then click "Save current".
+                          </div>
+                        ) : (
+                          templates.map((t) => (
+                            <div
+                              key={t.id}
+                              className="group flex items-start gap-2 rounded px-2 py-1.5 hover:bg-accent"
+                            >
+                              <button
+                                onClick={() => applyTemplate(t)}
+                                className="flex-1 text-left"
+                              >
+                                <div className="truncate text-xs font-medium">{t.name}</div>
+                                <div className="truncate text-[11px] text-muted-foreground">
+                                  {t.body.slice(0, 60)}
+                                  {t.body.length > 60 ? "…" : ""}
+                                </div>
+                              </button>
+                              <button
+                                onClick={() => deleteTemplate(t.id)}
+                                aria-label="Delete template"
+                                className="rounded p-1 text-muted-foreground opacity-0 transition group-hover:opacity-100 hover:bg-destructive/15 hover:text-destructive"
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <button
+                  onClick={copyOut}
+                  disabled={!caption}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
+                >
+                  <Copy className="h-3 w-3" /> Copy
+                </button>
+              </div>
             </div>
+
             <textarea
               value={caption}
               onChange={(e) => setCaption(e.target.value)}
