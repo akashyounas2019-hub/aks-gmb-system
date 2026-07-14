@@ -830,7 +830,12 @@ function GeotaggingPage() {
             activeCoord={activeCoord}
             copyCoord={copyCoord}
             copied={copied}
+            onRefresh={refreshLocations}
+            refreshing={refreshing}
+            refreshKey={refreshKey}
+            cityOptions={cityOptions}
           />
+
         )}
 
         {step === 3 && (
