@@ -1116,6 +1116,94 @@ export function AiImagePromptGenerator() {
           </ul>
         )}
       </aside>
+      </aside>
+
+      {editingTemplate && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+          onClick={() => setEditingTemplate(null)}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            className="w-full max-w-lg rounded-2xl border border-border bg-card p-5 shadow-lg"
+          >
+            <div className="mb-4 flex items-start justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold">Edit template</h3>
+                <p className="text-[11px] text-muted-foreground">
+                  Use {"{subject}"}, {"{style}"}, {"{mood}"}, {"{aspect}"}, {"{palette}"} as placeholders.
+                </p>
+              </div>
+              <button
+                onClick={() => setEditingTemplate(null)}
+                className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                aria-label="Close"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Name
+            </label>
+            <input
+              value={editName}
+              onChange={(e) => setEditName(e.target.value)}
+              className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Folder
+            </label>
+            <select
+              value={editFolder}
+              onChange={(e) => setEditFolder(e.target.value)}
+              className="mb-3 w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            >
+              {folders.map((f) => (
+                <option key={f} value={f}>
+                  {f}
+                </option>
+              ))}
+            </select>
+
+            <label className="mb-1 block text-[11px] font-medium uppercase tracking-widest text-muted-foreground">
+              Body
+            </label>
+            <textarea
+              value={editBody}
+              onChange={(e) => setEditBody(e.target.value)}
+              rows={6}
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+            />
+
+            <div className="mt-4 flex items-center justify-between gap-2">
+              <button
+                onClick={() => {
+                  if (editingTemplate) deleteTemplate(editingTemplate.id);
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setEditingTemplate(null)}
+                  className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={saveTemplateEdits}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                >
+                  <Save className="h-3.5 w-3.5" /> Save
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
