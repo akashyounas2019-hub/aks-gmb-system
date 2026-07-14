@@ -225,17 +225,9 @@ function AutomationPage() {
 
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-background bg-[radial-gradient(ellipse_at_top_left,theme(colors.sky.500/10),transparent_55%),radial-gradient(ellipse_at_bottom_right,theme(colors.indigo.500/10),transparent_55%)]">
-      <div
-        aria-hidden
-        className="pointer-events-none absolute inset-0 opacity-[0.12]"
-        style={{
-          backgroundImage:
-            "linear-gradient(to right, hsl(var(--border)) 1px, transparent 1px), linear-gradient(to bottom, hsl(var(--border)) 1px, transparent 1px)",
-          backgroundSize: "44px 44px",
-          maskImage: "radial-gradient(ellipse at center, black 40%, transparent 85%)",
-        }}
-      />
+    <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col">
+
+
 
       <div className="relative mx-auto max-w-[1500px] p-6">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
