@@ -248,12 +248,22 @@ export const approveTask = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
-    const { error } = await supabase
+    const { data: task, error } = await supabase
       .from("agent_tasks")
       .update({ status: "running" })
       .eq("id", data.id)
-      .eq("user_id", userId);
+      .eq("user_id", userId)
+      .select("agent_id, title")
+      .maybeSingle();
     if (error) throw error;
+    if (task) {
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "approved",
+        message: `Approved: ${task.title}`,
+      });
+    }
     return { ok: true };
   });
 
@@ -262,6 +272,20 @@ export const rejectTask = createServerFn({ method: "POST" })
   .inputValidator((input) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
+    const { data: task } = await supabase
+      .from("agent_tasks")
+      .select("agent_id, title")
+      .eq("id", data.id)
+      .eq("user_id", userId)
+      .maybeSingle();
+    if (task) {
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: null,
+        event_type: "rejected",
+        message: `Rejected: ${task.title}`,
+      });
+    }
     const { error } = await supabase
       .from("agent_tasks")
       .delete()
