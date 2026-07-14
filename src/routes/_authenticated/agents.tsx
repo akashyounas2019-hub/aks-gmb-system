@@ -97,6 +97,7 @@ type AgentRow = {
   success_rate: number;
   parent_id: string | null;
   last_activity: string;
+  main_skill?: string | null;
 };
 type TaskRow = {
   id: string;
