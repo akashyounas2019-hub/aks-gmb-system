@@ -21,7 +21,13 @@ import {
   MoreHorizontal,
   FileText,
   ChevronRight,
+  ImageIcon,
 } from "lucide-react";
+import { supabase } from "@/integrations/supabase/client";
+import { SignedImage } from "@/components/SignedImage";
+
+type ImageRow = { id: string; name: string | null; storage_path: string };
+type ImageMap = Record<string, ImageRow>;
 
 export const Route = createFileRoute("/_authenticated/post-storage")({
   component: PostStoragePage,
@@ -57,6 +63,31 @@ export function PostStoragePanel() {
   const [creatingFolder, setCreatingFolder] = useState(false);
   const [newFolderName, setNewFolderName] = useState("");
   const [newFolderParent, setNewFolderParent] = useState<string | null>(null);
+  const [imageMap, setImageMap] = useState<ImageMap>({});
+
+  useEffect(() => {
+    const ids = Array.from(
+      new Set(posts.flatMap((p) => p.imageIds ?? [])),
+    ).filter((id) => !imageMap[id]);
+    if (ids.length === 0) return;
+    let cancelled = false;
+    supabase
+      .from("images")
+      .select("id,name,storage_path")
+      .in("id", ids)
+      .then(({ data }) => {
+        if (cancelled || !data) return;
+        setImageMap((prev) => {
+          const next = { ...prev };
+          for (const row of data as ImageRow[]) next[row.id] = row;
+          return next;
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [posts, imageMap]);
+
 
   const loadDraftsFn = useServerFn(listDrafts);
   const loadFoldersFn = useServerFn(listFolders);
@@ -169,6 +200,7 @@ export function PostStoragePanel() {
       createdAt: now,
       updatedAt: now,
       tags: [],
+      imageIds: [],
     };
     setPosts((prev) => [draft, ...prev]);
     setSelectedPost(draft);
@@ -372,6 +404,7 @@ export function PostStoragePanel() {
                       key={p.id}
                       post={p}
                       folderName={folders.find((f) => f.id === p.folderId)?.name}
+                      imageMap={imageMap}
                       onOpen={() => setSelectedPost(p)}
                       onDelete={() => deletePost(p.id)}
                       onSchedule={() => setScheduling(p)}
@@ -387,6 +420,7 @@ export function PostStoragePanel() {
                 key={selectedPost.id}
                 post={selectedPost}
                 folders={folders}
+                imageMap={imageMap}
                 onClose={() => setSelectedPost(null)}
                 onUpdate={(patch) => updatePost(selectedPost.id, patch)}
                 onDelete={() => deletePost(selectedPost.id)}
@@ -565,6 +599,7 @@ function FolderTreeNode({
 function PostCard({
   post,
   folderName,
+  imageMap,
   onOpen,
   onDelete,
   onSchedule,
@@ -572,11 +607,15 @@ function PostCard({
 }: {
   post: Post;
   folderName?: string;
+  imageMap: ImageMap;
   onOpen: () => void;
   onDelete: () => void;
   onSchedule: () => void;
   onStatus: (s: PostStatus) => void;
 }) {
+  const attached = (post.imageIds ?? [])
+    .map((id) => imageMap[id])
+    .filter((r): r is ImageRow => Boolean(r));
   const [menu, setMenu] = useState(false);
   return (
     <div className="group rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
@@ -634,7 +673,40 @@ function PostCard({
           )}
         </div>
       </div>
+      {attached.length > 0 && (
+        <button
+          onClick={onOpen}
+          className="mt-3 grid w-full grid-cols-4 gap-1.5"
+          aria-label="Open post"
+        >
+          {attached.slice(0, 4).map((img, i) => (
+            <div
+              key={img.id}
+              className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+            >
+              <SignedImage
+                bucket="images"
+                path={img.storage_path}
+                alt={img.name ?? "Attached image"}
+                className="h-full w-full object-cover"
+              />
+              {i === 3 && attached.length > 4 && (
+                <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-xs font-medium">
+                  +{attached.length - 4}
+                </div>
+              )}
+            </div>
+          ))}
+        </button>
+      )}
+      {(post.imageIds?.length ?? 0) > 0 && attached.length === 0 && (
+        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
+          <ImageIcon className="h-3 w-3" /> Loading {post.imageIds.length} image
+          {post.imageIds.length === 1 ? "" : "s"}…
+        </div>
+      )}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+
         <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
           {post.status}
         </span>
@@ -660,6 +732,7 @@ function PostCard({
 function PostEditor({
   post,
   folders,
+  imageMap,
   onClose,
   onUpdate,
   onDelete,
@@ -667,11 +740,18 @@ function PostEditor({
 }: {
   post: Post;
   folders: Folder[];
+  imageMap: ImageMap;
   onClose: () => void;
   onUpdate: (patch: Partial<Post>) => void;
   onDelete: () => void;
   onSchedule: () => void;
 }) {
+  const attached = (post.imageIds ?? [])
+    .map((id) => imageMap[id])
+    .filter((r): r is ImageRow => Boolean(r));
+  function removeImage(id: string) {
+    onUpdate({ imageIds: (post.imageIds ?? []).filter((x) => x !== id) });
+  }
   return (
     <aside className="w-96 shrink-0 border-l border-border bg-card/40 flex flex-col">
       <div className="flex items-center justify-between px-4 py-3 border-b border-border">
@@ -700,6 +780,47 @@ function PostEditor({
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
         />
         <div>
+          <label className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <ImageIcon className="h-3 w-3" />
+              Attached images
+            </span>
+            <span>{post.imageIds?.length ?? 0}</span>
+          </label>
+          {attached.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
+              {(post.imageIds?.length ?? 0) > 0
+                ? "Loading images…"
+                : "No images attached to this post."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {attached.map((img) => (
+                <div
+                  key={img.id}
+                  className="group/img relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+                >
+                  <SignedImage
+                    bucket="images"
+                    path={img.storage_path}
+                    alt={img.name ?? "Attached image"}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    onClick={() => removeImage(img.id)}
+                    className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-muted-foreground opacity-0 transition group-hover/img:opacity-100 hover:text-destructive"
+                    title="Remove image from post"
+                    aria-label="Remove image"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+
           <label className="block text-xs text-muted-foreground mb-1">Status</label>
           <div className="flex flex-wrap gap-1.5">
             {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (

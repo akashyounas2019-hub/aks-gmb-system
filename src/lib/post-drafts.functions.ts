@@ -13,6 +13,7 @@ export type PostDraft = {
   createdAt: string;
   updatedAt: string;
   tags: string[];
+  imageIds: string[];
 };
 
 export type UpsertDraftInput = {
@@ -23,6 +24,7 @@ export type UpsertDraftInput = {
   status?: string;
   scheduledAt?: string | null;
   tags?: string[];
+  imageIds?: string[];
 };
 
 // Simple row shape returned by the DB query
@@ -38,7 +40,7 @@ type Row = {
 };
 
 function rowToDraft(r: Row): PostDraft {
-  const meta = (r.meta ?? {}) as { folderId?: string | null; tags?: string[] };
+  const meta = (r.meta ?? {}) as { folderId?: string | null; tags?: string[]; imageIds?: string[] };
   return {
     id: r.id,
     folderId: meta.folderId ?? null,
@@ -49,6 +51,7 @@ function rowToDraft(r: Row): PostDraft {
     createdAt: r.created_at,
     updatedAt: r.updated_at,
     tags: meta.tags ?? [],
+    imageIds: meta.imageIds ?? [],
   };
 }
 
@@ -82,6 +85,7 @@ export const upsertDraft = createServerFn({ method: "POST" })
       ...existingMeta,
       ...(data.folderId !== undefined ? { folderId: data.folderId } : {}),
       ...(data.tags !== undefined ? { tags: data.tags } : {}),
+      ...(data.imageIds !== undefined ? { imageIds: data.imageIds } : {}),
     };
     const row = {
       ...(data.id ? { id: data.id } : {}),

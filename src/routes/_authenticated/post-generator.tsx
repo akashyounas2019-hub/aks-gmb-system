@@ -728,6 +728,7 @@ export function PostGeneratorPage({
           status: "Draft",
           scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : null,
           tags: manualKw.slice(0, 8),
+          imageIds: Array.from(selectedImages),
         },
       });
       toast.success("Draft saved to Post Storage");
