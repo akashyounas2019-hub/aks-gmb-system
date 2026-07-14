@@ -198,9 +198,14 @@ function BusinessProfilePage() {
     return map;
   }, [cities]);
 
+  if (!general) {
+    return (
+      <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+        <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading business profile…
       </div>
     );
   }
+
 
   return (
     <div className="space-y-6">
