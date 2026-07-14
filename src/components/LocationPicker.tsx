@@ -48,10 +48,14 @@ export function LocationPicker({
   value,
   onChange,
   compact = false,
+  cityOptions,
+  refreshKey = 0,
 }: {
   value: PickedLocation | null;
   onChange: (loc: PickedLocation | null) => void;
   compact?: boolean;
+  cityOptions?: { name: string; lat: number; lng: number }[];
+  refreshKey?: number;
 }) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<
@@ -60,7 +64,9 @@ export function LocationPicker({
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const sessionTokenRef = useRef<any>(null);
+
 
   useEffect(() => {
     loadMaps().then(() => setReady(true)).catch((e) => setError(e.message));
@@ -224,6 +230,75 @@ export function LocationPicker({
         )}
       </div>
       {error && <div className="text-xs text-destructive">{error}</div>}
+
+      {/* City recommendations + coordinate options within a city */}
+      {cityOptions && cityOptions.length > 0 && (
+        <div className={compact ? "mt-2" : ""}>
+          <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3" /> Cities
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {cityOptions
+              .filter((c) =>
+                query.trim().length === 0
+                  ? true
+                  : c.name.toLowerCase().includes(query.trim().toLowerCase()),
+              )
+              .map((c) => {
+                const active = expandedCity === c.name;
+                return (
+                  <button
+                    key={c.name}
+                    onClick={() => setExpandedCity(active ? null : c.name)}
+                    className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                      active
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "border-border bg-card hover:border-primary hover:text-primary"
+                    }`}
+                  >
+                    {c.name}
+                  </button>
+                );
+              })}
+          </div>
+          {expandedCity &&
+            (() => {
+              const city = cityOptions.find((c) => c.name === expandedCity);
+              if (!city) return null;
+              // Deterministic-but-refreshable variants around the city center.
+              const seed = refreshKey;
+              const variants = Array.from({ length: 5 }, (_, i) => {
+                // Rotate offsets so they change per refresh.
+                const angle = ((i + seed) * (2 * Math.PI)) / 5;
+                const r = 0.005 + ((seed + i) % 3) * 0.002;
+                return {
+                  label: `${city.name} · point ${i + 1}`,
+                  lat: +(city.lat + Math.cos(angle) * r).toFixed(6),
+                  lng: +(city.lng + Math.sin(angle) * r).toFixed(6),
+                };
+              });
+              return (
+                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
+                  {variants.map((v) => (
+                    <button
+                      key={`${v.lat}-${v.lng}`}
+                      onClick={() =>
+                        commit({ label: v.label, lat: v.lat, lng: v.lng, place_id: null })
+                      }
+                      className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-xs hover:border-primary hover:bg-accent"
+                    >
+                      <span className="truncate">{v.label}</span>
+                      <span className="font-mono text-[10px] text-muted-foreground">
+                        {v.lat.toFixed(4)}, {v.lng.toFixed(4)}
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              );
+            })()}
+        </div>
+      )}
+
       {history.length > 0 && !compact && (
         <div>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -252,3 +327,4 @@ export function LocationPicker({
     </div>
   );
 }
+
