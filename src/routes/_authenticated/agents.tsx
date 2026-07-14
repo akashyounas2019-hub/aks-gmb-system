@@ -29,6 +29,10 @@ import {
   Bell,
   Check,
   CheckCheck,
+  Search,
+  Filter,
+  ArrowUpDown,
+  X,
 } from "lucide-react";
 import {
   Dialog,
@@ -253,6 +257,49 @@ function AgentsPage() {
 
   const leader = agents.find((a) => a.parent_id === null) ?? agents[0];
   const subAgents = leader ? agents.filter((a) => a.parent_id === leader.id) : [];
+
+  // Skill filter / sort state
+  const [skillQuery, setSkillQuery] = useState("");
+  const [skillFilter, setSkillFilter] = useState<string>("all");
+  const [skillSort, setSkillSort] = useState<"name" | "skill" | "load-desc" | "load-asc" | "success-desc">("name");
+
+  const skillOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of subAgents) {
+      const s = (a.main_skill ?? "").trim();
+      if (s) set.add(s);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [subAgents]);
+
+  const filteredSubAgents = useMemo(() => {
+    const q = skillQuery.trim().toLowerCase();
+    let list = subAgents.filter((a) => {
+      const skill = (a.main_skill ?? "").toLowerCase();
+      const matchesQuery =
+        !q || skill.includes(q) || a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q);
+      const matchesFilter = skillFilter === "all" || (a.main_skill ?? "") === skillFilter;
+      const matchesUnset = skillFilter !== "__unset__" || !(a.main_skill ?? "").trim();
+      return matchesQuery && (skillFilter === "__unset__" ? matchesUnset : matchesFilter);
+    });
+    list = [...list].sort((a, b) => {
+      switch (skillSort) {
+        case "skill":
+          return (a.main_skill ?? "~").localeCompare(b.main_skill ?? "~");
+        case "load-desc":
+          return b.load - a.load;
+        case "load-asc":
+          return a.load - b.load;
+        case "success-desc":
+          return b.success_rate - a.success_rate;
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+    return list;
+  }, [subAgents, skillQuery, skillFilter, skillSort]);
+
+  const filtersActive = skillQuery.trim() !== "" || skillFilter !== "all" || skillSort !== "name";
   const selected = agents.find((a) => a.id === selectedId) ?? leader;
   const pendingApprovals = tasks.filter((t) => t.status === "awaiting_approval");
   const isLeaderSelected = !!selected && selected.parent_id === null;
@@ -474,6 +521,85 @@ function AgentsPage() {
         </section>
 
 
+        <section className="mb-4 rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={skillQuery}
+                onChange={(e) => setSkillQuery(e.target.value)}
+                placeholder="Search by skill, name, or role…"
+                className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-8 text-sm outline-none focus:border-cyan-400/60"
+              />
+              {skillQuery && (
+                <button
+                  onClick={() => setSkillQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="inline-flex items-center gap-2">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={skillFilter} onValueChange={setSkillFilter}>
+                <SelectTrigger className="min-w-[180px]">
+                  <SelectValue placeholder="All skills" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All skills</SelectItem>
+                  {skillOptions.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                  <SelectItem value="__unset__">— No skill set</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="inline-flex items-center gap-2">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={skillSort} onValueChange={(v) => setSkillSort(v as typeof skillSort)}>
+                <SelectTrigger className="min-w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name (A→Z)</SelectItem>
+                  <SelectItem value="skill">Skill (A→Z)</SelectItem>
+                  <SelectItem value="load-desc">Load (high→low)</SelectItem>
+                  <SelectItem value="load-asc">Load (low→high)</SelectItem>
+                  <SelectItem value="success-desc">Success (high→low)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>
+                Showing <span className="font-semibold text-foreground">{filteredSubAgents.length}</span> of {subAgents.length}
+              </span>
+              {filtersActive && (
+                <button
+                  onClick={() => { setSkillQuery(""); setSkillFilter("all"); setSkillSort("name"); }}
+                  className="rounded-md border border-border/60 px-2 py-1 text-[11px] hover:border-foreground/30 hover:text-foreground"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {skillFilter !== "all" && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-200">
+              <Sparkles className="h-3 w-3" />
+              Filtered by skill: <span className="font-semibold">{skillFilter === "__unset__" ? "No skill set" : skillFilter}</span>
+              <button onClick={() => setSkillFilter("all")} className="ml-1 hover:text-white" aria-label="Clear filter">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </section>
+
         <section className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="font-display text-lg tracking-tight">Team hierarchy</h2>
@@ -490,7 +616,7 @@ function AgentsPage() {
             {/* Leader — same size as sub-agents, uniquely styled */}
             <div
               className="grid w-full justify-center"
-              style={{ gridTemplateColumns: `repeat(${Math.max(subAgents.length, 1)}, minmax(0, 1fr))` }}
+              style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
             >
               <div
                 className="relative col-start-1"
@@ -517,8 +643,8 @@ function AgentsPage() {
                     <stop offset="100%" stopColor="#22d3ee" stopOpacity="0.35" />
                   </linearGradient>
                 </defs>
-                {subAgents.map((_, i) => {
-                  const step = 100 / Math.max(subAgents.length, 1);
+                {filteredSubAgents.map((_, i) => {
+                  const step = 100 / Math.max(filteredSubAgents.length, 1);
                   const x = step * (i + 0.5);
                   const d = `M 50 0 C 50 55, ${x} 45, ${x} 100`;
                   return (
@@ -554,14 +680,20 @@ function AgentsPage() {
               <style>{`@keyframes agent-wire-flow { to { stroke-dashoffset: -20; } }`}</style>
             </div>
 
-            <div
-              className="grid w-full gap-4"
-              style={{ gridTemplateColumns: `repeat(${Math.max(subAgents.length, 1)}, minmax(0, 1fr))` }}
-            >
-              {subAgents.map((a) => (
-                <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => openAgent(a.id)} />
-              ))}
-            </div>
+            {filteredSubAgents.length === 0 ? (
+              <div className="w-full rounded-xl border border-dashed border-border/60 py-8 text-center text-sm text-muted-foreground">
+                No agents match your filters.
+              </div>
+            ) : (
+              <div
+                className="grid w-full gap-4"
+                style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
+              >
+                {filteredSubAgents.map((a) => (
+                  <AgentNode key={a.id} agent={a} selected={selected?.id === a.id} onClick={() => openAgent(a.id)} />
+                ))}
+              </div>
+            )}
           </div>
         </section>
 
@@ -1465,6 +1597,11 @@ function AgentNode({
         <h4 className={`font-display tracking-tight text-sm ${isLeader ? "text-amber-100" : ""}`}>{agent.name}</h4>
       </div>
       <p className={`mt-0.5 text-[11px] uppercase tracking-widest ${isLeader ? "text-amber-300/80" : "text-muted-foreground"}`}>{agent.role}</p>
+      {agent.main_skill && (
+        <p className="mt-1 line-clamp-2 text-center text-[10.5px] italic text-cyan-300/80" title={agent.main_skill}>
+          {agent.main_skill}
+        </p>
+      )}
 
       <div className="mt-3 flex w-full items-center gap-2">
         <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
