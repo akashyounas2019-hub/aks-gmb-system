@@ -141,6 +141,21 @@ function normalizeStatus(s: string): AgentStatus {
   return (["online", "working", "idle", "review"].includes(s) ? s : "idle") as AgentStatus;
 }
 
+function formatEta(etaIso: string | null | undefined): string {
+  if (!etaIso) return "ETA — gathering data…";
+  const target = new Date(etaIso).getTime();
+  if (!Number.isFinite(target)) return "ETA — gathering data…";
+  const diff = target - Date.now();
+  if (diff <= 0) return "ETA any moment";
+  const s = Math.round(diff / 1000);
+  if (s < 60) return `ETA in ~${s}s`;
+  const m = Math.round(s / 60);
+  if (m < 60) return `ETA in ~${m}m`;
+  const h = Math.floor(m / 60);
+  const rm = m % 60;
+  return rm ? `ETA in ~${h}h ${rm}m` : `ETA in ~${h}h`;
+}
+
 function timelineMeta(type: string): { color: string; Icon: typeof Bot; label: string } {
   switch (type) {
     case "assigned":
