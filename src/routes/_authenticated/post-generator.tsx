@@ -589,13 +589,14 @@ export function PostGeneratorPage({
                   ({manualKw.length} added)
                 </span>
               </div>
-              <div className="relative">
+              <div className="relative" ref={importPopupRef}>
                 <button
                   onClick={() => setImportOpen((v) => !v)}
-                  className="inline-flex items-center gap-1 rounded-md border border-border bg-background px-2.5 py-1 text-xs hover:border-primary/50"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm transition hover:border-primary hover:from-primary/25 hover:to-primary/10 hover:shadow"
                 >
+                  <Sparkles className="h-3.5 w-3.5" />
                   Import from Semrush
-                  <ChevronDown className="h-3 w-3" />
+                  <ChevronDown className="h-3 w-3 opacity-70" />
                 </button>
                 {importOpen && (
                   <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
