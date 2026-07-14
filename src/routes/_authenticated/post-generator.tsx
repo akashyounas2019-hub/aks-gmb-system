@@ -2172,8 +2172,156 @@ export function PostGeneratorPage({
                     )}
                   </div>
 
+                  {/* Preview step — shows how the template will populate the
+                      Description before it replaces the current text. */}
+                  {previewingTemplate && (
+                    <div className="flex flex-1 min-h-0 flex-col overflow-hidden">
+                      <div className="flex items-center justify-between gap-2 border-b border-border bg-muted/30 px-4 py-2.5">
+                        <div className="min-w-0">
+                          <div className="truncate text-sm font-semibold">
+                            {previewingTemplate.name}
+                          </div>
+                          <div className="mt-0.5 flex items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground">
+                            <span>
+                              {previewingTemplate.folder &&
+                              templateFolders.includes(previewingTemplate.folder)
+                                ? previewingTemplate.folder
+                                : "Uncategorized"}
+                            </span>
+                            <span>·</span>
+                            <span>{previewingTemplate.body.length} chars</span>
+                            {previewingTemplate.body.length > CAPTION_LIMIT && (
+                              <span className="text-red-500">
+                                · exceeds {CAPTION_LIMIT}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => setPreviewingTemplate(null)}
+                          className="rounded border border-border px-2 py-1 text-[11px] hover:bg-accent"
+                        >
+                          ← Back
+                        </button>
+                      </div>
+
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className="grid gap-3 md:grid-cols-2">
+                          {/* Current description */}
+                          <div className="rounded-lg border border-border bg-background">
+                            <div className="flex items-center justify-between border-b border-border px-3 py-1.5">
+                              <div className="text-[11px] font-medium">
+                                Current description
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {caption.length} chars
+                              </div>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto whitespace-pre-wrap px-3 py-2 text-xs">
+                              {caption.trim() ? (
+                                caption
+                              ) : (
+                                <span className="italic text-muted-foreground">
+                                  Empty — the template will fill this in.
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                          {/* Template body */}
+                          <div className="rounded-lg border border-primary/40 bg-primary/5">
+                            <div className="flex items-center justify-between border-b border-primary/30 px-3 py-1.5">
+                              <div className="text-[11px] font-medium text-primary">
+                                After applying
+                              </div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {previewingTemplate.body.length} chars
+                              </div>
+                            </div>
+                            <div className="max-h-64 overflow-y-auto whitespace-pre-wrap px-3 py-2 text-xs">
+                              {previewingTemplate.body}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* What stays the same */}
+                        <div className="mt-4 rounded-lg border border-border bg-muted/20 p-3">
+                          <div className="mb-2 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            Unchanged fields
+                          </div>
+                          <div className="grid grid-cols-2 gap-2 text-[11px] sm:grid-cols-3">
+                            <FieldPill
+                              label="Location"
+                              value={location?.label ?? "—"}
+                            />
+                            <FieldPill
+                              label="CTA"
+                              value={
+                                ctaType === "none"
+                                  ? "No button"
+                                  : `${ctaMeta.buttonLabel}${ctaUrl ? ` → ${ctaUrl}` : ""}`
+                              }
+                            />
+                            <FieldPill
+                              label="Images"
+                              value={
+                                selectedImages.size
+                                  ? `${selectedImages.size} selected`
+                                  : "None"
+                              }
+                            />
+                            <FieldPill
+                              label="Language"
+                              value={
+                                language === "en"
+                                  ? "English"
+                                  : language === "ar"
+                                    ? "Arabic"
+                                    : "Bilingual"
+                              }
+                            />
+                            <FieldPill label="Tone" value={tone} />
+                            <FieldPill
+                              label="Schedule"
+                              value={
+                                scheduledAt
+                                  ? new Date(scheduledAt).toLocaleString()
+                                  : "Send now"
+                              }
+                            />
+                          </div>
+                          <p className="mt-2 text-[10px] text-muted-foreground">
+                            Templates only replace the Description text. Other
+                            fields stay as you've set them.
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5">
+                        <div className="text-[11px] text-muted-foreground">
+                          {caption.trim()
+                            ? "Applying will replace your current description."
+                            : "Applying will fill the description."}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <button
+                            onClick={() => setPreviewingTemplate(null)}
+                            className="rounded border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                          >
+                            Cancel
+                          </button>
+                          <button
+                            onClick={confirmApplyTemplate}
+                            className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+                          >
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Apply template
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+
                   {/* Create form */}
-                  {creatingTemplate && (
+                  {!previewingTemplate && creatingTemplate && (
                     <div className="border-b border-border bg-muted/30 px-4 py-3">
                       <div className="mb-2 text-xs font-semibold">New template</div>
                       <div className="grid grid-cols-2 gap-2">
