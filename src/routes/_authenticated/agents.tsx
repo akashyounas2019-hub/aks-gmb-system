@@ -521,6 +521,85 @@ function AgentsPage() {
         </section>
 
 
+        <section className="mb-4 rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-sm">
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="relative min-w-[220px] flex-1">
+              <Search className="pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
+              <input
+                value={skillQuery}
+                onChange={(e) => setSkillQuery(e.target.value)}
+                placeholder="Search by skill, name, or role…"
+                className="w-full rounded-lg border border-border bg-background py-2 pl-8 pr-8 text-sm outline-none focus:border-cyan-400/60"
+              />
+              {skillQuery && (
+                <button
+                  onClick={() => setSkillQuery("")}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+
+            <div className="inline-flex items-center gap-2">
+              <Filter className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={skillFilter} onValueChange={setSkillFilter}>
+                <SelectTrigger className="min-w-[180px]">
+                  <SelectValue placeholder="All skills" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All skills</SelectItem>
+                  {skillOptions.map((s) => (
+                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                  ))}
+                  <SelectItem value="__unset__">— No skill set</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="inline-flex items-center gap-2">
+              <ArrowUpDown className="h-3.5 w-3.5 text-muted-foreground" />
+              <Select value={skillSort} onValueChange={(v) => setSkillSort(v as typeof skillSort)}>
+                <SelectTrigger className="min-w-[170px]">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="name">Name (A→Z)</SelectItem>
+                  <SelectItem value="skill">Skill (A→Z)</SelectItem>
+                  <SelectItem value="load-desc">Load (high→low)</SelectItem>
+                  <SelectItem value="load-asc">Load (low→high)</SelectItem>
+                  <SelectItem value="success-desc">Success (high→low)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
+              <span>
+                Showing <span className="font-semibold text-foreground">{filteredSubAgents.length}</span> of {subAgents.length}
+              </span>
+              {filtersActive && (
+                <button
+                  onClick={() => { setSkillQuery(""); setSkillFilter("all"); setSkillSort("name"); }}
+                  className="rounded-md border border-border/60 px-2 py-1 text-[11px] hover:border-foreground/30 hover:text-foreground"
+                >
+                  Reset
+                </button>
+              )}
+            </div>
+          </div>
+
+          {skillFilter !== "all" && (
+            <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-200">
+              <Sparkles className="h-3 w-3" />
+              Filtered by skill: <span className="font-semibold">{skillFilter === "__unset__" ? "No skill set" : skillFilter}</span>
+              <button onClick={() => setSkillFilter("all")} className="ml-1 hover:text-white" aria-label="Clear filter">
+                <X className="h-3 w-3" />
+              </button>
+            </div>
+          )}
+        </section>
+
         <section className="mb-8 overflow-hidden rounded-2xl border border-border/60 bg-card/60 p-8 backdrop-blur-sm">
           <div className="mb-6 flex items-center justify-between">
             <h2 className="font-display text-lg tracking-tight">Team hierarchy</h2>
