@@ -345,7 +345,7 @@ function AutomationPage() {
   };
 
   const [addOpen, setAddOpen] = useState(false);
-  const [addKind, setAddKind] = useState<Kind | "">("");
+  const [addPreset, setAddPreset] = useState<PresetId | "">("");
   const [editing, setEditing] = useState<{ id: string; name: string; cron: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
