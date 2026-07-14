@@ -450,6 +450,13 @@ export const pauseTask = createServerFn({ method: "POST" })
         .update({ status: "idle", last_activity: "Task paused by operator" })
         .eq("id", task.agent_id)
         .eq("user_id", userId);
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "paused",
+        message: `Paused: ${task.title ?? "task"}`,
+        progress: task.progress ?? null,
+      });
     }
     return { ok: true };
   });
@@ -465,7 +472,7 @@ export const resumeTask = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .eq("status", "paused")
-      .select("agent_id, title")
+      .select("agent_id, title, progress")
       .maybeSingle();
     if (error) throw error;
     if (task?.agent_id) {
@@ -474,6 +481,13 @@ export const resumeTask = createServerFn({ method: "POST" })
         .update({ status: "working", last_activity: `Resumed: ${task.title}` })
         .eq("id", task.agent_id)
         .eq("user_id", userId);
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "resumed",
+        message: `Resumed: ${task.title}`,
+        progress: task.progress ?? null,
+      });
     }
     return { ok: true };
   });
@@ -489,7 +503,7 @@ export const cancelTask = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .eq("user_id", userId)
       .in("status", ["running", "paused", "queued", "awaiting_approval"])
-      .select("agent_id")
+      .select("agent_id, title, progress")
       .maybeSingle();
     if (error) throw error;
     if (task?.agent_id) {
@@ -498,7 +512,41 @@ export const cancelTask = createServerFn({ method: "POST" })
         .update({ status: "idle", last_activity: "Task cancelled by operator" })
         .eq("id", task.agent_id)
         .eq("user_id", userId);
+      await logEvent(supabase, userId, {
+        agent_id: task.agent_id,
+        task_id: data.id,
+        event_type: "cancelled",
+        message: `Cancelled: ${task.title ?? "task"}`,
+        progress: task.progress ?? null,
+      });
     }
     return { ok: true };
   });
+
+export const getTaskEvents = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input) =>
+    z
+      .object({
+        agent_id: z.string().uuid().optional(),
+        task_id: z.string().uuid().optional(),
+        limit: z.number().min(1).max(500).default(100),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    let q = supabase
+      .from("agent_task_events")
+      .select("*")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: false })
+      .limit(data.limit);
+    if (data.agent_id) q = q.eq("agent_id", data.agent_id);
+    if (data.task_id) q = q.eq("task_id", data.task_id);
+    const { data: rows, error } = await q;
+    if (error) throw error;
+    return rows ?? [];
+  });
+
 
