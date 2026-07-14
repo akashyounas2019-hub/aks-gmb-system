@@ -48,7 +48,7 @@ const groups: NavGroup[] = [
   {
     label: "Google My Business",
     items: [
-      { to: "/post-generator", label: "Post Generator", icon: PenSquare },
+      { to: "/post-generator", label: "GMB Post Generator", icon: PenSquare },
       { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
       { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
       { to: "/library", label: "Image Library", icon: Images },
