@@ -218,10 +218,11 @@ function AgentsPage() {
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string }>({
+  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string; scope: string }>({
     name: "",
     role: "writer",
     parentId: "",
+    scope: "",
   });
   const [assign, setAssign] = useState<{
     agent_id: string;
@@ -312,7 +313,7 @@ function AgentsPage() {
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
   });
   const createMut = useMutation({
-    mutationFn: (input: { name: string; role: string; parent_id: string }) =>
+    mutationFn: (input: { name: string; role: string; parent_id: string; scope?: string }) =>
       createAgent({
         data: {
           name: input.name,
@@ -320,12 +321,13 @@ function AgentsPage() {
           parent_id: input.parent_id,
           icon_key: roleToIconKey[input.role] ?? "bot",
           tone: roleToTone[input.role] ?? "from-indigo-400 to-purple-500",
+          scope: input.scope,
         },
       }),
     onSuccess: (row) => {
       qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAddOpen(false);
-      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "" });
+      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "", scope: "" });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to spawn agent."),
@@ -383,7 +385,12 @@ function AgentsPage() {
     if (!newAgent.name.trim()) return toast.error("Give the agent a name.");
     const parent = newAgent.parentId || leader?.id;
     if (!parent) return toast.error("Missing parent agent.");
-    createMut.mutate({ name: newAgent.name.trim(), role: newAgent.role, parent_id: parent });
+    createMut.mutate({
+      name: newAgent.name.trim(),
+      role: newAgent.role,
+      parent_id: parent,
+      scope: newAgent.scope.trim() || undefined,
+    });
   }
 
   function handleAssign() {
@@ -1028,6 +1035,22 @@ function AgentsPage() {
                   ))}
                 </SelectContent>
               </Select>
+            </div>
+            <div>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Configuration <span className="text-muted-foreground/60">(optional)</span>
+              </label>
+              <textarea
+                value={newAgent.scope}
+                onChange={(e) => setNewAgent((p) => ({ ...p, scope: e.target.value }))}
+                placeholder="Scope, guardrails, tools this agent can use, tone of voice…"
+                rows={4}
+                maxLength={500}
+                className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
+              />
+              <p className="mt-1 text-[11px] text-muted-foreground">
+                {newAgent.scope.length}/500 — describes what this agent owns and how it should behave.
+              </p>
             </div>
           </div>
           <DialogFooter>

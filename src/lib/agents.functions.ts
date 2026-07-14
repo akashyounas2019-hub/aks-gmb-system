@@ -280,6 +280,7 @@ export const createAgent = createServerFn({ method: "POST" })
         parent_id: z.string().uuid(),
         icon_key: z.string(),
         tone: z.string(),
+        scope: z.string().max(500).optional(),
       })
       .parse(input),
   )
@@ -291,7 +292,7 @@ export const createAgent = createServerFn({ method: "POST" })
         user_id: userId,
         name: data.name,
         role: data.role[0].toUpperCase() + data.role.slice(1),
-        scope: "Custom-defined scope",
+        scope: data.scope?.trim() ? data.scope.trim() : "Custom-defined scope",
         icon_key: data.icon_key,
         tone: data.tone,
         glow: "shadow-[0_0_40px_-12px_rgba(129,140,248,0.55)]",
