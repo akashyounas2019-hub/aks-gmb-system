@@ -362,20 +362,20 @@ function AutomationPage() {
               <Zap className="h-3 w-3" /> Automation
             </div>
             <h1 className="font-display text-4xl leading-tight tracking-tight">
-              Workflows & rules
+              Workflows
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              Scheduled workflows backed by <code className="rounded bg-muted px-1">pg_cron</code>.
-              Toggle any automation on and it runs on its cron; use “Run now” to trigger immediately.
+              Automate prompt generation, content writing, post scheduling, image geo-tagging and system audits.
+              Every workflow runs on its own schedule; use “Run now” to trigger immediately.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <StatChip label="Automations" value={stats.total} />
+            <StatChip label="Workflows" value={stats.total} />
             <StatChip label="Active" value={stats.active} tone="primary" />
             <StatChip label="Errors" value={stats.errors} tone={stats.errors ? "danger" : undefined} />
             <button
               onClick={() => {
-                setAddKind("");
+                setAddPreset("");
                 setAddOpen(true);
               }}
               className="inline-flex items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-3.5 py-2 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110"
