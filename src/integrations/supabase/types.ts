@@ -130,11 +130,15 @@ export type Database = {
         Row: {
           agent_id: string
           created_at: string
+          eta_at: string | null
+          eta_confidence: string | null
           id: string
           major: boolean
+          paused_at: string | null
           priority: string
           progress: number
           relative_time: string
+          started_at: string | null
           status: string
           title: string
           updated_at: string
@@ -143,11 +147,15 @@ export type Database = {
         Insert: {
           agent_id: string
           created_at?: string
+          eta_at?: string | null
+          eta_confidence?: string | null
           id?: string
           major?: boolean
+          paused_at?: string | null
           priority?: string
           progress?: number
           relative_time?: string
+          started_at?: string | null
           status?: string
           title: string
           updated_at?: string
@@ -156,11 +164,15 @@ export type Database = {
         Update: {
           agent_id?: string
           created_at?: string
+          eta_at?: string | null
+          eta_confidence?: string | null
           id?: string
           major?: boolean
+          paused_at?: string | null
           priority?: string
           progress?: number
           relative_time?: string
+          started_at?: string | null
           status?: string
           title?: string
           updated_at?: string
