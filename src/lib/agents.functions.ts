@@ -668,6 +668,28 @@ export const cancelTask = createServerFn({ method: "POST" })
         message: `Cancelled: ${task.title ?? "task"}`,
         progress: task.progress ?? null,
       });
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [
+        {
+          agent_id: task.agent_id,
+          related_agent_id: leaderId,
+          task_id: data.id,
+          kind: "failed",
+          title: "Task cancelled",
+          message: `Operator cancelled "${task.title ?? "task"}".`,
+        },
+      ];
+      if (leaderId && leaderId !== task.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: task.agent_id,
+          task_id: data.id,
+          kind: "failed",
+          title: "Task cancelled",
+          message: `Cancelled "${task.title ?? "task"}" — agent stood down.`,
+        });
+      }
+      await notify(supabase, userId, rows);
     }
     return { ok: true };
   });
