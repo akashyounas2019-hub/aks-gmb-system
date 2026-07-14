@@ -1060,22 +1060,30 @@ function AgentNode({
   size?: "md" | "lg";
 }) {
   const Icon = iconMap[agent.icon_key] ?? Bot;
+  const imgSrc = agentImageMap[agent.icon_key];
   const meta = statusMeta[normalizeStatus(agent.status)];
   const big = size === "lg";
   return (
     <button
       onClick={onClick}
-      className={`group relative flex flex-col items-center rounded-2xl border bg-gradient-to-b from-card/90 to-card/50 p-4 text-left backdrop-blur-md transition-all hover:-translate-y-0.5 hover:shadow-xl ${
+      className={`group relative flex flex-col items-center rounded-2xl border bg-card/60 p-4 text-left transition-all hover:-translate-y-0.5 hover:border-foreground/25 hover:bg-card ${
         selected
-          ? "border-primary/60 shadow-[0_0_0_2px_hsl(var(--primary)/0.35),0_20px_50px_-20px_hsl(var(--primary)/0.6)]"
+          ? "border-foreground/40 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
           : "border-border/60"
-      } ${big ? "w-[280px]" : "w-full"}`}
+      } ${big ? "w-[300px]" : "w-full"}`}
     >
       <div className="relative mb-3">
-        <div className={`absolute inset-0 -z-10 rounded-2xl bg-gradient-to-br ${agent.tone} blur-2xl opacity-60 ${agent.glow}`} />
-        <div className={`relative grid ${big ? "h-20 w-20" : "h-16 w-16"} place-items-center rounded-2xl bg-gradient-to-br ${agent.tone} shadow-[inset_0_1px_0_rgba(255,255,255,0.35),0_10px_30px_-10px_rgba(0,0,0,0.6)]`}>
-          <span className="pointer-events-none absolute inset-x-2 top-1 h-1/3 rounded-xl bg-white/25 blur-sm" />
-          <Icon className={`${big ? "h-10 w-10" : "h-8 w-8"} text-white drop-shadow-lg`} />
+        <div className={`relative grid ${big ? "h-24 w-24" : "h-20 w-20"} place-items-center overflow-hidden rounded-2xl border border-border/70 bg-background/70`}>
+          {imgSrc ? (
+            <img
+              src={imgSrc}
+              alt={`${agent.name} portrait`}
+              loading="lazy"
+              className={`${big ? "h-[92%] w-[92%]" : "h-[88%] w-[88%]"} object-contain`}
+            />
+          ) : (
+            <Icon className={`${big ? "h-10 w-10" : "h-8 w-8"} text-foreground/85`} />
+          )}
           <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`} />
         </div>
       </div>
@@ -1097,7 +1105,7 @@ function AgentNode({
       </div>
 
       <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
-        <div className={`h-full bg-gradient-to-r ${agent.tone}`} style={{ width: `${agent.load}%` }} />
+        <div className="h-full rounded-full bg-foreground/70" style={{ width: `${agent.load}%` }} />
       </div>
     </button>
   );
