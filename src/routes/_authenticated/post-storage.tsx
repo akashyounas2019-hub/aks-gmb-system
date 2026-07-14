@@ -780,6 +780,47 @@ function PostEditor({
           className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
         />
         <div>
+          <label className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1">
+              <ImageIcon className="h-3 w-3" />
+              Attached images
+            </span>
+            <span>{post.imageIds?.length ?? 0}</span>
+          </label>
+          {attached.length === 0 ? (
+            <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
+              {(post.imageIds?.length ?? 0) > 0
+                ? "Loading images…"
+                : "No images attached to this post."}
+            </p>
+          ) : (
+            <div className="grid grid-cols-3 gap-1.5">
+              {attached.map((img) => (
+                <div
+                  key={img.id}
+                  className="group/img relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
+                >
+                  <SignedImage
+                    bucket="images"
+                    path={img.storage_path}
+                    alt={img.name ?? "Attached image"}
+                    className="h-full w-full object-cover"
+                  />
+                  <button
+                    onClick={() => removeImage(img.id)}
+                    className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-muted-foreground opacity-0 transition group-hover/img:opacity-100 hover:text-destructive"
+                    title="Remove image from post"
+                    aria-label="Remove image"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+        <div>
+
           <label className="block text-xs text-muted-foreground mb-1">Status</label>
           <div className="flex flex-wrap gap-1.5">
             {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
