@@ -219,6 +219,11 @@ function AgentsPage() {
     queryKey: ["agents-state"],
     queryFn: () => fetchState(),
   });
+  const [detailsOpen, setDetailsOpen] = useState(false);
+  const openAgent = (id: string) => {
+    setSelectedId(id);
+    setDetailsOpen(true);
+  };
 
   const agents: AgentRow[] = data?.agents ?? [];
   const tasks: TaskRow[] = data?.tasks ?? [];
