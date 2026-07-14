@@ -305,6 +305,28 @@ export const approveTask = createServerFn({ method: "POST" })
         event_type: "approved",
         message: `Approved: ${task.title}`,
       });
+      const leaderId = await getLeaderId(supabase, userId);
+      const rows: Parameters<typeof notify>[2] = [
+        {
+          agent_id: task.agent_id,
+          related_agent_id: leaderId,
+          task_id: data.id,
+          kind: "started",
+          title: "Task started",
+          message: `Leader approved and started "${task.title}".`,
+        },
+      ];
+      if (leaderId && leaderId !== task.agent_id) {
+        rows.push({
+          agent_id: leaderId,
+          related_agent_id: task.agent_id,
+          task_id: data.id,
+          kind: "started",
+          title: "Task started",
+          message: `Approved "${task.title}" — now running.`,
+        });
+      }
+      await notify(supabase, userId, rows);
     }
     return { ok: true };
   });
