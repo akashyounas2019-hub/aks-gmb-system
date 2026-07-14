@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
+import { z } from "zod";
 import {
   ArrowLeft,
   Bot,
@@ -24,6 +25,7 @@ import {
   Plus,
   Trash2,
   ListChecks,
+  AlertCircle,
 } from "lucide-react";
 import {
   getAgentsState,
