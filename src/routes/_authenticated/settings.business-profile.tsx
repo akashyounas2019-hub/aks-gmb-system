@@ -283,20 +283,68 @@ function BusinessProfilePage() {
               )}
             </div>
             <ul className="space-y-1.5">
-              {TIERS.map((t) => (
-                <li
-                  key={t.level}
-                  className="flex items-center justify-between rounded-md border border-border/60 bg-background px-3 py-1.5 text-xs"
-                >
-                  <span className="font-medium">Level {t.level}</span>
-                  <span className="text-muted-foreground">
-                    {t.from === 0 ? "0" : t.from} – {t.to} km
-                  </span>
-                </li>
-              ))}
+              {TIERS.map((t) => {
+                const tierCities = citiesByTier.get(t.level) ?? [];
+                const isOpen = openTier === t.level;
+                return (
+                  <li
+                    key={t.level}
+                    className="overflow-hidden rounded-md border border-border/60 bg-background text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() => setOpenTier(isOpen ? null : t.level)}
+                      className="flex w-full items-center justify-between px-3 py-1.5 text-left hover:bg-muted/60"
+                    >
+                      <span className="flex items-center gap-2">
+                        <ChevronDown
+                          className={`h-3.5 w-3.5 transition-transform ${isOpen ? "rotate-0" : "-rotate-90"}`}
+                        />
+                        <span className="font-medium">Level {t.level}</span>
+                        <span className="rounded-full bg-muted px-1.5 text-[10px] text-muted-foreground">
+                          {tierCities.length}
+                        </span>
+                      </span>
+                      <span className="text-muted-foreground">
+                        {t.from === 0 ? "0" : t.from} – {t.to} km
+                      </span>
+                    </button>
+                    {isOpen && (
+                      <div className="border-t border-border/60 bg-muted/30 px-3 py-2">
+                        {citiesLoading ? (
+                          <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                            <Loader2 className="h-3 w-3 animate-spin" /> Loading cities…
+                          </div>
+                        ) : citiesError ? (
+                          <p className="text-[11px] text-destructive">{citiesError}</p>
+                        ) : tierCities.length === 0 ? (
+                          <p className="text-[11px] text-muted-foreground">
+                            No cities found in this tier.
+                          </p>
+                        ) : (
+                          <ul className="space-y-1">
+                            {tierCities.map((c) => (
+                              <li
+                                key={c.name}
+                                className="flex items-center justify-between gap-2"
+                              >
+                                <span className="truncate">{c.name}</span>
+                                <span className="shrink-0 text-[10px] text-muted-foreground">
+                                  {c.distanceKm.toFixed(1)} km
+                                </span>
+                              </li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    )}
+                  </li>
+                );
+              })}
             </ul>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              20 km total service area, split into 8 concentric tiers of 2.5 km.
+              20 km total service area, split into 8 concentric tiers of 2.5 km. Click a
+              level to see its cities.
             </p>
           </div>
         </div>
