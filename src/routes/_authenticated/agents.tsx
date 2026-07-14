@@ -257,6 +257,49 @@ function AgentsPage() {
 
   const leader = agents.find((a) => a.parent_id === null) ?? agents[0];
   const subAgents = leader ? agents.filter((a) => a.parent_id === leader.id) : [];
+
+  // Skill filter / sort state
+  const [skillQuery, setSkillQuery] = useState("");
+  const [skillFilter, setSkillFilter] = useState<string>("all");
+  const [skillSort, setSkillSort] = useState<"name" | "skill" | "load-desc" | "load-asc" | "success-desc">("name");
+
+  const skillOptions = useMemo(() => {
+    const set = new Set<string>();
+    for (const a of subAgents) {
+      const s = (a.main_skill ?? "").trim();
+      if (s) set.add(s);
+    }
+    return Array.from(set).sort((a, b) => a.localeCompare(b));
+  }, [subAgents]);
+
+  const filteredSubAgents = useMemo(() => {
+    const q = skillQuery.trim().toLowerCase();
+    let list = subAgents.filter((a) => {
+      const skill = (a.main_skill ?? "").toLowerCase();
+      const matchesQuery =
+        !q || skill.includes(q) || a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q);
+      const matchesFilter = skillFilter === "all" || (a.main_skill ?? "") === skillFilter;
+      const matchesUnset = skillFilter !== "__unset__" || !(a.main_skill ?? "").trim();
+      return matchesQuery && (skillFilter === "__unset__" ? matchesUnset : matchesFilter);
+    });
+    list = [...list].sort((a, b) => {
+      switch (skillSort) {
+        case "skill":
+          return (a.main_skill ?? "~").localeCompare(b.main_skill ?? "~");
+        case "load-desc":
+          return b.load - a.load;
+        case "load-asc":
+          return a.load - b.load;
+        case "success-desc":
+          return b.success_rate - a.success_rate;
+        default:
+          return a.name.localeCompare(b.name);
+      }
+    });
+    return list;
+  }, [subAgents, skillQuery, skillFilter, skillSort]);
+
+  const filtersActive = skillQuery.trim() !== "" || skillFilter !== "all" || skillSort !== "name";
   const selected = agents.find((a) => a.id === selectedId) ?? leader;
   const pendingApprovals = tasks.filter((t) => t.status === "awaiting_approval");
   const isLeaderSelected = !!selected && selected.parent_id === null;
