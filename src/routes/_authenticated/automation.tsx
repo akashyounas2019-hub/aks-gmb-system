@@ -207,6 +207,9 @@ function AutomationPage() {
     errors: (runs.data ?? []).filter((r) => r.status === "error").length,
   };
 
+  const [addOpen, setAddOpen] = useState(false);
+  const [addKind, setAddKind] = useState<Kind | "">("");
+
   return (
     <div className="mx-auto max-w-[1400px] p-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
@@ -221,8 +224,18 @@ function AutomationPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => {
+              setAddKind("");
+              setAddOpen(true);
+            }}
+            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90"
+          >
+            <Plus className="h-3.5 w-3.5" /> Add New Workflow
+          </button>
           <StatChip label="Automations" value={stats.total} />
           <StatChip label="Active" value={stats.active} tone="primary" />
+
           <StatChip label="Errors" value={stats.errors} tone={stats.errors ? "danger" : undefined} />
         </div>
       </header>
