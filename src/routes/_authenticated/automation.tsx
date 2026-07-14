@@ -225,7 +225,7 @@ function AutomationPage() {
 
 
   return (
-    <div className="relative min-h-full overflow-hidden bg-[radial-gradient(ellipse_at_top_left,theme(colors.primary/10),transparent_55%),radial-gradient(ellipse_at_bottom_right,theme(colors.sky.500/8),transparent_55%)]">
+    <div className="relative min-h-full overflow-hidden bg-background bg-[radial-gradient(ellipse_at_top_left,theme(colors.sky.500/10),transparent_55%),radial-gradient(ellipse_at_bottom_right,theme(colors.indigo.500/10),transparent_55%)]">
       <div
         aria-hidden
         className="pointer-events-none absolute inset-0 opacity-[0.12]"
