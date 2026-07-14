@@ -150,16 +150,26 @@ export function PostGeneratorPage({
   const importPopupRef = useRef<HTMLDivElement>(null);
 
   // Post-body templates persisted in localStorage
-  type PostTemplate = { id: string; name: string; body: string };
+  type PostTemplate = { id: string; name: string; body: string; folder?: string };
   const TEMPLATES_KEY = "post-generator:templates";
+  const TEMPLATE_FOLDERS_KEY = "post-generator:template-folders";
   const [templates, setTemplates] = useState<PostTemplate[]>([]);
+  const [templateFolders, setTemplateFolders] = useState<string[]>([]);
   const [templatesOpen, setTemplatesOpen] = useState(false);
-  const templatesPopupRef = useRef<HTMLDivElement>(null);
+  // "__all" = every template; "" = uncategorized
+  const [activeFolder, setActiveFolder] = useState<string>("__all");
+  const [templateSearch, setTemplateSearch] = useState("");
+  const [creatingTemplate, setCreatingTemplate] = useState(false);
+  const [newTplName, setNewTplName] = useState("");
+  const [newTplBody, setNewTplBody] = useState("");
+  const [newTplFolder, setNewTplFolder] = useState("");
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(TEMPLATES_KEY);
       if (raw) setTemplates(JSON.parse(raw) as PostTemplate[]);
+      const rawF = localStorage.getItem(TEMPLATE_FOLDERS_KEY);
+      if (rawF) setTemplateFolders(JSON.parse(rawF) as string[]);
     } catch {
       /* ignore */
     }
@@ -173,25 +183,102 @@ export function PostGeneratorPage({
       /* ignore */
     }
   }
-  function saveCurrentAsTemplate() {
-    const body = caption.trim();
-    if (!body) {
-      toast.error("Post body is empty");
+  function persistFolders(next: string[]) {
+    setTemplateFolders(next);
+    try {
+      localStorage.setItem(TEMPLATE_FOLDERS_KEY, JSON.stringify(next));
+    } catch {
+      /* ignore */
+    }
+  }
+  function openTemplatesModal() {
+    setTemplatesOpen(true);
+    setTemplateSearch("");
+  }
+  function beginCreateTemplate(seedFromCaption: boolean) {
+    setCreatingTemplate(true);
+    setNewTplName("");
+    setNewTplBody(seedFromCaption ? caption : "");
+    setNewTplFolder(activeFolder === "__all" ? "" : activeFolder);
+  }
+  function saveNewTemplate() {
+    const name = newTplName.trim();
+    const body = newTplBody.trim();
+    if (!name) {
+      toast.error("Give the template a name");
       return;
     }
-    const name = window.prompt("Template name", body.slice(0, 40))?.trim();
-    if (!name) return;
-    persistTemplates([{ id: crypto.randomUUID(), name, body }, ...templates]);
+    if (!body) {
+      toast.error("Template body is empty");
+      return;
+    }
+    persistTemplates([
+      { id: crypto.randomUUID(), name, body, folder: newTplFolder || undefined },
+      ...templates,
+    ]);
+    setCreatingTemplate(false);
+    setNewTplName("");
+    setNewTplBody("");
     toast.success("Template saved");
   }
+  function saveCurrentAsTemplate() {
+    if (!caption.trim()) {
+      toast.error("Description is empty");
+      return;
+    }
+    setTemplatesOpen(true);
+    beginCreateTemplate(true);
+    setNewTplName(caption.trim().slice(0, 40));
+  }
   function applyTemplate(t: PostTemplate) {
-    if (caption.trim() && !window.confirm("Replace current post body with this template?")) return;
+    if (caption.trim() && !window.confirm("Replace current description with this template?")) return;
     setCaption(t.body);
     setTemplatesOpen(false);
     toast.success(`Applied "${t.name}"`);
   }
   function deleteTemplate(id: string) {
     persistTemplates(templates.filter((t) => t.id !== id));
+  }
+  function moveTemplate(id: string, folder: string) {
+    persistTemplates(
+      templates.map((t) => (t.id === id ? { ...t, folder: folder || undefined } : t)),
+    );
+  }
+  function addFolder() {
+    const name = window.prompt("New folder name")?.trim();
+    if (!name) return;
+    if (templateFolders.includes(name)) {
+      toast.error("Folder already exists");
+      return;
+    }
+    persistFolders([...templateFolders, name]);
+    setActiveFolder(name);
+  }
+  function renameFolder(oldName: string) {
+    const name = window.prompt("Rename folder", oldName)?.trim();
+    if (!name || name === oldName) return;
+    if (templateFolders.includes(name)) {
+      toast.error("Folder already exists");
+      return;
+    }
+    persistFolders(templateFolders.map((f) => (f === oldName ? name : f)));
+    persistTemplates(
+      templates.map((t) => (t.folder === oldName ? { ...t, folder: name } : t)),
+    );
+    if (activeFolder === oldName) setActiveFolder(name);
+  }
+  function removeFolder(name: string) {
+    if (
+      !window.confirm(
+        `Delete folder "${name}"? Templates inside will be moved to Uncategorized.`,
+      )
+    )
+      return;
+    persistFolders(templateFolders.filter((f) => f !== name));
+    persistTemplates(
+      templates.map((t) => (t.folder === name ? { ...t, folder: undefined } : t)),
+    );
+    if (activeFolder === name) setActiveFolder("__all");
   }
   const templateImportRef = useRef<HTMLInputElement>(null);
   function exportTemplates() {
