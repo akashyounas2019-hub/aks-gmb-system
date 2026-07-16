@@ -158,11 +158,6 @@ export function GlobalUploadQueue() {
                 );
               })}
             </ul>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
             {done > 0 && active.length === 0 && (
               <button
                 onClick={clearFinished}
