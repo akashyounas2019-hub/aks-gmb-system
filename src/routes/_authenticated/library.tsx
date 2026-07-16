@@ -463,6 +463,7 @@ function LibraryPage() {
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
     { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
     { id: "videos", label: "Videos", icon: Film },
+    { id: "trash", label: "Trash", icon: Trash },
   ];
 
   return (
