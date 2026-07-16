@@ -152,7 +152,28 @@ export function retryItem(id: string) {
 
 export function removeItem(id: string) {
   items = items.filter((q) => q.id !== id);
+  cancelled.delete(id);
   emit();
+}
+
+/**
+ * Cancel an item. If pending/done/error, removes it. If in-flight, marks it
+ * for cancellation — the processor will bail at the next checkpoint and the
+ * item is removed from the queue.
+ */
+export function cancelItem(id: string) {
+  const item = items.find((q) => q.id === id);
+  if (!item) return;
+  if (
+    item.stage === "extracting" ||
+    item.stage === "uploading" ||
+    item.stage === "saving"
+  ) {
+    cancelled.add(id);
+    patchItem(id, { message: "Cancelling…" });
+  } else {
+    removeItem(id);
+  }
 }
 
 export function clearFinished() {
