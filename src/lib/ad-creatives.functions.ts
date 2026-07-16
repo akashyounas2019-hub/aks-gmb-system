@@ -123,7 +123,7 @@ export const saveAdTemplate = createServerFn({ method: "POST" })
     name: string;
     description?: string;
     category?: string;
-    definition: TemplateDefinition;
+    definition: Json;
   }) => i)
   .handler(async ({ data, context }) => {
     if (data.id) {
@@ -189,7 +189,7 @@ export const recordAdCreative = createServerFn({ method: "POST" })
     storage_path: string;
     profile_id?: string | null;
     template_id?: string | null;
-    meta?: Record<string, unknown>;
+    meta?: Json;
   }) => i)
   .handler(async ({ data, context }) => {
     const { error } = await context.supabase.from("ad_creatives").insert({
