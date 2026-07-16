@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon } from "lucide-react";
 import { toast } from "sonner";
-import { loadFFmpeg, fetchFile, humanSize, downloadBlob } from "@/lib/ffmpeg-client";
+import { loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration } from "@/lib/ffmpeg-client";
 
 export const Route = createFileRoute("/_authenticated/video-compress")({
   component: VideoCompressPage,
@@ -21,8 +21,19 @@ function VideoCompressPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
   const videoRef = useRef<HTMLVideoElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; box: DOMRect } | null>(null);
+
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  const elapsedMs = startedAt ? now - startedAt : 0;
+  const etaMs = startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
 
   useEffect(() => {
     if (!file) {
@@ -91,6 +102,8 @@ function VideoCompressPage() {
     setBusy(true);
     setProgress(0);
     setResult(null);
+    setStartedAt(Date.now());
+    setNow(Date.now());
     setStatus("Loading engine…");
     try {
       const ff = await loadFFmpeg(undefined, (p) => setProgress(Math.max(0, Math.min(1, p))));
@@ -249,9 +262,16 @@ function VideoCompressPage() {
           </button>
           {busy && (
             <div className="text-xs text-muted-foreground">
-              <div className="mb-1">{status}</div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="truncate">{status}</span>
+                <span className="tabular-nums">{Math.round(progress * 100)}%</span>
+              </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
                 <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+              <div className="mt-1 flex justify-between tabular-nums">
+                <span>{formatDuration(elapsedMs)} elapsed</span>
+                <span>{etaMs !== null ? `~${formatDuration(etaMs)} left` : "estimating…"}</span>
               </div>
             </div>
           )}

@@ -1,8 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { loadFFmpeg, fetchFile, humanSize, downloadBlob } from "@/lib/ffmpeg-client";
+import { loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration } from "@/lib/ffmpeg-client";
 
 export const Route = createFileRoute("/_authenticated/video-converter")({
   component: VideoConverterPage,
@@ -14,13 +14,26 @@ function VideoConverterPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  const elapsedMs = startedAt ? now - startedAt : 0;
+  const etaMs = startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
 
   async function convert() {
     if (!file) return;
     setBusy(true);
     setProgress(0);
     setResult(null);
+    setStartedAt(Date.now());
+    setNow(Date.now());
     setStatus("Loading converter…");
     try {
       const ff = await loadFFmpeg(undefined, (p) => setProgress(Math.max(0, Math.min(1, p))));
@@ -116,7 +129,13 @@ function VideoConverterPage() {
           </button>
           {busy && (
             <div className="flex-1 text-xs text-muted-foreground">
-              <div className="mb-1">{status}</div>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <span>{status}</span>
+                <span className="tabular-nums">
+                  {Math.round(progress * 100)}% · {formatDuration(elapsedMs)} elapsed
+                  {etaMs !== null ? ` · ~${formatDuration(etaMs)} left` : ""}
+                </span>
+              </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
                 <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
               </div>
