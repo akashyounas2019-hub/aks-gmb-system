@@ -244,10 +244,11 @@ function LibraryPage() {
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
       if (imageBucket(i) !== tab) return false;
-      // Folder scoping only applies to the Raw Images tab.
-      if (tab === "raw") {
-        if (rawFolderId === "__uncategorized" && i.folder_id != null) return false;
-        if (rawFolderId && rawFolderId !== "__uncategorized" && i.folder_id !== rawFolderId) return false;
+      // Folder scoping applies to raw / published / geotagged image tabs.
+      if (tab === "raw" || tab === "published" || tab === "geotagged") {
+        const fid = folderByTab[tab];
+        if (fid === "__uncategorized" && i.folder_id != null) return false;
+        if (fid && fid !== "__uncategorized" && i.folder_id !== fid) return false;
       }
       if (!q) return true;
       if (i.name.toLowerCase().includes(q)) return true;
@@ -259,7 +260,7 @@ function LibraryPage() {
       return false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [data, filter, tab, rawFolderId]);
+  }, [data, filter, tab, folderByTab]);
 
   // Folder CRUD -----------------------------------------------------------------
   async function createFolder() {
