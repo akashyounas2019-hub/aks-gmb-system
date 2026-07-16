@@ -8,6 +8,8 @@ import {
   Pencil,
   Tag as TagIcon,
   Trash2,
+  Trash,
+  Undo2,
   CheckSquare,
   Square,
   X,
@@ -39,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
 
-type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
+type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos" | "trash";
 
 
 async function fetchLibrary() {
@@ -48,6 +50,8 @@ async function fetchLibrary() {
     .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
+    // Hide soft-deleted (trashed) images from normal views.
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -71,6 +75,18 @@ async function fetchLibrary() {
     tagMap.set(row.image_id, arr);
   }
   return { images: images ?? [], venueMap, tagMap, folders: folders ?? [] };
+}
+
+
+async function fetchTrash() {
+  const { data, error } = await supabase
+    .from("images")
+    .select("id, name, storage_path, folder_id, deleted_at, created_at")
+    .not("storage_path", "ilike", "%/social-%")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 
@@ -133,59 +149,95 @@ function LibraryPage() {
 
 
 
-  async function deleteImage(id: string, path: string) {
-    if (!window.confirm("Delete this image? This cannot be undone.")) return;
-    // Delete the DB row first so a storage failure doesn't leave a dangling record.
-    const { error } = await supabase.from("images").delete().eq("id", id);
+  // Soft-delete: images are marked with deleted_at and moved to the Trash tab.
+  // Purge (permanent deletion + storage removal) happens from the Trash tab.
+  async function deleteImage(id: string, _path: string) {
+    if (!window.confirm("Move this image to Trash?")) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .eq("id", id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    await supabase.storage.from("frames").remove([path]);
-    toast.success("Deleted");
+    toast.success("Moved to Trash");
     qc.invalidateQueries({ queryKey: ["library"] });
+    qc.invalidateQueries({ queryKey: ["trash"] });
   }
 
-  async function bulkDeleteImages(ids: string[], paths: string[], label: string) {
+  async function bulkDeleteImages(ids: string[], _paths: string[], label: string) {
     if (ids.length === 0) return;
-
-    // Small deletes: single confirm. Large deletes: require typing DELETE to
-    // prevent accidental mass-deletion of user media.
-    if (ids.length <= 5) {
-      if (!window.confirm(`Delete ${ids.length} ${label}? This cannot be undone.`)) return;
-    } else {
-      const typed = window.prompt(
-        `You are about to permanently delete ${ids.length} ${label}. This cannot be undone.\n\nType DELETE to confirm.`,
-      );
-      if (typed?.trim().toUpperCase() !== "DELETE") {
-        toast.message("Delete cancelled");
+    if (!window.confirm(`Move ${ids.length} ${label} to Trash? You can restore from the Trash tab.`)) {
+      return;
+    }
+    const now = new Date().toISOString();
+    let moved = 0;
+    for (let i = 0; i < ids.length; i += 200) {
+      const slice = ids.slice(i, i + 200);
+      const { error } = await supabase
+        .from("images")
+        .update({ deleted_at: now } as never)
+        .in("id", slice);
+      if (error) {
+        toast.error(`Moved ${moved}/${ids.length} before error: ${error.message}`);
+        qc.invalidateQueries({ queryKey: ["library"] });
+        qc.invalidateQueries({ queryKey: ["trash"] });
         return;
       }
+      moved += slice.length;
     }
+    toast.success(`Moved ${ids.length} ${label} to Trash.`);
+    clearSelection();
+    setSelectMode(false);
+    qc.invalidateQueries({ queryKey: ["library"] });
+    qc.invalidateQueries({ queryKey: ["trash"] });
+  }
 
-    // Delete DB rows first (in chunks); only remove storage objects for rows
-    // that were actually deleted. This avoids orphaned blobs on partial failure.
-    let deleted = 0;
+  async function restoreImages(ids: string[]) {
+    if (ids.length === 0) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ deleted_at: null } as never)
+      .in("id", ids);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    toast.success(`Restored ${ids.length} image${ids.length === 1 ? "" : "s"}`);
+    qc.invalidateQueries({ queryKey: ["library"] });
+    qc.invalidateQueries({ queryKey: ["trash"] });
+  }
+
+  async function purgeImages(ids: string[], paths: string[]) {
+    if (ids.length === 0) return;
+    const typed = window.prompt(
+      `Permanently delete ${ids.length} image${ids.length === 1 ? "" : "s"} from Trash? This cannot be undone.\n\nType DELETE to confirm.`,
+    );
+    if (typed?.trim().toUpperCase() !== "DELETE") {
+      toast.message("Purge cancelled");
+      return;
+    }
+    let purged = 0;
     for (let i = 0; i < ids.length; i += 100) {
       const slice = ids.slice(i, i + 100);
       const { error } = await supabase.from("images").delete().in("id", slice);
       if (error) {
-        toast.error(`Deleted ${deleted}/${ids.length} before error: ${error.message}`);
-        qc.invalidateQueries({ queryKey: ["library"] });
+        toast.error(`Purged ${purged}/${ids.length} before error: ${error.message}`);
+        qc.invalidateQueries({ queryKey: ["trash"] });
         return;
       }
-      deleted += slice.length;
+      purged += slice.length;
     }
     if (paths.length > 0) {
       for (let i = 0; i < paths.length; i += 100) {
         await supabase.storage.from("frames").remove(paths.slice(i, i + 100));
       }
     }
-    toast.success(`Deleted ${ids.length} ${label}.`);
-    clearSelection();
-    setSelectMode(false);
-    qc.invalidateQueries({ queryKey: ["library"] });
+    toast.success(`Purged ${ids.length} image${ids.length === 1 ? "" : "s"}.`);
+    qc.invalidateQueries({ queryKey: ["trash"] });
   }
+
 
 
   async function downloadImage(img: {
@@ -414,6 +466,7 @@ function LibraryPage() {
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
     { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
     { id: "videos", label: "Videos", icon: Film },
+    { id: "trash", label: "Trash", icon: Trash },
   ];
 
   return (
@@ -426,7 +479,7 @@ function LibraryPage() {
           </p>
         </div>
 
-        {tab !== "videos" && tab !== "upload" && (
+        {tab !== "videos" && tab !== "upload" && tab !== "trash" && (
           <div className="flex items-center gap-2">
             <input
               type="search"
@@ -485,7 +538,7 @@ function LibraryPage() {
       </div>
 
 
-      {tab !== "videos" && tab !== "upload" && selectMode && (
+      {tab !== "videos" && tab !== "upload" && tab !== "trash" && selectMode && (
 
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           <span className="text-sm">
@@ -534,7 +587,7 @@ function LibraryPage() {
         </div>
       )}
 
-      {tab !== "videos" && tab !== "upload" && tab !== "raw" && selectMode && selected.size > 0 && (
+      {tab !== "videos" && tab !== "upload" && tab !== "trash" && tab !== "raw" && selectMode && selected.size > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-3 text-xs">
           <span className="font-medium">
             Move {selected.size} selected to folder:
@@ -798,6 +851,8 @@ function LibraryPage() {
         </div>
       ) : tab === "videos" ? (
         <VideosPanel />
+      ) : tab === "trash" ? (
+        <TrashPanel onRestore={restoreImages} onPurge={purgeImages} />
       ) : isLoading ? (
 
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
@@ -1485,12 +1540,15 @@ function ImageEditModal({
 
   async function doDelete() {
     if (!data) return;
+    if (!window.confirm("Move this image to Trash?")) return;
     setSaving(true);
     try {
-      await supabase.storage.from("frames").remove([data.image.storage_path]);
-      const { error } = await supabase.from("images").delete().eq("id", imageId);
+      const { error } = await supabase
+        .from("images")
+        .update({ deleted_at: new Date().toISOString() } as never)
+        .eq("id", imageId);
       if (error) throw error;
-      toast.success("Deleted");
+      toast.success("Moved to Trash");
       onSaved();
       onClose();
     } catch (e) {
@@ -1810,6 +1868,142 @@ function formatBytes(n: number | null | undefined) {
 }
 
 const STORAGE_QUOTA_BYTES = 1 * 1024 * 1024 * 1024;
+
+function TrashPanel({
+  onRestore,
+  onPurge,
+}: {
+  onRestore: (ids: string[]) => Promise<void>;
+  onPurge: (ids: string[], paths: string[]) => Promise<void>;
+}) {
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["trash"],
+    queryFn: fetchTrash,
+  });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedIds = Array.from(selected);
+  const selectedPaths = items
+    .filter((i) => selected.has(i.id))
+    .map((i) => i.storage_path);
+
+  if (isLoading) {
+    return <div className="mt-10 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
+        <Trash className="mx-auto h-8 w-8 text-muted-foreground" />
+        <p className="mt-3 text-muted-foreground">Trash is empty.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Deleted images land here first so you can restore them.
+        </p>
+      </div>
+    );
+  }
+
+  const allIds = items.map((i) => i.id);
+  const allPaths = items.map((i) => i.storage_path);
+  const allSelected = selected.size === items.length;
+
+  return (
+    <div className="mt-6">
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/40 px-3 py-2 text-xs">
+        <button
+          onClick={() =>
+            setSelected(allSelected ? new Set() : new Set(allIds))
+          }
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-medium hover:bg-accent"
+        >
+          {allSelected ? <Square className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+          {allSelected ? "Clear" : `Select all (${items.length})`}
+        </button>
+        <span className="text-muted-foreground">
+          <strong className="text-foreground">{selected.size}</strong> selected
+        </span>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => onRestore(selectedIds).then(() => setSelected(new Set()))}
+            disabled={selected.size === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+          >
+            <Undo2 className="h-3.5 w-3.5" /> Restore ({selected.size})
+          </button>
+          <button
+            onClick={() => onPurge(selectedIds, selectedPaths).then(() => setSelected(new Set()))}
+            disabled={selected.size === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete forever ({selected.size})
+          </button>
+          <button
+            onClick={() => onPurge(allIds, allPaths).then(() => setSelected(new Set()))}
+            className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Empty Trash ({items.length})
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {items.map((img) => {
+          const isSelected = selected.has(img.id);
+          const deletedAt = img.deleted_at ? new Date(img.deleted_at) : null;
+          return (
+            <button
+              type="button"
+              key={img.id}
+              onClick={() => toggle(img.id)}
+              className={`group relative overflow-hidden rounded-xl border text-left transition ${
+                isSelected
+                  ? "border-primary ring-2 ring-primary/40"
+                  : "border-border hover:border-primary/60"
+              } bg-card`}
+            >
+              <div className="aspect-[4/3] w-full overflow-hidden bg-muted opacity-70">
+                <SignedImage
+                  bucket="frames"
+                  path={img.storage_path}
+                  alt={img.name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="absolute left-2 top-2 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-medium backdrop-blur">
+                {isSelected ? (
+                  <span className="inline-flex items-center gap-1 text-primary">
+                    <CheckSquare className="h-3 w-3" /> Selected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <Square className="h-3 w-3" /> Select
+                  </span>
+                )}
+              </div>
+              <div className="p-2">
+                <div className="truncate text-xs font-medium">{img.name}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {deletedAt
+                    ? `Deleted ${deletedAt.toLocaleString()}`
+                    : "Deleted"}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
 
 function VideosPanel() {
   const qc = useQueryClient();
