@@ -262,9 +262,16 @@ function VideoCompressPage() {
           </button>
           {busy && (
             <div className="text-xs text-muted-foreground">
-              <div className="mb-1">{status}</div>
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span className="truncate">{status}</span>
+                <span className="tabular-nums">{Math.round(progress * 100)}%</span>
+              </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
                 <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+              </div>
+              <div className="mt-1 flex justify-between tabular-nums">
+                <span>{formatDuration(elapsedMs)} elapsed</span>
+                <span>{etaMs !== null ? `~${formatDuration(etaMs)} left` : "estimating…"}</span>
               </div>
             </div>
           )}
