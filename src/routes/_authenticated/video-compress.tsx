@@ -78,6 +78,28 @@ function VideoCompressPage() {
   const dragRef = useRef<{ startX: number; startY: number; box: DOMRect } | null>(null);
   const compareDragRef = useRef(false);
 
+  // Rough pre-compression size/savings estimate — updates live as the user tweaks controls.
+  const estimate = useMemo(() => {
+    if (!file || !dims) return null;
+    const srcW = crop?.w ?? dims.w;
+    const srcH = crop?.h ?? dims.h;
+    const targetW = Math.max(2, Math.round((srcW * scale) / 100));
+    const targetH = Math.max(2, Math.round((srcH * scale) / 100));
+    const outW = Math.max(2, targetW - (targetW % 2));
+    const outH = Math.max(2, targetH - (targetH % 2));
+    const fullDur = duration ?? 0;
+    const trimDur = fullDur > 0 ? Math.max(0.1, trim.end - trim.start) : 0;
+    if (trimDur <= 0) return null;
+    // x264 rough model: bits-per-pixel scales ~2x every 6 CRF steps around CRF 28 baseline.
+    const bpp = 0.07 * Math.pow(2, (28 - quality) / 6);
+    const videoBps = outW * outH * 30 * bpp; // assume ~30fps
+    const audioBps = 128_000;
+    const sizeBytes = Math.max(1, ((videoBps + audioBps) * trimDur) / 8);
+    const savingsPct = Math.round((1 - sizeBytes / file.size) * 100);
+    return { sizeBytes, savingsPct, outW, outH, durSec: trimDur };
+  }, [file, dims, crop, scale, quality, duration, trim.start, trim.end]);
+
+
   useEffect(() => {
     if (!result) {
       setResultUrl(null);
