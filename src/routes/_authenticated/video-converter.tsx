@@ -15,16 +15,106 @@ export const Route = createFileRoute("/_authenticated/video-converter")({
 
 function VideoConverterPage() {
   const [file, setFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
   const [saving, setSaving] = useState(false);
   const [savePct, setSavePct] = useState(0);
   const [saved, setSaved] = useState(false);
+
+  // Before/after comparison state
+  const [comparePct, setComparePct] = useState(50);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [curTime, setCurTime] = useState(0);
+  const [fps, setFps] = useState(30);
+
   const inputRef = useRef<HTMLInputElement>(null);
+  const beforeCmpRef = useRef<HTMLVideoElement>(null);
+  const afterCmpRef = useRef<HTMLVideoElement>(null);
+  const compareBoxRef = useRef<HTMLDivElement>(null);
+  const compareDragRef = useRef<boolean>(false);
+
+  // Manage object URLs for source preview and result
+  useEffect(() => {
+    if (!file) { setPreviewUrl(null); return; }
+    const url = URL.createObjectURL(file);
+    setPreviewUrl(url);
+    return () => URL.revokeObjectURL(url);
+  }, [file]);
+  useEffect(() => {
+    if (!result) { setResultUrl(null); return; }
+    const url = URL.createObjectURL(result.blob);
+    setResultUrl(url);
+    setComparePct(50);
+    setCurTime(0);
+    setIsPlaying(false);
+    return () => URL.revokeObjectURL(url);
+  }, [result]);
+
+  // Sync helpers for the two comparison players
+  function syncPlay() {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b || !a) return;
+    a.currentTime = b.currentTime;
+    if (!b.paused) a.play().catch(() => {});
+    setIsPlaying(true);
+  }
+  function syncPause() {
+    const a = afterCmpRef.current;
+    if (a) a.pause();
+    setIsPlaying(false);
+  }
+  function syncSeek() {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (b && a) a.currentTime = b.currentTime;
+    if (b) setCurTime(b.currentTime);
+  }
+  function togglePlay() {
+    const b = beforeCmpRef.current;
+    if (!b) return;
+    if (b.paused) b.play().catch(() => {});
+    else b.pause();
+  }
+  function stepFrame(dir: 1 | -1) {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b) return;
+    b.pause();
+    a?.pause();
+    const step = 1 / Math.max(1, fps);
+    const next = Math.max(0, Math.min((b.duration || 0) - 0.0001, b.currentTime + dir * step));
+    b.currentTime = next;
+    if (a) a.currentTime = next;
+    setCurTime(next);
+    setIsPlaying(false);
+  }
+  function seekToPct(pct: number) {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b || !b.duration) return;
+    const t = (pct / 100) * b.duration;
+    b.currentTime = t;
+    if (a) a.currentTime = t;
+    setCurTime(t);
+  }
+  function fmtTime(t: number) {
+    if (!isFinite(t) || t < 0) t = 0;
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    const cs = Math.floor((t - Math.floor(t)) * 100);
+    return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
+  }
+  function updateCompareFromEvent(clientX: number) {
+    const box = compareBoxRef.current;
+    if (!box) return;
+    const rect = box.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    setComparePct(pct);
+  }
+
 
   async function saveToLibrary() {
     if (!result) return;
