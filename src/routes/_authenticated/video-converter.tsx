@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
   validateVideoFileBasic, validateVideoFile,
 } from "@/lib/ffmpeg-client";
+import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/video-converter")({
   component: VideoConverterPage,
@@ -19,7 +21,43 @@ function VideoConverterPage() {
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
+  const [saving, setSaving] = useState(false);
+  const [savePct, setSavePct] = useState(0);
+  const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  async function saveToLibrary() {
+    if (!result) return;
+    setSaving(true);
+    setSavePct(0);
+    setSaved(false);
+    try {
+      const userId = await getCurrentUserId();
+      const path = `${userId}/${crypto.randomUUID()}-${result.name}`;
+      await uploadBlobWithProgress({
+        bucket: "videos",
+        path,
+        blob: result.blob,
+        contentType: "video/mp4",
+        onProgress: (p) => setSavePct(p.pct),
+      });
+      const { error } = await supabase.from("videos").insert({
+        owner_id: userId,
+        storage_path: path,
+        original_name: result.name,
+        size_bytes: result.size,
+        status: "ready",
+      });
+      if (error) throw error;
+      setSaved(true);
+      toast.success("Saved to library");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!busy) return;
@@ -43,6 +81,8 @@ function VideoConverterPage() {
     setBusy(true);
     setProgress(0);
     setResult(null);
+    setSaved(false);
+    setSavePct(0);
     setStartedAt(Date.now());
     setNow(Date.now());
     setStatus("Loading converter…");
@@ -126,6 +166,8 @@ function VideoConverterPage() {
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
             setResult(null);
+            setSaved(false);
+            setSavePct(0);
             if (f) {
               const err = validateVideoFileBasic(f);
               if (err) {
@@ -165,20 +207,46 @@ function VideoConverterPage() {
         </div>
 
         {result && (
-          <div className="mt-6 flex items-center justify-between rounded-lg border border-border/60 bg-background/60 p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <div className="text-sm">
-                <div className="font-medium">{result.name}</div>
-                <div className="text-xs text-muted-foreground">{humanSize(result.size)}</div>
+          <div className="mt-6 rounded-lg border border-border/60 bg-background/60 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <div className="text-sm">
+                  <div className="font-medium">{result.name}</div>
+                  <div className="text-xs text-muted-foreground">{humanSize(result.size)}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={saveToLibrary}
+                  disabled={saving || saved}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saved ? "Saved" : saving ? "Saving…" : "Save to library"}
+                </button>
+                <button
+                  onClick={() => downloadBlob(result.blob, result.name)}
+                  className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm hover:bg-accent"
+                >
+                  <Download className="h-4 w-4" /> Download
+                </button>
               </div>
             </div>
-            <button
-              onClick={() => downloadBlob(result.blob, result.name)}
-              className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm hover:bg-accent"
-            >
-              <Download className="h-4 w-4" /> Download
-            </button>
+            {(saving || saved) && (
+              <div className="mt-3 text-xs text-muted-foreground">
+                <div className="mb-1 flex items-center justify-between">
+                  <span>{saved ? "Uploaded to library" : "Uploading to library…"}</span>
+                  <span className="tabular-nums">{Math.round(savePct * 100)}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
+                  <div
+                    className={`h-full transition-all ${saved ? "bg-emerald-500" : "bg-primary"}`}
+                    style={{ width: `${Math.round(savePct * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 

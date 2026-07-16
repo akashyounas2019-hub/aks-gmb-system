@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon } from "lucide-react";
+import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
   validateVideoFileBasic, validateVideoFile, MAX_VIDEO_DURATION_SECONDS,
 } from "@/lib/ffmpeg-client";
+import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/video-compress")({
   component: VideoCompressPage,
@@ -28,6 +30,42 @@ function VideoCompressPage() {
   const [comparePct, setComparePct] = useState(50);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
+  const [saving, setSaving] = useState(false);
+  const [savePct, setSavePct] = useState(0);
+  const [saved, setSaved] = useState(false);
+
+  async function saveToLibrary() {
+    if (!result) return;
+    setSaving(true);
+    setSavePct(0);
+    setSaved(false);
+    try {
+      const userId = await getCurrentUserId();
+      const path = `${userId}/${crypto.randomUUID()}-${result.name}`;
+      await uploadBlobWithProgress({
+        bucket: "videos",
+        path,
+        blob: result.blob,
+        contentType: "video/mp4",
+        onProgress: (p) => setSavePct(p.pct),
+      });
+      const { error } = await supabase.from("videos").insert({
+        owner_id: userId,
+        storage_path: path,
+        original_name: result.name,
+        size_bytes: result.size,
+        status: "ready",
+      });
+      if (error) throw error;
+      setSaved(true);
+      toast.success("Saved to library");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
   const videoRef = useRef<HTMLVideoElement>(null);
   const beforeCmpRef = useRef<HTMLVideoElement>(null);
   const afterCmpRef = useRef<HTMLVideoElement>(null);
@@ -158,6 +196,8 @@ function VideoCompressPage() {
     setBusy(true);
     setProgress(0);
     setResult(null);
+    setSaved(false);
+    setSavePct(0);
     setStartedAt(Date.now());
     setNow(Date.now());
     setStatus("Loading engine…");
@@ -353,11 +393,33 @@ function VideoCompressPage() {
                 )}
               </div>
               <button
+                onClick={saveToLibrary}
+                disabled={saving || saved}
+                className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+              >
+                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saved ? "Saved" : saving ? "Saving…" : "Save to library"}
+              </button>
+              <button
                 onClick={() => downloadBlob(result.blob, result.name)}
                 className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm hover:bg-accent"
               >
                 <Download className="h-4 w-4" /> Download MP4
               </button>
+              {(saving || saved) && (
+                <div className="mt-2 text-xs text-muted-foreground">
+                  <div className="mb-1 flex items-center justify-between">
+                    <span>{saved ? "Uploaded to library" : "Uploading…"}</span>
+                    <span className="tabular-nums">{Math.round(savePct * 100)}%</span>
+                  </div>
+                  <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
+                    <div
+                      className={`h-full transition-all ${saved ? "bg-emerald-500" : "bg-primary"}`}
+                      style={{ width: `${Math.round(savePct * 100)}%` }}
+                    />
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </div>
