@@ -1540,12 +1540,15 @@ function ImageEditModal({
 
   async function doDelete() {
     if (!data) return;
+    if (!window.confirm("Move this image to Trash?")) return;
     setSaving(true);
     try {
-      await supabase.storage.from("frames").remove([data.image.storage_path]);
-      const { error } = await supabase.from("images").delete().eq("id", imageId);
+      const { error } = await supabase
+        .from("images")
+        .update({ deleted_at: new Date().toISOString() } as never)
+        .eq("id", imageId);
       if (error) throw error;
-      toast.success("Deleted");
+      toast.success("Moved to Trash");
       onSaved();
       onClose();
     } catch (e) {
