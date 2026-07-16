@@ -30,6 +30,42 @@ function VideoCompressPage() {
   const [comparePct, setComparePct] = useState(50);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
+  const [saving, setSaving] = useState(false);
+  const [savePct, setSavePct] = useState(0);
+  const [saved, setSaved] = useState(false);
+
+  async function saveToLibrary() {
+    if (!result) return;
+    setSaving(true);
+    setSavePct(0);
+    setSaved(false);
+    try {
+      const userId = await getCurrentUserId();
+      const path = `${userId}/${crypto.randomUUID()}-${result.name}`;
+      await uploadBlobWithProgress({
+        bucket: "videos",
+        path,
+        blob: result.blob,
+        contentType: "video/mp4",
+        onProgress: (p) => setSavePct(p.pct),
+      });
+      const { error } = await supabase.from("videos").insert({
+        owner_id: userId,
+        storage_path: path,
+        original_name: result.name,
+        size_bytes: result.size,
+        status: "ready",
+      });
+      if (error) throw error;
+      setSaved(true);
+      toast.success("Saved to library");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
   const videoRef = useRef<HTMLVideoElement>(null);
   const beforeCmpRef = useRef<HTMLVideoElement>(null);
   const afterCmpRef = useRef<HTMLVideoElement>(null);
