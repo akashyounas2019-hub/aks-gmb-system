@@ -88,6 +88,15 @@ export function SocialAccountScreen({
               label="AI Image Prompt Generator"
             />
           )}
+          {platform === "facebook" && (
+            <Link
+              to="/social/facebook/ad-creatives"
+              className="inline-flex items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <Sparkles className="h-4 w-4" />
+              Ad Creatives
+            </Link>
+          )}
         </nav>
       </div>
 
