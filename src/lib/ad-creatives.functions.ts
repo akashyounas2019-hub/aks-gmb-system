@@ -1,12 +1,20 @@
 import { createServerFn } from "@tanstack/react-start";
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
+type Json =
+  | string
+  | number
+  | boolean
+  | null
+  | { [k: string]: Json | undefined }
+  | Json[];
+
 export type AdProfile = {
   id: string;
   name: string;
   theme: string;
-  colors: Record<string, string>;
-  fonts: Record<string, string>;
+  colors: Json;
+  fonts: Json;
   default_template_id: string | null;
   logo_path: string | null;
   is_active: boolean;
@@ -14,12 +22,12 @@ export type AdProfile = {
 
 export type SlotDef = {
   id: string;
-  type: "image" | "text" | "shape" | "logo";
+  type: string;
   x: number;
   y: number;
   w: number;
   h: number;
-  defaults: Record<string, unknown>;
+  defaults: Json;
 };
 export type TemplateDefinition = {
   canvas: { w: number; h: number; bg: string };
@@ -31,7 +39,7 @@ export type AdTemplate = {
   name: string;
   description: string | null;
   category: string;
-  definition: TemplateDefinition;
+  definition: Json;
   is_builtin: boolean;
 };
 
