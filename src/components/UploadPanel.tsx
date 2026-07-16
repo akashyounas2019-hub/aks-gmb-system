@@ -48,6 +48,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
   const [autoGeotag, setAutoGeotag] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
+  // Tracks whether we've already fired onComplete for the current drained state.
+  // Resets whenever any new work is queued so the next drain can fire it again.
+  const drainedFiredRef = useRef(false);
 
   // Keep latest option values reachable from the processor without re-triggering effect
   const optsRef = useRef({ maxFrames, sampleMs, autoGeotag, location });
