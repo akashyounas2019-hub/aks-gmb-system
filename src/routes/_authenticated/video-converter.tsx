@@ -124,8 +124,18 @@ function VideoConverterPage() {
           accept="video/*"
           className="hidden"
           onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null);
+            const f = e.target.files?.[0] ?? null;
             setResult(null);
+            if (f) {
+              const err = validateVideoFileBasic(f);
+              if (err) {
+                toast.error(err.message);
+                setFile(null);
+                e.target.value = "";
+                return;
+              }
+            }
+            setFile(f);
           }}
         />
 
