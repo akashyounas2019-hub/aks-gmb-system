@@ -581,14 +581,20 @@ function VideoCompressPage() {
             <video
               ref={beforeCmpRef}
               src={previewUrl}
-              controls
               muted
+              playsInline
               onPlay={syncPlay}
               onPause={syncPause}
               onSeeked={syncSeek}
+              onLoadedMetadata={() => {
+                const b = beforeCmpRef.current;
+                if (b) setCurTime(b.currentTime);
+              }}
               onTimeUpdate={() => {
                 const b = beforeCmpRef.current, a = afterCmpRef.current;
-                if (b && a && Math.abs(b.currentTime - a.currentTime) > 0.25) a.currentTime = b.currentTime;
+                if (!b) return;
+                setCurTime(b.currentTime);
+                if (a && Math.abs(b.currentTime - a.currentTime) > 0.25) a.currentTime = b.currentTime;
               }}
               className="block max-h-[560px] w-full"
             />
@@ -624,6 +630,76 @@ function VideoCompressPage() {
               After
             </div>
           </div>
+
+          {/* Playback + frame-step controls (kept in sync across both players) */}
+          <div className="mt-3 flex flex-wrap items-center gap-2">
+            <button
+              type="button"
+              onClick={() => { const b = beforeCmpRef.current; if (b) { b.pause(); b.currentTime = 0; } const a = afterCmpRef.current; if (a) a.currentTime = 0; setCurTime(0); setIsPlaying(false); }}
+              className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
+              aria-label="Jump to start"
+              title="Jump to start"
+            >⏮</button>
+            <button
+              type="button"
+              onClick={() => stepFrame(-1)}
+              className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
+              aria-label="Previous frame"
+              title="Previous frame"
+            >⏪ Frame</button>
+            <button
+              type="button"
+              onClick={togglePlay}
+              className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
+              aria-label={isPlaying ? "Pause" : "Play"}
+            >{isPlaying ? "⏸ Pause" : "▶ Play"}</button>
+            <button
+              type="button"
+              onClick={() => stepFrame(1)}
+              className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
+              aria-label="Next frame"
+              title="Next frame"
+            >Frame ⏩</button>
+            <button
+              type="button"
+              onClick={() => { const b = beforeCmpRef.current; if (!b || !b.duration) return; b.pause(); b.currentTime = b.duration; const a = afterCmpRef.current; if (a) a.currentTime = b.duration; setCurTime(b.duration); setIsPlaying(false); }}
+              className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
+              aria-label="Jump to end"
+              title="Jump to end"
+            >⏭</button>
+
+            <div className="ml-2 font-mono text-xs tabular-nums text-muted-foreground">
+              {fmtTime(curTime)} / {fmtTime(beforeCmpRef.current?.duration ?? 0)}
+            </div>
+
+            <label className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+              fps
+              <input
+                type="number"
+                min={1}
+                max={240}
+                value={fps}
+                onChange={(e) => setFps(Math.max(1, Math.min(240, Number(e.target.value) || 30)))}
+                className="w-14 rounded-md border border-border/60 bg-background px-1 py-0.5 text-right font-mono text-xs"
+                aria-label="Frames per second for stepping"
+              />
+            </label>
+          </div>
+
+          {/* Scrub timeline — moves both videos together */}
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={0.01}
+            value={beforeCmpRef.current?.duration ? (curTime / beforeCmpRef.current.duration) * 100 : 0}
+            onChange={(e) => seekToPct(Number(e.target.value))}
+            aria-label="Scrub timeline"
+            className="mt-2 w-full"
+          />
+
+          <div className="mt-3 border-t border-border/40 pt-3">
+            <div className="mb-1 text-xs text-muted-foreground">Before / after divider</div>
 
           <input
             type="range"
