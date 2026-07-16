@@ -92,14 +92,51 @@ function VideoCompressPage() {
     if (!b || !a) return;
     a.currentTime = b.currentTime;
     if (!b.paused) a.play().catch(() => {});
+    setIsPlaying(true);
   }
   function syncPause() {
     const a = afterCmpRef.current;
     if (a) a.pause();
+    setIsPlaying(false);
   }
   function syncSeek() {
     const b = beforeCmpRef.current, a = afterCmpRef.current;
     if (b && a) a.currentTime = b.currentTime;
+    if (b) setCurTime(b.currentTime);
+  }
+
+  function togglePlay() {
+    const b = beforeCmpRef.current;
+    if (!b) return;
+    if (b.paused) b.play().catch(() => {});
+    else b.pause();
+  }
+  function stepFrame(dir: 1 | -1) {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b) return;
+    b.pause();
+    a?.pause();
+    const step = 1 / Math.max(1, fps);
+    const next = Math.max(0, Math.min((b.duration || 0) - 0.0001, b.currentTime + dir * step));
+    b.currentTime = next;
+    if (a) a.currentTime = next;
+    setCurTime(next);
+    setIsPlaying(false);
+  }
+  function seekToPct(pct: number) {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b || !b.duration) return;
+    const t = (pct / 100) * b.duration;
+    b.currentTime = t;
+    if (a) a.currentTime = t;
+    setCurTime(t);
+  }
+  function fmtTime(t: number) {
+    if (!isFinite(t) || t < 0) t = 0;
+    const m = Math.floor(t / 60);
+    const s = Math.floor(t % 60);
+    const cs = Math.floor((t - Math.floor(t)) * 100);
+    return `${m}:${s.toString().padStart(2, "0")}.${cs.toString().padStart(2, "0")}`;
   }
 
   function updateCompareFromEvent(clientX: number) {
