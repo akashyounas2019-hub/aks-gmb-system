@@ -14,6 +14,7 @@ import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated/wizard'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
+import { Route as AuthenticatedVideoConverterRouteImport } from './routes/_authenticated/video-converter'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
@@ -69,6 +70,12 @@ const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
   path: '/videos',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
+const AuthenticatedVideoConverterRoute =
+  AuthenticatedVideoConverterRouteImport.update({
+    id: '/video-converter',
+    path: '/video-converter',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
   id: '/upload',
   path: '/upload',
@@ -258,6 +265,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
+  '/video-converter': typeof AuthenticatedVideoConverterRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
   '/agents/$agentId': typeof AuthenticatedAgentsAgentIdRoute
@@ -294,6 +302,7 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
+  '/video-converter': typeof AuthenticatedVideoConverterRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
   '/agents/$agentId': typeof AuthenticatedAgentsAgentIdRoute
@@ -332,6 +341,7 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
+  '/_authenticated/video-converter': typeof AuthenticatedVideoConverterRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
   '/_authenticated/agents/$agentId': typeof AuthenticatedAgentsAgentIdRoute
@@ -370,6 +380,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/settings'
     | '/upload'
+    | '/video-converter'
     | '/videos'
     | '/wizard'
     | '/agents/$agentId'
@@ -406,6 +417,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/settings'
     | '/upload'
+    | '/video-converter'
     | '/videos'
     | '/wizard'
     | '/agents/$agentId'
@@ -443,6 +455,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/settings'
     | '/_authenticated/upload'
+    | '/_authenticated/video-converter'
     | '/_authenticated/videos'
     | '/_authenticated/wizard'
     | '/_authenticated/agents/$agentId'
@@ -504,6 +517,13 @@ declare module '@tanstack/react-router' {
       path: '/videos'
       fullPath: '/videos'
       preLoaderRoute: typeof AuthenticatedVideosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/video-converter': {
+      id: '/_authenticated/video-converter'
+      path: '/video-converter'
+      fullPath: '/video-converter'
+      preLoaderRoute: typeof AuthenticatedVideoConverterRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/upload': {
@@ -789,6 +809,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
+  AuthenticatedVideoConverterRoute: typeof AuthenticatedVideoConverterRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
   AuthenticatedSocialFacebookRoute: typeof AuthenticatedSocialFacebookRoute
@@ -812,6 +833,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedResourcesRoute: AuthenticatedResourcesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
+  AuthenticatedVideoConverterRoute: AuthenticatedVideoConverterRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
   AuthenticatedSocialFacebookRoute: AuthenticatedSocialFacebookRoute,
