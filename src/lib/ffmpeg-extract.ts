@@ -24,6 +24,8 @@ export interface ExtractOptions {
   sampleEveryMs?: number;
   bucketSeconds?: number;
   maxFrames?: number;
+  /** Ensure at least this many frames are returned, backfilling by sharpness if buckets are sparse. */
+  minFrames?: number;
   maxDimension?: number;
   jpegQuality?: number;
   onProgress?: (p: { stage: string; progress: number; message?: string }) => void;
@@ -97,10 +99,12 @@ export async function extractSharpFrames(
     sampleEveryMs = 1000,
     bucketSeconds = 5,
     maxFrames = 20,
+    minFrames = 0,
     maxDimension = 1600,
     jpegQuality = 0.92,
     onProgress,
   } = options;
+  const effectiveMax = Math.max(maxFrames, minFrames);
 
   onProgress?.({ stage: "loading", progress: 0 });
   const video = await loadVideo(file);
@@ -155,10 +159,35 @@ export async function extractSharpFrames(
     const cur = buckets.get(b);
     if (!cur || s.score > cur.score) buckets.set(b, s);
   }
-  const winners = Array.from(buckets.values())
-    .sort((a, b) => b.score - a.score)
-    .slice(0, maxFrames)
-    .sort((a, b) => a.t - b.t);
+  const bucketWinners = Array.from(buckets.values()).sort((a, b) => b.score - a.score);
+  const picked = new Map<number, { t: number; score: number }>();
+  for (const w of bucketWinners.slice(0, effectiveMax)) picked.set(w.t, w);
+
+  // Backfill toward minFrames from remaining samples (sharpest first), skipping
+  // any timestamps too close (< half a bucket) to already-picked frames.
+  if (picked.size < minFrames) {
+    const remaining = samples
+      .filter((s) => !picked.has(s.t))
+      .sort((a, b) => b.score - a.score);
+    const minGap = bucketSeconds / 2;
+    for (const s of remaining) {
+      if (picked.size >= Math.min(minFrames, effectiveMax)) break;
+      let tooClose = false;
+      for (const p of picked.values()) {
+        if (Math.abs(p.t - s.t) < minGap) { tooClose = true; break; }
+      }
+      if (!tooClose) picked.set(s.t, s);
+    }
+    // If still short (very short videos), drop the spacing constraint.
+    if (picked.size < minFrames) {
+      for (const s of remaining) {
+        if (picked.size >= Math.min(minFrames, effectiveMax)) break;
+        if (!picked.has(s.t)) picked.set(s.t, s);
+      }
+    }
+  }
+
+  const winners = Array.from(picked.values()).sort((a, b) => a.t - b.t);
 
   const frames: ExtractedFrame[] = [];
   for (let i = 0; i < winners.length; i++) {

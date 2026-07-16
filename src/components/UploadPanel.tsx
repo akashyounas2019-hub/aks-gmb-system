@@ -42,6 +42,7 @@ export interface UploadPanelProps {
 export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [maxFrames, setMaxFrames] = useState(15);
+  const [minFrames, setMinFrames] = useState(3);
   const [sampleMs, setSampleMs] = useState(1000);
   const [dragOver, setDragOver] = useState(false);
   const [location, setLocation] = useState<PickedLocation | null>(null);
@@ -53,10 +54,10 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
   const drainedFiredRef = useRef(false);
 
   // Keep latest option values reachable from the processor without re-triggering effect
-  const optsRef = useRef({ maxFrames, sampleMs, autoGeotag, location });
+  const optsRef = useRef({ maxFrames, minFrames, sampleMs, autoGeotag, location });
   useEffect(() => {
-    optsRef.current = { maxFrames, sampleMs, autoGeotag, location };
-  }, [maxFrames, sampleMs, autoGeotag, location]);
+    optsRef.current = { maxFrames, minFrames, sampleMs, autoGeotag, location };
+  }, [maxFrames, minFrames, sampleMs, autoGeotag, location]);
 
   const patchItem = useCallback((id: string, patch: Partial<QueueItem>) => {
     setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
@@ -64,7 +65,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
 
   const processItem = useCallback(
     async (item: QueueItem) => {
-      const { maxFrames, sampleMs, autoGeotag, location } = optsRef.current;
+      const { maxFrames, minFrames, sampleMs, autoGeotag, location } = optsRef.current;
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in.");
@@ -101,6 +102,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       const { frames, durationSeconds } = await extractSharpFrames(item.file, {
         sampleEveryMs: sampleMs,
         maxFrames,
+        minFrames,
         onProgress: (p) => {
           patchItem(item.id, {
             progress: p.progress * 0.3,
@@ -308,15 +310,40 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
+            <span>Min frames per video</span>
+            <span className="font-mono text-primary">{minFrames}</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={40}
+            value={minFrames}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setMinFrames(v);
+              if (v > maxFrames) setMaxFrames(v);
+            }}
+            className="mt-2 w-full accent-primary"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Backfills with the sharpest remaining frames if the video is short or evenly lit.
+          </p>
+        </label>
+        <label className="rounded-lg border border-border bg-card p-4 text-sm">
+          <div className="flex items-center justify-between">
             <span>Max frames per video</span>
             <span className="font-mono text-primary">{maxFrames}</span>
           </div>
           <input
             type="range"
-            min={5}
+            min={1}
             max={40}
             value={maxFrames}
-            onChange={(e) => setMaxFrames(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setMaxFrames(v);
+              if (v < minFrames) setMinFrames(v);
+            }}
             className="mt-2 w-full accent-primary"
           />
         </label>
