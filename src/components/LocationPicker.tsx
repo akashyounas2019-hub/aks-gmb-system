@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Clock, X } from "lucide-react";
+import { MapPin, Clock, X, Home, Building2, Store, Landmark } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 
 export type PickedLocation = {
