@@ -59,6 +59,18 @@ const eventListeners: Record<StoreEvent, Set<Listener>> = {
 
 let processing = false;
 let drainedFired = true; // Nothing to drain initially.
+const cancelled = new Set<string>();
+
+class CancelledError extends Error {
+  constructor() {
+    super("Cancelled");
+    this.name = "CancelledError";
+  }
+}
+
+function throwIfCancelled(id: string) {
+  if (cancelled.has(id)) throw new CancelledError();
+}
 
 function emit() {
   for (const l of listeners) l();
@@ -140,7 +152,28 @@ export function retryItem(id: string) {
 
 export function removeItem(id: string) {
   items = items.filter((q) => q.id !== id);
+  cancelled.delete(id);
   emit();
+}
+
+/**
+ * Cancel an item. If pending/done/error, removes it. If in-flight, marks it
+ * for cancellation — the processor will bail at the next checkpoint and the
+ * item is removed from the queue.
+ */
+export function cancelItem(id: string) {
+  const item = items.find((q) => q.id === id);
+  if (!item) return;
+  if (
+    item.stage === "extracting" ||
+    item.stage === "uploading" ||
+    item.stage === "saving"
+  ) {
+    cancelled.add(id);
+    patchItem(id, { message: "Cancelling…" });
+  } else {
+    removeItem(id);
+  }
 }
 
 export function clearFinished() {
@@ -153,6 +186,7 @@ async function processItem(item: QueueItem) {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new Error("Not signed in.");
+  throwIfCancelled(item.id);
 
   // Image path — upload directly, no frame extraction.
   if (item.file.type.startsWith("image/")) {
@@ -163,6 +197,7 @@ async function processItem(item: QueueItem) {
       .from("frames")
       .upload(imgPath, item.file, { contentType: item.file.type, upsert: false });
     if (upErr) throw upErr;
+    throwIfCancelled(item.id);
 
     patchItem(item.id, { stage: "saving", message: "Saving…", progress: 0.7 });
     const baseName = item.file.name.replace(/\.[^.]+$/, "");
@@ -185,12 +220,14 @@ async function processItem(item: QueueItem) {
     maxFrames,
     minFrames,
     onProgress: (p) => {
+      if (cancelled.has(item.id)) return;
       patchItem(item.id, {
         progress: p.progress * 0.3,
         message: p.message ?? "Analyzing video…",
       });
     },
   });
+  throwIfCancelled(item.id);
   if (frames.length === 0) throw new Error("Couldn't extract any frames.");
 
   patchItem(item.id, {
@@ -205,6 +242,7 @@ async function processItem(item: QueueItem) {
     .from("videos")
     .upload(videoPath, item.file, { upsert: false, contentType: item.file.type });
   if (vErr) throw vErr;
+  throwIfCancelled(item.id);
 
   const { data: videoRow, error: vRowErr } = await supabase
     .from("videos")
@@ -220,10 +258,12 @@ async function processItem(item: QueueItem) {
     .select("id")
     .single();
   if (vRowErr) throw vRowErr;
+  throwIfCancelled(item.id);
 
   patchItem(item.id, { stage: "saving", message: "Saving frames…", progress: 0.4 });
   const baseName = item.file.name.replace(/\.[^.]+$/, "");
   for (let i = 0; i < frames.length; i++) {
+    throwIfCancelled(item.id);
     const f = frames[i];
     const framePath = `${userId}/${videoRow.id}/${String(i + 1).padStart(3, "0")}.jpg`;
     const { error: fErr } = await supabase.storage
@@ -281,10 +321,17 @@ async function drain() {
   try {
     await processItem(next);
   } catch (err) {
-    console.error(err);
-    const msg = err instanceof Error ? err.message : "Upload failed";
-    patchItem(next.id, { stage: "error", error: msg, message: msg });
-    toast.error(`${next.file.name}: ${msg}`);
+    if (err instanceof CancelledError || cancelled.has(next.id)) {
+      // Cancelled by the user — drop the item silently.
+      items = items.filter((q) => q.id !== next.id);
+      cancelled.delete(next.id);
+      emit();
+    } else {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      patchItem(next.id, { stage: "error", error: msg, message: msg });
+      toast.error(`${next.file.name}: ${msg}`);
+    }
   } finally {
     processing = false;
     void drain();
