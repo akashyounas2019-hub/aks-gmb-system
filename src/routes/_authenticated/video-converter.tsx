@@ -129,7 +129,13 @@ function VideoConverterPage() {
           </button>
           {busy && (
             <div className="flex-1 text-xs text-muted-foreground">
-              <div className="mb-1">{status}</div>
+              <div className="mb-1 flex items-center justify-between gap-3">
+                <span>{status}</span>
+                <span className="tabular-nums">
+                  {Math.round(progress * 100)}% · {formatDuration(elapsedMs)} elapsed
+                  {etaMs !== null ? ` · ~${formatDuration(etaMs)} left` : ""}
+                </span>
+              </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
                 <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
               </div>
