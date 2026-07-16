@@ -102,6 +102,18 @@ function VideoCompressPage() {
 
   async function run() {
     if (!file || !crop || !dims) return;
+    // Enforce duration limit here — dims/duration are already loaded via <video> metadata.
+    const video = videoRef.current;
+    if (video && Number.isFinite(video.duration) && video.duration > MAX_VIDEO_DURATION_SECONDS) {
+      toast.error(`Video exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`);
+      return;
+    }
+    // Re-check basic constraints defensively.
+    const err = await validateVideoFile(file);
+    if (err) {
+      toast.error(err.message);
+      return;
+    }
     setBusy(true);
     setProgress(0);
     setResult(null);
