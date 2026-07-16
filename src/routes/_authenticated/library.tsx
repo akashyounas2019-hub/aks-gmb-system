@@ -369,6 +369,7 @@ function LibraryPage() {
 
 
   function toggleSelect(id: string) {
+    setSelectedViaAll(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -379,10 +380,13 @@ function LibraryPage() {
 
   function selectAll() {
     setSelected(new Set(filtered.map((i) => i.id)));
+    setSelectedViaAll(true);
   }
   function clearSelection() {
     setSelected(new Set());
+    setSelectedViaAll(false);
   }
+
 
   const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
     { id: "upload", label: "Upload", icon: UploadCloud },
