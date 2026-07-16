@@ -596,10 +596,40 @@ function VideoCompressPage() {
               </div>
             </div>
           )}
+          {file && (preflight.errors.length > 0 || preflight.warnings.length > 0) && (
+            <div
+              className={
+                preflight.errors.length > 0
+                  ? "rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs"
+                  : "rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-xs"
+              }
+            >
+              <div className="flex items-center gap-2 font-medium text-foreground">
+                <AlertTriangle
+                  className={
+                    preflight.errors.length > 0
+                      ? "h-3.5 w-3.5 text-destructive"
+                      : "h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                  }
+                />
+                {preflight.errors.length > 0 ? "Fix before compressing" : "Heads up"}
+              </div>
+              <ul className="mt-1 space-y-0.5 pl-5 text-muted-foreground [list-style:disc]">
+                {preflight.errors.map((m, i) => (
+                  <li key={`e${i}`} className="text-foreground/90">{m}</li>
+                ))}
+                {preflight.warnings.map((m, i) => (
+                  <li key={`w${i}`}>{m}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <button
             onClick={run}
-            disabled={!file || busy}
+            disabled={!file || busy || hasBlockingIssues}
+            title={hasBlockingIssues ? "Resolve the highlighted issues to enable compression" : undefined}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+          
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             Compress & crop
