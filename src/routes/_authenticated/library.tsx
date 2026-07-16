@@ -90,6 +90,10 @@ function LibraryPage() {
   const [filter, setFilter] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Tracks whether the current selection was produced by "Select all". Any
+  // manual toggle or clear resets this so "Delete all" only appears in the
+  // deliberate select-all workflow.
+  const [selectedViaAll, setSelectedViaAll] = useState(false);
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
   const [autoTagging, setAutoTagging] = useState(false);
   const [tab, setTab] = useState<LibraryTab>("raw");
