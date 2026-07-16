@@ -41,7 +41,7 @@ export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
 
-type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos";
+type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos" | "trash";
 
 
 async function fetchLibrary() {
@@ -50,6 +50,8 @@ async function fetchLibrary() {
     .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
+    // Hide soft-deleted (trashed) images from normal views.
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
 
@@ -73,6 +75,18 @@ async function fetchLibrary() {
     tagMap.set(row.image_id, arr);
   }
   return { images: images ?? [], venueMap, tagMap, folders: folders ?? [] };
+}
+
+
+async function fetchTrash() {
+  const { data, error } = await supabase
+    .from("images")
+    .select("id, name, storage_path, folder_id, deleted_at, created_at")
+    .not("storage_path", "ilike", "%/social-%")
+    .not("deleted_at", "is", null)
+    .order("deleted_at", { ascending: false });
+  if (error) throw error;
+  return data ?? [];
 }
 
 
