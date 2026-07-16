@@ -174,9 +174,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         progress: 1,
         message: `Extracted ${frames.length} sharp frames`,
       });
-      onComplete?.();
+      // onComplete fires once when the queue fully drains — see effect below.
     },
-    [patchItem, onImageSaved, onComplete],
+    [patchItem, onImageSaved],
   );
 
   // Drain queue sequentially
@@ -185,6 +185,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
     const next = queue.find((q) => q.stage === "pending");
     if (!next) return;
     processingRef.current = true;
+    // A new item started processing — arm the drain callback for the next full drain.
+    drainedFiredRef.current = false;
     (async () => {
       try {
         await processItem(next);
@@ -200,6 +202,20 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       }
     })();
   }, [queue, processItem, patchItem]);
+
+  // Fire onComplete exactly once when the whole queue has drained (no pending/in-flight items).
+  // Any subsequent enqueue re-arms the ref via the drain effect above.
+  useEffect(() => {
+    if (processingRef.current) return;
+    if (queue.length === 0) return;
+    const hasWorkLeft = queue.some(
+      (q) => q.stage === "pending" || q.stage === "extracting" || q.stage === "uploading" || q.stage === "saving",
+    );
+    if (hasWorkLeft) return;
+    if (drainedFiredRef.current) return;
+    drainedFiredRef.current = true;
+    onComplete?.();
+  }, [queue, onComplete]);
 
   const enqueueFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
