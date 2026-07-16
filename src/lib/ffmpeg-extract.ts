@@ -163,29 +163,70 @@ export async function extractSharpFrames(
   const picked = new Map<number, { t: number; score: number }>();
   for (const w of bucketWinners.slice(0, effectiveMax)) picked.set(w.t, w);
 
-  // Backfill toward minFrames from remaining samples (sharpest first), skipping
-  // any timestamps too close (< half a bucket) to already-picked frames.
-  if (picked.size < minFrames) {
-    const remaining = samples
-      .filter((s) => !picked.has(s.t))
-      .sort((a, b) => b.score - a.score);
-    const minGap = bucketSeconds / 2;
-    for (const s of remaining) {
-      if (picked.size >= Math.min(minFrames, effectiveMax)) break;
-      let tooClose = false;
-      for (const p of picked.values()) {
-        if (Math.abs(p.t - s.t) < minGap) { tooClose = true; break; }
-      }
-      if (!tooClose) picked.set(s.t, s);
+  // Backfill toward minFrames with an even distribution across the clip.
+  // Strategy: slot the timeline into `target` equal intervals and, for each
+  // still-empty interval, pick the sharpest remaining sample inside it.
+  // If some intervals stay empty (short clip / sparse samples), fall back to
+  // farthest-point insertion — pick the candidate that maximises the minimum
+  // distance to already-picked frames, breaking ties by sharpness. This avoids
+  // clumping all backfilled frames in the sharpest region of the video.
+  const target = Math.min(minFrames, effectiveMax);
+  if (picked.size < target) {
+    const slotCount = target;
+    const slotWidth = duration / slotCount;
+
+    // 1) Even slot pass — one sharpest sample per empty slot.
+    const slotOccupied = new Array(slotCount).fill(false);
+    for (const p of picked.values()) {
+      const s = Math.min(slotCount - 1, Math.floor(p.t / slotWidth));
+      slotOccupied[s] = true;
     }
-    // If still short (very short videos), drop the spacing constraint.
-    if (picked.size < minFrames) {
-      for (const s of remaining) {
-        if (picked.size >= Math.min(minFrames, effectiveMax)) break;
-        if (!picked.has(s.t)) picked.set(s.t, s);
+    const bySlot = new Map<number, { t: number; score: number }[]>();
+    for (const s of samples) {
+      if (picked.has(s.t)) continue;
+      const idx = Math.min(slotCount - 1, Math.floor(s.t / slotWidth));
+      if (slotOccupied[idx]) continue;
+      const arr = bySlot.get(idx) ?? [];
+      arr.push(s);
+      bySlot.set(idx, arr);
+    }
+    for (let i = 0; i < slotCount && picked.size < target; i++) {
+      if (slotOccupied[i]) continue;
+      const arr = bySlot.get(i);
+      if (!arr || arr.length === 0) continue;
+      arr.sort((a, b) => b.score - a.score);
+      picked.set(arr[0].t, arr[0]);
+      slotOccupied[i] = true;
+    }
+
+    // 2) Farthest-point fallback — for anything still missing (empty slots,
+    //    short clips), maximise gap to existing picks, tiebreak on sharpness.
+    if (picked.size < target) {
+      const maxScore = samples.reduce((m, s) => Math.max(m, s.score), 1);
+      while (picked.size < target) {
+        let best: { t: number; score: number } | null = null;
+        let bestKey = -Infinity;
+        for (const s of samples) {
+          if (picked.has(s.t)) continue;
+          let minDist = Infinity;
+          for (const p of picked.values()) {
+            const d = Math.abs(p.t - s.t);
+            if (d < minDist) minDist = d;
+          }
+          if (!Number.isFinite(minDist)) minDist = duration;
+          // Distance dominates; sharpness is a small tiebreaker.
+          const key = minDist + (s.score / maxScore) * (slotWidth * 0.25);
+          if (key > bestKey) {
+            bestKey = key;
+            best = s;
+          }
+        }
+        if (!best) break;
+        picked.set(best.t, best);
       }
     }
   }
+
 
   const winners = Array.from(picked.values()).sort((a, b) => a.t - b.t);
 
