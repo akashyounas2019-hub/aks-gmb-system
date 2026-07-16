@@ -502,7 +502,7 @@ function EditorTab({ template, onSaved }: { template: AdTemplate | null; onSaved
   }
 
   async function handleExport() {
-    if (!def) return;
+    if (!def || !template) return;
     setSaving(true);
     try {
       const { data: userData } = await supabase.auth.getUser();
