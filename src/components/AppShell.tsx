@@ -62,7 +62,7 @@ const groups: NavGroup[] = [
       { to: "/post-generator", label: "GMB Post Generator", icon: PenSquare },
       { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
       { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
-      { to: "/library", label: "Image Library", icon: Images },
+      { to: "/library", label: "Image and Video Library", icon: Images },
       { to: "/calendar", label: "GMB Calendar", icon: CalendarDays },
     ],
   },

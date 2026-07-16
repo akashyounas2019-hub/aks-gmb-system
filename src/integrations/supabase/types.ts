@@ -1191,10 +1191,35 @@ export type Database = {
         }
         Relationships: []
       }
+      video_folders: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       videos: {
         Row: {
           created_at: string
           duration_seconds: number | null
+          folder_id: string | null
           frame_count: number
           id: string
           original_name: string
@@ -1206,6 +1231,7 @@ export type Database = {
         Insert: {
           created_at?: string
           duration_seconds?: number | null
+          folder_id?: string | null
           frame_count?: number
           id?: string
           original_name: string
@@ -1217,6 +1243,7 @@ export type Database = {
         Update: {
           created_at?: string
           duration_seconds?: number | null
+          folder_id?: string | null
           frame_count?: number
           id?: string
           original_name?: string
@@ -1225,7 +1252,15 @@ export type Database = {
           status?: string
           storage_path?: string
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "videos_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "video_folders"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       webhooks: {
         Row: {
