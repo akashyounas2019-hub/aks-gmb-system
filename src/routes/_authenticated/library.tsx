@@ -705,17 +705,19 @@ function LibraryPage() {
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Delete selected ({selected.size})
                     </button>
-                    <button
-                      onClick={() => {
-                        const ids = filtered.map((i) => i.id);
-                        const paths = filtered.map((i) => i.storage_path);
-                        bulkDeleteImages(ids, paths, "images in this view");
-                      }}
-                      disabled={filtered.length === 0}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
-                    </button>
+                    {selectedViaAll && selected.size === filtered.length && filtered.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const ids = filtered.map((i) => i.id);
+                          const paths = filtered.map((i) => i.storage_path);
+                          bulkDeleteImages(ids, paths, "images in this view");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
+                      </button>
+                    )}
+
                   </div>
                 </>
               )}
