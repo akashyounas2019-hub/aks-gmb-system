@@ -96,7 +96,12 @@ function VideoCompressPage() {
     const audioBps = 128_000;
     const sizeBytes = Math.max(1, ((videoBps + audioBps) * trimDur) / 8);
     const savingsPct = Math.round((1 - sizeBytes / file.size) * 100);
-    return { sizeBytes, savingsPct, outW, outH, durSec: trimDur };
+    // Rough processing time model for in-browser ffmpeg.wasm:
+    // throughput ~1.1M output pixels/sec at 30fps on a typical laptop, plus ~2s fixed overhead
+    // (wasm init + mux). Higher CRF (lower quality) encodes a bit faster.
+    const pixelsPerSec = 1_100_000 * Math.pow(1.05, quality - 28);
+    const procSec = 2 + (outW * outH * 30 * trimDur) / pixelsPerSec;
+    return { sizeBytes, savingsPct, outW, outH, durSec: trimDur, procSec };
   }, [file, dims, crop, scale, quality, duration, trim.start, trim.end]);
 
 
