@@ -59,6 +59,18 @@ const eventListeners: Record<StoreEvent, Set<Listener>> = {
 
 let processing = false;
 let drainedFired = true; // Nothing to drain initially.
+const cancelled = new Set<string>();
+
+class CancelledError extends Error {
+  constructor() {
+    super("Cancelled");
+    this.name = "CancelledError";
+  }
+}
+
+function throwIfCancelled(id: string) {
+  if (cancelled.has(id)) throw new CancelledError();
+}
 
 function emit() {
   for (const l of listeners) l();
