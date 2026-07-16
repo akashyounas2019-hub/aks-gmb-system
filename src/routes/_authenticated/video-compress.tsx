@@ -487,6 +487,32 @@ function VideoCompressPage() {
               </div>
             </div>
           )}
+          {estimate && (
+            <div className="rounded-md border border-border/60 bg-background/60 p-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-foreground">Estimated output</span>
+                <span
+                  className={
+                    estimate.savingsPct >= 0
+                      ? "rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+                      : "rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                  }
+                >
+                  {estimate.savingsPct >= 0
+                    ? `~${estimate.savingsPct}% smaller`
+                    : `~${Math.abs(estimate.savingsPct)}% larger`}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-muted-foreground tabular-nums">
+                <span>~{humanSize(estimate.sizeBytes)}</span>
+                <span className="text-[10px]">from {humanSize(file!.size)}</span>
+              </div>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {estimate.outW}×{estimate.outH} · {formatDuration(estimate.durSec * 1000)} · CRF {quality}
+                <span className="ml-1 opacity-70">(rough estimate, actual varies with motion)</span>
+              </div>
+            </div>
+          )}
           <button
             onClick={run}
             disabled={!file || busy}
