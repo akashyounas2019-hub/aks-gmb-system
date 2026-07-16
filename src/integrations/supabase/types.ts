@@ -14,6 +14,138 @@ export type Database = {
   }
   public: {
     Tables: {
+      ad_creatives: {
+        Row: {
+          created_at: string
+          id: string
+          meta: Json
+          name: string
+          owner_id: string
+          profile_id: string | null
+          size_preset: string
+          storage_path: string
+          template_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          name: string
+          owner_id: string
+          profile_id?: string | null
+          size_preset: string
+          storage_path: string
+          template_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          meta?: Json
+          name?: string
+          owner_id?: string
+          profile_id?: string | null
+          size_preset?: string
+          storage_path?: string
+          template_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ad_creatives_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: false
+            referencedRelation: "ad_profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ad_creatives_template_id_fkey"
+            columns: ["template_id"]
+            isOneToOne: false
+            referencedRelation: "ad_templates"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      ad_profiles: {
+        Row: {
+          colors: Json
+          created_at: string
+          default_template_id: string | null
+          fonts: Json
+          id: string
+          is_active: boolean
+          logo_path: string | null
+          name: string
+          owner_id: string
+          theme: string
+          updated_at: string
+        }
+        Insert: {
+          colors?: Json
+          created_at?: string
+          default_template_id?: string | null
+          fonts?: Json
+          id?: string
+          is_active?: boolean
+          logo_path?: string | null
+          name: string
+          owner_id: string
+          theme?: string
+          updated_at?: string
+        }
+        Update: {
+          colors?: Json
+          created_at?: string
+          default_template_id?: string | null
+          fonts?: Json
+          id?: string
+          is_active?: boolean
+          logo_path?: string | null
+          name?: string
+          owner_id?: string
+          theme?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      ad_templates: {
+        Row: {
+          category: string
+          created_at: string
+          definition: Json
+          description: string | null
+          id: string
+          is_builtin: boolean
+          name: string
+          owner_id: string | null
+          thumbnail_path: string | null
+          updated_at: string
+        }
+        Insert: {
+          category?: string
+          created_at?: string
+          definition: Json
+          description?: string | null
+          id?: string
+          is_builtin?: boolean
+          name: string
+          owner_id?: string | null
+          thumbnail_path?: string | null
+          updated_at?: string
+        }
+        Update: {
+          category?: string
+          created_at?: string
+          definition?: Json
+          description?: string | null
+          id?: string
+          is_builtin?: boolean
+          name?: string
+          owner_id?: string | null
+          thumbnail_path?: string | null
+          updated_at?: string
+        }
+        Relationships: []
+      }
       agent_notifications: {
         Row: {
           agent_id: string
