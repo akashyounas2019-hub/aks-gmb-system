@@ -205,20 +205,46 @@ function VideoConverterPage() {
         </div>
 
         {result && (
-          <div className="mt-6 flex items-center justify-between rounded-lg border border-border/60 bg-background/60 p-4">
-            <div className="flex items-center gap-3">
-              <CheckCircle2 className="h-5 w-5 text-green-500" />
-              <div className="text-sm">
-                <div className="font-medium">{result.name}</div>
-                <div className="text-xs text-muted-foreground">{humanSize(result.size)}</div>
+          <div className="mt-6 rounded-lg border border-border/60 bg-background/60 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="flex items-center gap-3">
+                <CheckCircle2 className="h-5 w-5 text-green-500" />
+                <div className="text-sm">
+                  <div className="font-medium">{result.name}</div>
+                  <div className="text-xs text-muted-foreground">{humanSize(result.size)}</div>
+                </div>
+              </div>
+              <div className="flex flex-wrap items-center gap-2">
+                <button
+                  onClick={saveToLibrary}
+                  disabled={saving || saved}
+                  className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+                >
+                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saved ? "Saved" : saving ? "Saving…" : "Save to library"}
+                </button>
+                <button
+                  onClick={() => downloadBlob(result.blob, result.name)}
+                  className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm hover:bg-accent"
+                >
+                  <Download className="h-4 w-4" /> Download
+                </button>
               </div>
             </div>
-            <button
-              onClick={() => downloadBlob(result.blob, result.name)}
-              className="inline-flex items-center gap-2 rounded-md border border-border/70 bg-card px-3 py-1.5 text-sm hover:bg-accent"
-            >
-              <Download className="h-4 w-4" /> Download
-            </button>
+            {(saving || saved) && (
+              <div className="mt-3 text-xs text-muted-foreground">
+                <div className="mb-1 flex items-center justify-between">
+                  <span>{saved ? "Uploaded to library" : "Uploading to library…"}</span>
+                  <span className="tabular-nums">{Math.round(savePct * 100)}%</span>
+                </div>
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
+                  <div
+                    className={`h-full transition-all ${saved ? "bg-emerald-500" : "bg-primary"}`}
+                    style={{ width: `${Math.round(savePct * 100)}%` }}
+                  />
+                </div>
+              </div>
+            )}
           </div>
         )}
 
