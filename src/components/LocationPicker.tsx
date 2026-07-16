@@ -231,6 +231,44 @@ export function LocationPicker({
       </div>
       {error && <div className="text-xs text-destructive">{error}</div>}
 
+      {/* Place-type presets — narrow suggestions to a category (Home,
+          Office, Commercial, Villas) within the current search area so
+          users don't drop a pin on a random storefront. */}
+      {ready && (
+        <div className={compact ? "mt-2" : ""}>
+          <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+            <MapPin className="h-3 w-3" /> Place type
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {[
+              { key: "Home", label: "Home", icon: Home, term: "residential area" },
+              { key: "Office", label: "Office", icon: Building2, term: "office building" },
+              { key: "Commercial", label: "Commercial", icon: Store, term: "commercial area" },
+              { key: "Villas", label: "Villas", icon: Landmark, term: "villas" },
+            ].map((c) => {
+              const Icon = c.icon;
+              return (
+                <button
+                  key={c.key}
+                  type="button"
+                  onClick={() => {
+                    const area = query.trim() || expandedCity || "Dubai";
+                    // Seed the search input; the existing autocomplete effect
+                    // picks it up and returns matching places.
+                    setQuery(`${c.term} in ${area}`);
+                  }}
+                  className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-primary hover:text-primary"
+                >
+                  <Icon className="h-3 w-3" />
+                  {c.label}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
       {/* City recommendations + coordinate options within a city */}
       {cityOptions && cityOptions.length > 0 && (
         <div className={compact ? "mt-2" : ""}>
