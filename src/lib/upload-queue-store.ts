@@ -222,6 +222,8 @@ async function processItem(item: QueueItem) {
     sampleEveryMs: sampleMs,
     maxFrames,
     minFrames,
+    // 0 = keep source resolution; ffmpeg-extract treats large values as "no downscale".
+    maxDimension: frameMaxDimension > 0 ? frameMaxDimension : 100000,
     onProgress: (p) => {
       if (cancelled.has(item.id)) return;
       patchItem(item.id, {
