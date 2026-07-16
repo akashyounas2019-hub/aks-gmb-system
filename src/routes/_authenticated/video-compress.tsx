@@ -391,6 +391,54 @@ function VideoCompressPage() {
               className="mt-2 w-full"
             />
           </div>
+          {duration !== null && duration > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Trim</span>
+                <span className="tabular-nums text-xs text-muted-foreground">
+                  {formatDuration(trim.start * 1000)} → {formatDuration(trim.end * 1000)}
+                  <span className="ml-1">({formatDuration(Math.max(0, trim.end - trim.start) * 1000)})</span>
+                </span>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Start</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.1}
+                  value={trim.start}
+                  onChange={(e) => {
+                    const s = Number(e.target.value);
+                    setTrim((t) => ({ start: Math.min(s, t.end - 0.1), end: t.end }));
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">End</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.1}
+                  value={trim.end}
+                  onChange={(e) => {
+                    const en = Number(e.target.value);
+                    setTrim((t) => ({ start: t.start, end: Math.max(en, t.start + 0.1) }));
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setTrim({ start: 0, end: duration })}
+                className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Reset to full length
+              </button>
+            </div>
+          )}
           {crop && dims && (
             <div className="rounded-md border border-border/60 bg-background/60 p-3 text-xs">
               <div className="font-medium text-foreground">Crop region</div>
