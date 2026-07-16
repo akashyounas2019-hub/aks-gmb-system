@@ -28,6 +28,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
+import { GlobalUploadQueue } from "@/components/GlobalUploadQueue";
 
 type NavItem = { to: string; label: string; icon: React.ComponentType<{ className?: string }> };
 type NavGroup = { label: string; items: NavItem[] };
@@ -264,6 +265,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
         {children}
       </main>
+      <GlobalUploadQueue />
     </div>
   );
 }
