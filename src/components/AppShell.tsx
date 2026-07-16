@@ -25,7 +25,7 @@ import {
   Bot,
   FileVideo,
   Scissors,
-  ShieldCheck,
+
 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
