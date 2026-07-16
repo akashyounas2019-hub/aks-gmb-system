@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronUp, Loader2, UploadCloud, X } from "lucide-react";
 
 import {
+  cancelItem,
   clearFinished,
   onEvent,
   removeItem,
