@@ -538,6 +538,10 @@ function VideoCompressPage() {
                 {estimate.outW}×{estimate.outH} · {formatDuration(estimate.durSec * 1000)} · CRF {quality}
                 <span className="ml-1 opacity-70">(rough estimate, actual varies with motion)</span>
               </div>
+              <div className="mt-1 flex items-center justify-between border-t border-border/40 pt-1 text-[10px] text-muted-foreground tabular-nums">
+                <span>Est. processing time</span>
+                <span className="text-foreground">~{formatProcTime(estimate.procSec)}</span>
+              </div>
             </div>
           )}
           <button
