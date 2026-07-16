@@ -23,6 +23,8 @@ import {
   User,
   Users,
   Bot,
+  FileVideo,
+  Scissors,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -45,6 +47,13 @@ const groups: NavGroup[] = [
     items: [
       { to: "/keywords", label: "Keywords", icon: KeyRound },
       { to: "/competitors", label: "Competitors", icon: Target },
+    ],
+  },
+  {
+    label: "Video Tools",
+    items: [
+      { to: "/video-converter", label: "Video Converter", icon: FileVideo },
+      { to: "/video-compress", label: "Compress & Crop", icon: Scissors },
     ],
   },
   {
