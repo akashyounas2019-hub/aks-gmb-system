@@ -94,8 +94,18 @@ function LibraryPage() {
   const [autoTagging, setAutoTagging] = useState(false);
   const [tab, setTab] = useState<LibraryTab>("raw");
   const [editingId, setEditingId] = useState<string | null>(null);
-  // null = "All raw" (folder chip); "__uncategorized" = images with no folder
-  const [rawFolderId, setRawFolderId] = useState<string | null>(null);
+  // Per-tab folder filter. null = "All" (folder chip); "__uncategorized" = images with no folder.
+  // Applies to raw / published / geotagged image tabs (and separately to videos).
+  const [folderByTab, setFolderByTab] = useState<Record<"raw" | "published" | "geotagged", string | null>>({
+    raw: null,
+    published: null,
+    geotagged: null,
+  });
+  const activeFolderId = tab === "raw" || tab === "published" || tab === "geotagged" ? folderByTab[tab] : null;
+  const setActiveFolderId = (id: string | null) => {
+    if (tab !== "raw" && tab !== "published" && tab !== "geotagged") return;
+    setFolderByTab((prev) => ({ ...prev, [tab]: id }));
+  };
   const autoTag = useServerFn(autoTagImages);
 
 
