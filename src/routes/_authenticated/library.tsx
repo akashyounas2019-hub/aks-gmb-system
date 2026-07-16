@@ -140,6 +140,30 @@ function LibraryPage() {
     }
   }
 
+  async function bulkDeleteImages(ids: string[], paths: string[], label: string) {
+    if (ids.length === 0) return;
+    if (!window.confirm(`Delete ${ids.length} ${label}? This cannot be undone.`)) return;
+    if (paths.length > 0) {
+      // Chunk storage removes to keep payloads sane.
+      for (let i = 0; i < paths.length; i += 100) {
+        await supabase.storage.from("frames").remove(paths.slice(i, i + 100));
+      }
+    }
+    for (let i = 0; i < ids.length; i += 100) {
+      const slice = ids.slice(i, i + 100);
+      const { error } = await supabase.from("images").delete().in("id", slice);
+      if (error) {
+        toast.error(error.message);
+        break;
+      }
+    }
+    toast.success(`Deleted ${ids.length} ${label}.`);
+    clearSelection();
+    setSelectMode(false);
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+
   async function downloadImage(img: {
     id: string;
     name: string;
