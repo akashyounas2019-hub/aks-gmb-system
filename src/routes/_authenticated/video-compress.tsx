@@ -15,6 +15,14 @@ export const Route = createFileRoute("/_authenticated/video-compress")({
 
 type Crop = { x: number; y: number; w: number; h: number };
 
+function formatProcTime(sec: number): string {
+  if (!isFinite(sec) || sec < 1) return "<1s";
+  if (sec < 60) return `${Math.round(sec)}s`;
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return s ? `${m}m ${s}s` : `${m}m`;
+}
+
 function VideoCompressPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -96,7 +104,12 @@ function VideoCompressPage() {
     const audioBps = 128_000;
     const sizeBytes = Math.max(1, ((videoBps + audioBps) * trimDur) / 8);
     const savingsPct = Math.round((1 - sizeBytes / file.size) * 100);
-    return { sizeBytes, savingsPct, outW, outH, durSec: trimDur };
+    // Rough processing time model for in-browser ffmpeg.wasm:
+    // throughput ~1.1M output pixels/sec at 30fps on a typical laptop, plus ~2s fixed overhead
+    // (wasm init + mux). Higher CRF (lower quality) encodes a bit faster.
+    const pixelsPerSec = 1_100_000 * Math.pow(1.05, quality - 28);
+    const procSec = 2 + (outW * outH * 30 * trimDur) / pixelsPerSec;
+    return { sizeBytes, savingsPct, outW, outH, durSec: trimDur, procSec };
   }, [file, dims, crop, scale, quality, duration, trim.start, trim.end]);
 
 
@@ -532,6 +545,10 @@ function VideoCompressPage() {
               <div className="mt-1 text-[10px] text-muted-foreground">
                 {estimate.outW}×{estimate.outH} · {formatDuration(estimate.durSec * 1000)} · CRF {quality}
                 <span className="ml-1 opacity-70">(rough estimate, actual varies with motion)</span>
+              </div>
+              <div className="mt-1 flex items-center justify-between border-t border-border/40 pt-1 text-[10px] text-muted-foreground tabular-nums">
+                <span>Est. processing time</span>
+                <span className="text-foreground">~{formatProcTime(estimate.procSec)}</span>
               </div>
             </div>
           )}
