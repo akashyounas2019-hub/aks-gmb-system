@@ -135,30 +135,50 @@ function LibraryPage() {
 
   async function deleteImage(id: string, path: string) {
     if (!window.confirm("Delete this image? This cannot be undone.")) return;
-    await supabase.storage.from("frames").remove([path]);
+    // Delete the DB row first so a storage failure doesn't leave a dangling record.
     const { error } = await supabase.from("images").delete().eq("id", id);
-    if (error) toast.error(error.message);
-    else {
-      toast.success("Deleted");
-      qc.invalidateQueries({ queryKey: ["library"] });
+    if (error) {
+      toast.error(error.message);
+      return;
     }
+    await supabase.storage.from("frames").remove([path]);
+    toast.success("Deleted");
+    qc.invalidateQueries({ queryKey: ["library"] });
   }
 
   async function bulkDeleteImages(ids: string[], paths: string[], label: string) {
     if (ids.length === 0) return;
-    if (!window.confirm(`Delete ${ids.length} ${label}? This cannot be undone.`)) return;
-    if (paths.length > 0) {
-      // Chunk storage removes to keep payloads sane.
-      for (let i = 0; i < paths.length; i += 100) {
-        await supabase.storage.from("frames").remove(paths.slice(i, i + 100));
+
+    // Small deletes: single confirm. Large deletes: require typing DELETE to
+    // prevent accidental mass-deletion of user media.
+    if (ids.length <= 5) {
+      if (!window.confirm(`Delete ${ids.length} ${label}? This cannot be undone.`)) return;
+    } else {
+      const typed = window.prompt(
+        `You are about to permanently delete ${ids.length} ${label}. This cannot be undone.\n\nType DELETE to confirm.`,
+      );
+      if (typed?.trim().toUpperCase() !== "DELETE") {
+        toast.message("Delete cancelled");
+        return;
       }
     }
+
+    // Delete DB rows first (in chunks); only remove storage objects for rows
+    // that were actually deleted. This avoids orphaned blobs on partial failure.
+    let deleted = 0;
     for (let i = 0; i < ids.length; i += 100) {
       const slice = ids.slice(i, i + 100);
       const { error } = await supabase.from("images").delete().in("id", slice);
       if (error) {
-        toast.error(error.message);
-        break;
+        toast.error(`Deleted ${deleted}/${ids.length} before error: ${error.message}`);
+        qc.invalidateQueries({ queryKey: ["library"] });
+        return;
+      }
+      deleted += slice.length;
+    }
+    if (paths.length > 0) {
+      for (let i = 0; i < paths.length; i += 100) {
+        await supabase.storage.from("frames").remove(paths.slice(i, i + 100));
       }
     }
     toast.success(`Deleted ${ids.length} ${label}.`);
