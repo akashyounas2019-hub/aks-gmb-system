@@ -24,10 +24,51 @@ function VideoCompressPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [comparePct, setComparePct] = useState(50);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
   const videoRef = useRef<HTMLVideoElement>(null);
+  const beforeCmpRef = useRef<HTMLVideoElement>(null);
+  const afterCmpRef = useRef<HTMLVideoElement>(null);
+  const compareBoxRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; box: DOMRect } | null>(null);
+  const compareDragRef = useRef(false);
+
+  useEffect(() => {
+    if (!result) {
+      setResultUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(result.blob);
+    setResultUrl(url);
+    setComparePct(50);
+    return () => URL.revokeObjectURL(url);
+  }, [result]);
+
+  // Keep the two comparison players in sync while scrubbing/playing.
+  function syncPlay() {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b || !a) return;
+    a.currentTime = b.currentTime;
+    if (!b.paused) a.play().catch(() => {});
+  }
+  function syncPause() {
+    const a = afterCmpRef.current;
+    if (a) a.pause();
+  }
+  function syncSeek() {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (b && a) a.currentTime = b.currentTime;
+  }
+
+  function updateCompareFromEvent(clientX: number) {
+    const box = compareBoxRef.current;
+    if (!box) return;
+    const rect = box.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    setComparePct(pct);
+  }
 
   useEffect(() => {
     if (!busy) return;
