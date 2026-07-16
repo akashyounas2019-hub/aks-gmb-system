@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { toast } from "sonner";
 import {
   UploadCloud,
   CheckCircle2,
@@ -10,28 +9,18 @@ import {
   Clock,
 } from "lucide-react";
 
-import { supabase } from "@/integrations/supabase/client";
-import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
-
-type QueueStage =
-  | "pending"
-  | "extracting"
-  | "uploading"
-  | "saving"
-  | "done"
-  | "error";
-
-interface QueueItem {
-  id: string;
-  file: File;
-  stage: QueueStage;
-  progress: number;
-  message: string;
-  error?: string;
-  framesSaved?: number;
-  framesTotal?: number;
-}
+import {
+  clearFinished,
+  enqueueFiles,
+  onEvent,
+  removeItem,
+  retryItem,
+  updateSettings,
+  type QueueItem,
+  type QueueStage,
+} from "@/lib/upload-queue-store";
+import { useUploadQueueItems, useUploadSettings } from "@/hooks/use-upload-queue";
 
 export interface UploadPanelProps {
   onComplete?: () => void;
@@ -40,220 +29,31 @@ export interface UploadPanelProps {
 }
 
 export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
-  const [queue, setQueue] = useState<QueueItem[]>([]);
-  const [maxFrames, setMaxFrames] = useState(15);
-  const [minFrames, setMinFrames] = useState(3);
-  const [sampleMs, setSampleMs] = useState(1000);
+  const queue = useUploadQueueItems();
+  const settings = useUploadSettings();
+  const { maxFrames, minFrames, sampleMs, autoGeotag, location } = settings;
+
   const [dragOver, setDragOver] = useState(false);
-  const [location, setLocation] = useState<PickedLocation | null>(null);
-  const [autoGeotag, setAutoGeotag] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
-  const processingRef = useRef(false);
-  // Tracks whether we've already fired onComplete for the current drained state.
-  // Resets whenever any new work is queued so the next drain can fire it again.
-  const drainedFiredRef = useRef(false);
 
-  // Keep latest option values reachable from the processor without re-triggering effect
-  const optsRef = useRef({ maxFrames, minFrames, sampleMs, autoGeotag, location });
+  // Keep latest callbacks reachable from the global-store subscriptions.
+  const onCompleteRef = useRef(onComplete);
+  const onImageSavedRef = useRef(onImageSaved);
   useEffect(() => {
-    optsRef.current = { maxFrames, minFrames, sampleMs, autoGeotag, location };
-  }, [maxFrames, minFrames, sampleMs, autoGeotag, location]);
+    onCompleteRef.current = onComplete;
+    onImageSavedRef.current = onImageSaved;
+  }, [onComplete, onImageSaved]);
 
-  const patchItem = useCallback((id: string, patch: Partial<QueueItem>) => {
-    setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
-  }, []);
-
-  const processItem = useCallback(
-    async (item: QueueItem) => {
-      const { maxFrames, minFrames, sampleMs, autoGeotag, location } = optsRef.current;
-      const { data: userData } = await supabase.auth.getUser();
-      const userId = userData.user?.id;
-      if (!userId) throw new Error("Not signed in.");
-
-      // Image path — upload directly, no frame extraction.
-      if (item.file.type.startsWith("image/")) {
-        patchItem(item.id, { stage: "uploading", message: "Uploading image…", progress: 0.2 });
-        const ext = item.file.name.split(".").pop() || "jpg";
-        const imgPath = `${userId}/${crypto.randomUUID()}.${ext}`;
-        const { error: upErr } = await supabase.storage
-          .from("frames")
-          .upload(imgPath, item.file, { contentType: item.file.type, upsert: false });
-        if (upErr) throw upErr;
-
-        patchItem(item.id, { stage: "saving", message: "Saving…", progress: 0.7 });
-        const baseName = item.file.name.replace(/\.[^.]+$/, "");
-        const { error: iErr } = await supabase.from("images").insert({
-          owner_id: userId,
-          storage_path: imgPath,
-          name: baseName || item.file.name,
-          lat: autoGeotag && location ? location.lat : null,
-          lng: autoGeotag && location ? location.lng : null,
-        });
-        if (iErr) throw iErr;
-        onImageSaved?.();
-        patchItem(item.id, { stage: "done", progress: 1, message: "Uploaded" });
-        // Note: onComplete is fired once when the entire queue drains (see effect below),
-        // not per item — otherwise the parent may navigate away and unmount the panel
-        // while other videos are still processing.
-        return;
-      }
-
-      patchItem(item.id, { stage: "extracting", message: "Analyzing video…", progress: 0 });
-      const { frames, durationSeconds } = await extractSharpFrames(item.file, {
-        sampleEveryMs: sampleMs,
-        maxFrames,
-        minFrames,
-        onProgress: (p) => {
-          patchItem(item.id, {
-            progress: p.progress * 0.3,
-            message: p.message ?? "Analyzing video…",
-          });
-        },
-      });
-      if (frames.length === 0) throw new Error("Couldn't extract any frames.");
-
-      patchItem(item.id, {
-        stage: "uploading",
-        message: "Uploading video…",
-        progress: 0.3,
-        framesTotal: frames.length,
-      });
-
-      const videoPath = `${userId}/${crypto.randomUUID()}-${item.file.name}`;
-      const { error: vErr } = await supabase.storage
-        .from("videos")
-        .upload(videoPath, item.file, { upsert: false, contentType: item.file.type });
-      if (vErr) throw vErr;
-
-      const { data: videoRow, error: vRowErr } = await supabase
-        .from("videos")
-        .insert({
-          owner_id: userId,
-          storage_path: videoPath,
-          original_name: item.file.name,
-          duration_seconds: durationSeconds,
-          size_bytes: item.file.size,
-          frame_count: frames.length,
-          status: "ready",
-        })
-        .select("id")
-        .single();
-      if (vRowErr) throw vRowErr;
-
-      patchItem(item.id, { stage: "saving", message: "Saving frames…", progress: 0.4 });
-      const baseName = item.file.name.replace(/\.[^.]+$/, "");
-      for (let i = 0; i < frames.length; i++) {
-        const f = frames[i];
-        const framePath = `${userId}/${videoRow.id}/${String(i + 1).padStart(3, "0")}.jpg`;
-        const { error: fErr } = await supabase.storage
-          .from("frames")
-          .upload(framePath, f.blob, { contentType: "image/jpeg", upsert: false });
-        if (fErr) throw fErr;
-        const { error: iErr } = await supabase.from("images").insert({
-          owner_id: userId,
-          video_id: videoRow.id,
-          storage_path: framePath,
-          name: `${baseName} — Frame ${i + 1}`,
-          sharpness_score: f.sharpness,
-          timestamp_seconds: f.timestampSeconds,
-          width: f.width,
-          height: f.height,
-          lat: autoGeotag && location ? location.lat : null,
-          lng: autoGeotag && location ? location.lng : null,
-        });
-        if (iErr) throw iErr;
-        const done = i + 1;
-        patchItem(item.id, {
-          progress: 0.4 + (done / frames.length) * 0.6,
-          message: `Saved ${done}/${frames.length}`,
-          framesSaved: done,
-        });
-        onImageSaved?.();
-      }
-
-      patchItem(item.id, {
-        stage: "done",
-        progress: 1,
-        message: `Extracted ${frames.length} sharp frames`,
-      });
-      // onComplete fires once when the queue fully drains — see effect below.
-    },
-    [patchItem, onImageSaved],
-  );
-
-  // Drain queue sequentially
   useEffect(() => {
-    if (processingRef.current) return;
-    const next = queue.find((q) => q.stage === "pending");
-    if (!next) return;
-    processingRef.current = true;
-    // A new item started processing — arm the drain callback for the next full drain.
-    drainedFiredRef.current = false;
-    (async () => {
-      try {
-        await processItem(next);
-      } catch (err) {
-        console.error(err);
-        const msg = err instanceof Error ? err.message : "Upload failed";
-        patchItem(next.id, { stage: "error", error: msg, message: msg });
-        toast.error(`${next.file.name}: ${msg}`);
-      } finally {
-        processingRef.current = false;
-        // Trigger effect re-run by touching state minimally
-        setQueue((prev) => [...prev]);
-      }
-    })();
-  }, [queue, processItem, patchItem]);
-
-  // Fire onComplete exactly once when the whole queue has drained (no pending/in-flight items).
-  // Any subsequent enqueue re-arms the ref via the drain effect above.
-  useEffect(() => {
-    if (processingRef.current) return;
-    if (queue.length === 0) return;
-    const hasWorkLeft = queue.some(
-      (q) => q.stage === "pending" || q.stage === "extracting" || q.stage === "uploading" || q.stage === "saving",
-    );
-    if (hasWorkLeft) return;
-    if (drainedFiredRef.current) return;
-    drainedFiredRef.current = true;
-    onComplete?.();
-  }, [queue, onComplete]);
-
-  const enqueueFiles = useCallback((files: FileList | File[]) => {
-    const arr = Array.from(files);
-    const valid: QueueItem[] = [];
-    for (const file of arr) {
-      if (!file.type.startsWith("video/") && !file.type.startsWith("image/")) {
-        toast.error(`Skipped ${file.name}: not an image or video`);
-        continue;
-      }
-      valid.push({
-        id: crypto.randomUUID(),
-        file,
-        stage: "pending",
-        progress: 0,
-        message: "Waiting…",
-      });
-    }
-    if (valid.length) setQueue((prev) => [...prev, ...valid]);
+    const offSaved = onEvent("imageSaved", () => onImageSavedRef.current?.());
+    const offDrained = onEvent("drained", () => onCompleteRef.current?.());
+    return () => {
+      offSaved();
+      offDrained();
+    };
   }, []);
 
-  const retry = useCallback((id: string) => {
-    patchItem(id, {
-      stage: "pending",
-      progress: 0,
-      message: "Waiting…",
-      error: undefined,
-    });
-  }, [patchItem]);
-
-  const remove = useCallback((id: string) => {
-    setQueue((prev) => prev.filter((q) => q.id !== id));
-  }, []);
-
-  const clearFinished = useCallback(() => {
-    setQueue((prev) => prev.filter((q) => q.stage !== "done"));
-  }, []);
+  const setLocation = useCallback((v: PickedLocation | null) => updateSettings({ location: v }), []);
 
   const hasFinished = queue.some((q) => q.stage === "done");
 
@@ -320,8 +120,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             value={minFrames}
             onChange={(e) => {
               const v = Number(e.target.value);
-              setMinFrames(v);
-              if (v > maxFrames) setMaxFrames(v);
+              updateSettings({ minFrames: v, ...(v > maxFrames ? { maxFrames: v } : {}) });
             }}
             className="mt-2 w-full accent-primary"
           />
@@ -341,8 +140,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             value={maxFrames}
             onChange={(e) => {
               const v = Number(e.target.value);
-              setMaxFrames(v);
-              if (v < minFrames) setMinFrames(v);
+              updateSettings({ maxFrames: v, ...(v < minFrames ? { minFrames: v } : {}) });
             }}
             className="mt-2 w-full accent-primary"
           />
@@ -358,7 +156,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             max={3000}
             step={250}
             value={sampleMs}
-            onChange={(e) => setSampleMs(Number(e.target.value))}
+            onChange={(e) => updateSettings({ sampleMs: Number(e.target.value) })}
             className="mt-2 w-full accent-primary"
           />
           <div className="mt-1 text-xs text-muted-foreground">
@@ -379,7 +177,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             <input
               type="checkbox"
               checked={autoGeotag}
-              onChange={(e) => setAutoGeotag(e.target.checked)}
+              onChange={(e) => updateSettings({ autoGeotag: e.target.checked })}
               className="accent-primary"
             />
             Auto-apply on upload
@@ -406,7 +204,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
           </div>
           <ul className="space-y-2">
             {queue.map((q) => (
-              <QueueRow key={q.id} item={q} onRetry={() => retry(q.id)} onRemove={() => remove(q.id)} />
+              <QueueRow key={q.id} item={q} onRetry={() => retryItem(q.id)} onRemove={() => removeItem(q.id)} />
             ))}
           </ul>
         </div>
