@@ -32,6 +32,14 @@ function VideoConverterPage() {
 
   async function convert() {
     if (!file) return;
+    // Full validation (including duration probe) before spinning up ffmpeg.
+    setStatus("Checking file…");
+    const err = await validateVideoFile(file);
+    if (err) {
+      setStatus("");
+      toast.error(err.message);
+      return;
+    }
     setBusy(true);
     setProgress(0);
     setResult(null);
