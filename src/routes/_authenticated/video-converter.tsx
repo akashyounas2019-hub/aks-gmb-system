@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { loadFFmpeg, fetchFile, humanSize, downloadBlob } from "@/lib/ffmpeg-client";
+import { loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration } from "@/lib/ffmpeg-client";
 
 export const Route = createFileRoute("/_authenticated/video-converter")({
   component: VideoConverterPage,
