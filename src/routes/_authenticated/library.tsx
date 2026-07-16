@@ -277,7 +277,7 @@ function LibraryPage() {
     if (error) return toast.error(error.message);
     toast.success(`Created folder “${name}”.`);
     qc.invalidateQueries({ queryKey: ["library"] });
-    if (row) setRawFolderId((row as { id: string }).id);
+    if (row) setActiveFolderId((row as { id: string }).id);
   }
 
   async function renameFolder(id: string, current: string) {
