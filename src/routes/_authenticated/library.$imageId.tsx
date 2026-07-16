@@ -21,6 +21,7 @@ async function fetchImage(imageId: string) {
       "id, name, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id",
     )
     .eq("id", imageId)
+    .is("deleted_at", null)
     .single();
   if (error) throw error;
 
