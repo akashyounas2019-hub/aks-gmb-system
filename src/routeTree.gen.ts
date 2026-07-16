@@ -15,6 +15,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated/wizard'
 import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
 import { Route as AuthenticatedVideoConverterRouteImport } from './routes/_authenticated/video-converter'
+import { Route as AuthenticatedVideoCompressRouteImport } from './routes/_authenticated/video-compress'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
@@ -74,6 +75,12 @@ const AuthenticatedVideoConverterRoute =
   AuthenticatedVideoConverterRouteImport.update({
     id: '/video-converter',
     path: '/video-converter',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedVideoCompressRoute =
+  AuthenticatedVideoCompressRouteImport.update({
+    id: '/video-compress',
+    path: '/video-compress',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
 const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
@@ -265,6 +272,7 @@ export interface FileRoutesByFullPath {
   '/resources': typeof AuthenticatedResourcesRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
+  '/video-compress': typeof AuthenticatedVideoCompressRoute
   '/video-converter': typeof AuthenticatedVideoConverterRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
@@ -302,6 +310,7 @@ export interface FileRoutesByTo {
   '/resources': typeof AuthenticatedResourcesRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
+  '/video-compress': typeof AuthenticatedVideoCompressRoute
   '/video-converter': typeof AuthenticatedVideoConverterRoute
   '/videos': typeof AuthenticatedVideosRoute
   '/wizard': typeof AuthenticatedWizardRoute
@@ -341,6 +350,7 @@ export interface FileRoutesById {
   '/_authenticated/resources': typeof AuthenticatedResourcesRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
+  '/_authenticated/video-compress': typeof AuthenticatedVideoCompressRoute
   '/_authenticated/video-converter': typeof AuthenticatedVideoConverterRoute
   '/_authenticated/videos': typeof AuthenticatedVideosRoute
   '/_authenticated/wizard': typeof AuthenticatedWizardRoute
@@ -380,6 +390,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/settings'
     | '/upload'
+    | '/video-compress'
     | '/video-converter'
     | '/videos'
     | '/wizard'
@@ -417,6 +428,7 @@ export interface FileRouteTypes {
     | '/resources'
     | '/settings'
     | '/upload'
+    | '/video-compress'
     | '/video-converter'
     | '/videos'
     | '/wizard'
@@ -455,6 +467,7 @@ export interface FileRouteTypes {
     | '/_authenticated/resources'
     | '/_authenticated/settings'
     | '/_authenticated/upload'
+    | '/_authenticated/video-compress'
     | '/_authenticated/video-converter'
     | '/_authenticated/videos'
     | '/_authenticated/wizard'
@@ -524,6 +537,13 @@ declare module '@tanstack/react-router' {
       path: '/video-converter'
       fullPath: '/video-converter'
       preLoaderRoute: typeof AuthenticatedVideoConverterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/video-compress': {
+      id: '/_authenticated/video-compress'
+      path: '/video-compress'
+      fullPath: '/video-compress'
+      preLoaderRoute: typeof AuthenticatedVideoCompressRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/upload': {
@@ -809,6 +829,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
+  AuthenticatedVideoCompressRoute: typeof AuthenticatedVideoCompressRoute
   AuthenticatedVideoConverterRoute: typeof AuthenticatedVideoConverterRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
@@ -833,6 +854,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedResourcesRoute: AuthenticatedResourcesRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
+  AuthenticatedVideoCompressRoute: AuthenticatedVideoCompressRoute,
   AuthenticatedVideoConverterRoute: AuthenticatedVideoConverterRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
