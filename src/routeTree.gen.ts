@@ -47,6 +47,7 @@ import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_a
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 import { Route as AuthenticatedAgentsAgentIdRouteImport } from './routes/_authenticated/agents.$agentId'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
+import { Route as AuthenticatedSocialFacebookAdCreativesRouteImport } from './routes/_authenticated/social.facebook.ad-creatives'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -259,6 +260,12 @@ const ApiPublicHooksRunAutomationsRoute =
     path: '/api/public/hooks/run-automations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedSocialFacebookAdCreativesRoute =
+  AuthenticatedSocialFacebookAdCreativesRouteImport.update({
+    id: '/ad-creatives',
+    path: '/ad-creatives',
+    getParentRoute: () => AuthenticatedSocialFacebookRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -294,9 +301,10 @@ export interface FileRoutesByFullPath {
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
-  '/social/facebook': typeof AuthenticatedSocialFacebookRoute
+  '/social/facebook': typeof AuthenticatedSocialFacebookRouteWithChildren
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
+  '/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesByTo {
@@ -333,9 +341,10 @@ export interface FileRoutesByTo {
   '/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
-  '/social/facebook': typeof AuthenticatedSocialFacebookRoute
+  '/social/facebook': typeof AuthenticatedSocialFacebookRouteWithChildren
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
+  '/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesById {
@@ -374,9 +383,10 @@ export interface FileRoutesById {
   '/_authenticated/settings/security': typeof AuthenticatedSettingsSecurityRoute
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
-  '/_authenticated/social/facebook': typeof AuthenticatedSocialFacebookRoute
+  '/_authenticated/social/facebook': typeof AuthenticatedSocialFacebookRouteWithChildren
   '/_authenticated/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/_authenticated/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
+  '/_authenticated/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRouteTypes {
@@ -418,6 +428,7 @@ export interface FileRouteTypes {
     | '/social/facebook'
     | '/social/instagram'
     | '/social/linkedin'
+    | '/social/facebook/ad-creatives'
     | '/api/public/hooks/run-automations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -457,6 +468,7 @@ export interface FileRouteTypes {
     | '/social/facebook'
     | '/social/instagram'
     | '/social/linkedin'
+    | '/social/facebook/ad-creatives'
     | '/api/public/hooks/run-automations'
   id:
     | '__root__'
@@ -497,6 +509,7 @@ export interface FileRouteTypes {
     | '/_authenticated/social/facebook'
     | '/_authenticated/social/instagram'
     | '/_authenticated/social/linkedin'
+    | '/_authenticated/social/facebook/ad-creatives'
     | '/api/public/hooks/run-automations'
   fileRoutesById: FileRoutesById
 }
@@ -775,6 +788,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/social/facebook/ad-creatives': {
+      id: '/_authenticated/social/facebook/ad-creatives'
+      path: '/ad-creatives'
+      fullPath: '/social/facebook/ad-creatives'
+      preLoaderRoute: typeof AuthenticatedSocialFacebookAdCreativesRouteImport
+      parentRoute: typeof AuthenticatedSocialFacebookRoute
+    }
   }
 }
 
@@ -832,6 +852,21 @@ const AuthenticatedSettingsRouteWithChildren =
     AuthenticatedSettingsRouteChildren,
   )
 
+interface AuthenticatedSocialFacebookRouteChildren {
+  AuthenticatedSocialFacebookAdCreativesRoute: typeof AuthenticatedSocialFacebookAdCreativesRoute
+}
+
+const AuthenticatedSocialFacebookRouteChildren: AuthenticatedSocialFacebookRouteChildren =
+  {
+    AuthenticatedSocialFacebookAdCreativesRoute:
+      AuthenticatedSocialFacebookAdCreativesRoute,
+  }
+
+const AuthenticatedSocialFacebookRouteWithChildren =
+  AuthenticatedSocialFacebookRoute._addFileChildren(
+    AuthenticatedSocialFacebookRouteChildren,
+  )
+
 interface AuthenticatedRouteRouteChildren {
   AuthenticatedAgentsRoute: typeof AuthenticatedAgentsRouteWithChildren
   AuthenticatedAutomationRoute: typeof AuthenticatedAutomationRoute
@@ -853,7 +888,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedVideoConverterRoute: typeof AuthenticatedVideoConverterRoute
   AuthenticatedVideosRoute: typeof AuthenticatedVideosRoute
   AuthenticatedWizardRoute: typeof AuthenticatedWizardRoute
-  AuthenticatedSocialFacebookRoute: typeof AuthenticatedSocialFacebookRoute
+  AuthenticatedSocialFacebookRoute: typeof AuthenticatedSocialFacebookRouteWithChildren
   AuthenticatedSocialInstagramRoute: typeof AuthenticatedSocialInstagramRoute
   AuthenticatedSocialLinkedinRoute: typeof AuthenticatedSocialLinkedinRoute
 }
@@ -879,7 +914,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedVideoConverterRoute: AuthenticatedVideoConverterRoute,
   AuthenticatedVideosRoute: AuthenticatedVideosRoute,
   AuthenticatedWizardRoute: AuthenticatedWizardRoute,
-  AuthenticatedSocialFacebookRoute: AuthenticatedSocialFacebookRoute,
+  AuthenticatedSocialFacebookRoute:
+    AuthenticatedSocialFacebookRouteWithChildren,
   AuthenticatedSocialInstagramRoute: AuthenticatedSocialInstagramRoute,
   AuthenticatedSocialLinkedinRoute: AuthenticatedSocialLinkedinRoute,
 }
