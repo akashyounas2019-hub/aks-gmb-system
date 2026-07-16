@@ -23,6 +23,8 @@ export interface UploadSettings {
   maxFrames: number;
   minFrames: number;
   sampleMs: number;
+  /** Longest edge (px) for extracted frames. 0 = keep source resolution. */
+  frameMaxDimension: number;
   autoGeotag: boolean;
   location: PickedLocation | null;
 }
@@ -47,6 +49,7 @@ let settings: UploadSettings = {
   maxFrames: 15,
   minFrames: 3,
   sampleMs: 1000,
+  frameMaxDimension: 1600,
   autoGeotag: true,
   location: null,
 };
