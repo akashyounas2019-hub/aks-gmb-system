@@ -25,6 +25,8 @@ import {
   Bot,
   FileVideo,
   Scissors,
+
+
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -65,8 +67,10 @@ const groups: NavGroup[] = [
       { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
       { to: "/library", label: "Image and Video Library", icon: Images },
       { to: "/calendar", label: "GMB Calendar", icon: CalendarDays },
+      { to: "/backups", label: "Backups", icon: ShieldCheck },
     ],
   },
+
   {
     label: "Social Accounts",
     items: [
