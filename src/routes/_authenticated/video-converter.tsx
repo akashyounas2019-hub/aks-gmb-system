@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
 import { toast } from "sonner";
-import { loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration } from "@/lib/ffmpeg-client";
+import {
+  loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
+  validateVideoFileBasic, validateVideoFile,
+} from "@/lib/ffmpeg-client";
 
 export const Route = createFileRoute("/_authenticated/video-converter")({
   component: VideoConverterPage,
@@ -29,6 +32,14 @@ function VideoConverterPage() {
 
   async function convert() {
     if (!file) return;
+    // Full validation (including duration probe) before spinning up ffmpeg.
+    setStatus("Checking file…");
+    const err = await validateVideoFile(file);
+    if (err) {
+      setStatus("");
+      toast.error(err.message);
+      return;
+    }
     setBusy(true);
     setProgress(0);
     setResult(null);
@@ -113,8 +124,18 @@ function VideoConverterPage() {
           accept="video/*"
           className="hidden"
           onChange={(e) => {
-            setFile(e.target.files?.[0] ?? null);
+            const f = e.target.files?.[0] ?? null;
             setResult(null);
+            if (f) {
+              const err = validateVideoFileBasic(f);
+              if (err) {
+                toast.error(err.message);
+                setFile(null);
+                e.target.value = "";
+                return;
+              }
+            }
+            setFile(f);
           }}
         />
 

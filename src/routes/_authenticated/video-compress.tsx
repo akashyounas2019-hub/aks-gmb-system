@@ -2,7 +2,10 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
 import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon } from "lucide-react";
 import { toast } from "sonner";
-import { loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration } from "@/lib/ffmpeg-client";
+import {
+  loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
+  validateVideoFileBasic, validateVideoFile, MAX_VIDEO_DURATION_SECONDS,
+} from "@/lib/ffmpeg-client";
 
 export const Route = createFileRoute("/_authenticated/video-compress")({
   component: VideoCompressPage,
@@ -99,6 +102,18 @@ function VideoCompressPage() {
 
   async function run() {
     if (!file || !crop || !dims) return;
+    // Enforce duration limit here — dims/duration are already loaded via <video> metadata.
+    const video = videoRef.current;
+    if (video && Number.isFinite(video.duration) && video.duration > MAX_VIDEO_DURATION_SECONDS) {
+      toast.error(`Video exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`);
+      return;
+    }
+    // Re-check basic constraints defensively.
+    const err = await validateVideoFile(file);
+    if (err) {
+      toast.error(err.message);
+      return;
+    }
     setBusy(true);
     setProgress(0);
     setResult(null);
@@ -210,8 +225,18 @@ function VideoCompressPage() {
             accept="video/*"
             className="hidden"
             onChange={(e) => {
-              setFile(e.target.files?.[0] ?? null);
+              const f = e.target.files?.[0] ?? null;
               setResult(null);
+              if (f) {
+                const err = validateVideoFileBasic(f);
+                if (err) {
+                  toast.error(err.message);
+                  setFile(null);
+                  e.target.value = "";
+                  return;
+                }
+              }
+              setFile(f);
             }}
           />
           {file && (

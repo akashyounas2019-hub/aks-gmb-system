@@ -66,3 +66,79 @@ export function downloadBlob(blob: Blob, filename: string) {
   a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+
+// Allowed input formats for ffmpeg.wasm. Broad but explicit — anything not here is rejected early.
+export const SUPPORTED_VIDEO_EXTENSIONS = [
+  "mp4", "m4v", "mov", "webm", "mkv", "avi", "flv", "wmv", "mpg", "mpeg",
+  "ts", "mts", "m2ts", "3gp", "3g2", "ogv", "ogg", "asf", "vob", "f4v",
+] as const;
+
+export const SUPPORTED_VIDEO_MIME_PREFIXES = ["video/"];
+
+// Practical ceiling for ffmpeg.wasm: it loads the whole file into WASM linear memory (~2-4 GB cap).
+// Keeping this at 2 GB avoids OOMs on most devices.
+export const MAX_VIDEO_BYTES = 2 * 1024 * 1024 * 1024;
+// 2 hours — beyond this, browser encoding becomes impractical and heat/battery cost is severe.
+export const MAX_VIDEO_DURATION_SECONDS = 2 * 60 * 60;
+
+export type ValidationError = { code: string; message: string };
+
+export function validateVideoFileBasic(file: File): ValidationError | null {
+  const ext = file.name.match(/\.([^.]+)$/)?.[1]?.toLowerCase() ?? "";
+  const mimeOk = SUPPORTED_VIDEO_MIME_PREFIXES.some((p) => file.type.startsWith(p));
+  const extOk = (SUPPORTED_VIDEO_EXTENSIONS as readonly string[]).includes(ext);
+  if (!mimeOk && !extOk) {
+    return {
+      code: "unsupported_type",
+      message: `Unsupported file type${ext ? ` ".${ext}"` : ""}. Supported: ${SUPPORTED_VIDEO_EXTENSIONS.join(", ").toUpperCase()}.`,
+    };
+  }
+  if (file.size > MAX_VIDEO_BYTES) {
+    return {
+      code: "too_large",
+      message: `File is ${humanSize(file.size)}. Maximum supported size in-browser is ${humanSize(MAX_VIDEO_BYTES)}.`,
+    };
+  }
+  if (file.size === 0) {
+    return { code: "empty", message: "File is empty." };
+  }
+  return null;
+}
+
+// Probes duration via a hidden <video> element. Resolves null when the browser cannot decode the container
+// (that's fine — ffmpeg may still handle it, so we don't reject on probe failure).
+export function probeVideoDuration(file: File): Promise<number | null> {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement("video");
+    video.preload = "metadata";
+    video.muted = true;
+    const cleanup = () => {
+      URL.revokeObjectURL(url);
+      video.removeAttribute("src");
+      video.load();
+    };
+    const timeout = setTimeout(() => { cleanup(); resolve(null); }, 8000);
+    video.onloadedmetadata = () => {
+      clearTimeout(timeout);
+      const d = Number.isFinite(video.duration) ? video.duration : null;
+      cleanup();
+      resolve(d);
+    };
+    video.onerror = () => { clearTimeout(timeout); cleanup(); resolve(null); };
+    video.src = url;
+  });
+}
+
+export async function validateVideoFile(file: File): Promise<ValidationError | null> {
+  const basic = validateVideoFileBasic(file);
+  if (basic) return basic;
+  const duration = await probeVideoDuration(file);
+  if (duration !== null && duration > MAX_VIDEO_DURATION_SECONDS) {
+    return {
+      code: "too_long",
+      message: `Video is ${formatDuration(duration * 1000)}. Maximum supported duration is ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)}.`,
+    };
+  }
+  return null;
+}
