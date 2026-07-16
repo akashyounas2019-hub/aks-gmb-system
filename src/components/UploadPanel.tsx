@@ -65,7 +65,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
 
   const processItem = useCallback(
     async (item: QueueItem) => {
-      const { maxFrames, sampleMs, autoGeotag, location } = optsRef.current;
+      const { maxFrames, minFrames, sampleMs, autoGeotag, location } = optsRef.current;
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in.");
