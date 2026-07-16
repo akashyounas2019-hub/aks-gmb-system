@@ -19,6 +19,8 @@ function VideoCompressPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  const [duration, setDuration] = useState<number | null>(null); // seconds
+  const [trim, setTrim] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const [crop, setCrop] = useState<Crop | null>(null);
   const [quality, setQuality] = useState(28); // CRF: lower = better quality, larger file
   const [scale, setScale] = useState(100); // % of original
