@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon } from "lucide-react";
+import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
   validateVideoFileBasic, validateVideoFile, MAX_VIDEO_DURATION_SECONDS,
 } from "@/lib/ffmpeg-client";
+import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/video-compress")({
   component: VideoCompressPage,
