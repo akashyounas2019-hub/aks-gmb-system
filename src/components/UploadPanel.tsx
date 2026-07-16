@@ -54,10 +54,10 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
   const drainedFiredRef = useRef(false);
 
   // Keep latest option values reachable from the processor without re-triggering effect
-  const optsRef = useRef({ maxFrames, sampleMs, autoGeotag, location });
+  const optsRef = useRef({ maxFrames, minFrames, sampleMs, autoGeotag, location });
   useEffect(() => {
-    optsRef.current = { maxFrames, sampleMs, autoGeotag, location };
-  }, [maxFrames, sampleMs, autoGeotag, location]);
+    optsRef.current = { maxFrames, minFrames, sampleMs, autoGeotag, location };
+  }, [maxFrames, minFrames, sampleMs, autoGeotag, location]);
 
   const patchItem = useCallback((id: string, patch: Partial<QueueItem>) => {
     setQueue((prev) => prev.map((q) => (q.id === id ? { ...q, ...patch } : q)));
