@@ -1920,14 +1920,19 @@ function useVideoUrl(path: string) {
 
 function VideoCard({
   video,
+  folders,
+  onMove,
   onPreview,
   onDelete,
 }: {
   video: VideoRow;
+  folders: VideoFolderRow[];
+  onMove: (folderId: string | null) => void | Promise<unknown>;
   onPreview: () => void;
   onDelete: () => void;
 }) {
   const url = useVideoUrl(video.storage_path);
+  const currentFolder = folders.find((f) => f.id === video.folder_id);
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
@@ -1953,6 +1958,25 @@ function VideoCard({
         </div>
         <div className="mt-1 text-xs text-muted-foreground">
           {new Date(video.created_at).toLocaleDateString()}
+        </div>
+        <div className="mt-2 flex items-center gap-2 text-xs">
+          <FolderIcon className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+          <select
+            value={video.folder_id ?? ""}
+            onChange={(e) => onMove(e.target.value ? e.target.value : null)}
+            className="flex-1 truncate rounded-md border border-border bg-background px-2 py-1 text-xs"
+            aria-label="Move to folder"
+          >
+            <option value="">Unfiled</option>
+            {folders.map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+          {currentFolder && (
+            <span className="rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary">
+              {currentFolder.name}
+            </span>
+          )}
         </div>
         <div className="mt-3 flex gap-2">
           <button
