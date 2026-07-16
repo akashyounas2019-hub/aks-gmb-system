@@ -200,7 +200,10 @@ function LibraryPage() {
       .from("images")
       .update({ deleted_at: null } as never)
       .in("id", ids);
-    if (error) return toast.error(error.message);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
     toast.success(`Restored ${ids.length} image${ids.length === 1 ? "" : "s"}`);
     qc.invalidateQueries({ queryKey: ["library"] });
     qc.invalidateQueries({ queryKey: ["trash"] });
