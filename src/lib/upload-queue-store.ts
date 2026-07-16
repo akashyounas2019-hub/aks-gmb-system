@@ -321,10 +321,17 @@ async function drain() {
   try {
     await processItem(next);
   } catch (err) {
-    console.error(err);
-    const msg = err instanceof Error ? err.message : "Upload failed";
-    patchItem(next.id, { stage: "error", error: msg, message: msg });
-    toast.error(`${next.file.name}: ${msg}`);
+    if (err instanceof CancelledError || cancelled.has(next.id)) {
+      // Cancelled by the user — drop the item silently.
+      items = items.filter((q) => q.id !== next.id);
+      cancelled.delete(next.id);
+      emit();
+    } else {
+      console.error(err);
+      const msg = err instanceof Error ? err.message : "Upload failed";
+      patchItem(next.id, { stage: "error", error: msg, message: msg });
+      toast.error(`${next.file.name}: ${msg}`);
+    }
   } finally {
     processing = false;
     void drain();
