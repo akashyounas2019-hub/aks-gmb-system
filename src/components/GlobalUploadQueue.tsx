@@ -143,17 +143,21 @@ export function GlobalUploadQueue() {
                           Retry
                         </button>
                       )}
-                      {(q.stage === "pending" ||
-                        q.stage === "error" ||
-                        q.stage === "done") && (
-                        <button
-                          onClick={() => removeItem(q.id)}
-                          aria-label="Remove from queue"
-                          className="rounded-md p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        >
-                          <X className="h-3 w-3" />
-                        </button>
-                      )}
+                      <button
+                        onClick={() =>
+                          isActive ? cancelItem(q.id) : removeItem(q.id)
+                        }
+                        aria-label={isActive ? "Cancel upload" : "Remove from queue"}
+                        title={isActive ? "Cancel upload" : "Remove from queue"}
+                        className="rounded-md p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
                     </div>
                   </li>
                 );
