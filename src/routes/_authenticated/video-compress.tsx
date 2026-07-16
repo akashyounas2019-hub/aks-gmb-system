@@ -112,6 +112,50 @@ function VideoCompressPage() {
     return { sizeBytes, savingsPct, outW, outH, durSec: trimDur, procSec };
   }, [file, dims, crop, scale, quality, duration, trim.start, trim.end]);
 
+  // Pre-flight checks — surface likely failures before the user clicks Compress.
+  const preflight = useMemo(() => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    if (!file || !dims) return { errors, warnings };
+    const fullDur = duration ?? 0;
+    const trimDur = Math.max(0, trim.end - trim.start);
+
+    // Trim / duration checks
+    if (fullDur > 0) {
+      if (trimDur < 0.2) errors.push("Trim range is under 0.2s — output would be empty or invalid.");
+      else if (trimDur < 1) warnings.push(`Trim range is very short (${trimDur.toFixed(2)}s); some players may not play it.`);
+      if (trim.start < 0 || trim.end > fullDur + 0.05) errors.push("Trim range is outside the video's duration.");
+      if (trim.start >= trim.end) errors.push("Trim start is at or after trim end.");
+      if (fullDur > MAX_VIDEO_DURATION_SECONDS) {
+        errors.push(`Source exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`);
+      }
+    }
+
+    // Crop checks
+    if (crop) {
+      if (crop.w < 2 || crop.h < 2) errors.push("Crop region has zero (or near-zero) area.");
+      if (crop.x < 0 || crop.y < 0 || crop.x + crop.w > dims.w + 0.5 || crop.y + crop.h > dims.h + 0.5) {
+        errors.push("Crop region extends outside the video frame.");
+      }
+    }
+
+    // Output resolution checks (after scale + even rounding)
+    if (estimate) {
+      if (estimate.outW < 16 || estimate.outH < 16) {
+        errors.push(`Output resolution ${estimate.outW}×${estimate.outH} is too small — increase scale or crop size.`);
+      } else if (estimate.outW < 64 || estimate.outH < 64) {
+        warnings.push(`Output resolution ${estimate.outW}×${estimate.outH} is very small.`);
+      }
+      if (estimate.procSec > 180) {
+        warnings.push(`Processing may take ~${formatProcTime(estimate.procSec)} — consider lowering scale or trimming further.`);
+      }
+    }
+
+    return { errors, warnings };
+  }, [file, dims, duration, trim.start, trim.end, crop, estimate]);
+
+  const hasBlockingIssues = preflight.errors.length > 0;
+
 
   useEffect(() => {
     if (!result) {
