@@ -124,6 +124,8 @@ function VideoCompressPage() {
       setPreviewUrl(null);
       setDims(null);
       setCrop(null);
+      setDuration(null);
+      setTrim({ start: 0, end: 0 });
       return;
     }
     const url = URL.createObjectURL(file);
@@ -136,6 +138,9 @@ function VideoCompressPage() {
     if (!v) return;
     setDims({ w: v.videoWidth, h: v.videoHeight });
     setCrop({ x: 0, y: 0, w: v.videoWidth, h: v.videoHeight });
+    const d = Number.isFinite(v.duration) ? v.duration : null;
+    setDuration(d);
+    if (d && d > 0) setTrim({ start: 0, end: d });
   }
 
   function startDrag(e: React.MouseEvent<HTMLDivElement>) {
