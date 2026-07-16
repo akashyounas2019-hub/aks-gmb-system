@@ -517,7 +517,7 @@ function LibraryPage() {
       )}
 
 
-      {tab === "raw" && !isLoading && (
+      {(tab === "raw" || tab === "published" || tab === "geotagged") && !isLoading && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
             <div className="flex items-center gap-2">
@@ -527,7 +527,9 @@ function LibraryPage() {
               <div>
                 <div className="text-sm font-semibold leading-tight">Folders</div>
                 <div className="text-[11px] text-muted-foreground">
-                  Organize raw images into groups
+                  {tab === "raw" && "Organize raw images into groups"}
+                  {tab === "published" && "Organize published images into groups"}
+                  {tab === "geotagged" && "Organize geo-tagged images into groups"}
                 </div>
               </div>
             </div>
@@ -540,26 +542,26 @@ function LibraryPage() {
           </div>
           <div className="flex flex-wrap gap-2 p-4">
             <FolderChip
-              active={rawFolderId === null}
+              active={activeFolderId === null}
               icon={ImagesIcon}
-              label="All raw"
-              count={data?.images.filter((i) => imageBucket(i) === "raw").length ?? 0}
-              onClick={() => setRawFolderId(null)}
+              label={tab === "raw" ? "All raw" : tab === "published" ? "All published" : "All geo-tagged"}
+              count={data?.images.filter((i) => imageBucket(i) === tab).length ?? 0}
+              onClick={() => setActiveFolderId(null)}
             />
             <FolderChip
-              active={rawFolderId === "__uncategorized"}
+              active={activeFolderId === "__uncategorized"}
               icon={ImagesIcon}
               label="Unfiled"
               count={
-                data?.images.filter((i) => imageBucket(i) === "raw" && i.folder_id == null).length ?? 0
+                data?.images.filter((i) => imageBucket(i) === tab && i.folder_id == null).length ?? 0
               }
-              onClick={() => setRawFolderId("__uncategorized")}
+              onClick={() => setActiveFolderId("__uncategorized")}
             />
             {data?.folders.map((f) => {
               const count = data.images.filter(
-                (i) => imageBucket(i) === "raw" && i.folder_id === f.id,
+                (i) => imageBucket(i) === tab && i.folder_id === f.id,
               ).length;
-              const active = rawFolderId === f.id;
+              const active = activeFolderId === f.id;
               return (
                 <div
                   key={f.id}
@@ -570,7 +572,7 @@ function LibraryPage() {
                   }`}
                 >
                   <button
-                    onClick={() => setRawFolderId(f.id)}
+                    onClick={() => setActiveFolderId(f.id)}
                     className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
                   >
                     <FolderIcon
