@@ -50,6 +50,13 @@ const groups: NavGroup[] = [
     ],
   },
   {
+    label: "Video Tools",
+    items: [
+      { to: "/video-converter", label: "Video Converter", icon: FileVideo },
+      { to: "/video-compress", label: "Compress & Crop", icon: Scissors },
+    ],
+  },
+  {
     label: "Google My Business",
     items: [
       { to: "/post-generator", label: "GMB Post Generator", icon: PenSquare },
