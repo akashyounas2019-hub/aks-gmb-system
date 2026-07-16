@@ -848,6 +848,8 @@ function LibraryPage() {
         </div>
       ) : tab === "videos" ? (
         <VideosPanel />
+      ) : tab === "trash" ? (
+        <TrashPanel onRestore={restoreImages} onPurge={purgeImages} />
       ) : isLoading ? (
 
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
