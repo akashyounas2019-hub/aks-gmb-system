@@ -1863,6 +1863,142 @@ function formatBytes(n: number | null | undefined) {
 
 const STORAGE_QUOTA_BYTES = 1 * 1024 * 1024 * 1024;
 
+function TrashPanel({
+  onRestore,
+  onPurge,
+}: {
+  onRestore: (ids: string[]) => Promise<void>;
+  onPurge: (ids: string[], paths: string[]) => Promise<void>;
+}) {
+  const { data: items = [], isLoading } = useQuery({
+    queryKey: ["trash"],
+    queryFn: fetchTrash,
+  });
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  function toggle(id: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  const selectedIds = Array.from(selected);
+  const selectedPaths = items
+    .filter((i) => selected.has(i.id))
+    .map((i) => i.storage_path);
+
+  if (isLoading) {
+    return <div className="mt-10 text-sm text-muted-foreground">Loading…</div>;
+  }
+
+  if (items.length === 0) {
+    return (
+      <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
+        <Trash className="mx-auto h-8 w-8 text-muted-foreground" />
+        <p className="mt-3 text-muted-foreground">Trash is empty.</p>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Deleted images land here first so you can restore them.
+        </p>
+      </div>
+    );
+  }
+
+  const allIds = items.map((i) => i.id);
+  const allPaths = items.map((i) => i.storage_path);
+  const allSelected = selected.size === items.length;
+
+  return (
+    <div className="mt-6">
+      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/40 px-3 py-2 text-xs">
+        <button
+          onClick={() =>
+            setSelected(allSelected ? new Set() : new Set(allIds))
+          }
+          className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-medium hover:bg-accent"
+        >
+          {allSelected ? <Square className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+          {allSelected ? "Clear" : `Select all (${items.length})`}
+        </button>
+        <span className="text-muted-foreground">
+          <strong className="text-foreground">{selected.size}</strong> selected
+        </span>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          <button
+            onClick={() => onRestore(selectedIds).then(() => setSelected(new Set()))}
+            disabled={selected.size === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+          >
+            <Undo2 className="h-3.5 w-3.5" /> Restore ({selected.size})
+          </button>
+          <button
+            onClick={() => onPurge(selectedIds, selectedPaths).then(() => setSelected(new Set()))}
+            disabled={selected.size === 0}
+            className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete forever ({selected.size})
+          </button>
+          <button
+            onClick={() => onPurge(allIds, allPaths).then(() => setSelected(new Set()))}
+            className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Empty Trash ({items.length})
+          </button>
+        </div>
+      </div>
+
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        {items.map((img) => {
+          const isSelected = selected.has(img.id);
+          const deletedAt = img.deleted_at ? new Date(img.deleted_at) : null;
+          return (
+            <button
+              type="button"
+              key={img.id}
+              onClick={() => toggle(img.id)}
+              className={`group relative overflow-hidden rounded-xl border text-left transition ${
+                isSelected
+                  ? "border-primary ring-2 ring-primary/40"
+                  : "border-border hover:border-primary/60"
+              } bg-card`}
+            >
+              <div className="aspect-[4/3] w-full overflow-hidden bg-muted opacity-70">
+                <SignedImage
+                  bucket="frames"
+                  path={img.storage_path}
+                  alt={img.name}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+              <div className="absolute left-2 top-2 rounded-md bg-background/80 px-1.5 py-0.5 text-[10px] font-medium backdrop-blur">
+                {isSelected ? (
+                  <span className="inline-flex items-center gap-1 text-primary">
+                    <CheckSquare className="h-3 w-3" /> Selected
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center gap-1 text-muted-foreground">
+                    <Square className="h-3 w-3" /> Select
+                  </span>
+                )}
+              </div>
+              <div className="p-2">
+                <div className="truncate text-xs font-medium">{img.name}</div>
+                <div className="mt-0.5 text-[10px] text-muted-foreground">
+                  {deletedAt
+                    ? `Deleted ${deletedAt.toLocaleString()}`
+                    : "Deleted"}
+                </div>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 function VideosPanel() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: fetchVideos });
