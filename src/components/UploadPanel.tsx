@@ -173,6 +173,38 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             Lower = more candidates, slower analysis.
           </div>
         </label>
+        <label className="rounded-lg border border-border bg-card p-4 text-sm sm:col-span-2">
+          <div className="flex items-center justify-between">
+            <span>Frame size</span>
+            <span className="font-mono text-primary">
+              {frameMaxDimension === 0 ? "Original" : `${frameMaxDimension}px`}
+            </span>
+          </div>
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {framePresets.map((p) => {
+              const active = frameMaxDimension === p.value;
+              return (
+                <button
+                  key={p.label}
+                  type="button"
+                  onClick={() => updateSettings({ frameMaxDimension: p.value })}
+                  title={p.hint}
+                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card hover:border-primary hover:text-primary"
+                  }`}
+                >
+                  {p.label}
+                </button>
+              );
+            })}
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Longest edge of each extracted frame. Larger = sharper detail but bigger files
+            and slower upload. Original keeps the source resolution.
+          </p>
+        </label>
       </div>
 
       <div className="mt-6 rounded-lg border border-border bg-card p-4">
