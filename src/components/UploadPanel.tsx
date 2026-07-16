@@ -310,15 +310,40 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
+            <span>Min frames per video</span>
+            <span className="font-mono text-primary">{minFrames}</span>
+          </div>
+          <input
+            type="range"
+            min={1}
+            max={40}
+            value={minFrames}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setMinFrames(v);
+              if (v > maxFrames) setMaxFrames(v);
+            }}
+            className="mt-2 w-full accent-primary"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Backfills with the sharpest remaining frames if the video is short or evenly lit.
+          </p>
+        </label>
+        <label className="rounded-lg border border-border bg-card p-4 text-sm">
+          <div className="flex items-center justify-between">
             <span>Max frames per video</span>
             <span className="font-mono text-primary">{maxFrames}</span>
           </div>
           <input
             type="range"
-            min={5}
+            min={1}
             max={40}
             value={maxFrames}
-            onChange={(e) => setMaxFrames(Number(e.target.value))}
+            onChange={(e) => {
+              const v = Number(e.target.value);
+              setMaxFrames(v);
+              if (v < minFrames) setMinFrames(v);
+            }}
             className="mt-2 w-full accent-primary"
           />
         </label>
