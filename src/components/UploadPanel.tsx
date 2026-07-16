@@ -102,6 +102,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       const { frames, durationSeconds } = await extractSharpFrames(item.file, {
         sampleEveryMs: sampleMs,
         maxFrames,
+        minFrames,
         onProgress: (p) => {
           patchItem(item.id, {
             progress: p.progress * 0.3,
