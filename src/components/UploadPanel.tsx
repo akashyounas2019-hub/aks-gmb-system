@@ -48,6 +48,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
   const [autoGeotag, setAutoGeotag] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
   const processingRef = useRef(false);
+  // Tracks whether we've already fired onComplete for the current drained state.
+  // Resets whenever any new work is queued so the next drain can fire it again.
+  const drainedFiredRef = useRef(false);
 
   // Keep latest option values reachable from the processor without re-triggering effect
   const optsRef = useRef({ maxFrames, sampleMs, autoGeotag, location });
@@ -88,7 +91,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         if (iErr) throw iErr;
         onImageSaved?.();
         patchItem(item.id, { stage: "done", progress: 1, message: "Uploaded" });
-        onComplete?.();
+        // Note: onComplete is fired once when the entire queue drains (see effect below),
+        // not per item — otherwise the parent may navigate away and unmount the panel
+        // while other videos are still processing.
         return;
       }
 
@@ -169,9 +174,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         progress: 1,
         message: `Extracted ${frames.length} sharp frames`,
       });
-      onComplete?.();
+      // onComplete fires once when the queue fully drains — see effect below.
     },
-    [patchItem, onImageSaved, onComplete],
+    [patchItem, onImageSaved],
   );
 
   // Drain queue sequentially
@@ -180,6 +185,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
     const next = queue.find((q) => q.stage === "pending");
     if (!next) return;
     processingRef.current = true;
+    // A new item started processing — arm the drain callback for the next full drain.
+    drainedFiredRef.current = false;
     (async () => {
       try {
         await processItem(next);
@@ -195,6 +202,20 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       }
     })();
   }, [queue, processItem, patchItem]);
+
+  // Fire onComplete exactly once when the whole queue has drained (no pending/in-flight items).
+  // Any subsequent enqueue re-arms the ref via the drain effect above.
+  useEffect(() => {
+    if (processingRef.current) return;
+    if (queue.length === 0) return;
+    const hasWorkLeft = queue.some(
+      (q) => q.stage === "pending" || q.stage === "extracting" || q.stage === "uploading" || q.stage === "saving",
+    );
+    if (hasWorkLeft) return;
+    if (drainedFiredRef.current) return;
+    drainedFiredRef.current = true;
+    onComplete?.();
+  }, [queue, onComplete]);
 
   const enqueueFiles = useCallback((files: FileList | File[]) => {
     const arr = Array.from(files);
