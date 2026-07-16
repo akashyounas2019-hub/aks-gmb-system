@@ -115,10 +115,13 @@ function ImageDetail() {
   }
 
   async function removeImage() {
-    if (!confirm("Delete this image?")) return;
-    await supabase.storage.from("frames").remove([image.storage_path]);
-    await supabase.from("images").delete().eq("id", imageId);
-    toast.success("Deleted");
+    if (!confirm("Move this image to Trash?")) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .eq("id", imageId);
+    if (error) return toast.error(error.message);
+    toast.success("Moved to Trash");
     navigate({ to: "/library" });
   }
 
