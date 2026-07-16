@@ -164,6 +164,8 @@ function VideoConverterPage() {
           onChange={(e) => {
             const f = e.target.files?.[0] ?? null;
             setResult(null);
+            setSaved(false);
+            setSavePct(0);
             if (f) {
               const err = validateVideoFileBasic(f);
               if (err) {
