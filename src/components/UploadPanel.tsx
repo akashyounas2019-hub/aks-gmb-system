@@ -42,6 +42,7 @@ export interface UploadPanelProps {
 export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
   const [queue, setQueue] = useState<QueueItem[]>([]);
   const [maxFrames, setMaxFrames] = useState(15);
+  const [minFrames, setMinFrames] = useState(3);
   const [sampleMs, setSampleMs] = useState(1000);
   const [dragOver, setDragOver] = useState(false);
   const [location, setLocation] = useState<PickedLocation | null>(null);
