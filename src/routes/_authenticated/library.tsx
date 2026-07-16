@@ -8,6 +8,8 @@ import {
   Pencil,
   Tag as TagIcon,
   Trash2,
+  Trash,
+  Undo2,
   CheckSquare,
   Square,
   X,
