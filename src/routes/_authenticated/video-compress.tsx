@@ -208,29 +208,49 @@ function VideoCompressPage() {
     setStartedAt(Date.now());
     setNow(Date.now());
     setStatus("Loading engine…");
+    // Capture ffmpeg log for real error surfacing.
+    const logs: string[] = [];
+    let logHandler: ((e: { message: string }) => void) | null = null;
     try {
       const ff = await loadFFmpeg(undefined, (p) => setProgress(Math.max(0, Math.min(1, p))));
+      logHandler = ({ message }) => {
+        logs.push(message);
+        if (logs.length > 200) logs.shift();
+      };
+      ff.on("log", logHandler);
+
       const inputName = "input" + (file.name.match(/\.[^.]+$/)?.[0] ?? "");
       const outputName = "output.mp4";
       setStatus("Reading file…");
       await ff.writeFile(inputName, await fetchFile(file));
 
-      // Ensure even dims for libx264
-      const cw = crop.w - (crop.w % 2);
-      const ch = crop.h - (crop.h % 2);
+      // Clamp + even crop dims for libx264 (odd or zero dims cause an "Invalid argument" abort).
+      const clampedW = Math.max(2, Math.min(crop.w, dims.w - crop.x));
+      const clampedH = Math.max(2, Math.min(crop.h, dims.h - crop.y));
+      const cw = Math.max(2, clampedW - (clampedW % 2));
+      const ch = Math.max(2, clampedH - (clampedH % 2));
+      const cx = Math.max(0, Math.min(crop.x, dims.w - cw));
+      const cy = Math.max(0, Math.min(crop.y, dims.h - ch));
       const targetW = Math.max(2, Math.round((cw * scale) / 100));
       const targetH = Math.max(2, Math.round((ch * scale) / 100));
-      const outW = targetW - (targetW % 2);
-      const outH = targetH - (targetH % 2);
+      const outW = Math.max(2, targetW - (targetW % 2));
+      const outH = Math.max(2, targetH - (targetH % 2));
 
-      const filters = [
-        `crop=${cw}:${ch}:${crop.x}:${crop.y}`,
-        `scale=${outW}:${outH}`,
-      ].join(",");
+      const filters = [`crop=${cw}:${ch}:${cx}:${cy}`, `scale=${outW}:${outH}`].join(",");
 
-      setStatus("Encoding…");
-      await ff.exec([
-        "-i", inputName,
+      // Trim: use -ss BEFORE -i for fast seek, then -t for duration (more reliable than -to across builds).
+      const trimStart = Math.max(0, trim.start);
+      const trimDur = Math.max(0.05, trim.end - trim.start);
+      const trimActive = duration !== null && (trimStart > 0.01 || trim.end < duration - 0.01);
+
+      const args: string[] = [];
+      if (trimActive) args.push("-ss", trimStart.toFixed(3));
+      args.push("-i", inputName);
+      if (trimActive) args.push("-t", trimDur.toFixed(3));
+      args.push(
+        // Take the first video stream; make audio optional so silent videos don't fail.
+        "-map", "0:v:0",
+        "-map", "0:a?",
         "-vf", filters,
         "-c:v", "libx264",
         "-preset", "veryfast",
@@ -238,8 +258,12 @@ function VideoCompressPage() {
         "-c:a", "aac",
         "-b:a", "128k",
         "-movflags", "+faststart",
+        "-pix_fmt", "yuv420p",
         outputName,
-      ]);
+      );
+
+      setStatus(trimActive ? "Encoding (trim + crop)…" : "Encoding…");
+      await ff.exec(args);
 
       const data = await ff.readFile(outputName);
       const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
@@ -249,12 +273,22 @@ function VideoCompressPage() {
       const outName = file.name.replace(/\.[^.]+$/, "") + "-compressed.mp4";
       setResult({ blob, name: outName, size: blob.size });
       setStatus("Done");
+      // Best-effort cleanup of in-memory FS.
+      try { await ff.deleteFile(inputName); } catch { /* ignore */ }
+      try { await ff.deleteFile(outputName); } catch { /* ignore */ }
       toast.success(`Reduced from ${humanSize(file.size)} to ${humanSize(blob.size)}`);
     } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : "Processing failed");
+      console.error("[compress] ffmpeg failed", err, "\nlast ffmpeg logs:\n" + logs.slice(-25).join("\n"));
+      const ffErr = logs.slice().reverse().find((l) =>
+        /error|invalid|failed|no such|unsupported|does not contain/i.test(l),
+      );
+      const baseMsg = err instanceof Error && err.message ? err.message : "Processing failed";
+      toast.error(ffErr ? `${baseMsg}: ${ffErr}` : baseMsg);
       setStatus("Failed");
     } finally {
+      if (logHandler) {
+        try { getFFmpeg().off("log", logHandler); } catch { /* ignore */ }
+      }
       setBusy(false);
     }
   }
