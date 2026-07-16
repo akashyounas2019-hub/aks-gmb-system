@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
@@ -77,6 +77,28 @@ function VideoCompressPage() {
   const compareBoxRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; box: DOMRect } | null>(null);
   const compareDragRef = useRef(false);
+
+  // Rough pre-compression size/savings estimate — updates live as the user tweaks controls.
+  const estimate = useMemo(() => {
+    if (!file || !dims) return null;
+    const srcW = crop?.w ?? dims.w;
+    const srcH = crop?.h ?? dims.h;
+    const targetW = Math.max(2, Math.round((srcW * scale) / 100));
+    const targetH = Math.max(2, Math.round((srcH * scale) / 100));
+    const outW = Math.max(2, targetW - (targetW % 2));
+    const outH = Math.max(2, targetH - (targetH % 2));
+    const fullDur = duration ?? 0;
+    const trimDur = fullDur > 0 ? Math.max(0.1, trim.end - trim.start) : 0;
+    if (trimDur <= 0) return null;
+    // x264 rough model: bits-per-pixel scales ~2x every 6 CRF steps around CRF 28 baseline.
+    const bpp = 0.07 * Math.pow(2, (28 - quality) / 6);
+    const videoBps = outW * outH * 30 * bpp; // assume ~30fps
+    const audioBps = 128_000;
+    const sizeBytes = Math.max(1, ((videoBps + audioBps) * trimDur) / 8);
+    const savingsPct = Math.round((1 - sizeBytes / file.size) * 100);
+    return { sizeBytes, savingsPct, outW, outH, durSec: trimDur };
+  }, [file, dims, crop, scale, quality, duration, trim.start, trim.end]);
+
 
   useEffect(() => {
     if (!result) {
@@ -484,6 +506,32 @@ function VideoCompressPage() {
               <div className="font-medium text-foreground">Crop region</div>
               <div className="mt-1 text-muted-foreground">
                 {crop.w}×{crop.h} at ({crop.x},{crop.y})
+              </div>
+            </div>
+          )}
+          {estimate && (
+            <div className="rounded-md border border-border/60 bg-background/60 p-3 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="font-medium text-foreground">Estimated output</span>
+                <span
+                  className={
+                    estimate.savingsPct >= 0
+                      ? "rounded bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-600 dark:text-emerald-400"
+                      : "rounded bg-amber-500/15 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide text-amber-600 dark:text-amber-400"
+                  }
+                >
+                  {estimate.savingsPct >= 0
+                    ? `~${estimate.savingsPct}% smaller`
+                    : `~${Math.abs(estimate.savingsPct)}% larger`}
+                </span>
+              </div>
+              <div className="mt-1 flex items-center justify-between text-muted-foreground tabular-nums">
+                <span>~{humanSize(estimate.sizeBytes)}</span>
+                <span className="text-[10px]">from {humanSize(file!.size)}</span>
+              </div>
+              <div className="mt-1 text-[10px] text-muted-foreground">
+                {estimate.outW}×{estimate.outH} · {formatDuration(estimate.durSec * 1000)} · CRF {quality}
+                <span className="ml-1 opacity-70">(rough estimate, actual varies with motion)</span>
               </div>
             </div>
           )}
