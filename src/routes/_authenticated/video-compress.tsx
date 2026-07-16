@@ -102,6 +102,8 @@ function VideoCompressPage() {
     setBusy(true);
     setProgress(0);
     setResult(null);
+    setStartedAt(Date.now());
+    setNow(Date.now());
     setStatus("Loading engine…");
     try {
       const ff = await loadFFmpeg(undefined, (p) => setProgress(Math.max(0, Math.min(1, p))));
