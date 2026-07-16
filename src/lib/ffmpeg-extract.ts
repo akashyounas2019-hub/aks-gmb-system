@@ -24,6 +24,8 @@ export interface ExtractOptions {
   sampleEveryMs?: number;
   bucketSeconds?: number;
   maxFrames?: number;
+  /** Ensure at least this many frames are returned, backfilling by sharpness if buckets are sparse. */
+  minFrames?: number;
   maxDimension?: number;
   jpegQuality?: number;
   onProgress?: (p: { stage: string; progress: number; message?: string }) => void;
