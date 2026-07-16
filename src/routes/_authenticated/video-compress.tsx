@@ -30,6 +30,9 @@ function VideoCompressPage() {
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
   const [comparePct, setComparePct] = useState(50);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [curTime, setCurTime] = useState(0);
+  const [fps, setFps] = useState(30);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
   const [saving, setSaving] = useState(false);
