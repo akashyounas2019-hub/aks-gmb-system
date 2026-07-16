@@ -23,6 +23,8 @@ export interface UploadSettings {
   maxFrames: number;
   minFrames: number;
   sampleMs: number;
+  /** Longest edge (px) for extracted frames. 0 = keep source resolution. */
+  frameMaxDimension: number;
   autoGeotag: boolean;
   location: PickedLocation | null;
 }
@@ -47,6 +49,7 @@ let settings: UploadSettings = {
   maxFrames: 15,
   minFrames: 3,
   sampleMs: 1000,
+  frameMaxDimension: 1600,
   autoGeotag: true,
   location: null,
 };
@@ -182,7 +185,7 @@ export function clearFinished() {
 }
 
 async function processItem(item: QueueItem) {
-  const { maxFrames, minFrames, sampleMs, autoGeotag, location } = item.opts;
+  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location } = item.opts;
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new Error("Not signed in.");
@@ -219,6 +222,8 @@ async function processItem(item: QueueItem) {
     sampleEveryMs: sampleMs,
     maxFrames,
     minFrames,
+    // 0 = keep source resolution; ffmpeg-extract treats large values as "no downscale".
+    maxDimension: frameMaxDimension > 0 ? frameMaxDimension : 100000,
     onProgress: (p) => {
       if (cancelled.has(item.id)) return;
       patchItem(item.id, {
