@@ -31,7 +31,17 @@ export interface UploadPanelProps {
 export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
   const queue = useUploadQueueItems();
   const settings = useUploadSettings();
-  const { maxFrames, minFrames, sampleMs, autoGeotag, location } = settings;
+  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location } = settings;
+
+  // Preset frame dimensions (longest edge). 0 = keep original resolution.
+  const framePresets: { label: string; value: number; hint: string }[] = [
+    { label: "Original", value: 0, hint: "Full source resolution" },
+    { label: "4K", value: 3840, hint: "3840 px long edge" },
+    { label: "2K", value: 2560, hint: "2560 px long edge" },
+    { label: "1080p", value: 1600, hint: "1600 px long edge" },
+    { label: "720p", value: 1280, hint: "1280 px long edge" },
+    { label: "480p", value: 854, hint: "854 px long edge" },
+  ];
 
   const [dragOver, setDragOver] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
