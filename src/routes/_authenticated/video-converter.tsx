@@ -1,11 +1,13 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useRef, useState } from "react";
-import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle } from "lucide-react";
+import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
   validateVideoFileBasic, validateVideoFile,
 } from "@/lib/ffmpeg-client";
+import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/_authenticated/video-converter")({
   component: VideoConverterPage,
@@ -19,7 +21,43 @@ function VideoConverterPage() {
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
+  const [saving, setSaving] = useState(false);
+  const [savePct, setSavePct] = useState(0);
+  const [saved, setSaved] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  async function saveToLibrary() {
+    if (!result) return;
+    setSaving(true);
+    setSavePct(0);
+    setSaved(false);
+    try {
+      const userId = await getCurrentUserId();
+      const path = `${userId}/${crypto.randomUUID()}-${result.name}`;
+      await uploadBlobWithProgress({
+        bucket: "videos",
+        path,
+        blob: result.blob,
+        contentType: "video/mp4",
+        onProgress: (p) => setSavePct(p.pct),
+      });
+      const { error } = await supabase.from("videos").insert({
+        owner_id: userId,
+        storage_path: path,
+        original_name: result.name,
+        size_bytes: result.size,
+        status: "ready",
+      });
+      if (error) throw error;
+      setSaved(true);
+      toast.success("Saved to library");
+    } catch (err) {
+      console.error(err);
+      toast.error(err instanceof Error ? err.message : "Save failed");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   useEffect(() => {
     if (!busy) return;
