@@ -297,7 +297,11 @@ function LibraryPage() {
     const { error } = await supabase.from("image_folders").delete().eq("id", id);
     if (error) return toast.error(error.message);
     toast.success("Folder deleted.");
-    if (rawFolderId === id) setRawFolderId(null);
+    setFolderByTab((prev) => {
+      const next = { ...prev };
+      (["raw", "published", "geotagged"] as const).forEach((k) => { if (next[k] === id) next[k] = null; });
+      return next;
+    });
     qc.invalidateQueries({ queryKey: ["library"] });
   }
 
