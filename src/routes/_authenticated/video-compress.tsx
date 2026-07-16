@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save } from "lucide-react";
+import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, getFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
