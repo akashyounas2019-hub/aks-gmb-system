@@ -81,6 +81,8 @@ function VideoConverterPage() {
     setBusy(true);
     setProgress(0);
     setResult(null);
+    setSaved(false);
+    setSavePct(0);
     setStartedAt(Date.now());
     setNow(Date.now());
     setStatus("Loading converter…");
