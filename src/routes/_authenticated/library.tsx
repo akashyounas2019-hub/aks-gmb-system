@@ -514,7 +514,7 @@ function LibraryPage() {
         </div>
       )}
 
-      {tab !== "videos" && tab !== "upload" && selectMode && selected.size > 0 && (
+      {tab !== "videos" && tab !== "upload" && tab !== "raw" && selectMode && selected.size > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-3 text-xs">
           <span className="font-medium">
             Move {selected.size} selected to folder:
