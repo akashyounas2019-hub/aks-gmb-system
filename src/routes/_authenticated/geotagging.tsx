@@ -633,7 +633,20 @@ function GeotaggingPage() {
       // raw uploaded filename (e.g. "003(1).jpg") when we build the "Save As" name.
       const rawBase = img.title?.trim() || img.file.name.replace(/\.[^.]+$/, "");
       const base = rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
-      const ext = tagged.name.split(".").pop() || "jpg";
+      // Derive extension from the actual MIME type of the tagged blob so
+      // non-JPEG originals (PNG/WebP/HEIC) still download with a viewer-
+      // friendly extension. Falling back to the filename left files with
+      // stripped or wrong extensions that Windows/Preview couldn't open.
+      const mimeExt: Record<string, string> = {
+        "image/jpeg": "jpg",
+        "image/jpg": "jpg",
+        "image/png": "png",
+        "image/webp": "webp",
+        "image/heic": "heic",
+        "image/heif": "heif",
+      };
+      const fromName = tagged.name.match(/\.([a-zA-Z0-9]{2,5})$/)?.[1]?.toLowerCase();
+      const ext = mimeExt[tagged.type?.toLowerCase() ?? ""] || fromName || "jpg";
       a.download = `${base}-geotagged.${ext}`;
       document.body.appendChild(a);
       a.click();
