@@ -14,7 +14,18 @@ function VideoConverterPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState<string>("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  const elapsedMs = startedAt ? now - startedAt : 0;
+  const etaMs = startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
 
   async function convert() {
     if (!file) return;
