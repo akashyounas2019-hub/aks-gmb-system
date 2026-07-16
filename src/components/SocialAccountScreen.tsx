@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CalendarDays, Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft, Wand2 } from "lucide-react";
+import { Link } from "@tanstack/react-router";
+import { CalendarDays, Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft, Wand2, Sparkles } from "lucide-react";
 import { AiImagePromptGenerator } from "@/components/AiImagePromptGenerator";
 import { CalendarPage } from "@/routes/_authenticated/calendar";
 import { toast } from "sonner";
@@ -86,6 +87,15 @@ export function SocialAccountScreen({
               icon={<Wand2 className="h-4 w-4" />}
               label="AI Image Prompt Generator"
             />
+          )}
+          {platform === "facebook" && (
+            <Link
+              to="/social/facebook/ad-creatives"
+              className="inline-flex items-center gap-2 whitespace-nowrap border-b-2 border-transparent px-4 py-2.5 text-sm font-medium text-muted-foreground hover:border-border hover:text-foreground"
+            >
+              <Sparkles className="h-4 w-4" />
+              Ad Creatives
+            </Link>
           )}
         </nav>
       </div>
