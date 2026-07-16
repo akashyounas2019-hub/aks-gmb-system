@@ -21,8 +21,19 @@ function VideoCompressPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [startedAt, setStartedAt] = useState<number | null>(null);
+  const [now, setNow] = useState<number>(Date.now());
   const videoRef = useRef<HTMLVideoElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; box: DOMRect } | null>(null);
+
+  useEffect(() => {
+    if (!busy) return;
+    const id = setInterval(() => setNow(Date.now()), 250);
+    return () => clearInterval(id);
+  }, [busy]);
+
+  const elapsedMs = startedAt ? now - startedAt : 0;
+  const etaMs = startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
 
   useEffect(() => {
     if (!file) {
