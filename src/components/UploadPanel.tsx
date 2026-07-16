@@ -91,7 +91,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         if (iErr) throw iErr;
         onImageSaved?.();
         patchItem(item.id, { stage: "done", progress: 1, message: "Uploaded" });
-        onComplete?.();
+        // Note: onComplete is fired once when the entire queue drains (see effect below),
+        // not per item — otherwise the parent may navigate away and unmount the panel
+        // while other videos are still processing.
         return;
       }
 
