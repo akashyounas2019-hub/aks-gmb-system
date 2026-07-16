@@ -186,6 +186,7 @@ async function processItem(item: QueueItem) {
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new Error("Not signed in.");
+  throwIfCancelled(item.id);
 
   // Image path — upload directly, no frame extraction.
   if (item.file.type.startsWith("image/")) {
@@ -196,6 +197,7 @@ async function processItem(item: QueueItem) {
       .from("frames")
       .upload(imgPath, item.file, { contentType: item.file.type, upsert: false });
     if (upErr) throw upErr;
+    throwIfCancelled(item.id);
 
     patchItem(item.id, { stage: "saving", message: "Saving…", progress: 0.7 });
     const baseName = item.file.name.replace(/\.[^.]+$/, "");
@@ -218,12 +220,14 @@ async function processItem(item: QueueItem) {
     maxFrames,
     minFrames,
     onProgress: (p) => {
+      if (cancelled.has(item.id)) return;
       patchItem(item.id, {
         progress: p.progress * 0.3,
         message: p.message ?? "Analyzing video…",
       });
     },
   });
+  throwIfCancelled(item.id);
   if (frames.length === 0) throw new Error("Couldn't extract any frames.");
 
   patchItem(item.id, {
@@ -238,6 +242,7 @@ async function processItem(item: QueueItem) {
     .from("videos")
     .upload(videoPath, item.file, { upsert: false, contentType: item.file.type });
   if (vErr) throw vErr;
+  throwIfCancelled(item.id);
 
   const { data: videoRow, error: vRowErr } = await supabase
     .from("videos")
@@ -253,10 +258,12 @@ async function processItem(item: QueueItem) {
     .select("id")
     .single();
   if (vRowErr) throw vRowErr;
+  throwIfCancelled(item.id);
 
   patchItem(item.id, { stage: "saving", message: "Saving frames…", progress: 0.4 });
   const baseName = item.file.name.replace(/\.[^.]+$/, "");
   for (let i = 0; i < frames.length; i++) {
+    throwIfCancelled(item.id);
     const f = frames[i];
     const framePath = `${userId}/${videoRow.id}/${String(i + 1).padStart(3, "0")}.jpg`;
     const { error: fErr } = await supabase.storage
