@@ -185,7 +185,7 @@ export function clearFinished() {
 }
 
 async function processItem(item: QueueItem) {
-  const { maxFrames, minFrames, sampleMs, autoGeotag, location } = item.opts;
+  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location } = item.opts;
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new Error("Not signed in.");
