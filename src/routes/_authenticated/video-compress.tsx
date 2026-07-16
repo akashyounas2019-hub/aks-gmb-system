@@ -15,6 +15,14 @@ export const Route = createFileRoute("/_authenticated/video-compress")({
 
 type Crop = { x: number; y: number; w: number; h: number };
 
+function formatProcTime(sec: number): string {
+  if (!isFinite(sec) || sec < 1) return "<1s";
+  if (sec < 60) return `${Math.round(sec)}s`;
+  const m = Math.floor(sec / 60);
+  const s = Math.round(sec % 60);
+  return s ? `${m}m ${s}s` : `${m}m`;
+}
+
 function VideoCompressPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
