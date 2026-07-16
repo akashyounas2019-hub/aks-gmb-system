@@ -149,59 +149,92 @@ function LibraryPage() {
 
 
 
-  async function deleteImage(id: string, path: string) {
-    if (!window.confirm("Delete this image? This cannot be undone.")) return;
-    // Delete the DB row first so a storage failure doesn't leave a dangling record.
-    const { error } = await supabase.from("images").delete().eq("id", id);
+  // Soft-delete: images are marked with deleted_at and moved to the Trash tab.
+  // Purge (permanent deletion + storage removal) happens from the Trash tab.
+  async function deleteImage(id: string, _path: string) {
+    if (!window.confirm("Move this image to Trash?")) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ deleted_at: new Date().toISOString() } as never)
+      .eq("id", id);
     if (error) {
       toast.error(error.message);
       return;
     }
-    await supabase.storage.from("frames").remove([path]);
-    toast.success("Deleted");
+    toast.success("Moved to Trash");
     qc.invalidateQueries({ queryKey: ["library"] });
+    qc.invalidateQueries({ queryKey: ["trash"] });
   }
 
-  async function bulkDeleteImages(ids: string[], paths: string[], label: string) {
+  async function bulkDeleteImages(ids: string[], _paths: string[], label: string) {
     if (ids.length === 0) return;
-
-    // Small deletes: single confirm. Large deletes: require typing DELETE to
-    // prevent accidental mass-deletion of user media.
-    if (ids.length <= 5) {
-      if (!window.confirm(`Delete ${ids.length} ${label}? This cannot be undone.`)) return;
-    } else {
-      const typed = window.prompt(
-        `You are about to permanently delete ${ids.length} ${label}. This cannot be undone.\n\nType DELETE to confirm.`,
-      );
-      if (typed?.trim().toUpperCase() !== "DELETE") {
-        toast.message("Delete cancelled");
+    if (!window.confirm(`Move ${ids.length} ${label} to Trash? You can restore from the Trash tab.`)) {
+      return;
+    }
+    const now = new Date().toISOString();
+    let moved = 0;
+    for (let i = 0; i < ids.length; i += 200) {
+      const slice = ids.slice(i, i + 200);
+      const { error } = await supabase
+        .from("images")
+        .update({ deleted_at: now } as never)
+        .in("id", slice);
+      if (error) {
+        toast.error(`Moved ${moved}/${ids.length} before error: ${error.message}`);
+        qc.invalidateQueries({ queryKey: ["library"] });
+        qc.invalidateQueries({ queryKey: ["trash"] });
         return;
       }
+      moved += slice.length;
     }
+    toast.success(`Moved ${ids.length} ${label} to Trash.`);
+    clearSelection();
+    setSelectMode(false);
+    qc.invalidateQueries({ queryKey: ["library"] });
+    qc.invalidateQueries({ queryKey: ["trash"] });
+  }
 
-    // Delete DB rows first (in chunks); only remove storage objects for rows
-    // that were actually deleted. This avoids orphaned blobs on partial failure.
-    let deleted = 0;
+  async function restoreImages(ids: string[]) {
+    if (ids.length === 0) return;
+    const { error } = await supabase
+      .from("images")
+      .update({ deleted_at: null } as never)
+      .in("id", ids);
+    if (error) return toast.error(error.message);
+    toast.success(`Restored ${ids.length} image${ids.length === 1 ? "" : "s"}`);
+    qc.invalidateQueries({ queryKey: ["library"] });
+    qc.invalidateQueries({ queryKey: ["trash"] });
+  }
+
+  async function purgeImages(ids: string[], paths: string[]) {
+    if (ids.length === 0) return;
+    const typed = window.prompt(
+      `Permanently delete ${ids.length} image${ids.length === 1 ? "" : "s"} from Trash? This cannot be undone.\n\nType DELETE to confirm.`,
+    );
+    if (typed?.trim().toUpperCase() !== "DELETE") {
+      toast.message("Purge cancelled");
+      return;
+    }
+    let purged = 0;
     for (let i = 0; i < ids.length; i += 100) {
       const slice = ids.slice(i, i + 100);
       const { error } = await supabase.from("images").delete().in("id", slice);
       if (error) {
-        toast.error(`Deleted ${deleted}/${ids.length} before error: ${error.message}`);
-        qc.invalidateQueries({ queryKey: ["library"] });
+        toast.error(`Purged ${purged}/${ids.length} before error: ${error.message}`);
+        qc.invalidateQueries({ queryKey: ["trash"] });
         return;
       }
-      deleted += slice.length;
+      purged += slice.length;
     }
     if (paths.length > 0) {
       for (let i = 0; i < paths.length; i += 100) {
         await supabase.storage.from("frames").remove(paths.slice(i, i + 100));
       }
     }
-    toast.success(`Deleted ${ids.length} ${label}.`);
-    clearSelection();
-    setSelectMode(false);
-    qc.invalidateQueries({ queryKey: ["library"] });
+    toast.success(`Purged ${ids.length} image${ids.length === 1 ? "" : "s"}.`);
+    qc.invalidateQueries({ queryKey: ["trash"] });
   }
+
 
 
   async function downloadImage(img: {
