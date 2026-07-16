@@ -1640,17 +1640,29 @@ type VideoRow = {
   created_at: string;
   status: string;
   storage_path: string;
+  folder_id: string | null;
 };
+
+type VideoFolderRow = { id: string; name: string };
 
 async function fetchVideos(): Promise<VideoRow[]> {
   const { data, error } = await supabase
     .from("videos")
     .select(
-      "id, original_name, duration_seconds, size_bytes, frame_count, created_at, status, storage_path",
+      "id, original_name, duration_seconds, size_bytes, frame_count, created_at, status, storage_path, folder_id",
     )
     .order("created_at", { ascending: false });
   if (error) throw error;
-  return data ?? [];
+  return (data ?? []) as VideoRow[];
+}
+
+async function fetchVideoFolders(): Promise<VideoFolderRow[]> {
+  const { data, error } = await supabase
+    .from("video_folders")
+    .select("id, name")
+    .order("name", { ascending: true });
+  if (error) throw error;
+  return (data ?? []) as VideoFolderRow[];
 }
 
 function formatBytes(n: number | null | undefined) {
@@ -1665,10 +1677,18 @@ const STORAGE_QUOTA_BYTES = 1 * 1024 * 1024 * 1024;
 function VideosPanel() {
   const qc = useQueryClient();
   const { data, isLoading } = useQuery({ queryKey: ["videos"], queryFn: fetchVideos });
+  const { data: folders } = useQuery({ queryKey: ["video_folders"], queryFn: fetchVideoFolders });
   const [preview, setPreview] = useState<VideoRow | null>(null);
+  const [folderId, setFolderId] = useState<string | null>(null); // null = All, "__uncategorized" = unfiled
 
   const totalBytes = (data ?? []).reduce((s, v) => s + (v.size_bytes ?? 0), 0);
   const usedPct = Math.min(100, (totalBytes / STORAGE_QUOTA_BYTES) * 100);
+
+  const visible = (data ?? []).filter((v) => {
+    if (folderId === null) return true;
+    if (folderId === "__uncategorized") return v.folder_id == null;
+    return v.folder_id === folderId;
+  });
 
   const deleteMut = useMutation({
     mutationFn: async (v: VideoRow) => {
@@ -1683,6 +1703,52 @@ function VideosPanel() {
     },
     onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
   });
+
+  async function createVideoFolder() {
+    const name = window.prompt("Folder name")?.trim();
+    if (!name) return;
+    const { data: userData } = await supabase.auth.getUser();
+    const userId = userData.user?.id;
+    if (!userId) return toast.error("Not signed in.");
+    const { data: row, error } = await supabase
+      .from("video_folders")
+      .insert({ owner_id: userId, name })
+      .select("id")
+      .single();
+    if (error) return toast.error(error.message);
+    toast.success(`Created folder “${name}”.`);
+    qc.invalidateQueries({ queryKey: ["video_folders"] });
+    if (row) setFolderId(row.id);
+  }
+
+  async function renameVideoFolder(id: string, current: string) {
+    const name = window.prompt("Rename folder", current)?.trim();
+    if (!name || name === current) return;
+    const { error } = await supabase.from("video_folders").update({ name }).eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Folder renamed.");
+    qc.invalidateQueries({ queryKey: ["video_folders"] });
+  }
+
+  async function deleteVideoFolder(id: string, name: string) {
+    if (!window.confirm(`Delete folder “${name}”? Videos inside stay in Videos.`)) return;
+    const { error } = await supabase.from("video_folders").delete().eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success("Folder deleted.");
+    if (folderId === id) setFolderId(null);
+    qc.invalidateQueries({ queryKey: ["video_folders"] });
+    qc.invalidateQueries({ queryKey: ["videos"] });
+  }
+
+  async function moveVideoToFolder(videoId: string, targetFolderId: string | null) {
+    const { error } = await supabase
+      .from("videos")
+      .update({ folder_id: targetFolderId })
+      .eq("id", videoId);
+    if (error) return toast.error(error.message);
+    toast.success(targetFolderId ? "Moved to folder." : "Removed from folder.");
+    qc.invalidateQueries({ queryKey: ["videos"] });
+  }
 
   return (
     <div className="mt-6">
@@ -1704,25 +1770,121 @@ function VideosPanel() {
         </div>
       </div>
 
+      {/* Folders panel — mirrors the Raw Images folder UI */}
+      <div className="mb-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
+          <div className="flex items-center gap-2">
+            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <FolderIcon className="h-4 w-4" />
+            </div>
+            <div>
+              <div className="text-sm font-semibold leading-tight">Folders</div>
+              <div className="text-[11px] text-muted-foreground">Organize videos into groups</div>
+            </div>
+          </div>
+          <button
+            onClick={createVideoFolder}
+            className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
+          >
+            <FolderPlus className="h-3.5 w-3.5" /> New folder
+          </button>
+        </div>
+        <div className="flex flex-wrap gap-2 p-4">
+          <FolderChip
+            active={folderId === null}
+            icon={Film}
+            label="All videos"
+            count={data?.length ?? 0}
+            onClick={() => setFolderId(null)}
+          />
+          <FolderChip
+            active={folderId === "__uncategorized"}
+            icon={Film}
+            label="Unfiled"
+            count={(data ?? []).filter((v) => v.folder_id == null).length}
+            onClick={() => setFolderId("__uncategorized")}
+          />
+          {folders?.map((f) => {
+            const count = (data ?? []).filter((v) => v.folder_id === f.id).length;
+            const active = folderId === f.id;
+            return (
+              <div
+                key={f.id}
+                className={`group inline-flex items-center overflow-hidden rounded-full border text-xs transition ${
+                  active
+                    ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+                    : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
+                }`}
+              >
+                <button
+                  onClick={() => setFolderId(f.id)}
+                  className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
+                >
+                  <FolderIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <span>{f.name}</span>
+                  <span
+                    className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                      active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+                <div className="flex items-center pr-1 opacity-0 transition group-hover:opacity-100">
+                  <button
+                    onClick={() => renameVideoFolder(f.id, f.name)}
+                    aria-label="Rename folder"
+                    title="Rename"
+                    className="rounded-full p-1 hover:bg-accent"
+                  >
+                    <Pencil className="h-3 w-3" />
+                  </button>
+                  <button
+                    onClick={() => deleteVideoFolder(f.id, f.name)}
+                    aria-label="Delete folder"
+                    title="Delete folder"
+                    className="rounded-full p-1 text-destructive hover:bg-destructive/10"
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+          {(folders?.length ?? 0) === 0 && (
+            <div className="flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+              <FolderPlus className="h-3 w-3" />
+              No folders yet — click <span className="font-medium">New folder</span> to start.
+            </div>
+          )}
+        </div>
+      </div>
+
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
-      ) : (data?.length ?? 0) === 0 ? (
+      ) : visible.length === 0 ? (
         <div className="rounded-2xl border border-dashed border-border p-10 text-center">
           <Film className="mx-auto h-8 w-8 text-muted-foreground" />
-          <p className="mt-3 text-muted-foreground">No videos yet.</p>
-          <Link
-            to="/upload"
-            className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
-          >
-            Upload one
-          </Link>
+          <p className="mt-3 text-muted-foreground">
+            {(data?.length ?? 0) === 0 ? "No videos yet." : "No videos in this folder."}
+          </p>
+          {(data?.length ?? 0) === 0 && (
+            <Link
+              to="/upload"
+              className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
+            >
+              Upload one
+            </Link>
+          )}
         </div>
       ) : (
         <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {data!.map((v) => (
+          {visible.map((v) => (
             <VideoCard
               key={v.id}
               video={v}
+              folders={folders ?? []}
+              onMove={(fid) => moveVideoToFolder(v.id, fid)}
               onPreview={() => setPreview(v)}
               onDelete={() => {
                 if (confirm(`Delete "${v.original_name}"? This can't be undone.`)) {
