@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save } from "lucide-react";
+import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, getFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
@@ -111,6 +111,50 @@ function VideoCompressPage() {
     const procSec = 2 + (outW * outH * 30 * trimDur) / pixelsPerSec;
     return { sizeBytes, savingsPct, outW, outH, durSec: trimDur, procSec };
   }, [file, dims, crop, scale, quality, duration, trim.start, trim.end]);
+
+  // Pre-flight checks — surface likely failures before the user clicks Compress.
+  const preflight = useMemo(() => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+    if (!file || !dims) return { errors, warnings };
+    const fullDur = duration ?? 0;
+    const trimDur = Math.max(0, trim.end - trim.start);
+
+    // Trim / duration checks
+    if (fullDur > 0) {
+      if (trimDur < 0.2) errors.push("Trim range is under 0.2s — output would be empty or invalid.");
+      else if (trimDur < 1) warnings.push(`Trim range is very short (${trimDur.toFixed(2)}s); some players may not play it.`);
+      if (trim.start < 0 || trim.end > fullDur + 0.05) errors.push("Trim range is outside the video's duration.");
+      if (trim.start >= trim.end) errors.push("Trim start is at or after trim end.");
+      if (fullDur > MAX_VIDEO_DURATION_SECONDS) {
+        errors.push(`Source exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`);
+      }
+    }
+
+    // Crop checks
+    if (crop) {
+      if (crop.w < 2 || crop.h < 2) errors.push("Crop region has zero (or near-zero) area.");
+      if (crop.x < 0 || crop.y < 0 || crop.x + crop.w > dims.w + 0.5 || crop.y + crop.h > dims.h + 0.5) {
+        errors.push("Crop region extends outside the video frame.");
+      }
+    }
+
+    // Output resolution checks (after scale + even rounding)
+    if (estimate) {
+      if (estimate.outW < 16 || estimate.outH < 16) {
+        errors.push(`Output resolution ${estimate.outW}×${estimate.outH} is too small — increase scale or crop size.`);
+      } else if (estimate.outW < 64 || estimate.outH < 64) {
+        warnings.push(`Output resolution ${estimate.outW}×${estimate.outH} is very small.`);
+      }
+      if (estimate.procSec > 180) {
+        warnings.push(`Processing may take ~${formatProcTime(estimate.procSec)} — consider lowering scale or trimming further.`);
+      }
+    }
+
+    return { errors, warnings };
+  }, [file, dims, duration, trim.start, trim.end, crop, estimate]);
+
+  const hasBlockingIssues = preflight.errors.length > 0;
 
 
   useEffect(() => {
@@ -552,10 +596,40 @@ function VideoCompressPage() {
               </div>
             </div>
           )}
+          {file && (preflight.errors.length > 0 || preflight.warnings.length > 0) && (
+            <div
+              className={
+                preflight.errors.length > 0
+                  ? "rounded-md border border-destructive/50 bg-destructive/10 p-3 text-xs"
+                  : "rounded-md border border-amber-500/50 bg-amber-500/10 p-3 text-xs"
+              }
+            >
+              <div className="flex items-center gap-2 font-medium text-foreground">
+                <AlertTriangle
+                  className={
+                    preflight.errors.length > 0
+                      ? "h-3.5 w-3.5 text-destructive"
+                      : "h-3.5 w-3.5 text-amber-600 dark:text-amber-400"
+                  }
+                />
+                {preflight.errors.length > 0 ? "Fix before compressing" : "Heads up"}
+              </div>
+              <ul className="mt-1 space-y-0.5 pl-5 text-muted-foreground [list-style:disc]">
+                {preflight.errors.map((m, i) => (
+                  <li key={`e${i}`} className="text-foreground/90">{m}</li>
+                ))}
+                {preflight.warnings.map((m, i) => (
+                  <li key={`w${i}`}>{m}</li>
+                ))}
+              </ul>
+            </div>
+          )}
           <button
             onClick={run}
-            disabled={!file || busy}
+            disabled={!file || busy || hasBlockingIssues}
+            title={hasBlockingIssues ? "Resolve the highlighted issues to enable compression" : undefined}
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
+          
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             Compress & crop
