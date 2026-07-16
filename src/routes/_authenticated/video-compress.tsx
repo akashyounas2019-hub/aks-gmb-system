@@ -711,6 +711,7 @@ function VideoCompressPage() {
             aria-label="Before/after divider position"
             className="mt-3 w-full"
           />
+          </div>
         </div>
       )}
     </div>
