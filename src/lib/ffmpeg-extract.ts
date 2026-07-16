@@ -99,10 +99,12 @@ export async function extractSharpFrames(
     sampleEveryMs = 1000,
     bucketSeconds = 5,
     maxFrames = 20,
+    minFrames = 0,
     maxDimension = 1600,
     jpegQuality = 0.92,
     onProgress,
   } = options;
+  const effectiveMax = Math.max(maxFrames, minFrames);
 
   onProgress?.({ stage: "loading", progress: 0 });
   const video = await loadVideo(file);
