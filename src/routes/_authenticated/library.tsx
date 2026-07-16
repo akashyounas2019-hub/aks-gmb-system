@@ -642,6 +642,80 @@ function LibraryPage() {
             )}
           </div>
 
+          {tab === "raw" && (
+            <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-background/40 px-4 py-2.5 text-xs">
+              <button
+                onClick={() => {
+                  setSelectMode((s) => {
+                    if (s) clearSelection();
+                    return !s;
+                  });
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-medium ${
+                  selectMode
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border hover:bg-accent"
+                }`}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                {selectMode ? "Done" : "Select"}
+              </button>
+              <button
+                onClick={() => {
+                  setSelectMode(true);
+                  selectAll();
+                }}
+                disabled={filtered.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                Select all ({filtered.length})
+              </button>
+              {selectMode && (
+                <>
+                  <button
+                    onClick={clearSelection}
+                    disabled={selected.size === 0}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                  >
+                    <Square className="h-3.5 w-3.5" /> Clear
+                  </button>
+                  <span className="text-muted-foreground">
+                    <strong className="text-foreground">{selected.size}</strong> selected
+                  </span>
+                  <div className="ml-auto flex flex-wrap items-center gap-2">
+                    <button
+                      onClick={() => {
+                        const ids = Array.from(selected);
+                        const paths = filtered
+                          .filter((i) => selected.has(i.id))
+                          .map((i) => i.storage_path);
+                        bulkDeleteImages(ids, paths, ids.length === 1 ? "image" : "images");
+                      }}
+                      disabled={selected.size === 0}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete selected ({selected.size})
+                    </button>
+                    <button
+                      onClick={() => {
+                        const ids = filtered.map((i) => i.id);
+                        const paths = filtered.map((i) => i.storage_path);
+                        bulkDeleteImages(ids, paths, "images in this view");
+                      }}
+                      disabled={filtered.length === 0}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
+          )}
+
+
+
           {selectMode && selected.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-primary/[0.04] px-4 py-2.5 text-xs">
               <span className="font-medium">
