@@ -90,6 +90,10 @@ function LibraryPage() {
   const [filter, setFilter] = useState("");
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  // Tracks whether the current selection was produced by "Select all". Any
+  // manual toggle or clear resets this so "Delete all" only appears in the
+  // deliberate select-all workflow.
+  const [selectedViaAll, setSelectedViaAll] = useState(false);
   const [bulkPanel, setBulkPanel] = useState<null | "keywords" | "geotag">(null);
   const [autoTagging, setAutoTagging] = useState(false);
   const [tab, setTab] = useState<LibraryTab>("raw");
@@ -365,6 +369,7 @@ function LibraryPage() {
 
 
   function toggleSelect(id: string) {
+    setSelectedViaAll(false);
     setSelected((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id);
@@ -375,10 +380,13 @@ function LibraryPage() {
 
   function selectAll() {
     setSelected(new Set(filtered.map((i) => i.id)));
+    setSelectedViaAll(true);
   }
   function clearSelection() {
     setSelected(new Set());
+    setSelectedViaAll(false);
   }
+
 
   const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
     { id: "upload", label: "Upload", icon: UploadCloud },
@@ -506,7 +514,7 @@ function LibraryPage() {
         </div>
       )}
 
-      {tab !== "videos" && tab !== "upload" && selectMode && selected.size > 0 && (
+      {tab !== "videos" && tab !== "upload" && tab !== "raw" && selectMode && selected.size > 0 && (
         <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-3 text-xs">
           <span className="font-medium">
             Move {selected.size} selected to folder:
@@ -697,17 +705,19 @@ function LibraryPage() {
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Delete selected ({selected.size})
                     </button>
-                    <button
-                      onClick={() => {
-                        const ids = filtered.map((i) => i.id);
-                        const paths = filtered.map((i) => i.storage_path);
-                        bulkDeleteImages(ids, paths, "images in this view");
-                      }}
-                      disabled={filtered.length === 0}
-                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
-                    </button>
+                    {selectedViaAll && selected.size === filtered.length && filtered.length > 0 && (
+                      <button
+                        onClick={() => {
+                          const ids = filtered.map((i) => i.id);
+                          const paths = filtered.map((i) => i.storage_path);
+                          bulkDeleteImages(ids, paths, "images in this view");
+                        }}
+                        className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
+                      </button>
+                    )}
+
                   </div>
                 </>
               )}
