@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
-  loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
+  loadFFmpeg, getFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
   validateVideoFileBasic, validateVideoFile, MAX_VIDEO_DURATION_SECONDS,
 } from "@/lib/ffmpeg-client";
 import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
@@ -19,6 +19,8 @@ function VideoCompressPage() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+  const [duration, setDuration] = useState<number | null>(null); // seconds
+  const [trim, setTrim] = useState<{ start: number; end: number }>({ start: 0, end: 0 });
   const [crop, setCrop] = useState<Crop | null>(null);
   const [quality, setQuality] = useState(28); // CRF: lower = better quality, larger file
   const [scale, setScale] = useState(100); // % of original
@@ -122,6 +124,8 @@ function VideoCompressPage() {
       setPreviewUrl(null);
       setDims(null);
       setCrop(null);
+      setDuration(null);
+      setTrim({ start: 0, end: 0 });
       return;
     }
     const url = URL.createObjectURL(file);
@@ -134,6 +138,9 @@ function VideoCompressPage() {
     if (!v) return;
     setDims({ w: v.videoWidth, h: v.videoHeight });
     setCrop({ x: 0, y: 0, w: v.videoWidth, h: v.videoHeight });
+    const d = Number.isFinite(v.duration) ? v.duration : null;
+    setDuration(d);
+    if (d && d > 0) setTrim({ start: 0, end: d });
   }
 
   function startDrag(e: React.MouseEvent<HTMLDivElement>) {
@@ -201,29 +208,49 @@ function VideoCompressPage() {
     setStartedAt(Date.now());
     setNow(Date.now());
     setStatus("Loading engine…");
+    // Capture ffmpeg log for real error surfacing.
+    const logs: string[] = [];
+    let logHandler: ((e: { message: string }) => void) | null = null;
     try {
       const ff = await loadFFmpeg(undefined, (p) => setProgress(Math.max(0, Math.min(1, p))));
+      logHandler = ({ message }) => {
+        logs.push(message);
+        if (logs.length > 200) logs.shift();
+      };
+      ff.on("log", logHandler);
+
       const inputName = "input" + (file.name.match(/\.[^.]+$/)?.[0] ?? "");
       const outputName = "output.mp4";
       setStatus("Reading file…");
       await ff.writeFile(inputName, await fetchFile(file));
 
-      // Ensure even dims for libx264
-      const cw = crop.w - (crop.w % 2);
-      const ch = crop.h - (crop.h % 2);
+      // Clamp + even crop dims for libx264 (odd or zero dims cause an "Invalid argument" abort).
+      const clampedW = Math.max(2, Math.min(crop.w, dims.w - crop.x));
+      const clampedH = Math.max(2, Math.min(crop.h, dims.h - crop.y));
+      const cw = Math.max(2, clampedW - (clampedW % 2));
+      const ch = Math.max(2, clampedH - (clampedH % 2));
+      const cx = Math.max(0, Math.min(crop.x, dims.w - cw));
+      const cy = Math.max(0, Math.min(crop.y, dims.h - ch));
       const targetW = Math.max(2, Math.round((cw * scale) / 100));
       const targetH = Math.max(2, Math.round((ch * scale) / 100));
-      const outW = targetW - (targetW % 2);
-      const outH = targetH - (targetH % 2);
+      const outW = Math.max(2, targetW - (targetW % 2));
+      const outH = Math.max(2, targetH - (targetH % 2));
 
-      const filters = [
-        `crop=${cw}:${ch}:${crop.x}:${crop.y}`,
-        `scale=${outW}:${outH}`,
-      ].join(",");
+      const filters = [`crop=${cw}:${ch}:${cx}:${cy}`, `scale=${outW}:${outH}`].join(",");
 
-      setStatus("Encoding…");
-      await ff.exec([
-        "-i", inputName,
+      // Trim: use -ss BEFORE -i for fast seek, then -t for duration (more reliable than -to across builds).
+      const trimStart = Math.max(0, trim.start);
+      const trimDur = Math.max(0.05, trim.end - trim.start);
+      const trimActive = duration !== null && (trimStart > 0.01 || trim.end < duration - 0.01);
+
+      const args: string[] = [];
+      if (trimActive) args.push("-ss", trimStart.toFixed(3));
+      args.push("-i", inputName);
+      if (trimActive) args.push("-t", trimDur.toFixed(3));
+      args.push(
+        // Take the first video stream; make audio optional so silent videos don't fail.
+        "-map", "0:v:0",
+        "-map", "0:a?",
         "-vf", filters,
         "-c:v", "libx264",
         "-preset", "veryfast",
@@ -231,8 +258,12 @@ function VideoCompressPage() {
         "-c:a", "aac",
         "-b:a", "128k",
         "-movflags", "+faststart",
+        "-pix_fmt", "yuv420p",
         outputName,
-      ]);
+      );
+
+      setStatus(trimActive ? "Encoding (trim + crop)…" : "Encoding…");
+      await ff.exec(args);
 
       const data = await ff.readFile(outputName);
       const bytes = data instanceof Uint8Array ? data : new TextEncoder().encode(String(data));
@@ -242,12 +273,22 @@ function VideoCompressPage() {
       const outName = file.name.replace(/\.[^.]+$/, "") + "-compressed.mp4";
       setResult({ blob, name: outName, size: blob.size });
       setStatus("Done");
+      // Best-effort cleanup of in-memory FS.
+      try { await ff.deleteFile(inputName); } catch { /* ignore */ }
+      try { await ff.deleteFile(outputName); } catch { /* ignore */ }
       toast.success(`Reduced from ${humanSize(file.size)} to ${humanSize(blob.size)}`);
     } catch (err) {
-      console.error(err);
-      toast.error(err instanceof Error ? err.message : "Processing failed");
+      console.error("[compress] ffmpeg failed", err, "\nlast ffmpeg logs:\n" + logs.slice(-25).join("\n"));
+      const ffErr = logs.slice().reverse().find((l) =>
+        /error|invalid|failed|no such|unsupported|does not contain/i.test(l),
+      );
+      const baseMsg = err instanceof Error && err.message ? err.message : "Processing failed";
+      toast.error(ffErr ? `${baseMsg}: ${ffErr}` : baseMsg);
       setStatus("Failed");
     } finally {
+      if (logHandler) {
+        try { getFFmpeg().off("log", logHandler); } catch { /* ignore */ }
+      }
       setBusy(false);
     }
   }
@@ -350,6 +391,54 @@ function VideoCompressPage() {
               className="mt-2 w-full"
             />
           </div>
+          {duration !== null && duration > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium">Trim</span>
+                <span className="tabular-nums text-xs text-muted-foreground">
+                  {formatDuration(trim.start * 1000)} → {formatDuration(trim.end * 1000)}
+                  <span className="ml-1">({formatDuration(Math.max(0, trim.end - trim.start) * 1000)})</span>
+                </span>
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Start</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.1}
+                  value={trim.start}
+                  onChange={(e) => {
+                    const s = Number(e.target.value);
+                    setTrim((t) => ({ start: Math.min(s, t.end - 0.1), end: t.end }));
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <div>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">End</label>
+                <input
+                  type="range"
+                  min={0}
+                  max={duration}
+                  step={0.1}
+                  value={trim.end}
+                  onChange={(e) => {
+                    const en = Number(e.target.value);
+                    setTrim((t) => ({ start: t.start, end: Math.max(en, t.start + 0.1) }));
+                  }}
+                  className="w-full"
+                />
+              </div>
+              <button
+                type="button"
+                onClick={() => setTrim({ start: 0, end: duration })}
+                className="text-[11px] text-muted-foreground underline underline-offset-2 hover:text-foreground"
+              >
+                Reset to full length
+              </button>
+            </div>
+          )}
           {crop && dims && (
             <div className="rounded-md border border-border/60 bg-background/60 p-3 text-xs">
               <div className="font-medium text-foreground">Crop region</div>
