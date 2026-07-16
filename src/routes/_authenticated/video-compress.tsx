@@ -24,10 +24,51 @@ function VideoCompressPage() {
   const [progress, setProgress] = useState(0);
   const [status, setStatus] = useState("");
   const [result, setResult] = useState<{ blob: Blob; name: string; size: number } | null>(null);
+  const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [comparePct, setComparePct] = useState(50);
   const [startedAt, setStartedAt] = useState<number | null>(null);
   const [now, setNow] = useState<number>(Date.now());
   const videoRef = useRef<HTMLVideoElement>(null);
+  const beforeCmpRef = useRef<HTMLVideoElement>(null);
+  const afterCmpRef = useRef<HTMLVideoElement>(null);
+  const compareBoxRef = useRef<HTMLDivElement>(null);
   const dragRef = useRef<{ startX: number; startY: number; box: DOMRect } | null>(null);
+  const compareDragRef = useRef(false);
+
+  useEffect(() => {
+    if (!result) {
+      setResultUrl(null);
+      return;
+    }
+    const url = URL.createObjectURL(result.blob);
+    setResultUrl(url);
+    setComparePct(50);
+    return () => URL.revokeObjectURL(url);
+  }, [result]);
+
+  // Keep the two comparison players in sync while scrubbing/playing.
+  function syncPlay() {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (!b || !a) return;
+    a.currentTime = b.currentTime;
+    if (!b.paused) a.play().catch(() => {});
+  }
+  function syncPause() {
+    const a = afterCmpRef.current;
+    if (a) a.pause();
+  }
+  function syncSeek() {
+    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    if (b && a) a.currentTime = b.currentTime;
+  }
+
+  function updateCompareFromEvent(clientX: number) {
+    const box = compareBoxRef.current;
+    if (!box) return;
+    const rect = box.getBoundingClientRect();
+    const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
+    setComparePct(pct);
+  }
 
   useEffect(() => {
     if (!busy) return;
@@ -321,6 +362,90 @@ function VideoCompressPage() {
           )}
         </div>
       </div>
+
+      {result && resultUrl && previewUrl && (
+        <div className="mt-6 rounded-xl border border-border/60 bg-card p-4">
+          <div className="mb-3 flex items-center justify-between gap-3">
+            <div className="text-sm">
+              <span className="font-medium">Before / after preview</span>
+              <span className="ml-2 text-xs text-muted-foreground">
+                Drag the divider · use the Before player's controls to scrub
+              </span>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
+              <span className="rounded bg-accent/40 px-2 py-0.5">Original {humanSize(file!.size)}</span>
+              <span className="rounded bg-primary/20 px-2 py-0.5 text-foreground">Compressed {humanSize(result.size)}</span>
+            </div>
+          </div>
+
+          <div
+            ref={compareBoxRef}
+            className="relative select-none overflow-hidden rounded-lg bg-black"
+            onMouseMove={(e) => { if (compareDragRef.current) updateCompareFromEvent(e.clientX); }}
+            onMouseUp={() => { compareDragRef.current = false; }}
+            onMouseLeave={() => { compareDragRef.current = false; }}
+            onTouchMove={(e) => { if (compareDragRef.current && e.touches[0]) updateCompareFromEvent(e.touches[0].clientX); }}
+            onTouchEnd={() => { compareDragRef.current = false; }}
+          >
+            <video
+              ref={beforeCmpRef}
+              src={previewUrl}
+              controls
+              muted
+              onPlay={syncPlay}
+              onPause={syncPause}
+              onSeeked={syncSeek}
+              onTimeUpdate={() => {
+                const b = beforeCmpRef.current, a = afterCmpRef.current;
+                if (b && a && Math.abs(b.currentTime - a.currentTime) > 0.25) a.currentTime = b.currentTime;
+              }}
+              className="block max-h-[560px] w-full"
+            />
+            <div
+              className="pointer-events-none absolute inset-0 overflow-hidden"
+              style={{ clipPath: `inset(0 0 0 ${comparePct}%)` }}
+            >
+              <video
+                ref={afterCmpRef}
+                src={resultUrl}
+                muted
+                playsInline
+                className="block h-full w-full object-contain"
+              />
+            </div>
+            <div
+              className="absolute inset-y-0 w-0.5 -translate-x-1/2 cursor-ew-resize bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
+              style={{ left: `${comparePct}%` }}
+              onMouseDown={(e) => { compareDragRef.current = true; updateCompareFromEvent(e.clientX); e.preventDefault(); }}
+              onTouchStart={(e) => { compareDragRef.current = true; if (e.touches[0]) updateCompareFromEvent(e.touches[0].clientX); }}
+            >
+              <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <polyline points="15 18 9 12 15 6" />
+                  <polyline points="9 18 15 12 9 6" />
+                </svg>
+              </div>
+            </div>
+            <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
+              Before
+            </div>
+            <div className="pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
+              After
+            </div>
+          </div>
+
+          <input
+            type="range"
+            min={0}
+            max={100}
+            step={0.5}
+            value={comparePct}
+            onChange={(e) => setComparePct(Number(e.target.value))}
+            aria-label="Before/after divider position"
+            className="mt-3 w-full"
+          />
+        </div>
+      )}
     </div>
   );
 }
