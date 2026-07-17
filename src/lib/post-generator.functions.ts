@@ -19,7 +19,17 @@ const ComposeInput = z.object({
   businessName: z.string().max(120).optional(),
   callToAction: z.string().max(200).optional(),
   extraContext: z.string().max(1000).optional(),
+  // Optional template used ONLY as a stylistic reference — the model must
+  // produce a fresh, unique caption in a similar voice/structure, never copy
+  // sentences from it verbatim.
+  styleReference: z
+    .object({
+      name: z.string().max(120).optional(),
+      body: z.string().max(4000),
+    })
+    .optional(),
 });
+
 
 export const composePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
