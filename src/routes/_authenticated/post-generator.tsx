@@ -165,6 +165,9 @@ export function PostGeneratorPage({
   const [templateSearch, setTemplateSearch] = useState("");
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [previewingTemplate, setPreviewingTemplate] = useState<PostTemplate | null>(null);
+  // Template used as a stylistic guide only — the AI generates a new caption
+  // in that style. Set from the template preview modal, cleared with a button.
+  const [styleTemplate, setStyleTemplate] = useState<PostTemplate | null>(null);
   const [newTplName, setNewTplName] = useState("");
   const [newTplBody, setNewTplBody] = useState("");
   const [newTplFolder, setNewTplFolder] = useState("");
