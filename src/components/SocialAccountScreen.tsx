@@ -43,9 +43,20 @@ export function SocialAccountScreen({
   title: string;
   libraryCategories?: CategoryDef[];
 }) {
-  const [tab, setTab] = useState<
-    "library" | "upload" | "compose" | "calendar" | "ai-prompts"
-  >("upload");
+  const location = useLocation();
+  const navigate = useNavigate();
+  const urlTab = (location.search as { tab?: string } | undefined)?.tab;
+  const tab: TabId =
+    urlTab && (VALID_TABS as string[]).includes(urlTab)
+      ? (urlTab as TabId)
+      : "upload";
+  const setTab = (t: TabId) => {
+    navigate({
+      to: location.pathname,
+      search: { tab: t } as never,
+      replace: false,
+    });
+  };
   const [reloadKey, setReloadKey] = useState(0);
 
   return (
