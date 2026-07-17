@@ -5,6 +5,7 @@ import { MapPin, Loader2, ExternalLink, Star } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { getPreferences } from "@/lib/user-preferences.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
+import { geocodeAddress } from "@/lib/geocode.functions";
 import { loadGoogleMaps } from "@/lib/google-maps";
 
 type Competitor = {
@@ -36,6 +37,7 @@ type General = {
 export function DashboardCompetitorMap() {
   const loadPrefs = useServerFn(getPreferences);
   const fetchCompetitors = useServerFn(listCompetitors);
+  const geocode = useServerFn(geocodeAddress);
   const [general, setGeneral] = useState<General | null>(null);
   const [businessCoords, setBusinessCoords] =
     useState<{ lat: number; lng: number } | null>(null);
@@ -89,27 +91,22 @@ export function DashboardCompetitorMap() {
     let cancelled = false;
     setStatus("loading");
 
-    loadGoogleMaps()
-      .then(async (google) => {
-        if (cancelled) return;
-        const geocoder = new google.maps.Geocoder();
-        const businessLoc = await new Promise<{ lat: number; lng: number } | null>(
-          (resolve) => {
-            geocoder.geocode({ address: fullAddress }, (results, s) => {
-              if (s === "OK" && results && results[0]) {
-                const loc = results[0].geometry.location;
-                resolve({ lat: loc.lat(), lng: loc.lng() });
-              } else resolve(null);
-            });
-          },
+    (async () => {
+      try {
+        const res = await geocode({ data: { address: fullAddress } }).catch(
+          () => null,
         );
         if (cancelled) return;
-        if (!businessLoc) {
+        if (!res) {
           setStatus("error");
           setError("Could not resolve your business address.");
           return;
         }
+        const businessLoc = { lat: res.lat, lng: res.lng };
         setBusinessCoords(businessLoc);
+
+        const google = await loadGoogleMaps();
+        if (cancelled) return;
 
         // Resolve competitor coordinates via Places API (New).
         // Only place IDs that look canonical (ChIJ…) are used.
@@ -151,17 +148,17 @@ export function DashboardCompetitorMap() {
         if (cancelled) return;
         setLocated(resolved);
         setStatus("ready");
-      })
-      .catch((e: Error) => {
+      } catch (e) {
         if (cancelled) return;
         setStatus("error");
-        setError(e.message);
-      });
+        setError(e instanceof Error ? e.message : "Failed to load map");
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [general, fullAddress, competitors]);
+  }, [general, fullAddress, competitors, geocode]);
 
   // Render map once we have business coords.
   useEffect(() => {
