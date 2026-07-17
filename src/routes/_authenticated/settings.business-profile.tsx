@@ -50,6 +50,7 @@ function BusinessProfilePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [geocodeAttempt, setGeocodeAttempt] = useState(0);
   const [cities, setCities] = useState<Array<{ name: string; distanceKm: number }>>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [citiesError, setCitiesError] = useState<string | null>(null);
