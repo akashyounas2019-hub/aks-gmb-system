@@ -2300,17 +2300,17 @@ export function PostGeneratorPage({
                             />
                           </div>
                           <p className="mt-2 text-[10px] text-muted-foreground">
-                            Templates only replace the Description text. Other
-                            fields stay as you've set them.
+                            Templates are used as a <strong>style reference only</strong>.
+                            Your Description is never overwritten — clicking Generate
+                            will create a new caption in this template's tone and
+                            structure.
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5">
                         <div className="text-[11px] text-muted-foreground">
-                          {caption.trim()
-                            ? "Applying will replace your current description."
-                            : "Applying will fill the description."}
+                          The AI will produce a fresh, unique caption in this style.
                         </div>
                         <div className="flex items-center gap-2">
                           <button
