@@ -279,10 +279,25 @@ function BusinessProfilePage() {
               className="mb-3 h-56 w-full overflow-hidden rounded-md bg-muted"
             >
               {!coords && (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  {geocoding
-                    ? "Locating business…"
-                    : geoError ?? "Add an address to see the map."}
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-xs text-muted-foreground">
+                  {geocoding ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Locating business…
+                    </span>
+                  ) : geoError ? (
+                    <>
+                      <span>{geoError}</span>
+                      <button
+                        type="button"
+                        onClick={() => setGeocodeAttempt((n) => n + 1)}
+                        className="rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-muted"
+                      >
+                        Retry
+                      </button>
+                    </>
+                  ) : (
+                    <span>Add an address to see the map.</span>
+                  )}
                 </div>
               )}
             </div>
