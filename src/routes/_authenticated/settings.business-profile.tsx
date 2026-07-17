@@ -111,8 +111,15 @@ function BusinessProfilePage() {
       .catch((e: Error) => {
         if (cancelled) return;
         setGeocoding(false);
-        setGeoError(e.message);
+        setGeoError(
+          e.message ||
+            "Could not locate your business address. Check the address and try again.",
+        );
       });
+    return () => {
+      cancelled = true;
+    };
+  }, [fullAddress, geocode, geocodeAttempt]);
     return () => {
       cancelled = true;
     };
