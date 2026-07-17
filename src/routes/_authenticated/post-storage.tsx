@@ -726,14 +726,8 @@ function PostCard({
           </div>
         </div>
 
-      )}
-      {(post.imageIds?.length ?? 0) > 0 && attached.length === 0 && (
-        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <ImageIcon className="h-3 w-3" /> Loading {post.imageIds.length} image
-          {post.imageIds.length === 1 ? "" : "s"}…
-        </div>
-      )}
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+
 
         <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
           {post.status}
