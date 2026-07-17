@@ -176,7 +176,7 @@ export function DashboardCompetitorMap() {
     return () => {
       cancelled = true;
     };
-  }, [general, fullAddress, competitors, geocode]);
+  }, [general, fullAddress, competitors, geocode, geocodeAttempt]);
 
   // Render map once we have business coords.
   useEffect(() => {
