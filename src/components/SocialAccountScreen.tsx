@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { Link } from "@tanstack/react-router";
+import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { CalendarDays, Images, PenSquare, Upload, Loader2, Trash2, ArrowRightLeft, Wand2, Sparkles } from "lucide-react";
 import { AiImagePromptGenerator } from "@/components/AiImagePromptGenerator";
 import { CalendarPage } from "@/routes/_authenticated/calendar";
@@ -10,6 +10,9 @@ import {
   PostGeneratorPage,
   type SocialPlatform,
 } from "@/routes/_authenticated/post-generator";
+
+type TabId = "library" | "upload" | "compose" | "calendar" | "ai-prompts";
+const VALID_TABS: TabId[] = ["library", "upload", "compose", "calendar", "ai-prompts"];
 
 type LibraryPlatform = Extract<SocialPlatform, "facebook" | "instagram" | "linkedin">;
 
