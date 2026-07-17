@@ -242,9 +242,10 @@ export function DashboardCompetitorMap() {
     return () => {
       cancelled = true;
     };
-  }, [businessCoords, located, general?.businessName]);
+  }, [businessCoords, located, general?.businessName, status]);
 
-  return (
+  const showMap = status === "ready" || status === "partial";
+
     <div className="rounded-xl border border-border bg-card p-4">
       <div className="mb-3 flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
