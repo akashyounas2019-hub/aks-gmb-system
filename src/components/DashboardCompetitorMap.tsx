@@ -37,6 +37,7 @@ type General = {
 export function DashboardCompetitorMap() {
   const loadPrefs = useServerFn(getPreferences);
   const fetchCompetitors = useServerFn(listCompetitors);
+  const geocode = useServerFn(geocodeAddress);
   const [general, setGeneral] = useState<General | null>(null);
   const [businessCoords, setBusinessCoords] =
     useState<{ lat: number; lng: number } | null>(null);
