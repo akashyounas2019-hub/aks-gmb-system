@@ -94,23 +94,22 @@ export function DashboardCompetitorMap() {
 
     (async () => {
       try {
+        let geocodeErrorMsg: string | null = null;
         const res = await geocode({ data: { address: fullAddress } }).catch(
-          () => null,
+          (e: unknown) => {
+            geocodeErrorMsg =
+              e instanceof Error ? e.message : "Geocoding request failed";
+            return null;
+          },
         );
         if (cancelled) return;
-        if (!res) {
-          setStatus("error");
-          setError("Could not resolve your business address.");
-          return;
-        }
-        const businessLoc = { lat: res.lat, lng: res.lng };
-        setBusinessCoords(businessLoc);
 
         const google = await loadGoogleMaps();
         if (cancelled) return;
 
-        // Resolve competitor coordinates via Places API (New).
-        // Only place IDs that look canonical (ChIJ…) are used.
+        // Resolve competitor coordinates via Places API (New) regardless of
+        // whether business geocoding succeeded — a partial map is more useful
+        // than a blank one.
         const withPlace = competitors.filter(
           (c) => c.place_id && /^ChIJ[A-Za-z0-9_-]{20,}$/.test(c.place_id),
         );
@@ -148,7 +147,25 @@ export function DashboardCompetitorMap() {
         );
         if (cancelled) return;
         setLocated(resolved);
-        setStatus("ready");
+
+        if (res) {
+          setBusinessCoords({ lat: res.lat, lng: res.lng });
+          setError(null);
+          setStatus("ready");
+        } else if (resolved.length > 0) {
+          // Fall back to centering on competitors so the map still renders.
+          setBusinessCoords({ lat: resolved[0].lat, lng: resolved[0].lng });
+          setError(
+            geocodeErrorMsg ??
+              "Could not locate your business address — showing competitors only.",
+          );
+          setStatus("partial");
+        } else {
+          setError(
+            geocodeErrorMsg ?? "Could not resolve your business address.",
+          );
+          setStatus("error");
+        }
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
