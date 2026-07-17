@@ -5,6 +5,7 @@ import { MapPin, Loader2, ExternalLink, Star } from "lucide-react";
 import { Link } from "@tanstack/react-router";
 import { getPreferences } from "@/lib/user-preferences.functions";
 import { listCompetitors } from "@/lib/competitors.functions";
+import { geocodeAddress } from "@/lib/geocode.functions";
 import { loadGoogleMaps } from "@/lib/google-maps";
 
 type Competitor = {
