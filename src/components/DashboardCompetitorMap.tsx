@@ -44,9 +44,10 @@ export function DashboardCompetitorMap() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [located, setLocated] = useState<Located[]>([]);
   const [status, setStatus] = useState<
-    "idle" | "loading" | "ready" | "no-address" | "error"
+    "idle" | "loading" | "ready" | "no-address" | "error" | "partial"
   >("loading");
   const [error, setError] = useState<string | null>(null);
+  const [geocodeAttempt, setGeocodeAttempt] = useState(0);
   const mapRef = useRef<HTMLDivElement>(null);
 
   // Load prefs + competitors in parallel.
