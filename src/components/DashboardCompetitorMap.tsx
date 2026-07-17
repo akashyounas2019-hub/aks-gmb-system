@@ -148,17 +148,17 @@ export function DashboardCompetitorMap() {
         if (cancelled) return;
         setLocated(resolved);
         setStatus("ready");
-      })
-      .catch((e: Error) => {
+      } catch (e) {
         if (cancelled) return;
         setStatus("error");
-        setError(e.message);
-      });
+        setError(e instanceof Error ? e.message : "Failed to load map");
+      }
+    })();
 
     return () => {
       cancelled = true;
     };
-  }, [general, fullAddress, competitors]);
+  }, [general, fullAddress, competitors, geocode]);
 
   // Render map once we have business coords.
   useEffect(() => {
