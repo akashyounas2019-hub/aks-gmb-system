@@ -120,10 +120,6 @@ function BusinessProfilePage() {
       cancelled = true;
     };
   }, [fullAddress, geocode, geocodeAttempt]);
-    return () => {
-      cancelled = true;
-    };
-  }, [fullAddress, geocode]);
 
 
   // Render map once coords resolve.
