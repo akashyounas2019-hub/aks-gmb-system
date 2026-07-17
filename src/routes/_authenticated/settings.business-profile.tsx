@@ -50,6 +50,7 @@ function BusinessProfilePage() {
   const [coords, setCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [geocoding, setGeocoding] = useState(false);
   const [geoError, setGeoError] = useState<string | null>(null);
+  const [geocodeAttempt, setGeocodeAttempt] = useState(0);
   const [cities, setCities] = useState<Array<{ name: string; distanceKm: number }>>([]);
   const [citiesLoading, setCitiesLoading] = useState(false);
   const [citiesError, setCitiesError] = useState<string | null>(null);
@@ -110,12 +111,15 @@ function BusinessProfilePage() {
       .catch((e: Error) => {
         if (cancelled) return;
         setGeocoding(false);
-        setGeoError(e.message);
+        setGeoError(
+          e.message ||
+            "Could not locate your business address. Check the address and try again.",
+        );
       });
     return () => {
       cancelled = true;
     };
-  }, [fullAddress, geocode]);
+  }, [fullAddress, geocode, geocodeAttempt]);
 
 
   // Render map once coords resolve.
@@ -275,10 +279,25 @@ function BusinessProfilePage() {
               className="mb-3 h-56 w-full overflow-hidden rounded-md bg-muted"
             >
               {!coords && (
-                <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
-                  {geocoding
-                    ? "Locating business…"
-                    : geoError ?? "Add an address to see the map."}
+                <div className="flex h-full flex-col items-center justify-center gap-2 px-4 text-center text-xs text-muted-foreground">
+                  {geocoding ? (
+                    <span className="inline-flex items-center gap-2">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" /> Locating business…
+                    </span>
+                  ) : geoError ? (
+                    <>
+                      <span>{geoError}</span>
+                      <button
+                        type="button"
+                        onClick={() => setGeocodeAttempt((n) => n + 1)}
+                        className="rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-muted"
+                      >
+                        Retry
+                      </button>
+                    </>
+                  ) : (
+                    <span>Add an address to see the map.</span>
+                  )}
                 </div>
               )}
             </div>

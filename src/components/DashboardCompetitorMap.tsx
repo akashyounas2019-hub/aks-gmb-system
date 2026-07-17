@@ -44,9 +44,10 @@ export function DashboardCompetitorMap() {
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [located, setLocated] = useState<Located[]>([]);
   const [status, setStatus] = useState<
-    "idle" | "loading" | "ready" | "no-address" | "error"
+    "idle" | "loading" | "ready" | "no-address" | "error" | "partial"
   >("loading");
   const [error, setError] = useState<string | null>(null);
+  const [geocodeAttempt, setGeocodeAttempt] = useState(0);
   const mapRef = useRef<HTMLDivElement>(null);
 
   // Load prefs + competitors in parallel.
@@ -93,23 +94,22 @@ export function DashboardCompetitorMap() {
 
     (async () => {
       try {
+        let geocodeErrorMsg: string | null = null;
         const res = await geocode({ data: { address: fullAddress } }).catch(
-          () => null,
+          (e: unknown) => {
+            geocodeErrorMsg =
+              e instanceof Error ? e.message : "Geocoding request failed";
+            return null;
+          },
         );
         if (cancelled) return;
-        if (!res) {
-          setStatus("error");
-          setError("Could not resolve your business address.");
-          return;
-        }
-        const businessLoc = { lat: res.lat, lng: res.lng };
-        setBusinessCoords(businessLoc);
 
         const google = await loadGoogleMaps();
         if (cancelled) return;
 
-        // Resolve competitor coordinates via Places API (New).
-        // Only place IDs that look canonical (ChIJ…) are used.
+        // Resolve competitor coordinates via Places API (New) regardless of
+        // whether business geocoding succeeded — a partial map is more useful
+        // than a blank one.
         const withPlace = competitors.filter(
           (c) => c.place_id && /^ChIJ[A-Za-z0-9_-]{20,}$/.test(c.place_id),
         );
@@ -147,7 +147,25 @@ export function DashboardCompetitorMap() {
         );
         if (cancelled) return;
         setLocated(resolved);
-        setStatus("ready");
+
+        if (res) {
+          setBusinessCoords({ lat: res.lat, lng: res.lng });
+          setError(null);
+          setStatus("ready");
+        } else if (resolved.length > 0) {
+          // Fall back to centering on competitors so the map still renders.
+          setBusinessCoords({ lat: resolved[0].lat, lng: resolved[0].lng });
+          setError(
+            geocodeErrorMsg ??
+              "Could not locate your business address — showing competitors only.",
+          );
+          setStatus("partial");
+        } else {
+          setError(
+            geocodeErrorMsg ?? "Could not resolve your business address.",
+          );
+          setStatus("error");
+        }
       } catch (e) {
         if (cancelled) return;
         setStatus("error");
@@ -158,7 +176,7 @@ export function DashboardCompetitorMap() {
     return () => {
       cancelled = true;
     };
-  }, [general, fullAddress, competitors, geocode]);
+  }, [general, fullAddress, competitors, geocode, geocodeAttempt]);
 
   // Render map once we have business coords.
   useEffect(() => {
@@ -172,21 +190,23 @@ export function DashboardCompetitorMap() {
         mapTypeControl: false,
         streetViewControl: false,
       });
-      // Business pin — primary color.
-      new google.maps.Marker({
-        position: businessCoords,
-        map,
-        title: general?.businessName ?? "Your business",
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#2563eb",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-        },
-        zIndex: 1000,
-      });
+      // Business pin — only when the geocode actually resolved.
+      if (status === "ready") {
+        new google.maps.Marker({
+          position: businessCoords,
+          map,
+          title: general?.businessName ?? "Your business",
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: "#2563eb",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          zIndex: 1000,
+        });
+      }
       // Competitor pins.
       const infoWindow = new google.maps.InfoWindow();
       located.forEach((c) => {
@@ -222,7 +242,9 @@ export function DashboardCompetitorMap() {
     return () => {
       cancelled = true;
     };
-  }, [businessCoords, located, general?.businessName]);
+  }, [businessCoords, located, general?.businessName, status]);
+
+  const showMap = status === "ready" || status === "partial";
 
   return (
     <div className="rounded-xl border border-border bg-card p-4">
@@ -239,13 +261,28 @@ export function DashboardCompetitorMap() {
         </Link>
       </div>
 
+      {status === "partial" && (
+        <div className="mb-2 flex items-start justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
+          <span>
+            {error ?? "Could not locate your business."} Showing competitor pins only.
+          </span>
+          <button
+            type="button"
+            onClick={() => setGeocodeAttempt((n) => n + 1)}
+            className="shrink-0 rounded border border-amber-500/40 px-2 py-0.5 font-medium hover:bg-amber-500/20"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       <div className="grid gap-4 lg:grid-cols-[2fr_1fr]">
         <div
           ref={mapRef}
-          className="h-72 w-full overflow-hidden rounded-md bg-muted lg:h-96"
+          className="relative h-72 w-full overflow-hidden rounded-md bg-muted lg:h-96"
         >
-          {status !== "ready" && (
-            <div className="flex h-full items-center justify-center text-xs text-muted-foreground">
+          {!showMap && (
+            <div className="flex h-full items-center justify-center px-4 text-center text-xs text-muted-foreground">
               {status === "loading" && (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading map…
@@ -260,7 +297,18 @@ export function DashboardCompetitorMap() {
                   to see the map.
                 </span>
               )}
-              {status === "error" && <span>{error ?? "Map failed to load."}</span>}
+              {status === "error" && (
+                <div className="flex flex-col items-center gap-2">
+                  <span>{error ?? "Map failed to load."}</span>
+                  <button
+                    type="button"
+                    onClick={() => setGeocodeAttempt((n) => n + 1)}
+                    className="rounded border border-border bg-background px-2 py-0.5 text-[11px] font-medium hover:bg-muted"
+                  >
+                    Retry
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </div>
