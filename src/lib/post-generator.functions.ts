@@ -19,7 +19,17 @@ const ComposeInput = z.object({
   businessName: z.string().max(120).optional(),
   callToAction: z.string().max(200).optional(),
   extraContext: z.string().max(1000).optional(),
+  // Optional template used ONLY as a stylistic reference — the model must
+  // produce a fresh, unique caption in a similar voice/structure, never copy
+  // sentences from it verbatim.
+  styleReference: z
+    .object({
+      name: z.string().max(120).optional(),
+      body: z.string().max(4000),
+    })
+    .optional(),
 });
+
 
 export const composePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -60,7 +70,12 @@ Write a Google Business Profile post that:
 - Includes the location naturally in the first two sentences if provided.
 - Stays under 1500 characters.
 ${langInstruction}
+- If a STYLE REFERENCE is provided, mirror only its structure, sentence rhythm, tone, and use of emojis/hashtags. Write a completely new caption for the current keywords — never reuse its wording, offers, prices, or brand-specific claims.
 Return ONLY the caption text, no preamble.`;
+
+    const styleBlock = data.styleReference
+      ? `\nSTYLE REFERENCE (structure, tone, rhythm, emoji/hashtag habits only — DO NOT copy phrases, sentences, offers, prices, brand names, or hashtags from it verbatim; treat product/service specifics in it as unrelated to the current post):\n"""\n${data.styleReference.body}\n"""\n`
+      : "";
 
     const userText = [
       data.businessName ? `Business: ${data.businessName}` : null,
@@ -71,6 +86,7 @@ Return ONLY the caption text, no preamble.`;
       imageUrls.length
         ? `There ${imageUrls.length === 1 ? "is 1 image" : `are ${imageUrls.length} images`} attached — describe what's visible only if it strengthens the post.`
         : null,
+      styleBlock || null,
     ]
       .filter(Boolean)
       .join("\n");

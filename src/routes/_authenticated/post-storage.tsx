@@ -618,94 +618,116 @@ function PostCard({
     .filter((r): r is ImageRow => Boolean(r));
   const [menu, setMenu] = useState(false);
   return (
-    <div className="group rounded-lg border border-border bg-card p-4 hover:border-primary/40 transition-colors">
-      <div className="flex items-start justify-between gap-2">
-        <button onClick={onOpen} className="text-left flex-1 min-w-0">
-          <h3 className="truncate font-medium">{post.title || "Untitled"}</h3>
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-            {post.body || "No content yet…"}
-          </p>
-        </button>
-        <div className="relative">
-          <button
-            onClick={() => setMenu((v) => !v)}
-            className="rounded p-1 text-muted-foreground hover:bg-accent"
-          >
-            <MoreHorizontal className="h-4 w-4" />
-          </button>
-          {menu && (
-            <div
-              className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-border bg-popover p-1 shadow-md text-sm"
-              onMouseLeave={() => setMenu(false)}
-            >
-              {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
-                <button
-                  key={s}
-                  onClick={() => {
-                    onStatus(s);
-                    setMenu(false);
-                  }}
-                  className="flex w-full items-center px-2 py-1 rounded hover:bg-accent"
-                >
-                  Mark {s}
-                </button>
-              ))}
-              <div className="my-1 border-t border-border" />
-              <button
-                onClick={() => {
-                  onSchedule();
-                  setMenu(false);
-                }}
-                className="flex w-full items-center gap-2 px-2 py-1 rounded hover:bg-accent"
-              >
-                <CalendarClock className="h-3.5 w-3.5" /> Schedule
-              </button>
-              <button
-                onClick={() => {
-                  onDelete();
-                  setMenu(false);
-                }}
-                className="flex w-full items-center gap-2 px-2 py-1 rounded text-destructive hover:bg-destructive/10"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
-            </div>
-          )}
-        </div>
-      </div>
-      {attached.length > 0 && (
+    <div className="group overflow-hidden rounded-lg border border-border bg-card hover:border-primary/40 transition-colors">
+      {attached.length > 0 ? (
         <button
           onClick={onOpen}
-          className="mt-3 grid w-full grid-cols-4 gap-1.5"
+          className="block w-full text-left"
           aria-label="Open post"
         >
-          {attached.slice(0, 4).map((img, i) => (
-            <div
-              key={img.id}
-              className="relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
-            >
-              <SignedImage
-                bucket="images"
-                path={img.storage_path}
-                alt={img.name ?? "Attached image"}
-                className="h-full w-full object-cover"
-              />
-              {i === 3 && attached.length > 4 && (
-                <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-xs font-medium">
-                  +{attached.length - 4}
-                </div>
-              )}
+          <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
+            <SignedImage
+              bucket="images"
+              path={attached[0].storage_path}
+              alt={attached[0].name ?? "Post cover"}
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
+            />
+            {attached.length > 1 && (
+              <div className="absolute inset-x-0 bottom-0 flex gap-1.5 bg-gradient-to-t from-black/60 to-transparent p-2">
+                {attached.slice(1, 5).map((img, i) => (
+                  <div
+                    key={img.id}
+                    className="relative h-12 w-12 overflow-hidden rounded-md border border-white/20 bg-muted"
+                  >
+                    <SignedImage
+                      bucket="images"
+                      path={img.storage_path}
+                      alt={img.name ?? "Attached image"}
+                      className="h-full w-full object-cover"
+                    />
+                    {i === 3 && attached.length > 5 && (
+                      <div className="absolute inset-0 flex items-center justify-center bg-background/70 text-[11px] font-semibold">
+                        +{attached.length - 5}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
+            <div className="absolute right-2 top-2 inline-flex items-center gap-1 rounded-full bg-black/55 px-2 py-0.5 text-[10px] font-medium text-white backdrop-blur-sm">
+              <ImageIcon className="h-3 w-3" />
+              {attached.length}
             </div>
-          ))}
+          </div>
         </button>
+      ) : (
+        post.imageIds.length > 0 && (
+          <div className="flex aspect-[16/10] w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+            <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+            Loading {post.imageIds.length} image
+            {post.imageIds.length === 1 ? "" : "s"}…
+          </div>
+        )
       )}
-      {(post.imageIds?.length ?? 0) > 0 && attached.length === 0 && (
-        <div className="mt-3 flex items-center gap-1.5 text-[11px] text-muted-foreground">
-          <ImageIcon className="h-3 w-3" /> Loading {post.imageIds.length} image
-          {post.imageIds.length === 1 ? "" : "s"}…
+
+      <div className="p-4">
+        <div className="flex items-start justify-between gap-2">
+          <button onClick={onOpen} className="text-left flex-1 min-w-0">
+            <h3 className="truncate font-medium">{post.title || "Untitled"}</h3>
+            <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+              {post.body || "No content yet…"}
+            </p>
+          </button>
+          <div className="relative">
+            <button
+              onClick={() => setMenu((v) => !v)}
+              className="rounded p-1 text-muted-foreground hover:bg-accent"
+            >
+              <MoreHorizontal className="h-4 w-4" />
+            </button>
+            {menu && (
+              <div
+                className="absolute right-0 z-10 mt-1 w-40 rounded-md border border-border bg-popover p-1 shadow-md text-sm"
+                onMouseLeave={() => setMenu(false)}
+              >
+                {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      onStatus(s);
+                      setMenu(false);
+                    }}
+                    className="flex w-full items-center px-2 py-1 rounded hover:bg-accent"
+                  >
+                    Mark {s}
+                  </button>
+                ))}
+                <div className="my-1 border-t border-border" />
+                <button
+                  onClick={() => {
+                    onSchedule();
+                    setMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-2 py-1 rounded hover:bg-accent"
+                >
+                  <CalendarClock className="h-3.5 w-3.5" /> Schedule
+                </button>
+                <button
+                  onClick={() => {
+                    onDelete();
+                    setMenu(false);
+                  }}
+                  className="flex w-full items-center gap-2 px-2 py-1 rounded text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete
+                </button>
+              </div>
+            )}
+          </div>
         </div>
-      )}
+
       <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+
 
         <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
           {post.status}
@@ -724,6 +746,7 @@ function PostCard({
         <span className="ml-auto text-muted-foreground/70">
           {new Date(post.updatedAt).toLocaleDateString()}
         </span>
+      </div>
       </div>
     </div>
   );

@@ -165,6 +165,9 @@ export function PostGeneratorPage({
   const [templateSearch, setTemplateSearch] = useState("");
   const [creatingTemplate, setCreatingTemplate] = useState(false);
   const [previewingTemplate, setPreviewingTemplate] = useState<PostTemplate | null>(null);
+  // Template used as a stylistic guide only — the AI generates a new caption
+  // in that style. Set from the template preview modal, cleared with a button.
+  const [styleTemplate, setStyleTemplate] = useState<PostTemplate | null>(null);
   const [newTplName, setNewTplName] = useState("");
   const [newTplBody, setNewTplBody] = useState("");
   const [newTplFolder, setNewTplFolder] = useState("");
@@ -242,11 +245,14 @@ export function PostGeneratorPage({
   }
   function confirmApplyTemplate() {
     if (!previewingTemplate) return;
-    setCaption(previewingTemplate.body);
+    // Templates now act as a stylistic reference only — they never overwrite
+    // the description. The AI will produce a fresh caption in this style on
+    // the next Generate.
+    setStyleTemplate(previewingTemplate);
     const name = previewingTemplate.name;
     setPreviewingTemplate(null);
     setTemplatesOpen(false);
-    toast.success(`Applied "${name}"`);
+    toast.success(`Style reference set: "${name}". Click Generate to write a new draft in this style.`);
   }
   function deleteTemplate(id: string) {
     persistTemplates(templates.filter((t) => t.id !== id));
@@ -639,6 +645,9 @@ export function PostGeneratorPage({
           tone,
           businessName: businessName || undefined,
           callToAction: cta || undefined,
+          styleReference: styleTemplate
+            ? { name: styleTemplate.name, body: styleTemplate.body }
+            : undefined,
         },
       });
       // Append hashtags and @mentions to the generated caption for social posts.
@@ -1420,6 +1429,23 @@ export function PostGeneratorPage({
                 <div className="text-[11px] text-muted-foreground">
                   This is what will be posted. Max {CAPTION_LIMIT} characters.
                 </div>
+                {styleTemplate && (
+                  <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
+                    <LayoutTemplate className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      Style reference: <strong>{styleTemplate.name}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStyleTemplate(null)}
+                      className="rounded-full p-0.5 hover:bg-primary/20"
+                      aria-label="Clear style reference"
+                      title="Clear style reference"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
               </div>
               <div className="flex items-center gap-1.5">
                 <button
@@ -2291,17 +2317,17 @@ export function PostGeneratorPage({
                             />
                           </div>
                           <p className="mt-2 text-[10px] text-muted-foreground">
-                            Templates only replace the Description text. Other
-                            fields stay as you've set them.
+                            Templates are used as a <strong>style reference only</strong>.
+                            Your Description is never overwritten — clicking Generate
+                            will create a new caption in this template's tone and
+                            structure.
                           </p>
                         </div>
                       </div>
 
                       <div className="flex items-center justify-between gap-2 border-t border-border bg-card px-4 py-2.5">
                         <div className="text-[11px] text-muted-foreground">
-                          {caption.trim()
-                            ? "Applying will replace your current description."
-                            : "Applying will fill the description."}
+                          The AI will produce a fresh, unique caption in this style.
                         </div>
                         <div className="flex items-center gap-2">
                           <button
@@ -2314,7 +2340,7 @@ export function PostGeneratorPage({
                             onClick={confirmApplyTemplate}
                             className="inline-flex items-center gap-1 rounded-lg bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
                           >
-                            <CheckCircle2 className="h-3.5 w-3.5" /> Apply template
+                            <CheckCircle2 className="h-3.5 w-3.5" /> Use as style reference
                           </button>
                         </div>
                       </div>
