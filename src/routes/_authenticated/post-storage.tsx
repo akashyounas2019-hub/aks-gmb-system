@@ -747,6 +747,7 @@ function PostCard({
           {new Date(post.updatedAt).toLocaleDateString()}
         </span>
       </div>
+      </div>
     </div>
   );
 }
