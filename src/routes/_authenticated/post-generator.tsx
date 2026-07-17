@@ -245,11 +245,14 @@ export function PostGeneratorPage({
   }
   function confirmApplyTemplate() {
     if (!previewingTemplate) return;
-    setCaption(previewingTemplate.body);
+    // Templates now act as a stylistic reference only — they never overwrite
+    // the description. The AI will produce a fresh caption in this style on
+    // the next Generate.
+    setStyleTemplate(previewingTemplate);
     const name = previewingTemplate.name;
     setPreviewingTemplate(null);
     setTemplatesOpen(false);
-    toast.success(`Applied "${name}"`);
+    toast.success(`Style reference set: "${name}". Click Generate to write a new draft in this style.`);
   }
   function deleteTemplate(id: string) {
     persistTemplates(templates.filter((t) => t.id !== id));
