@@ -190,21 +190,23 @@ export function DashboardCompetitorMap() {
         mapTypeControl: false,
         streetViewControl: false,
       });
-      // Business pin — primary color.
-      new google.maps.Marker({
-        position: businessCoords,
-        map,
-        title: general?.businessName ?? "Your business",
-        icon: {
-          path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
-          fillColor: "#2563eb",
-          fillOpacity: 1,
-          strokeColor: "#ffffff",
-          strokeWeight: 2,
-        },
-        zIndex: 1000,
-      });
+      // Business pin — only when the geocode actually resolved.
+      if (status === "ready") {
+        new google.maps.Marker({
+          position: businessCoords,
+          map,
+          title: general?.businessName ?? "Your business",
+          icon: {
+            path: google.maps.SymbolPath.CIRCLE,
+            scale: 10,
+            fillColor: "#2563eb",
+            fillOpacity: 1,
+            strokeColor: "#ffffff",
+            strokeWeight: 2,
+          },
+          zIndex: 1000,
+        });
+      }
       // Competitor pins.
       const infoWindow = new google.maps.InfoWindow();
       located.forEach((c) => {
