@@ -70,6 +70,7 @@ Write a Google Business Profile post that:
 - Includes the location naturally in the first two sentences if provided.
 - Stays under 1500 characters.
 ${langInstruction}
+- If a STYLE REFERENCE is provided, mirror only its structure, sentence rhythm, tone, and use of emojis/hashtags. Write a completely new caption for the current keywords — never reuse its wording, offers, prices, or brand-specific claims.
 Return ONLY the caption text, no preamble.`;
 
     const styleBlock = data.styleReference
