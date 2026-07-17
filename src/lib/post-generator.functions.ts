@@ -72,6 +72,10 @@ Write a Google Business Profile post that:
 ${langInstruction}
 Return ONLY the caption text, no preamble.`;
 
+    const styleBlock = data.styleReference
+      ? `\nSTYLE REFERENCE (structure, tone, rhythm, emoji/hashtag habits only — DO NOT copy phrases, sentences, offers, prices, brand names, or hashtags from it verbatim; treat product/service specifics in it as unrelated to the current post):\n"""\n${data.styleReference.body}\n"""\n`
+      : "";
+
     const userText = [
       data.businessName ? `Business: ${data.businessName}` : null,
       data.locationLabel ? `Location: ${data.locationLabel}` : null,
@@ -81,6 +85,7 @@ Return ONLY the caption text, no preamble.`;
       imageUrls.length
         ? `There ${imageUrls.length === 1 ? "is 1 image" : `are ${imageUrls.length} images`} attached — describe what's visible only if it strengthens the post.`
         : null,
+      styleBlock || null,
     ]
       .filter(Boolean)
       .join("\n");
