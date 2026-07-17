@@ -645,6 +645,9 @@ export function PostGeneratorPage({
           tone,
           businessName: businessName || undefined,
           callToAction: cta || undefined,
+          styleReference: styleTemplate
+            ? { name: styleTemplate.name, body: styleTemplate.body }
+            : undefined,
         },
       });
       // Append hashtags and @mentions to the generated caption for social posts.
