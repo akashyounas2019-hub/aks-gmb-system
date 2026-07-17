@@ -91,27 +91,22 @@ export function DashboardCompetitorMap() {
     let cancelled = false;
     setStatus("loading");
 
-    loadGoogleMaps()
-      .then(async (google) => {
-        if (cancelled) return;
-        const geocoder = new google.maps.Geocoder();
-        const businessLoc = await new Promise<{ lat: number; lng: number } | null>(
-          (resolve) => {
-            geocoder.geocode({ address: fullAddress }, (results, s) => {
-              if (s === "OK" && results && results[0]) {
-                const loc = results[0].geometry.location;
-                resolve({ lat: loc.lat(), lng: loc.lng() });
-              } else resolve(null);
-            });
-          },
+    (async () => {
+      try {
+        const res = await geocode({ data: { address: fullAddress } }).catch(
+          () => null,
         );
         if (cancelled) return;
-        if (!businessLoc) {
+        if (!res) {
           setStatus("error");
           setError("Could not resolve your business address.");
           return;
         }
+        const businessLoc = { lat: res.lat, lng: res.lng };
         setBusinessCoords(businessLoc);
+
+        const google = await loadGoogleMaps();
+        if (cancelled) return;
 
         // Resolve competitor coordinates via Places API (New).
         // Only place IDs that look canonical (ChIJ…) are used.
