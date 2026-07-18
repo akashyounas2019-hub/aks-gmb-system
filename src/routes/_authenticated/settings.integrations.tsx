@@ -19,6 +19,7 @@ import {
   listIntegrations,
   saveIntegration,
   deleteIntegration,
+  testFacebookBrandWebhook,
 } from "@/lib/user-integrations.functions";
 import { PROVIDER_RULES, validateField, type ProviderId } from "@/lib/user-integrations.validation";
 
