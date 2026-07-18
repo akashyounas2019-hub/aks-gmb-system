@@ -211,6 +211,8 @@ function IntegrationsPage() {
         </p>
       </div>
 
+      <HeartbeatIntegrationCard />
+
       {/* GMB card */}
       <div className="rounded-2xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-start gap-4">
