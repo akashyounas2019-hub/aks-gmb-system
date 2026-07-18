@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save, Trash2, Layers, Download, Maximize2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Trash2, Layers, Download, Maximize2, Grid3x3, Shuffle, Film } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 
