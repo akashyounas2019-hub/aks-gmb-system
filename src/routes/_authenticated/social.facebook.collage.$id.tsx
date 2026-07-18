@@ -123,6 +123,8 @@ function CollageCanvasPage() {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [images, setImages] = useState<Img[]>([]);
   const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT);
+  const [past, setPast] = useState<Layout[]>([]);
+  const [future, setFuture] = useState<Layout[]>([]);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,6 +147,9 @@ function CollageCanvasPage() {
     const c = col as Collection;
     setCollection(c);
     setLayout({ ...DEFAULT_LAYOUT, ...(c.layout ?? {}) });
+    setPast([]);
+    setFuture([]);
+    setDirty(false);
     if (c.image_ids.length) {
       const { data: imgs } = await supabase
         .from("images")
