@@ -653,6 +653,47 @@ export type Database = {
         }
         Relationships: []
       }
+      image_collections: {
+        Row: {
+          created_at: string
+          description: string | null
+          id: string
+          image_ids: string[]
+          name: string
+          owner_id: string
+          thumb_image_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_ids?: string[]
+          name: string
+          owner_id: string
+          thumb_image_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          description?: string | null
+          id?: string
+          image_ids?: string[]
+          name?: string
+          owner_id?: string
+          thumb_image_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "image_collections_thumb_image_id_fkey"
+            columns: ["thumb_image_id"]
+            isOneToOne: false
+            referencedRelation: "images"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       image_folders: {
         Row: {
           created_at: string
