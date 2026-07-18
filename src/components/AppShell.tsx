@@ -32,6 +32,8 @@ import {
   LayoutGrid,
   Building2,
   Heart,
+  FolderHeart,
+  FileSpreadsheet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -181,6 +183,16 @@ const workspaces: Workspace[] = [
             to: "/social/facebook/heartbeat",
             label: "HeartBeat Gallery",
             icon: Heart,
+          },
+          {
+            to: "/social/facebook/collections",
+            label: "Collections",
+            icon: FolderHeart,
+          },
+          {
+            to: "/social/facebook/ghl-export",
+            label: "GHL Export",
+            icon: FileSpreadsheet,
           },
         ],
       },
