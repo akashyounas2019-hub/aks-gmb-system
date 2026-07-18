@@ -31,6 +31,93 @@ function uid() {
   return Math.random().toString(36).slice(2, 10);
 }
 
+function buildTemplate(
+  kind: "grid" | "mosaic" | "story",
+  imageIds: string[],
+  W: number,
+  H: number,
+): LayoutItem[] {
+  if (imageIds.length === 0) return [];
+  const gap = Math.round(Math.min(W, H) * 0.015);
+
+  if (kind === "grid") {
+    const n = imageIds.length;
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const cellW = (W - gap * (cols + 1)) / cols;
+    const cellH = (H - gap * (rows + 1)) / rows;
+    return imageIds.map((imageId, i) => {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      return {
+        id: uid(),
+        imageId,
+        x: Math.round(gap + c * (cellW + gap)),
+        y: Math.round(gap + r * (cellH + gap)),
+        w: Math.round(cellW),
+        h: Math.round(cellH),
+        z: i + 1,
+      };
+    });
+  }
+
+  if (kind === "story") {
+    // Vertical stack, top image bigger (hero)
+    const n = imageIds.length;
+    if (n === 1) {
+      return [{ id: uid(), imageId: imageIds[0], x: gap, y: gap, w: W - gap * 2, h: H - gap * 2, z: 1 }];
+    }
+    const heroH = Math.round(H * 0.55);
+    const stripCount = n - 1;
+    const stripH = (H - heroH - gap * (stripCount + 2)) / stripCount;
+    const items: LayoutItem[] = [
+      { id: uid(), imageId: imageIds[0], x: gap, y: gap, w: W - gap * 2, h: heroH, z: 1 },
+    ];
+    for (let i = 1; i < n; i++) {
+      items.push({
+        id: uid(),
+        imageId: imageIds[i],
+        x: gap,
+        y: Math.round(gap + heroH + gap + (i - 1) * (stripH + gap)),
+        w: W - gap * 2,
+        h: Math.round(stripH),
+        z: i + 1,
+      });
+    }
+    return items;
+  }
+
+  // mosaic: hero left, offset tiles right
+  const n = imageIds.length;
+  if (n === 1) {
+    return [{ id: uid(), imageId: imageIds[0], x: gap, y: gap, w: W - gap * 2, h: H - gap * 2, z: 1 }];
+  }
+  const heroW = Math.round(W * 0.6);
+  const items: LayoutItem[] = [
+    { id: uid(), imageId: imageIds[0], x: gap, y: gap, w: heroW - gap, h: H - gap * 2, z: 1 },
+  ];
+  const rest = imageIds.slice(1);
+  const rightW = W - heroW - gap;
+  const cols = rest.length >= 4 ? 2 : 1;
+  const rows = Math.ceil(rest.length / cols);
+  const cellW = (rightW - gap * (cols - 1)) / cols;
+  const cellH = (H - gap * (rows + 1)) / rows;
+  rest.forEach((imageId, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    items.push({
+      id: uid(),
+      imageId,
+      x: Math.round(heroW + c * (cellW + gap)),
+      y: Math.round(gap + r * (cellH + gap)),
+      w: Math.round(cellW),
+      h: Math.round(cellH),
+      z: i + 2,
+    });
+  });
+  return items;
+}
+
 function CollageCanvasPage() {
   const { id } = Route.useParams();
   const [collection, setCollection] = useState<Collection | null>(null);
