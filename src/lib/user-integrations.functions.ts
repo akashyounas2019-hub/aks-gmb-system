@@ -7,6 +7,7 @@ const ALLOWED_PROVIDERS = [
   "serpapi",
   "local_falcon",
   "facebook",
+  "facebook_brand",
   "instagram",
   "linkedin",
 ] as const;
