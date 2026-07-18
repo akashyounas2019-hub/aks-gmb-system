@@ -48,6 +48,8 @@ import { Route as AuthenticatedAgentsAgentIdRouteImport } from './routes/_authen
 import { Route as AuthenticatedSocialFacebookIndexRouteImport } from './routes/_authenticated/social.facebook.index'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 import { Route as AuthenticatedSocialFacebookHeartbeatRouteImport } from './routes/_authenticated/social.facebook.heartbeat'
+import { Route as AuthenticatedSocialFacebookGhlExportRouteImport } from './routes/_authenticated/social.facebook.ghl-export'
+import { Route as AuthenticatedSocialFacebookCollectionsRouteImport } from './routes/_authenticated/social.facebook.collections'
 import { Route as AuthenticatedSocialFacebookAdCreativesRouteImport } from './routes/_authenticated/social.facebook.ad-creatives'
 
 const AuthRoute = AuthRouteImport.update({
@@ -267,6 +269,18 @@ const AuthenticatedSocialFacebookHeartbeatRoute =
     path: '/social/facebook/heartbeat',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSocialFacebookGhlExportRoute =
+  AuthenticatedSocialFacebookGhlExportRouteImport.update({
+    id: '/social/facebook/ghl-export',
+    path: '/social/facebook/ghl-export',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedSocialFacebookCollectionsRoute =
+  AuthenticatedSocialFacebookCollectionsRouteImport.update({
+    id: '/social/facebook/collections',
+    path: '/social/facebook/collections',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 const AuthenticatedSocialFacebookAdCreativesRoute =
   AuthenticatedSocialFacebookAdCreativesRouteImport.update({
     id: '/social/facebook/ad-creatives',
@@ -311,6 +325,8 @@ export interface FileRoutesByFullPath {
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
+  '/social/facebook/collections': typeof AuthenticatedSocialFacebookCollectionsRoute
+  '/social/facebook/ghl-export': typeof AuthenticatedSocialFacebookGhlExportRoute
   '/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/social/facebook/': typeof AuthenticatedSocialFacebookIndexRoute
@@ -352,6 +368,8 @@ export interface FileRoutesByTo {
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
+  '/social/facebook/collections': typeof AuthenticatedSocialFacebookCollectionsRoute
+  '/social/facebook/ghl-export': typeof AuthenticatedSocialFacebookGhlExportRoute
   '/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/social/facebook': typeof AuthenticatedSocialFacebookIndexRoute
@@ -395,6 +413,8 @@ export interface FileRoutesById {
   '/_authenticated/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/_authenticated/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/_authenticated/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
+  '/_authenticated/social/facebook/collections': typeof AuthenticatedSocialFacebookCollectionsRoute
+  '/_authenticated/social/facebook/ghl-export': typeof AuthenticatedSocialFacebookGhlExportRoute
   '/_authenticated/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/_authenticated/social/facebook/': typeof AuthenticatedSocialFacebookIndexRoute
@@ -438,6 +458,8 @@ export interface FileRouteTypes {
     | '/social/instagram'
     | '/social/linkedin'
     | '/social/facebook/ad-creatives'
+    | '/social/facebook/collections'
+    | '/social/facebook/ghl-export'
     | '/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
     | '/social/facebook/'
@@ -479,6 +501,8 @@ export interface FileRouteTypes {
     | '/social/instagram'
     | '/social/linkedin'
     | '/social/facebook/ad-creatives'
+    | '/social/facebook/collections'
+    | '/social/facebook/ghl-export'
     | '/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
     | '/social/facebook'
@@ -521,6 +545,8 @@ export interface FileRouteTypes {
     | '/_authenticated/social/instagram'
     | '/_authenticated/social/linkedin'
     | '/_authenticated/social/facebook/ad-creatives'
+    | '/_authenticated/social/facebook/collections'
+    | '/_authenticated/social/facebook/ghl-export'
     | '/_authenticated/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
     | '/_authenticated/social/facebook/'
@@ -808,6 +834,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSocialFacebookHeartbeatRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/social/facebook/ghl-export': {
+      id: '/_authenticated/social/facebook/ghl-export'
+      path: '/social/facebook/ghl-export'
+      fullPath: '/social/facebook/ghl-export'
+      preLoaderRoute: typeof AuthenticatedSocialFacebookGhlExportRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/social/facebook/collections': {
+      id: '/_authenticated/social/facebook/collections'
+      path: '/social/facebook/collections'
+      fullPath: '/social/facebook/collections'
+      preLoaderRoute: typeof AuthenticatedSocialFacebookCollectionsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
     '/_authenticated/social/facebook/ad-creatives': {
       id: '/_authenticated/social/facebook/ad-creatives'
       path: '/social/facebook/ad-creatives'
@@ -896,6 +936,8 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSocialInstagramRoute: typeof AuthenticatedSocialInstagramRoute
   AuthenticatedSocialLinkedinRoute: typeof AuthenticatedSocialLinkedinRoute
   AuthenticatedSocialFacebookAdCreativesRoute: typeof AuthenticatedSocialFacebookAdCreativesRoute
+  AuthenticatedSocialFacebookCollectionsRoute: typeof AuthenticatedSocialFacebookCollectionsRoute
+  AuthenticatedSocialFacebookGhlExportRoute: typeof AuthenticatedSocialFacebookGhlExportRoute
   AuthenticatedSocialFacebookHeartbeatRoute: typeof AuthenticatedSocialFacebookHeartbeatRoute
   AuthenticatedSocialFacebookIndexRoute: typeof AuthenticatedSocialFacebookIndexRoute
 }
@@ -925,6 +967,10 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSocialLinkedinRoute: AuthenticatedSocialLinkedinRoute,
   AuthenticatedSocialFacebookAdCreativesRoute:
     AuthenticatedSocialFacebookAdCreativesRoute,
+  AuthenticatedSocialFacebookCollectionsRoute:
+    AuthenticatedSocialFacebookCollectionsRoute,
+  AuthenticatedSocialFacebookGhlExportRoute:
+    AuthenticatedSocialFacebookGhlExportRoute,
   AuthenticatedSocialFacebookHeartbeatRoute:
     AuthenticatedSocialFacebookHeartbeatRoute,
   AuthenticatedSocialFacebookIndexRoute: AuthenticatedSocialFacebookIndexRoute,
