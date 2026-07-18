@@ -814,9 +814,11 @@ type ProviderCardProps = {
   icon: React.ReactNode;
   fields: FieldDef[];
   docsUrl?: string;
+  onTest?: () => Promise<void>;
+  testLabel?: string;
 };
 
-function ProviderCard({ provider, title, description, icon, fields, docsUrl }: ProviderCardProps) {
+function ProviderCard({ provider, title, description, icon, fields, docsUrl, onTest, testLabel }: ProviderCardProps) {
   const fetchAll = useServerFn(listIntegrations);
   const save = useServerFn(saveIntegration);
   const remove = useServerFn(deleteIntegration);
