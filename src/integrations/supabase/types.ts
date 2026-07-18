@@ -751,6 +751,7 @@ export type Database = {
           owner_id: string
           posted_at: string | null
           sharpness_score: number | null
+          source: string
           storage_path: string
           timestamp_seconds: number | null
           title: string | null
@@ -771,6 +772,7 @@ export type Database = {
           owner_id: string
           posted_at?: string | null
           sharpness_score?: number | null
+          source?: string
           storage_path: string
           timestamp_seconds?: number | null
           title?: string | null
@@ -791,6 +793,7 @@ export type Database = {
           owner_id?: string
           posted_at?: string | null
           sharpness_score?: number | null
+          source?: string
           storage_path?: string
           timestamp_seconds?: number | null
           title?: string | null
@@ -1450,6 +1453,17 @@ export type Database = {
           _user_id: string
         }
         Returns: boolean
+      }
+      ingest_image: {
+        Args: {
+          p_description?: string
+          p_folder_id?: string
+          p_name?: string
+          p_source?: string
+          p_storage_path: string
+          p_title?: string
+        }
+        Returns: string
       }
     }
     Enums: {
