@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save, Trash2, Layers, Download, Maximize2, Grid3x3, Shuffle, Film } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Trash2, Layers, Download, Maximize2, Grid3x3, Shuffle, Film, Undo2, Redo2 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 
@@ -123,6 +123,8 @@ function CollageCanvasPage() {
   const [collection, setCollection] = useState<Collection | null>(null);
   const [images, setImages] = useState<Img[]>([]);
   const [layout, setLayout] = useState<Layout>(DEFAULT_LAYOUT);
+  const [past, setPast] = useState<Layout[]>([]);
+  const [future, setFuture] = useState<Layout[]>([]);
   const [selectedItem, setSelectedItem] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
@@ -145,6 +147,9 @@ function CollageCanvasPage() {
     const c = col as Collection;
     setCollection(c);
     setLayout({ ...DEFAULT_LAYOUT, ...(c.layout ?? {}) });
+    setPast([]);
+    setFuture([]);
+    setDirty(false);
     if (c.image_ids.length) {
       const { data: imgs } = await supabase
         .from("images")
@@ -185,13 +190,72 @@ function CollageCanvasPage() {
     return images.filter((i) => !placed.has(i.id));
   }, [images, layout.items]);
 
-  function updateLayout(next: Layout | ((prev: Layout) => Layout)) {
-    setLayout((prev) => {
-      const value = typeof next === "function" ? next(prev) : next;
-      setDirty(true);
-      return value;
+  const commitHistory = useCallback(() => {
+    setPast((p) => {
+      const snap = layoutRef.current;
+      // cap history depth
+      const next = [...p, snap];
+      if (next.length > 100) next.shift();
+      return next;
     });
+    setFuture([]);
+  }, []);
+
+  const layoutRef = useRef(layout);
+  useEffect(() => { layoutRef.current = layout; }, [layout]);
+
+  function applyLayout(next: Layout | ((prev: Layout) => Layout)) {
+    setLayout((prev) => (typeof next === "function" ? next(prev) : next));
+    setDirty(true);
   }
+
+  function commitAndApply(next: Layout | ((prev: Layout) => Layout)) {
+    commitHistory();
+    applyLayout(next);
+  }
+
+  const undo = useCallback(() => {
+    setPast((p) => {
+      if (p.length === 0) return p;
+      const prev = p[p.length - 1];
+      setFuture((f) => [layoutRef.current, ...f].slice(0, 100));
+      setLayout(prev);
+      setDirty(true);
+      setSelectedItem(null);
+      return p.slice(0, -1);
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setFuture((f) => {
+      if (f.length === 0) return f;
+      const next = f[0];
+      setPast((p) => [...p, layoutRef.current].slice(-100));
+      setLayout(next);
+      setDirty(true);
+      setSelectedItem(null);
+      return f.slice(1);
+    });
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   function addImage(imageId: string) {
     const count = layout.items.length;
@@ -201,7 +265,7 @@ function CollageCanvasPage() {
     const y = Math.round((layout.h - h) / 2 + (count % 5) * 24);
     const maxZ = layout.items.reduce((m, it) => Math.max(m, it.z), 0);
     const item: LayoutItem = { id: uid(), imageId, x, y, w, h, z: maxZ + 1 };
-    updateLayout((prev) => ({ ...prev, items: [...prev.items, item] }));
+    commitAndApply((prev) => ({ ...prev, items: [...prev.items, item] }));
     setSelectedItem(item.id);
   }
 
@@ -213,29 +277,31 @@ function CollageCanvasPage() {
     }
     if (!dirty || confirm("Replace the current arrangement with a template?")) {
       const items = buildTemplate(kind, ids, layout.w, layout.h);
-      updateLayout((prev) => ({ ...prev, items }));
+      commitAndApply((prev) => ({ ...prev, items }));
       setSelectedItem(null);
       toast.success(`Applied ${kind} template`);
     }
   }
 
   function removeItem(itemId: string) {
-    updateLayout((prev) => ({ ...prev, items: prev.items.filter((it) => it.id !== itemId) }));
+    commitAndApply((prev) => ({ ...prev, items: prev.items.filter((it) => it.id !== itemId) }));
     if (selectedItem === itemId) setSelectedItem(null);
   }
 
   function bringToFront(itemId: string) {
-    updateLayout((prev) => {
+    commitAndApply((prev) => {
       const maxZ = prev.items.reduce((m, it) => Math.max(m, it.z), 0);
       return { ...prev, items: prev.items.map((it) => (it.id === itemId ? { ...it, z: maxZ + 1 } : it)) };
     });
   }
 
-  function updateItem(itemId: string, patch: Partial<LayoutItem>) {
-    updateLayout((prev) => ({
+  function updateItem(itemId: string, patch: Partial<LayoutItem>, opts: { history?: boolean } = {}) {
+    const mutate = (prev: Layout): Layout => ({
       ...prev,
       items: prev.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)),
-    }));
+    });
+    if (opts.history) commitAndApply(mutate);
+    else applyLayout(mutate);
   }
 
   const startDrag = useCallback(
@@ -246,10 +312,15 @@ function CollageCanvasPage() {
       target.setPointerCapture(e.pointerId);
       const startX = e.clientX;
       const startY = e.clientY;
-      const startItem = layout.items.find((it) => it.id === itemId);
+      const startItem = layoutRef.current.items.find((it) => it.id === itemId);
       if (!startItem) return;
       const orig = { ...startItem };
-      bringToFront(itemId);
+      // Snapshot once at drag start (covers move/resize + implicit z bump)
+      commitHistory();
+      applyLayout((prev) => {
+        const maxZ = prev.items.reduce((m, it) => Math.max(m, it.z), 0);
+        return { ...prev, items: prev.items.map((it) => (it.id === itemId ? { ...it, z: maxZ + 1 } : it)) };
+      });
       setSelectedItem(itemId);
 
       function onMove(ev: PointerEvent) {
@@ -284,7 +355,7 @@ function CollageCanvasPage() {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [layout, scale],
+    [layout.w, layout.h, scale, commitHistory],
   );
 
   async function save() {
@@ -370,7 +441,7 @@ function CollageCanvasPage() {
             value={`${layout.w}x${layout.h}`}
             onChange={(e) => {
               const preset = CANVAS_PRESETS.find((p) => `${p.w}x${p.h}` === e.target.value);
-              if (preset) updateLayout((p) => ({ ...p, w: preset.w, h: preset.h }));
+              if (preset) commitAndApply((p: Layout) => ({ ...p, w: preset.w, h: preset.h }));
             }}
             className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
           >
@@ -386,7 +457,7 @@ function CollageCanvasPage() {
             <input
               type="color"
               value={layout.bg}
-              onChange={(e) => updateLayout((p) => ({ ...p, bg: e.target.value }))}
+              onChange={(e) => commitAndApply((p: Layout) => ({ ...p, bg: e.target.value }))}
               className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0"
             />
           </label>
@@ -412,6 +483,24 @@ function CollageCanvasPage() {
               title="Vertical story"
             >
               <Film className="h-3.5 w-3.5" /> Story
+            </button>
+          </div>
+          <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+            <button
+              onClick={undo}
+              disabled={past.length === 0}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="h-3.5 w-3.5" /> Undo
+            </button>
+            <button
+              onClick={redo}
+              disabled={future.length === 0}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-3.5 w-3.5" /> Redo
             </button>
           </div>
           <button
