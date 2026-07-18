@@ -7,6 +7,7 @@ const ALLOWED_PROVIDERS = [
   "serpapi",
   "local_falcon",
   "facebook",
+  "facebook_brand",
   "instagram",
   "linkedin",
 ] as const;
@@ -121,6 +122,24 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       max: 2048,
     },
   },
+  facebook_brand: {
+    brand_hashtags: {
+      label: "Brand hashtags",
+      required: true,
+      min: 2,
+      max: 512,
+      pattern: /^(#[A-Za-z0-9_]{1,64})(\s+#[A-Za-z0-9_]{1,64})*$/,
+      patternMessage: "Space-separated hashtags like #brand #campaign (letters, numbers, underscore).",
+    },
+    ghl_inbound_webhook_url: {
+      label: "GHL Inbound Webhook URL",
+      required: true,
+      min: 10,
+      max: 2048,
+      pattern: /^https:\/\/[^\s]+$/,
+      patternMessage: "Must be an https:// URL.",
+    },
+  },
 };
 
 function validateField(rule: Rule, raw: string): string | null {
@@ -227,6 +246,41 @@ export const deleteIntegration = createServerFn({ method: "POST" })
       .eq("provider", data.provider);
     if (error) throw new Error(error.message);
     return { ok: true };
+  });
+
+/**
+ * Sends a small test payload to the stored GHL Inbound Webhook URL for the
+ * current user's facebook_brand integration. The URL is decrypted server-side
+ * — the client never sees or supplies it here.
+ */
+export const testFacebookBrandWebhook = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const cfg = await getDecryptedIntegration(context.supabase, context.userId, "facebook_brand");
+    const url = cfg?.ghl_inbound_webhook_url;
+    if (!url) throw new Error("No GHL Inbound Webhook URL saved yet.");
+    if (!/^https:\/\//i.test(url)) throw new Error("Stored URL is not https://");
+    const started = Date.now();
+    let res: Response;
+    try {
+      res = await fetch(url, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event: "test.ping",
+          source: "gmb-rank-pilot",
+          integration: "facebook_brand",
+          brand_hashtags: cfg?.brand_hashtags ?? "",
+          sentAt: new Date().toISOString(),
+        }),
+        signal: AbortSignal.timeout(10_000),
+      });
+    } catch (err) {
+      throw new Error(err instanceof Error ? err.message : "Network error contacting webhook");
+    }
+    const elapsedMs = Date.now() - started;
+    if (!res.ok) throw new Error(`Webhook returned HTTP ${res.status} in ${elapsedMs}ms`);
+    return { ok: true, status: res.status, elapsedMs };
   });
 
 /**

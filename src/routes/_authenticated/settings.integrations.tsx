@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
+import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, Hash, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -19,6 +19,7 @@ import {
   listIntegrations,
   saveIntegration,
   deleteIntegration,
+  testFacebookBrandWebhook,
 } from "@/lib/user-integrations.functions";
 import { PROVIDER_RULES, validateField, type ProviderId } from "@/lib/user-integrations.validation";
 
@@ -489,6 +490,11 @@ function IntegrationsPage() {
         docsUrl="https://developers.facebook.com/docs/pages-api"
       />
 
+      {/* Facebook brand + GHL inbound webhook */}
+      <FacebookBrandCard />
+
+
+
       {/* Instagram */}
       <ProviderCard
         provider="instagram"
@@ -814,9 +820,11 @@ type ProviderCardProps = {
   icon: React.ReactNode;
   fields: FieldDef[];
   docsUrl?: string;
+  onTest?: () => Promise<void>;
+  testLabel?: string;
 };
 
-function ProviderCard({ provider, title, description, icon, fields, docsUrl }: ProviderCardProps) {
+function ProviderCard({ provider, title, description, icon, fields, docsUrl, onTest, testLabel }: ProviderCardProps) {
   const fetchAll = useServerFn(listIntegrations);
   const save = useServerFn(saveIntegration);
   const remove = useServerFn(deleteIntegration);
@@ -830,6 +838,7 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
   const [formError, setFormError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   async function refresh() {
     try {
@@ -940,6 +949,22 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl }: P
           )}
         </div>
         <div className="flex gap-2">
+          {configured && onTest && (
+            <button
+              onClick={async () => {
+                setTesting(true);
+                try {
+                  await onTest();
+                } finally {
+                  setTesting(false);
+                }
+              }}
+              disabled={testing}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : (testLabel ?? "Send test")}
+            </button>
+          )}
           <button
             onClick={() => setOpen((v) => !v)}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
@@ -1131,4 +1156,42 @@ function HeartbeatIntegrationCard() {
     </div>
   );
 }
+
+function FacebookBrandCard() {
+  const runTest = useServerFn(testFacebookBrandWebhook);
+  async function handleTest() {
+    try {
+      const r = await runTest({});
+      toast.success(`Webhook ok · HTTP ${r.status} · ${r.elapsedMs}ms`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Test failed");
+    }
+  }
+  return (
+    <ProviderCard
+      provider="facebook_brand"
+      title="Facebook brand & GHL inbound webhook"
+      description="Save your brand hashtags to append to Facebook posts and store the GHL Inbound Webhook URL that receives them. Values are encrypted at rest."
+      icon={<Hash className="h-6 w-6" />}
+      fields={[
+        {
+          key: "brand_hashtags",
+          label: "Brand hashtags",
+          secret: false,
+          placeholder: "#brand #campaign #location",
+        },
+        {
+          key: "ghl_inbound_webhook_url",
+          label: "GHL Inbound Webhook URL",
+          secret: true,
+          placeholder: "https://services.leadconnectorhq.com/hooks/…",
+        },
+      ]}
+      docsUrl="https://help.gohighlevel.com/support/solutions/articles/48001215536-inbound-webhook"
+      onTest={handleTest}
+      testLabel="Send test"
+    />
+  );
+}
+
 
