@@ -107,12 +107,14 @@ function HeartbeatGalleryPage() {
         .upload(path, blob, { contentType: blob.type || "image/png", upsert: false });
       if (upErr) throw upErr;
 
-      const { error: dbErr } = await supabase.from("images").insert({
-        owner_id: uid,
-        name: item.title,
-        storage_path: path,
-        title: item.title,
-        description: `Imported from HeartBeat · ${item.badge}`,
+      // Use the stable ingest_image RPC — insulates us from future required
+      // columns being added to the images table.
+      const { error: dbErr } = await supabase.rpc("ingest_image", {
+        p_storage_path: path,
+        p_name: item.title,
+        p_title: item.title,
+        p_description: `Imported from HeartBeat · ${item.badge}`,
+        p_source: "heartbeat",
       });
       if (dbErr) throw dbErr;
 
