@@ -47,6 +47,7 @@ import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_a
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 import { Route as AuthenticatedAgentsAgentIdRouteImport } from './routes/_authenticated/agents.$agentId'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
+import { Route as AuthenticatedSocialFacebookHeartbeatRouteImport } from './routes/_authenticated/social.facebook.heartbeat'
 import { Route as AuthenticatedSocialFacebookAdCreativesRouteImport } from './routes/_authenticated/social.facebook.ad-creatives'
 
 const AuthRoute = AuthRouteImport.update({
@@ -260,6 +261,12 @@ const ApiPublicHooksRunAutomationsRoute =
     path: '/api/public/hooks/run-automations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const AuthenticatedSocialFacebookHeartbeatRoute =
+  AuthenticatedSocialFacebookHeartbeatRouteImport.update({
+    id: '/heartbeat',
+    path: '/heartbeat',
+    getParentRoute: () => AuthenticatedSocialFacebookRoute,
+  } as any)
 const AuthenticatedSocialFacebookAdCreativesRoute =
   AuthenticatedSocialFacebookAdCreativesRouteImport.update({
     id: '/ad-creatives',
@@ -305,6 +312,7 @@ export interface FileRoutesByFullPath {
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
+  '/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesByTo {
@@ -345,6 +353,7 @@ export interface FileRoutesByTo {
   '/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
+  '/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRoutesById {
@@ -387,6 +396,7 @@ export interface FileRoutesById {
   '/_authenticated/social/instagram': typeof AuthenticatedSocialInstagramRoute
   '/_authenticated/social/linkedin': typeof AuthenticatedSocialLinkedinRoute
   '/_authenticated/social/facebook/ad-creatives': typeof AuthenticatedSocialFacebookAdCreativesRoute
+  '/_authenticated/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
 }
 export interface FileRouteTypes {
@@ -429,6 +439,7 @@ export interface FileRouteTypes {
     | '/social/instagram'
     | '/social/linkedin'
     | '/social/facebook/ad-creatives'
+    | '/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
   fileRoutesByTo: FileRoutesByTo
   to:
@@ -469,6 +480,7 @@ export interface FileRouteTypes {
     | '/social/instagram'
     | '/social/linkedin'
     | '/social/facebook/ad-creatives'
+    | '/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
   id:
     | '__root__'
@@ -510,6 +522,7 @@ export interface FileRouteTypes {
     | '/_authenticated/social/instagram'
     | '/_authenticated/social/linkedin'
     | '/_authenticated/social/facebook/ad-creatives'
+    | '/_authenticated/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
   fileRoutesById: FileRoutesById
 }
@@ -788,6 +801,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/_authenticated/social/facebook/heartbeat': {
+      id: '/_authenticated/social/facebook/heartbeat'
+      path: '/heartbeat'
+      fullPath: '/social/facebook/heartbeat'
+      preLoaderRoute: typeof AuthenticatedSocialFacebookHeartbeatRouteImport
+      parentRoute: typeof AuthenticatedSocialFacebookRoute
+    }
     '/_authenticated/social/facebook/ad-creatives': {
       id: '/_authenticated/social/facebook/ad-creatives'
       path: '/ad-creatives'
@@ -854,12 +874,15 @@ const AuthenticatedSettingsRouteWithChildren =
 
 interface AuthenticatedSocialFacebookRouteChildren {
   AuthenticatedSocialFacebookAdCreativesRoute: typeof AuthenticatedSocialFacebookAdCreativesRoute
+  AuthenticatedSocialFacebookHeartbeatRoute: typeof AuthenticatedSocialFacebookHeartbeatRoute
 }
 
 const AuthenticatedSocialFacebookRouteChildren: AuthenticatedSocialFacebookRouteChildren =
   {
     AuthenticatedSocialFacebookAdCreativesRoute:
       AuthenticatedSocialFacebookAdCreativesRoute,
+    AuthenticatedSocialFacebookHeartbeatRoute:
+      AuthenticatedSocialFacebookHeartbeatRoute,
   }
 
 const AuthenticatedSocialFacebookRouteWithChildren =
@@ -932,13 +955,3 @@ const rootRouteChildren: RootRouteChildren = {
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

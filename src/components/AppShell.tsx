@@ -31,6 +31,7 @@ import {
   Linkedin,
   LayoutGrid,
   Building2,
+  Heart,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -175,6 +176,11 @@ const workspaces: Workspace[] = [
             to: "/social/facebook/ad-creatives",
             label: "Ad Creatives",
             icon: Sparkles,
+          },
+          {
+            to: "/social/facebook/heartbeat",
+            label: "HeartBeat Gallery",
+            icon: Heart,
           },
         ],
       },
