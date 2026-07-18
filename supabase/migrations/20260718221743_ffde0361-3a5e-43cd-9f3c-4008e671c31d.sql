@@ -1,0 +1,1 @@
+ALTER TABLE public.image_collections ADD COLUMN IF NOT EXISTS layout jsonb NOT NULL DEFAULT '{"w":1080,"h":1080,"bg":"#ffffff","items":[]}'::jsonb;

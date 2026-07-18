@@ -659,6 +659,7 @@ export type Database = {
           description: string | null
           id: string
           image_ids: string[]
+          layout: Json
           name: string
           owner_id: string
           thumb_image_id: string | null
@@ -669,6 +670,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_ids?: string[]
+          layout?: Json
           name: string
           owner_id: string
           thumb_image_id?: string | null
@@ -679,6 +681,7 @@ export type Database = {
           description?: string | null
           id?: string
           image_ids?: string[]
+          layout?: Json
           name?: string
           owner_id?: string
           thumb_image_id?: string | null
