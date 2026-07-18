@@ -190,13 +190,72 @@ function CollageCanvasPage() {
     return images.filter((i) => !placed.has(i.id));
   }, [images, layout.items]);
 
-  function updateLayout(next: Layout | ((prev: Layout) => Layout)) {
-    setLayout((prev) => {
-      const value = typeof next === "function" ? next(prev) : next;
-      setDirty(true);
-      return value;
+  const commitHistory = useCallback(() => {
+    setPast((p) => {
+      const snap = layoutRef.current;
+      // cap history depth
+      const next = [...p, snap];
+      if (next.length > 100) next.shift();
+      return next;
     });
+    setFuture([]);
+  }, []);
+
+  const layoutRef = useRef(layout);
+  useEffect(() => { layoutRef.current = layout; }, [layout]);
+
+  function applyLayout(next: Layout | ((prev: Layout) => Layout)) {
+    setLayout((prev) => (typeof next === "function" ? next(prev) : next));
+    setDirty(true);
   }
+
+  function commitAndApply(next: Layout | ((prev: Layout) => Layout)) {
+    commitHistory();
+    applyLayout(next);
+  }
+
+  const undo = useCallback(() => {
+    setPast((p) => {
+      if (p.length === 0) return p;
+      const prev = p[p.length - 1];
+      setFuture((f) => [layoutRef.current, ...f].slice(0, 100));
+      setLayout(prev);
+      setDirty(true);
+      setSelectedItem(null);
+      return p.slice(0, -1);
+    });
+  }, []);
+
+  const redo = useCallback(() => {
+    setFuture((f) => {
+      if (f.length === 0) return f;
+      const next = f[0];
+      setPast((p) => [...p, layoutRef.current].slice(-100));
+      setLayout(next);
+      setDirty(true);
+      setSelectedItem(null);
+      return f.slice(1);
+    });
+  }, []);
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      const tag = (e.target as HTMLElement | null)?.tagName;
+      if (tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT") return;
+      const meta = e.metaKey || e.ctrlKey;
+      if (!meta) return;
+      if (e.key.toLowerCase() === "z" && !e.shiftKey) {
+        e.preventDefault();
+        undo();
+      } else if ((e.key.toLowerCase() === "z" && e.shiftKey) || e.key.toLowerCase() === "y") {
+        e.preventDefault();
+        redo();
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [undo, redo]);
 
   function addImage(imageId: string) {
     const count = layout.items.length;
@@ -206,7 +265,7 @@ function CollageCanvasPage() {
     const y = Math.round((layout.h - h) / 2 + (count % 5) * 24);
     const maxZ = layout.items.reduce((m, it) => Math.max(m, it.z), 0);
     const item: LayoutItem = { id: uid(), imageId, x, y, w, h, z: maxZ + 1 };
-    updateLayout((prev) => ({ ...prev, items: [...prev.items, item] }));
+    commitAndApply((prev) => ({ ...prev, items: [...prev.items, item] }));
     setSelectedItem(item.id);
   }
 
@@ -218,29 +277,31 @@ function CollageCanvasPage() {
     }
     if (!dirty || confirm("Replace the current arrangement with a template?")) {
       const items = buildTemplate(kind, ids, layout.w, layout.h);
-      updateLayout((prev) => ({ ...prev, items }));
+      commitAndApply((prev) => ({ ...prev, items }));
       setSelectedItem(null);
       toast.success(`Applied ${kind} template`);
     }
   }
 
   function removeItem(itemId: string) {
-    updateLayout((prev) => ({ ...prev, items: prev.items.filter((it) => it.id !== itemId) }));
+    commitAndApply((prev) => ({ ...prev, items: prev.items.filter((it) => it.id !== itemId) }));
     if (selectedItem === itemId) setSelectedItem(null);
   }
 
   function bringToFront(itemId: string) {
-    updateLayout((prev) => {
+    commitAndApply((prev) => {
       const maxZ = prev.items.reduce((m, it) => Math.max(m, it.z), 0);
       return { ...prev, items: prev.items.map((it) => (it.id === itemId ? { ...it, z: maxZ + 1 } : it)) };
     });
   }
 
-  function updateItem(itemId: string, patch: Partial<LayoutItem>) {
-    updateLayout((prev) => ({
+  function updateItem(itemId: string, patch: Partial<LayoutItem>, opts: { history?: boolean } = {}) {
+    const mutate = (prev: Layout): Layout => ({
       ...prev,
       items: prev.items.map((it) => (it.id === itemId ? { ...it, ...patch } : it)),
-    }));
+    });
+    if (opts.history) commitAndApply(mutate);
+    else applyLayout(mutate);
   }
 
   const startDrag = useCallback(
@@ -251,10 +312,15 @@ function CollageCanvasPage() {
       target.setPointerCapture(e.pointerId);
       const startX = e.clientX;
       const startY = e.clientY;
-      const startItem = layout.items.find((it) => it.id === itemId);
+      const startItem = layoutRef.current.items.find((it) => it.id === itemId);
       if (!startItem) return;
       const orig = { ...startItem };
-      bringToFront(itemId);
+      // Snapshot once at drag start (covers move/resize + implicit z bump)
+      commitHistory();
+      applyLayout((prev) => {
+        const maxZ = prev.items.reduce((m, it) => Math.max(m, it.z), 0);
+        return { ...prev, items: prev.items.map((it) => (it.id === itemId ? { ...it, z: maxZ + 1 } : it)) };
+      });
       setSelectedItem(itemId);
 
       function onMove(ev: PointerEvent) {
@@ -289,7 +355,7 @@ function CollageCanvasPage() {
       window.addEventListener("pointermove", onMove);
       window.addEventListener("pointerup", onUp);
     },
-    [layout, scale],
+    [layout.w, layout.h, scale, commitHistory],
   );
 
   async function save() {
