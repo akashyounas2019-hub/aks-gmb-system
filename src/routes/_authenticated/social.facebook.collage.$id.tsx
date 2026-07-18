@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, Loader2, Plus, Save, Trash2, Layers, Download, Maximize2 } from "lucide-react";
+import { ArrowLeft, Loader2, Plus, Save, Trash2, Layers, Download, Maximize2, Grid3x3, Shuffle, Film } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 
@@ -29,6 +29,93 @@ const CANVAS_PRESETS: Array<{ label: string; w: number; h: number }> = [
 
 function uid() {
   return Math.random().toString(36).slice(2, 10);
+}
+
+function buildTemplate(
+  kind: "grid" | "mosaic" | "story",
+  imageIds: string[],
+  W: number,
+  H: number,
+): LayoutItem[] {
+  if (imageIds.length === 0) return [];
+  const gap = Math.round(Math.min(W, H) * 0.015);
+
+  if (kind === "grid") {
+    const n = imageIds.length;
+    const cols = Math.ceil(Math.sqrt(n));
+    const rows = Math.ceil(n / cols);
+    const cellW = (W - gap * (cols + 1)) / cols;
+    const cellH = (H - gap * (rows + 1)) / rows;
+    return imageIds.map((imageId, i) => {
+      const c = i % cols;
+      const r = Math.floor(i / cols);
+      return {
+        id: uid(),
+        imageId,
+        x: Math.round(gap + c * (cellW + gap)),
+        y: Math.round(gap + r * (cellH + gap)),
+        w: Math.round(cellW),
+        h: Math.round(cellH),
+        z: i + 1,
+      };
+    });
+  }
+
+  if (kind === "story") {
+    // Vertical stack, top image bigger (hero)
+    const n = imageIds.length;
+    if (n === 1) {
+      return [{ id: uid(), imageId: imageIds[0], x: gap, y: gap, w: W - gap * 2, h: H - gap * 2, z: 1 }];
+    }
+    const heroH = Math.round(H * 0.55);
+    const stripCount = n - 1;
+    const stripH = (H - heroH - gap * (stripCount + 2)) / stripCount;
+    const items: LayoutItem[] = [
+      { id: uid(), imageId: imageIds[0], x: gap, y: gap, w: W - gap * 2, h: heroH, z: 1 },
+    ];
+    for (let i = 1; i < n; i++) {
+      items.push({
+        id: uid(),
+        imageId: imageIds[i],
+        x: gap,
+        y: Math.round(gap + heroH + gap + (i - 1) * (stripH + gap)),
+        w: W - gap * 2,
+        h: Math.round(stripH),
+        z: i + 1,
+      });
+    }
+    return items;
+  }
+
+  // mosaic: hero left, offset tiles right
+  const n = imageIds.length;
+  if (n === 1) {
+    return [{ id: uid(), imageId: imageIds[0], x: gap, y: gap, w: W - gap * 2, h: H - gap * 2, z: 1 }];
+  }
+  const heroW = Math.round(W * 0.6);
+  const items: LayoutItem[] = [
+    { id: uid(), imageId: imageIds[0], x: gap, y: gap, w: heroW - gap, h: H - gap * 2, z: 1 },
+  ];
+  const rest = imageIds.slice(1);
+  const rightW = W - heroW - gap;
+  const cols = rest.length >= 4 ? 2 : 1;
+  const rows = Math.ceil(rest.length / cols);
+  const cellW = (rightW - gap * (cols - 1)) / cols;
+  const cellH = (H - gap * (rows + 1)) / rows;
+  rest.forEach((imageId, i) => {
+    const c = i % cols;
+    const r = Math.floor(i / cols);
+    items.push({
+      id: uid(),
+      imageId,
+      x: Math.round(heroW + c * (cellW + gap)),
+      y: Math.round(gap + r * (cellH + gap)),
+      w: Math.round(cellW),
+      h: Math.round(cellH),
+      z: i + 2,
+    });
+  });
+  return items;
 }
 
 function CollageCanvasPage() {
@@ -116,6 +203,20 @@ function CollageCanvasPage() {
     const item: LayoutItem = { id: uid(), imageId, x, y, w, h, z: maxZ + 1 };
     updateLayout((prev) => ({ ...prev, items: [...prev.items, item] }));
     setSelectedItem(item.id);
+  }
+
+  function applyTemplate(kind: "grid" | "mosaic" | "story") {
+    const ids = images.map((i) => i.id);
+    if (ids.length === 0) {
+      toast.error("Add images to this collection first.");
+      return;
+    }
+    if (!dirty || confirm("Replace the current arrangement with a template?")) {
+      const items = buildTemplate(kind, ids, layout.w, layout.h);
+      updateLayout((prev) => ({ ...prev, items }));
+      setSelectedItem(null);
+      toast.success(`Applied ${kind} template`);
+    }
   }
 
   function removeItem(itemId: string) {
@@ -289,6 +390,30 @@ function CollageCanvasPage() {
               className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0"
             />
           </label>
+          <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+            <span className="px-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Template</span>
+            <button
+              onClick={() => applyTemplate("grid")}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+              title="Even grid"
+            >
+              <Grid3x3 className="h-3.5 w-3.5" /> Grid
+            </button>
+            <button
+              onClick={() => applyTemplate("mosaic")}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+              title="Hero + tiles"
+            >
+              <Shuffle className="h-3.5 w-3.5" /> Mosaic
+            </button>
+            <button
+              onClick={() => applyTemplate("story")}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+              title="Vertical story"
+            >
+              <Film className="h-3.5 w-3.5" /> Story
+            </button>
+          </div>
           <button
             onClick={exportPng}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent"
