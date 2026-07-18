@@ -485,6 +485,24 @@ function CollageCanvasPage() {
               <Film className="h-3.5 w-3.5" /> Story
             </button>
           </div>
+          <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+            <button
+              onClick={undo}
+              disabled={past.length === 0}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+              title="Undo (Ctrl+Z)"
+            >
+              <Undo2 className="h-3.5 w-3.5" /> Undo
+            </button>
+            <button
+              onClick={redo}
+              disabled={future.length === 0}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent disabled:opacity-40 disabled:hover:bg-transparent"
+              title="Redo (Ctrl+Shift+Z)"
+            >
+              <Redo2 className="h-3.5 w-3.5" /> Redo
+            </button>
+          </div>
           <button
             onClick={exportPng}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent"
