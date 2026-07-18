@@ -126,6 +126,14 @@ function CollectionsPage() {
                       <div className="text-xs text-muted-foreground">{c.image_ids.length} images</div>
                     </div>
                     <div className="flex gap-1">
+                      <Link
+                        to="/social/facebook/collage/$id"
+                        params={{ id: c.id }}
+                        className="rounded-md border border-border p-1.5 hover:bg-accent"
+                        title="Open collage canvas"
+                      >
+                        <LayoutGrid className="h-3.5 w-3.5" />
+                      </Link>
                       <button onClick={() => setEditing(c)} className="rounded-md border border-border p-1.5 hover:bg-accent" title="Edit">
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
