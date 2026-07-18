@@ -457,7 +457,7 @@ function CollageCanvasPage() {
             <input
               type="color"
               value={layout.bg}
-              onChange={(e) => updateLayout((p) => ({ ...p, bg: e.target.value }))}
+              onChange={(e) => commitAndApply((p: Layout) => ({ ...p, bg: e.target.value }))}
               className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0"
             />
           </label>
