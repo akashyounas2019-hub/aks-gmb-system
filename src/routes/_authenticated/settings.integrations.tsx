@@ -1157,3 +1157,41 @@ function HeartbeatIntegrationCard() {
   );
 }
 
+function FacebookBrandCard() {
+  const runTest = useServerFn(testFacebookBrandWebhook);
+  async function handleTest() {
+    try {
+      const r = await runTest({});
+      toast.success(`Webhook ok · HTTP ${r.status} · ${r.elapsedMs}ms`);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Test failed");
+    }
+  }
+  return (
+    <ProviderCard
+      provider="facebook_brand"
+      title="Facebook brand & GHL inbound webhook"
+      description="Save your brand hashtags to append to Facebook posts and store the GHL Inbound Webhook URL that receives them. Values are encrypted at rest."
+      icon={<Hash className="h-6 w-6" />}
+      fields={[
+        {
+          key: "brand_hashtags",
+          label: "Brand hashtags",
+          secret: false,
+          placeholder: "#brand #campaign #location",
+        },
+        {
+          key: "ghl_inbound_webhook_url",
+          label: "GHL Inbound Webhook URL",
+          secret: true,
+          placeholder: "https://services.leadconnectorhq.com/hooks/…",
+        },
+      ]}
+      docsUrl="https://help.gohighlevel.com/support/solutions/articles/48001215536-inbound-webhook"
+      onTest={handleTest}
+      testLabel="Send test"
+    />
+  );
+}
+
+
