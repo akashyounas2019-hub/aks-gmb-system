@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardCompetitorMap } from "@/components/DashboardCompetitorMap";
+import { HeartbeatStatusCard } from "@/components/HeartbeatStatusCard";
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
@@ -211,6 +212,11 @@ function DashboardPage() {
             <PenSquare className="h-4 w-4" /> Generate a post
           </Link>
         </div>
+      </div>
+
+      {/* Integration status */}
+      <div className="mt-6">
+        <HeartbeatStatusCard />
       </div>
 
       {/* KPI strip */}
