@@ -390,6 +390,30 @@ function CollageCanvasPage() {
               className="h-6 w-8 cursor-pointer border-0 bg-transparent p-0"
             />
           </label>
+          <div className="flex items-center gap-1 rounded-md border border-border bg-background p-0.5">
+            <span className="px-1.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">Template</span>
+            <button
+              onClick={() => applyTemplate("grid")}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+              title="Even grid"
+            >
+              <Grid3x3 className="h-3.5 w-3.5" /> Grid
+            </button>
+            <button
+              onClick={() => applyTemplate("mosaic")}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+              title="Hero + tiles"
+            >
+              <Shuffle className="h-3.5 w-3.5" /> Mosaic
+            </button>
+            <button
+              onClick={() => applyTemplate("story")}
+              className="inline-flex items-center gap-1 rounded px-2 py-1 text-xs hover:bg-accent"
+              title="Vertical story"
+            >
+              <Film className="h-3.5 w-3.5" /> Story
+            </button>
+          </div>
           <button
             onClick={exportPng}
             className="inline-flex items-center gap-1.5 rounded-md border border-border bg-background px-3 py-1.5 text-sm hover:bg-accent"
