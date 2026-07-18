@@ -832,6 +832,7 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
   const [formError, setFormError] = useState<string | null>(null);
   const [reveal, setReveal] = useState<Record<string, boolean>>({});
   const [busy, setBusy] = useState(false);
+  const [testing, setTesting] = useState(false);
 
   async function refresh() {
     try {
