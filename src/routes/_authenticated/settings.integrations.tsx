@@ -490,6 +490,11 @@ function IntegrationsPage() {
         docsUrl="https://developers.facebook.com/docs/pages-api"
       />
 
+      {/* Facebook brand + GHL inbound webhook */}
+      <FacebookBrandCard />
+
+
+
       {/* Instagram */}
       <ProviderCard
         provider="instagram"
