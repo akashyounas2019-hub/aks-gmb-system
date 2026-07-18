@@ -122,6 +122,24 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       max: 2048,
     },
   },
+  facebook_brand: {
+    brand_hashtags: {
+      label: "Brand hashtags",
+      required: true,
+      min: 2,
+      max: 512,
+      pattern: /^(#[A-Za-z0-9_]{1,64})(\s+#[A-Za-z0-9_]{1,64})*$/,
+      patternMessage: "Space-separated hashtags like #brand #campaign (letters, numbers, underscore).",
+    },
+    ghl_inbound_webhook_url: {
+      label: "GHL Inbound Webhook URL",
+      required: true,
+      min: 10,
+      max: 2048,
+      pattern: /^https:\/\/[^\s]+$/,
+      patternMessage: "Must be an https:// URL.",
+    },
+  },
 };
 
 function validateField(rule: Rule, raw: string): string | null {
