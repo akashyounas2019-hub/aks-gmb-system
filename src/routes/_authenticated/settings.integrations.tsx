@@ -943,6 +943,22 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
           )}
         </div>
         <div className="flex gap-2">
+          {configured && onTest && (
+            <button
+              onClick={async () => {
+                setTesting(true);
+                try {
+                  await onTest();
+                } finally {
+                  setTesting(false);
+                }
+              }}
+              disabled={testing}
+              className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+            >
+              {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : (testLabel ?? "Send test")}
+            </button>
+          )}
           <button
             onClick={() => setOpen((v) => !v)}
             className="rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent"
