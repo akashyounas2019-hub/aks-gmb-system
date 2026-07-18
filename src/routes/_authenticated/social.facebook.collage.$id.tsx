@@ -118,6 +118,20 @@ function CollageCanvasPage() {
     setSelectedItem(item.id);
   }
 
+  function applyTemplate(kind: "grid" | "mosaic" | "story") {
+    const ids = images.map((i) => i.id);
+    if (ids.length === 0) {
+      toast.error("Add images to this collection first.");
+      return;
+    }
+    if (!dirty || confirm("Replace the current arrangement with a template?")) {
+      const items = buildTemplate(kind, ids, layout.w, layout.h);
+      updateLayout((prev) => ({ ...prev, items }));
+      setSelectedItem(null);
+      toast.success(`Applied ${kind} template`);
+    }
+  }
+
   function removeItem(itemId: string) {
     updateLayout((prev) => ({ ...prev, items: prev.items.filter((it) => it.id !== itemId) }));
     if (selectedItem === itemId) setSelectedItem(null);
