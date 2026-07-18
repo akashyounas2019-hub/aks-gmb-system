@@ -51,6 +51,7 @@ import { Route as AuthenticatedSocialFacebookHeartbeatRouteImport } from './rout
 import { Route as AuthenticatedSocialFacebookGhlExportRouteImport } from './routes/_authenticated/social.facebook.ghl-export'
 import { Route as AuthenticatedSocialFacebookCollectionsRouteImport } from './routes/_authenticated/social.facebook.collections'
 import { Route as AuthenticatedSocialFacebookAdCreativesRouteImport } from './routes/_authenticated/social.facebook.ad-creatives'
+import { Route as AuthenticatedSocialFacebookCollageIdRouteImport } from './routes/_authenticated/social.facebook.collage.$id'
 
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
@@ -287,6 +288,12 @@ const AuthenticatedSocialFacebookAdCreativesRoute =
     path: '/social/facebook/ad-creatives',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
+const AuthenticatedSocialFacebookCollageIdRoute =
+  AuthenticatedSocialFacebookCollageIdRouteImport.update({
+    id: '/social/facebook/collage/$id',
+    path: '/social/facebook/collage/$id',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -330,6 +337,7 @@ export interface FileRoutesByFullPath {
   '/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/social/facebook/': typeof AuthenticatedSocialFacebookIndexRoute
+  '/social/facebook/collage/$id': typeof AuthenticatedSocialFacebookCollageIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -373,6 +381,7 @@ export interface FileRoutesByTo {
   '/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/social/facebook': typeof AuthenticatedSocialFacebookIndexRoute
+  '/social/facebook/collage/$id': typeof AuthenticatedSocialFacebookCollageIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -418,6 +427,7 @@ export interface FileRoutesById {
   '/_authenticated/social/facebook/heartbeat': typeof AuthenticatedSocialFacebookHeartbeatRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
   '/_authenticated/social/facebook/': typeof AuthenticatedSocialFacebookIndexRoute
+  '/_authenticated/social/facebook/collage/$id': typeof AuthenticatedSocialFacebookCollageIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -463,6 +473,7 @@ export interface FileRouteTypes {
     | '/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
     | '/social/facebook/'
+    | '/social/facebook/collage/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -506,6 +517,7 @@ export interface FileRouteTypes {
     | '/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
     | '/social/facebook'
+    | '/social/facebook/collage/$id'
   id:
     | '__root__'
     | '/'
@@ -550,6 +562,7 @@ export interface FileRouteTypes {
     | '/_authenticated/social/facebook/heartbeat'
     | '/api/public/hooks/run-automations'
     | '/_authenticated/social/facebook/'
+    | '/_authenticated/social/facebook/collage/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -855,6 +868,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSocialFacebookAdCreativesRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
+    '/_authenticated/social/facebook/collage/$id': {
+      id: '/_authenticated/social/facebook/collage/$id'
+      path: '/social/facebook/collage/$id'
+      fullPath: '/social/facebook/collage/$id'
+      preLoaderRoute: typeof AuthenticatedSocialFacebookCollageIdRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
   }
 }
 
@@ -940,6 +960,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedSocialFacebookGhlExportRoute: typeof AuthenticatedSocialFacebookGhlExportRoute
   AuthenticatedSocialFacebookHeartbeatRoute: typeof AuthenticatedSocialFacebookHeartbeatRoute
   AuthenticatedSocialFacebookIndexRoute: typeof AuthenticatedSocialFacebookIndexRoute
+  AuthenticatedSocialFacebookCollageIdRoute: typeof AuthenticatedSocialFacebookCollageIdRoute
 }
 
 const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
@@ -974,6 +995,8 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedSocialFacebookHeartbeatRoute:
     AuthenticatedSocialFacebookHeartbeatRoute,
   AuthenticatedSocialFacebookIndexRoute: AuthenticatedSocialFacebookIndexRoute,
+  AuthenticatedSocialFacebookCollageIdRoute:
+    AuthenticatedSocialFacebookCollageIdRoute,
 }
 
 const AuthenticatedRouteRouteWithChildren =
