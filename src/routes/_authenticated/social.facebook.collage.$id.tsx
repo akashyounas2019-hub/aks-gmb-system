@@ -441,7 +441,7 @@ function CollageCanvasPage() {
             value={`${layout.w}x${layout.h}`}
             onChange={(e) => {
               const preset = CANVAS_PRESETS.find((p) => `${p.w}x${p.h}` === e.target.value);
-              if (preset) updateLayout((p) => ({ ...p, w: preset.w, h: preset.h }));
+              if (preset) commitAndApply((p: Layout) => ({ ...p, w: preset.w, h: preset.h }));
             }}
             className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
           >
