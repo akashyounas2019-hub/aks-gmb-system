@@ -51,7 +51,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "favorites" | "
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, created_at")
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
     // Hide soft-deleted (trashed) images from normal views.
