@@ -2437,6 +2437,7 @@ function VideoCard({
   onDelete: () => void;
   onRegenerate: () => void;
   regenerating: boolean;
+  anyRegenerating: boolean;
   regenProgress: { pct: number; message: string } | null;
 }) {
   const url = useVideoUrl(video.storage_path);
