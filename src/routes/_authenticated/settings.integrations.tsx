@@ -1,6 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useServerFn } from "@tanstack/react-start";
-import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, Hash, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
+import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -19,7 +18,6 @@ import {
   listIntegrations,
   saveIntegration,
   deleteIntegration,
-  testFacebookBrandWebhook,
 } from "@/lib/user-integrations.functions";
 import { PROVIDER_RULES, validateField, type ProviderId } from "@/lib/user-integrations.validation";
 
