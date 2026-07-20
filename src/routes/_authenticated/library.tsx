@@ -510,19 +510,9 @@ function LibraryPage() {
               onChange={(e) => setFilter(e.target.value)}
               className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
-            <button
-              onClick={() => {
-                setSelectMode((s) => !s);
-                clearSelection();
-              }}
-              className={`rounded-md border px-3 py-2 text-sm ${
-                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
-              }`}
-            >
-              {selectMode ? "Done" : "Select"}
-            </button>
           </div>
         )}
+
       </div>
 
       {/* Horizontal tabs */}
@@ -917,7 +907,28 @@ function LibraryPage() {
           </button>
         </div>
       ) : (
-        <div className="mt-8 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <>
+        {tab !== "raw" && (
+          <div className="mt-6 flex items-center justify-between gap-2">
+            <div className="text-xs text-muted-foreground">
+              {filtered.length} {filtered.length === 1 ? "image" : "images"}
+            </div>
+            <button
+              onClick={() => {
+                setSelectMode((s) => !s);
+                clearSelection();
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
+                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"
+              }`}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              {selectMode ? "Done" : "Select"}
+            </button>
+          </div>
+        )}
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+
           {filtered.map((img) => {
             const tags = data!.tagMap.get(img.id) ?? [];
             const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
@@ -1084,7 +1095,9 @@ function LibraryPage() {
             );
           })}
         </div>
+        </>
       )}
+
 
       {bulkPanel && (
         <BulkPanel
