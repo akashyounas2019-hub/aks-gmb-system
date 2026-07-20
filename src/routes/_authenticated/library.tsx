@@ -2519,10 +2519,10 @@ function VideoCard({
           </button>
           <button
             onClick={onRegenerate}
-            disabled={regenerating}
-            title="Regenerate frames from this video"
+            disabled={anyRegenerating}
+            title={anyRegenerating && !regenerating ? "Another video is regenerating" : "Regenerate frames from this video"}
             aria-label="Regenerate frames"
-            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-60"
+            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-60 disabled:cursor-not-allowed"
           >
             {regenerating ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
