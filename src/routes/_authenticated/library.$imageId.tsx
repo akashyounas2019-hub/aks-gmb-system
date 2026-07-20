@@ -62,12 +62,28 @@ function ImageDetail() {
   });
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [describing, setDescribing] = useState(false);
+  const [description, setDescription] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const suggestFn = useServerFn(suggestTagsForImage);
+  const describeFn = useServerFn(describeImage);
+
+  useEffect(() => {
+    if (data?.image) setDescription(data.image.description ?? "");
+  }, [data?.image?.id, data?.image?.description]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLightboxOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   if (isLoading || !data) {
     return <div className="p-10 text-muted-foreground">Loading…</div>;
   }
   const { image, allTags, selectedTagIds, venues } = data;
+  const defaultTitle = image.title || image.name || "";
 
   async function rename(name: string) {
     const { error } = await supabase.from("images").update({ name }).eq("id", imageId);
