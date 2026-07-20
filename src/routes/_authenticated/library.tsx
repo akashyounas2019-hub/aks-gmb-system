@@ -45,7 +45,7 @@ export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
 
-type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos" | "trash";
+type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "favorites" | "videos" | "trash";
 
 
 async function fetchLibrary() {
