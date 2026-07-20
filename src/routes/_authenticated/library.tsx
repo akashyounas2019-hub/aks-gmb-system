@@ -2086,6 +2086,8 @@ function VideosPanel() {
   const { data: folders } = useQuery({ queryKey: ["video_folders"], queryFn: fetchVideoFolders });
   const [preview, setPreview] = useState<VideoRow | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null); // null = All, "__uncategorized" = unfiled
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const totalBytes = (data ?? []).reduce((s, v) => s + (v.size_bytes ?? 0), 0);
   const usedPct = Math.min(100, (totalBytes / STORAGE_QUOTA_BYTES) * 100);
