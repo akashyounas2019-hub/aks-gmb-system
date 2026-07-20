@@ -2461,12 +2461,38 @@ function VideoCard({
             <Play className="h-3.5 w-3.5" /> Preview
           </button>
           <button
+            onClick={onRegenerate}
+            disabled={regenerating}
+            title="Regenerate frames from this video"
+            aria-label="Regenerate frames"
+            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-60"
+          >
+            {regenerating ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3.5 w-3.5" />
+            )}
+          </button>
+          <button
             onClick={onDelete}
-            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10"
+            disabled={regenerating}
+            className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs text-red-500 hover:bg-red-500/10 disabled:opacity-60"
           >
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
+        {regenerating && regenProgress && (
+          <div className="mt-3">
+            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
+              <div
+                className="h-full bg-primary transition-all"
+                style={{ width: `${Math.round(regenProgress.pct * 100)}%` }}
+              />
+            </div>
+            <div className="mt-1 text-[11px] text-muted-foreground">{regenProgress.message}</div>
+          </div>
+        )}
+
       </div>
     </div>
   );
