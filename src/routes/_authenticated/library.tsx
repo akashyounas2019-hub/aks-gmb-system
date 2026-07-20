@@ -28,6 +28,7 @@ import {
   Folder as FolderIcon,
   FolderPlus,
   RefreshCw,
+  Heart,
 } from "lucide-react";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 
@@ -44,13 +45,13 @@ export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
 });
 
-type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "videos" | "trash";
+type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "favorites" | "videos" | "trash";
 
 
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, created_at")
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
     // Hide soft-deleted (trashed) images from normal views.
@@ -168,6 +169,18 @@ function LibraryPage() {
     qc.invalidateQueries({ queryKey: ["library"] });
     qc.invalidateQueries({ queryKey: ["trash"] });
   }
+
+  async function toggleFavorite(id: string, current: boolean) {
+    const { error } = await supabase
+      .from("images")
+      .update({ is_favorite: !current } as never)
+      .eq("id", id);
+    if (error) return toast.error(error.message);
+    toast.success(!current ? "Added to Favorites" : "Removed from Favorites");
+    qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+
 
   async function bulkDeleteImages(ids: string[], _paths: string[], label: string) {
     if (ids.length === 0) return;
@@ -333,9 +346,10 @@ function LibraryPage() {
 
 
   const counts = useMemo(() => {
-    const c: Record<"raw" | "published" | "geotagged", number> = { raw: 0, published: 0, geotagged: 0 };
+    const c: Record<"raw" | "published" | "geotagged" | "favorites", number> = { raw: 0, published: 0, geotagged: 0, favorites: 0 };
     for (const i of data?.images ?? []) {
       c[imageBucket(i)]++;
+      if ((i as { is_favorite?: boolean }).is_favorite) c.favorites++;
     }
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -346,7 +360,11 @@ function LibraryPage() {
     if (!data || tab === "videos") return [];
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
-      if (imageBucket(i) !== tab) return false;
+      if (tab === "favorites") {
+        if (!(i as { is_favorite?: boolean }).is_favorite) return false;
+      } else {
+        if (imageBucket(i) !== tab) return false;
+      }
       // Folder scoping applies to raw / published / geotagged image tabs.
       if (tab === "raw" || tab === "published" || tab === "geotagged") {
         const fid = folderByTab[tab];
@@ -468,6 +486,7 @@ function LibraryPage() {
     { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
     { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
+    { id: "favorites", label: "Favorites", icon: Heart, count: counts.favorites },
     { id: "videos", label: "Videos", icon: Film },
     { id: "trash", label: "Trash", icon: Trash },
   ];
@@ -961,6 +980,18 @@ function LibraryPage() {
                           lng={Number(img.lng)}
                         />
                       )}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleFavorite(img.id, Boolean((img as { is_favorite?: boolean }).is_favorite));
+                        }}
+                        aria-label={(img as { is_favorite?: boolean }).is_favorite ? "Remove from favorites" : "Add to favorites"}
+                        title={(img as { is_favorite?: boolean }).is_favorite ? "Remove from favorites" : "Add to favorites"}
+                        className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${(img as { is_favorite?: boolean }).is_favorite ? "text-rose-500" : "text-foreground"}`}
+                      >
+                        <Heart className={`h-3.5 w-3.5 ${(img as { is_favorite?: boolean }).is_favorite ? "fill-current" : ""}`} />
+                      </button>
                       <button
                         onClick={(e) => {
                           e.preventDefault();

@@ -789,6 +789,7 @@ export type Database = {
           folder_id: string | null
           height: number | null
           id: string
+          is_favorite: boolean
           lat: number | null
           lng: number | null
           name: string
@@ -810,6 +811,7 @@ export type Database = {
           folder_id?: string | null
           height?: number | null
           id?: string
+          is_favorite?: boolean
           lat?: number | null
           lng?: number | null
           name: string
@@ -831,6 +833,7 @@ export type Database = {
           folder_id?: string | null
           height?: number | null
           id?: string
+          is_favorite?: boolean
           lat?: number | null
           lng?: number | null
           name?: string
