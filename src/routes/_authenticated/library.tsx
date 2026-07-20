@@ -2099,16 +2099,40 @@ function VideosPanel() {
 
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [regenProgress, setRegenProgress] = useState<{ pct: number; message: string }>({ pct: 0, message: "" });
+  type RegenStatus = {
+    status: "queued" | "running" | "completed" | "failed";
+    message?: string;
+    pct?: number;
+    error?: string;
+    at: number;
+  };
+  const [regenStatus, setRegenStatus] = useState<Record<string, RegenStatus>>({});
+  const regenQueueRef = useRef<VideoRow[]>([]);
+  const regenBusyRef = useRef(false);
+
+  const setStatus = (id: string, s: RegenStatus) =>
+    setRegenStatus((prev) => ({ ...prev, [id]: s }));
+  const clearStatusLater = (id: string, ms = 8000) => {
+    setTimeout(() => {
+      setRegenStatus((prev) => {
+        const cur = prev[id];
+        if (!cur || cur.status === "running" || cur.status === "queued") return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }, ms);
+  };
 
   const regenerateMut = useMutation({
     mutationFn: async (v: VideoRow) => {
       setRegeneratingId(v.id);
+      setStatus(v.id, { status: "running", pct: 0, message: "Downloading video…", at: Date.now() });
       setRegenProgress({ pct: 0, message: "Downloading video…" });
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in.");
 
-      // Download the existing video
       const { data: signed, error: signErr } = await supabase.storage
         .from("videos")
         .createSignedUrl(v.storage_path, 60 * 30);
@@ -2117,19 +2141,23 @@ function VideosPanel() {
       const blob = await res.blob();
       const file = new File([blob], v.original_name, { type: blob.type || "video/mp4" });
 
-      // Extract frames using same defaults as upload
+      setStatus(v.id, { status: "running", pct: 0.1, message: "Analyzing video…", at: Date.now() });
       setRegenProgress({ pct: 0.1, message: "Analyzing video…" });
       const { frames } = await extractSharpFrames(file, {
         sampleEveryMs: 1000,
         maxFrames: 15,
         minFrames: 3,
         maxDimension: 1600,
-        onProgress: (p) =>
-          setRegenProgress({ pct: 0.1 + p.progress * 0.3, message: p.message ?? "Analyzing video…" }),
+        onProgress: (p) => {
+          const pct = 0.1 + p.progress * 0.3;
+          const message = p.message ?? "Analyzing video…";
+          setRegenProgress({ pct, message });
+          setStatus(v.id, { status: "running", pct, message, at: Date.now() });
+        },
       });
       if (frames.length === 0) throw new Error("Couldn't extract any frames.");
 
-      // Delete existing frames for this video (storage + rows)
+      setStatus(v.id, { status: "running", pct: 0.42, message: "Removing old frames…", at: Date.now() });
       setRegenProgress({ pct: 0.42, message: "Removing old frames…" });
       const { data: oldImgs } = await supabase
         .from("images")
@@ -2147,7 +2175,6 @@ function VideosPanel() {
           );
       }
 
-      // Upload new frames + rows
       const baseName = v.original_name.replace(/\.[^.]+$/, "");
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i];
@@ -2167,27 +2194,55 @@ function VideosPanel() {
           height: f.height,
         });
         if (iErr) throw iErr;
-        setRegenProgress({
-          pct: 0.45 + ((i + 1) / frames.length) * 0.55,
-          message: `Saved ${i + 1}/${frames.length}`,
-        });
+        const pct = 0.45 + ((i + 1) / frames.length) * 0.55;
+        const message = `Saved ${i + 1}/${frames.length}`;
+        setRegenProgress({ pct, message });
+        setStatus(v.id, { status: "running", pct, message, at: Date.now() });
       }
 
-      // Update video frame_count
       await supabase.from("videos").update({ frame_count: frames.length }).eq("id", v.id);
-      return frames.length;
+      return { count: frames.length, id: v.id };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ count, id }) => {
       toast.success(`Regenerated ${count} frames`);
+      setStatus(id, { status: "completed", pct: 1, message: `${count} frames`, at: Date.now() });
+      clearStatusLater(id);
       qc.invalidateQueries({ queryKey: ["videos"] });
       qc.invalidateQueries({ queryKey: ["images"] });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Regenerate failed"),
+    onError: (err, v) => {
+      const msg = err instanceof Error ? err.message : "Regenerate failed";
+      toast.error(msg);
+      setStatus(v.id, { status: "failed", error: msg, at: Date.now() });
+      clearStatusLater(v.id, 12000);
+    },
     onSettled: () => {
       setRegeneratingId(null);
       setRegenProgress({ pct: 0, message: "" });
+      // Advance the queue
+      regenBusyRef.current = false;
+      const next = regenQueueRef.current.shift();
+      if (next) {
+        regenBusyRef.current = true;
+        regenerateMut.mutate(next);
+      }
     },
   });
+
+  const enqueueRegenerate = (v: VideoRow) => {
+    // Skip duplicates
+    if (regeneratingId === v.id) return;
+    if (regenQueueRef.current.some((q) => q.id === v.id)) return;
+    if (regenBusyRef.current) {
+      regenQueueRef.current.push(v);
+      setStatus(v.id, { status: "queued", message: "Waiting…", at: Date.now() });
+    } else {
+      regenBusyRef.current = true;
+      regenerateMut.mutate(v);
+    }
+  };
+
+
 
 
   async function createVideoFolder() {
