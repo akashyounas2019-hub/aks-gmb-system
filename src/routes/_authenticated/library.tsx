@@ -2066,6 +2066,99 @@ function VideosPanel() {
     onError: (err) => toast.error(err instanceof Error ? err.message : "Delete failed"),
   });
 
+  const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
+  const [regenProgress, setRegenProgress] = useState<{ pct: number; message: string }>({ pct: 0, message: "" });
+
+  const regenerateMut = useMutation({
+    mutationFn: async (v: VideoRow) => {
+      setRegeneratingId(v.id);
+      setRegenProgress({ pct: 0, message: "Downloading video…" });
+      const { data: userData } = await supabase.auth.getUser();
+      const userId = userData.user?.id;
+      if (!userId) throw new Error("Not signed in.");
+
+      // Download the existing video
+      const { data: signed, error: signErr } = await supabase.storage
+        .from("videos")
+        .createSignedUrl(v.storage_path, 60 * 30);
+      if (signErr || !signed?.signedUrl) throw signErr ?? new Error("Could not read video");
+      const res = await fetch(signed.signedUrl);
+      const blob = await res.blob();
+      const file = new File([blob], v.original_name, { type: blob.type || "video/mp4" });
+
+      // Extract frames using same defaults as upload
+      setRegenProgress({ pct: 0.1, message: "Analyzing video…" });
+      const { frames } = await extractSharpFrames(file, {
+        sampleEveryMs: 1000,
+        maxFrames: 15,
+        minFrames: 3,
+        maxDimension: 1600,
+        onProgress: (p) =>
+          setRegenProgress({ pct: 0.1 + p.progress * 0.3, message: p.message ?? "Analyzing video…" }),
+      });
+      if (frames.length === 0) throw new Error("Couldn't extract any frames.");
+
+      // Delete existing frames for this video (storage + rows)
+      setRegenProgress({ pct: 0.42, message: "Removing old frames…" });
+      const { data: oldImgs } = await supabase
+        .from("images")
+        .select("id, storage_path")
+        .eq("video_id", v.id);
+      if (oldImgs && oldImgs.length) {
+        const paths = oldImgs.map((r) => r.storage_path).filter(Boolean) as string[];
+        if (paths.length) await supabase.storage.from("frames").remove(paths);
+        await supabase
+          .from("images")
+          .delete()
+          .in(
+            "id",
+            oldImgs.map((r) => r.id),
+          );
+      }
+
+      // Upload new frames + rows
+      const baseName = v.original_name.replace(/\.[^.]+$/, "");
+      for (let i = 0; i < frames.length; i++) {
+        const f = frames[i];
+        const framePath = `${userId}/${v.id}/${String(i + 1).padStart(3, "0")}.jpg`;
+        const { error: fErr } = await supabase.storage
+          .from("frames")
+          .upload(framePath, f.blob, { contentType: "image/jpeg", upsert: true });
+        if (fErr) throw fErr;
+        const { error: iErr } = await supabase.from("images").insert({
+          owner_id: userId,
+          video_id: v.id,
+          storage_path: framePath,
+          name: `${baseName} — Frame ${i + 1}`,
+          sharpness_score: f.sharpness,
+          timestamp_seconds: f.timestampSeconds,
+          width: f.width,
+          height: f.height,
+        });
+        if (iErr) throw iErr;
+        setRegenProgress({
+          pct: 0.45 + ((i + 1) / frames.length) * 0.55,
+          message: `Saved ${i + 1}/${frames.length}`,
+        });
+      }
+
+      // Update video frame_count
+      await supabase.from("videos").update({ frame_count: frames.length }).eq("id", v.id);
+      return frames.length;
+    },
+    onSuccess: (count) => {
+      toast.success(`Regenerated ${count} frames`);
+      qc.invalidateQueries({ queryKey: ["videos"] });
+      qc.invalidateQueries({ queryKey: ["images"] });
+    },
+    onError: (err) => toast.error(err instanceof Error ? err.message : "Regenerate failed"),
+    onSettled: () => {
+      setRegeneratingId(null);
+      setRegenProgress({ pct: 0, message: "" });
+    },
+  });
+
+
   async function createVideoFolder() {
     const name = window.prompt("Folder name")?.trim();
     if (!name) return;
