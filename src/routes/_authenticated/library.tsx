@@ -178,6 +178,9 @@ function LibraryPage() {
     if (error) return toast.error(error.message);
     toast.success(!current ? "Added to Favorites" : "Removed from Favorites");
     qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+
 
   async function bulkDeleteImages(ids: string[], _paths: string[], label: string) {
     if (ids.length === 0) return;
