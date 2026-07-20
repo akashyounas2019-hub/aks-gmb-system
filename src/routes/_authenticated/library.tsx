@@ -486,6 +486,7 @@ function LibraryPage() {
     { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
     { id: "geotagged", label: "Geo-Tagged Images", icon: MapPin, count: counts.geotagged },
+    { id: "favorites", label: "Favorites", icon: Heart, count: counts.favorites },
     { id: "videos", label: "Videos", icon: Film },
     { id: "trash", label: "Trash", icon: Trash },
   ];
