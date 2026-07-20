@@ -510,19 +510,9 @@ function LibraryPage() {
               onChange={(e) => setFilter(e.target.value)}
               className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
-            <button
-              onClick={() => {
-                setSelectMode((s) => !s);
-                clearSelection();
-              }}
-              className={`rounded-md border px-3 py-2 text-sm ${
-                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border"
-              }`}
-            >
-              {selectMode ? "Done" : "Select"}
-            </button>
           </div>
         )}
+
       </div>
 
       {/* Horizontal tabs */}
