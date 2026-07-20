@@ -214,10 +214,8 @@ function DashboardPage() {
         </div>
       </div>
 
-      {/* Integration status */}
-      <div className="mt-6">
-        <HeartbeatStatusCard />
-      </div>
+
+
 
       {/* KPI strip */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
