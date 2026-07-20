@@ -28,6 +28,7 @@ import {
   Folder as FolderIcon,
   FolderPlus,
   RefreshCw,
+  Heart,
 } from "lucide-react";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 
