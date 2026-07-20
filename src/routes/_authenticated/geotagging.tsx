@@ -152,6 +152,7 @@ type LocalImage = {
   // of creating a duplicate.
   libraryId?: string;
   libraryStoragePath?: string;
+  favorite?: boolean;
   // True when the image was imported from the library and already had title/description set.
   // We won't re-prompt for those fields.
   hasExistingMeta?: boolean;
@@ -275,7 +276,7 @@ function GeotaggingPage() {
     setLibraryLoading(true);
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,lat,lng,title,description")
+      .select("id,name,storage_path,lat,lng,title,description,is_favorite")
       .order("created_at", { ascending: false })
       .limit(500);
     setLibrary((data ?? []) as LibraryImage[]);
@@ -336,6 +337,7 @@ function GeotaggingPage() {
             // we pre-fill title (from title → name → filename) and description,
             // so the user doesn't have to re-enter anything from the previous step.
             hasExistingMeta: true,
+            favorite: Boolean(row.is_favorite),
           });
         }
         setImages((prev) => [...prev, ...built]);
@@ -1212,6 +1214,11 @@ function StepUpload({
                   Library
                 </span>
               )}
+              {img.favorite && (
+                <div className="absolute right-1 bottom-1 pointer-events-none">
+                  <FavoriteBadge favorite compact />
+                </div>
+              )}
               <button
                 onClick={() => removeImage(img.id)}
                 className="absolute right-1 top-1 rounded-md bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive"
@@ -1258,6 +1265,11 @@ function LibraryThumb({
         <span className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
           <MapPin className="h-2.5 w-2.5" />
         </span>
+      )}
+      {row.is_favorite && (
+        <div className="absolute right-1 top-1">
+          <FavoriteBadge favorite compact />
+        </div>
       )}
       {imported && (
         <div className="absolute inset-0 flex items-center justify-center bg-background/60 text-[10px] font-semibold text-primary">
