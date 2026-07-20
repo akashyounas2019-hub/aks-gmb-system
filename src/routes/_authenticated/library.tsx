@@ -2450,7 +2450,29 @@ function VideoCard({
         <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
           <Play className="h-10 w-10 text-white" />
         </div>
+        {regenerating && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-white">
+            <Loader2 className="h-6 w-6 animate-spin" />
+            <div className="text-xs font-medium">Regenerating frames…</div>
+          </div>
+        )}
       </button>
+      {regenerating && regenProgress && (
+        <div className="border-b border-border bg-primary/5 px-4 py-2">
+          <div className="flex items-center justify-between text-[11px]">
+            <span className="font-medium text-primary">{regenProgress.message}</span>
+            <span className="tabular-nums text-muted-foreground">
+              {Math.round(regenProgress.pct * 100)}%
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 overflow-hidden rounded-full bg-muted">
+            <div
+              className="h-full bg-primary transition-all"
+              style={{ width: `${Math.round(regenProgress.pct * 100)}%` }}
+            />
+          </div>
+        </div>
+      )}
       <div className="p-4">
         <div className="truncate font-medium">{video.original_name}</div>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
@@ -2512,17 +2534,7 @@ function VideoCard({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
-        {regenerating && regenProgress && (
-          <div className="mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{ width: `${Math.round(regenProgress.pct * 100)}%` }}
-              />
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">{regenProgress.message}</div>
-          </div>
-        )}
+
 
       </div>
     </div>
