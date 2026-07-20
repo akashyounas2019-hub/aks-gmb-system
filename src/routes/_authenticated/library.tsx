@@ -37,6 +37,7 @@ import { readGps, embedGps } from "@/lib/exif-geotag";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { FavoriteBadge } from "@/components/FavoriteBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
 import { UploadPanel } from "@/components/UploadPanel";
