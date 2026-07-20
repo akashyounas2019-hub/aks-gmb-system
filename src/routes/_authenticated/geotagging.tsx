@@ -180,6 +180,7 @@ type LibraryImage = {
   lng: number | null;
   title: string | null;
   description: string | null;
+  is_favorite: boolean | null;
 };
 
 /* -------------------------------------------------------------------------- */
