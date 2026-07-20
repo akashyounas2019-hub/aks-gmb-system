@@ -1,7 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import {
   MapPin,
@@ -2099,16 +2099,40 @@ function VideosPanel() {
 
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
   const [regenProgress, setRegenProgress] = useState<{ pct: number; message: string }>({ pct: 0, message: "" });
+  type RegenStatus = {
+    status: "queued" | "running" | "completed" | "failed";
+    message?: string;
+    pct?: number;
+    error?: string;
+    at: number;
+  };
+  const [regenStatus, setRegenStatus] = useState<Record<string, RegenStatus>>({});
+  const regenQueueRef = useRef<VideoRow[]>([]);
+  const regenBusyRef = useRef(false);
+
+  const setStatus = (id: string, s: RegenStatus) =>
+    setRegenStatus((prev) => ({ ...prev, [id]: s }));
+  const clearStatusLater = (id: string, ms = 8000) => {
+    setTimeout(() => {
+      setRegenStatus((prev) => {
+        const cur = prev[id];
+        if (!cur || cur.status === "running" || cur.status === "queued") return prev;
+        const next = { ...prev };
+        delete next[id];
+        return next;
+      });
+    }, ms);
+  };
 
   const regenerateMut = useMutation({
     mutationFn: async (v: VideoRow) => {
       setRegeneratingId(v.id);
+      setStatus(v.id, { status: "running", pct: 0, message: "Downloading video…", at: Date.now() });
       setRegenProgress({ pct: 0, message: "Downloading video…" });
       const { data: userData } = await supabase.auth.getUser();
       const userId = userData.user?.id;
       if (!userId) throw new Error("Not signed in.");
 
-      // Download the existing video
       const { data: signed, error: signErr } = await supabase.storage
         .from("videos")
         .createSignedUrl(v.storage_path, 60 * 30);
@@ -2117,19 +2141,23 @@ function VideosPanel() {
       const blob = await res.blob();
       const file = new File([blob], v.original_name, { type: blob.type || "video/mp4" });
 
-      // Extract frames using same defaults as upload
+      setStatus(v.id, { status: "running", pct: 0.1, message: "Analyzing video…", at: Date.now() });
       setRegenProgress({ pct: 0.1, message: "Analyzing video…" });
       const { frames } = await extractSharpFrames(file, {
         sampleEveryMs: 1000,
         maxFrames: 15,
         minFrames: 3,
         maxDimension: 1600,
-        onProgress: (p) =>
-          setRegenProgress({ pct: 0.1 + p.progress * 0.3, message: p.message ?? "Analyzing video…" }),
+        onProgress: (p) => {
+          const pct = 0.1 + p.progress * 0.3;
+          const message = p.message ?? "Analyzing video…";
+          setRegenProgress({ pct, message });
+          setStatus(v.id, { status: "running", pct, message, at: Date.now() });
+        },
       });
       if (frames.length === 0) throw new Error("Couldn't extract any frames.");
 
-      // Delete existing frames for this video (storage + rows)
+      setStatus(v.id, { status: "running", pct: 0.42, message: "Removing old frames…", at: Date.now() });
       setRegenProgress({ pct: 0.42, message: "Removing old frames…" });
       const { data: oldImgs } = await supabase
         .from("images")
@@ -2147,7 +2175,6 @@ function VideosPanel() {
           );
       }
 
-      // Upload new frames + rows
       const baseName = v.original_name.replace(/\.[^.]+$/, "");
       for (let i = 0; i < frames.length; i++) {
         const f = frames[i];
@@ -2167,27 +2194,55 @@ function VideosPanel() {
           height: f.height,
         });
         if (iErr) throw iErr;
-        setRegenProgress({
-          pct: 0.45 + ((i + 1) / frames.length) * 0.55,
-          message: `Saved ${i + 1}/${frames.length}`,
-        });
+        const pct = 0.45 + ((i + 1) / frames.length) * 0.55;
+        const message = `Saved ${i + 1}/${frames.length}`;
+        setRegenProgress({ pct, message });
+        setStatus(v.id, { status: "running", pct, message, at: Date.now() });
       }
 
-      // Update video frame_count
       await supabase.from("videos").update({ frame_count: frames.length }).eq("id", v.id);
-      return frames.length;
+      return { count: frames.length, id: v.id };
     },
-    onSuccess: (count) => {
+    onSuccess: ({ count, id }) => {
       toast.success(`Regenerated ${count} frames`);
+      setStatus(id, { status: "completed", pct: 1, message: `${count} frames`, at: Date.now() });
+      clearStatusLater(id);
       qc.invalidateQueries({ queryKey: ["videos"] });
       qc.invalidateQueries({ queryKey: ["images"] });
     },
-    onError: (err) => toast.error(err instanceof Error ? err.message : "Regenerate failed"),
+    onError: (err, v) => {
+      const msg = err instanceof Error ? err.message : "Regenerate failed";
+      toast.error(msg);
+      setStatus(v.id, { status: "failed", error: msg, at: Date.now() });
+      clearStatusLater(v.id, 12000);
+    },
     onSettled: () => {
       setRegeneratingId(null);
       setRegenProgress({ pct: 0, message: "" });
+      // Advance the queue
+      regenBusyRef.current = false;
+      const next = regenQueueRef.current.shift();
+      if (next) {
+        regenBusyRef.current = true;
+        regenerateMut.mutate(next);
+      }
     },
   });
+
+  const enqueueRegenerate = (v: VideoRow) => {
+    // Skip duplicates
+    if (regeneratingId === v.id) return;
+    if (regenQueueRef.current.some((q: VideoRow) => q.id === v.id)) return;
+    if (regenBusyRef.current) {
+      regenQueueRef.current.push(v);
+      setStatus(v.id, { status: "queued", message: "Waiting…", at: Date.now() });
+    } else {
+      regenBusyRef.current = true;
+      regenerateMut.mutate(v);
+    }
+  };
+
+
 
 
   async function createVideoFolder() {
@@ -2378,18 +2433,20 @@ function VideosPanel() {
                 }
               }}
               onRegenerate={() => {
-                if (regeneratingId) return;
+                const cur = regenStatus[v.id];
+                if (cur?.status === "queued" || cur?.status === "running") return;
                 if (
                   confirm(
                     `Regenerate frames for "${v.original_name}"? Existing frames from this video will be replaced.`,
                   )
                 ) {
-                  regenerateMut.mutate(v);
+                  enqueueRegenerate(v);
                 }
               }}
               regenerating={regeneratingId === v.id}
               anyRegenerating={regeneratingId !== null}
               regenProgress={regeneratingId === v.id ? regenProgress : null}
+              regenStatus={regenStatus[v.id] ?? null}
             />
           ))}
 
@@ -2428,6 +2485,7 @@ function VideoCard({
   regenerating,
   anyRegenerating,
   regenProgress,
+  regenStatus,
 
 }: {
   video: VideoRow;
@@ -2439,6 +2497,13 @@ function VideoCard({
   regenerating: boolean;
   anyRegenerating: boolean;
   regenProgress: { pct: number; message: string } | null;
+  regenStatus: {
+    status: "queued" | "running" | "completed" | "failed";
+    message?: string;
+    pct?: number;
+    error?: string;
+    at: number;
+  } | null;
 }) {
   const url = useVideoUrl(video.storage_path);
   const currentFolder = folders.find((f) => f.id === video.folder_id);
@@ -2460,6 +2525,27 @@ function VideoCard({
             <div className="text-xs font-medium">Regenerating frames…</div>
           </div>
         )}
+        {!regenerating && regenStatus?.status === "queued" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 text-white">
+            <div className="text-xs font-medium">Queued</div>
+            <div className="text-[10px] text-white/80">Waiting for current job…</div>
+          </div>
+        )}
+        {regenStatus && (
+          <div
+            className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+              regenStatus.status === "queued"
+                ? "bg-amber-500/90 text-white"
+                : regenStatus.status === "running"
+                  ? "bg-primary text-primary-foreground"
+                  : regenStatus.status === "completed"
+                    ? "bg-emerald-500/90 text-white"
+                    : "bg-red-500/90 text-white"
+            }`}
+          >
+            {regenStatus.status}
+          </div>
+        )}
       </button>
       {regenerating && regenProgress && (
         <div className="border-b border-border bg-primary/5 px-4 py-2">
@@ -2475,6 +2561,16 @@ function VideoCard({
               style={{ width: `${Math.round(regenProgress.pct * 100)}%` }}
             />
           </div>
+        </div>
+      )}
+      {!regenerating && regenStatus?.status === "completed" && (
+        <div className="border-b border-border bg-emerald-500/10 px-4 py-2 text-[11px] text-emerald-700 dark:text-emerald-300">
+          ✓ Regenerated {regenStatus.message ?? "successfully"}
+        </div>
+      )}
+      {!regenerating && regenStatus?.status === "failed" && (
+        <div className="border-b border-border bg-red-500/10 px-4 py-2 text-[11px] text-red-600 dark:text-red-400">
+          ✕ Failed: {regenStatus.error ?? "unknown error"}
         </div>
       )}
       <div className="p-4">
@@ -2519,8 +2615,16 @@ function VideoCard({
           </button>
           <button
             onClick={onRegenerate}
-            disabled={anyRegenerating}
-            title={anyRegenerating && !regenerating ? "Another video is regenerating" : "Regenerate frames from this video"}
+            disabled={regenerating || regenStatus?.status === "queued"}
+            title={
+              regenerating
+                ? "Regenerating…"
+                : regenStatus?.status === "queued"
+                  ? "Queued for regeneration"
+                  : anyRegenerating
+                    ? "Will queue after current job"
+                    : "Regenerate frames from this video"
+            }
             aria-label="Regenerate frames"
             className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-60 disabled:cursor-not-allowed"
           >
