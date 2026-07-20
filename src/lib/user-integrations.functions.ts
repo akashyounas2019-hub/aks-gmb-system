@@ -6,17 +6,11 @@ const ALLOWED_PROVIDERS = [
   "dataforseo",
   "serpapi",
   "local_falcon",
-  "facebook",
-  "facebook_brand",
-  "instagram",
-  "linkedin",
 ] as const;
 type Provider = (typeof ALLOWED_PROVIDERS)[number];
 
 type StoredField = { c: string; m: string };
 
-// Shared validation rules — mirrored on the client for inline errors.
-// Keep in sync with PROVIDER_RULES in settings.integrations.tsx.
 type Rule = {
   label: string;
   required?: boolean;
@@ -72,72 +66,6 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       max: 128,
       pattern: /^[A-Za-z0-9._-]+$/,
       patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
-    },
-  },
-  facebook: {
-    page_id: {
-      label: "Page ID",
-      required: true,
-      min: 3,
-      max: 128,
-      pattern: /^[A-Za-z0-9._-]+$/,
-      patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
-    },
-    access_token: {
-      label: "Page Access Token",
-      required: true,
-      min: 20,
-      max: 1024,
-    },
-  },
-  instagram: {
-    account_id: {
-      label: "Instagram Business Account ID",
-      required: true,
-      min: 3,
-      max: 128,
-      pattern: /^[A-Za-z0-9._-]+$/,
-      patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
-    },
-    access_token: {
-      label: "Access Token",
-      required: true,
-      min: 20,
-      max: 1024,
-    },
-  },
-  linkedin: {
-    organization_id: {
-      label: "Organization or Member URN",
-      required: true,
-      min: 3,
-      max: 128,
-      pattern: /^[A-Za-z0-9:._-]+$/,
-      patternMessage: "Only letters, numbers, ':', '.', '_', and '-' are allowed.",
-    },
-    access_token: {
-      label: "Access Token",
-      required: true,
-      min: 20,
-      max: 2048,
-    },
-  },
-  facebook_brand: {
-    brand_hashtags: {
-      label: "Brand hashtags",
-      required: true,
-      min: 2,
-      max: 512,
-      pattern: /^(#[A-Za-z0-9_]{1,64})(\s+#[A-Za-z0-9_]{1,64})*$/,
-      patternMessage: "Space-separated hashtags like #brand #campaign (letters, numbers, underscore).",
-    },
-    ghl_inbound_webhook_url: {
-      label: "GHL Inbound Webhook URL",
-      required: true,
-      min: 10,
-      max: 2048,
-      pattern: /^https:\/\/[^\s]+$/,
-      patternMessage: "Must be an https:// URL.",
     },
   },
 };
