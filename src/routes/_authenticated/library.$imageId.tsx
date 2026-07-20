@@ -31,7 +31,7 @@ async function fetchImage(imageId: string) {
   const { data: image, error } = await supabase
     .from("images")
     .select(
-      "id, name, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id",
+      "id, name, title, description, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id",
     )
     .eq("id", imageId)
     .is("deleted_at", null)
