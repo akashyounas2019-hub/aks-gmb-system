@@ -2426,7 +2426,9 @@ function VideoCard({
   onDelete,
   onRegenerate,
   regenerating,
+  anyRegenerating,
   regenProgress,
+
 }: {
   video: VideoRow;
   folders: VideoFolderRow[];
