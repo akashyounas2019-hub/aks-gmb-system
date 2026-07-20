@@ -403,14 +403,14 @@ function ImageDetail() {
               </div>
             )}
 
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 [scrollbar-width:thin]">
               {allTags.map((t) => {
                 const on = selectedTagIds.has(t.id);
                 return (
                   <button
                     key={t.id}
                     onClick={() => toggleTag(t.id, !on)}
-                    className={`rounded-full px-3 py-1 text-xs transition ${
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${
                       on
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:bg-accent"
@@ -431,6 +431,33 @@ function ImageDetail() {
           </button>
         </div>
       </div>
+
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute right-4 top-4 rounded-full bg-background/20 p-2 text-white hover:bg-background/40"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div
+            className="max-h-full max-w-full overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SignedImage
+              bucket="frames"
+              path={image.storage_path}
+              alt={defaultTitle}
+              className="max-h-[95vh] w-auto max-w-[95vw] object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
