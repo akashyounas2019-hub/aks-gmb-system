@@ -176,40 +176,8 @@ export const deleteIntegration = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
-/**
- * Sends a small test payload to the stored GHL Inbound Webhook URL for the
- * current user's facebook_brand integration. The URL is decrypted server-side
- * — the client never sees or supplies it here.
- */
-export const testFacebookBrandWebhook = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const cfg = await getDecryptedIntegration(context.supabase, context.userId, "facebook_brand");
-    const url = cfg?.ghl_inbound_webhook_url;
-    if (!url) throw new Error("No GHL Inbound Webhook URL saved yet.");
-    if (!/^https:\/\//i.test(url)) throw new Error("Stored URL is not https://");
-    const started = Date.now();
-    let res: Response;
-    try {
-      res = await fetch(url, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          event: "test.ping",
-          source: "gmb-rank-pilot",
-          integration: "facebook_brand",
-          brand_hashtags: cfg?.brand_hashtags ?? "",
-          sentAt: new Date().toISOString(),
-        }),
-        signal: AbortSignal.timeout(10_000),
-      });
-    } catch (err) {
-      throw new Error(err instanceof Error ? err.message : "Network error contacting webhook");
-    }
-    const elapsedMs = Date.now() - started;
-    if (!res.ok) throw new Error(`Webhook returned HTTP ${res.status} in ${elapsedMs}ms`);
-    return { ok: true, status: res.status, elapsedMs };
-  });
+
+
 
 /**
  * Server-only helper for other server functions that need plaintext credentials
