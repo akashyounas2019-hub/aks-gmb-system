@@ -2534,17 +2534,7 @@ function VideoCard({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
-        {regenerating && regenProgress && (
-          <div className="mt-3">
-            <div className="h-1.5 overflow-hidden rounded-full bg-muted">
-              <div
-                className="h-full bg-primary transition-all"
-                style={{ width: `${Math.round(regenProgress.pct * 100)}%` }}
-              />
-            </div>
-            <div className="mt-1 text-[11px] text-muted-foreground">{regenProgress.message}</div>
-          </div>
-        )}
+
 
       </div>
     </div>
