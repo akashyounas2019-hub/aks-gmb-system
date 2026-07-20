@@ -1,14 +1,27 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, MapPin, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, Maximize2, Sparkles, Trash2, X } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
-import { suggestTagsForImage } from "@/lib/ai.functions";
+import { describeImage, suggestTagsForImage } from "@/lib/ai.functions";
+
+const DESCRIPTION_KEYWORDS = [
+  "spotless",
+  "professional",
+  "pristine",
+  "sparkling",
+  "immaculate",
+  "meticulous",
+  "fresh",
+  "gleaming",
+  "deep clean",
+  "hygienic",
+];
 
 export const Route = createFileRoute("/_authenticated/library/$imageId")({
   component: ImageDetail,
