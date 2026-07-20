@@ -2392,15 +2392,22 @@ function VideoCard({
   onMove,
   onPreview,
   onDelete,
+  onRegenerate,
+  regenerating,
+  regenProgress,
 }: {
   video: VideoRow;
   folders: VideoFolderRow[];
   onMove: (folderId: string | null) => void | Promise<unknown>;
   onPreview: () => void;
   onDelete: () => void;
+  onRegenerate: () => void;
+  regenerating: boolean;
+  regenProgress: { pct: number; message: string } | null;
 }) {
   const url = useVideoUrl(video.storage_path);
   const currentFolder = folders.find((f) => f.id === video.folder_id);
+
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
