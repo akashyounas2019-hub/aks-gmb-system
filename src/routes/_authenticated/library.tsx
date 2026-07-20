@@ -2433,18 +2433,20 @@ function VideosPanel() {
                 }
               }}
               onRegenerate={() => {
-                if (regeneratingId) return;
+                const cur = regenStatus[v.id];
+                if (cur?.status === "queued" || cur?.status === "running") return;
                 if (
                   confirm(
                     `Regenerate frames for "${v.original_name}"? Existing frames from this video will be replaced.`,
                   )
                 ) {
-                  regenerateMut.mutate(v);
+                  enqueueRegenerate(v);
                 }
               }}
               regenerating={regeneratingId === v.id}
               anyRegenerating={regeneratingId !== null}
               regenProgress={regeneratingId === v.id ? regenProgress : null}
+              regenStatus={regenStatus[v.id] ?? null}
             />
           ))}
 
