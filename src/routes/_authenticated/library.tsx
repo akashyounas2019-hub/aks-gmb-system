@@ -2525,6 +2525,27 @@ function VideoCard({
             <div className="text-xs font-medium">Regenerating frames…</div>
           </div>
         )}
+        {!regenerating && regenStatus?.status === "queued" && (
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 text-white">
+            <div className="text-xs font-medium">Queued</div>
+            <div className="text-[10px] text-white/80">Waiting for current job…</div>
+          </div>
+        )}
+        {regenStatus && (
+          <div
+            className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+              regenStatus.status === "queued"
+                ? "bg-amber-500/90 text-white"
+                : regenStatus.status === "running"
+                  ? "bg-primary text-primary-foreground"
+                  : regenStatus.status === "completed"
+                    ? "bg-emerald-500/90 text-white"
+                    : "bg-red-500/90 text-white"
+            }`}
+          >
+            {regenStatus.status}
+          </div>
+        )}
       </button>
       {regenerating && regenProgress && (
         <div className="border-b border-border bg-primary/5 px-4 py-2">
@@ -2540,6 +2561,16 @@ function VideoCard({
               style={{ width: `${Math.round(regenProgress.pct * 100)}%` }}
             />
           </div>
+        </div>
+      )}
+      {!regenerating && regenStatus?.status === "completed" && (
+        <div className="border-b border-border bg-emerald-500/10 px-4 py-2 text-[11px] text-emerald-700 dark:text-emerald-300">
+          ✓ Regenerated {regenStatus.message ?? "successfully"}
+        </div>
+      )}
+      {!regenerating && regenStatus?.status === "failed" && (
+        <div className="border-b border-border bg-red-500/10 px-4 py-2 text-[11px] text-red-600 dark:text-red-400">
+          ✕ Failed: {regenStatus.error ?? "unknown error"}
         </div>
       )}
       <div className="p-4">
