@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardCompetitorMap } from "@/components/DashboardCompetitorMap";
-import { HeartbeatStatusCard } from "@/components/HeartbeatStatusCard";
+
 
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
