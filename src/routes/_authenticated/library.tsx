@@ -27,7 +27,10 @@ import {
   Download,
   Folder as FolderIcon,
   FolderPlus,
+  RefreshCw,
 } from "lucide-react";
+import { extractSharpFrames } from "@/lib/ffmpeg-extract";
+
 import { readGps, embedGps } from "@/lib/exif-geotag";
 
 import { supabase } from "@/integrations/supabase/client";
