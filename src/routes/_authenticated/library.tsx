@@ -984,6 +984,18 @@ function LibraryPage() {
                         onClick={(e) => {
                           e.preventDefault();
                           e.stopPropagation();
+                          toggleFavorite(img.id, Boolean((img as { is_favorite?: boolean }).is_favorite));
+                        }}
+                        aria-label={(img as { is_favorite?: boolean }).is_favorite ? "Remove from favorites" : "Add to favorites"}
+                        title={(img as { is_favorite?: boolean }).is_favorite ? "Remove from favorites" : "Add to favorites"}
+                        className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${(img as { is_favorite?: boolean }).is_favorite ? "text-rose-500" : "text-foreground"}`}
+                      >
+                        <Heart className={`h-3.5 w-3.5 ${(img as { is_favorite?: boolean }).is_favorite ? "fill-current" : ""}`} />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
                           setEditingId(img.id);
                         }}
                         aria-label="Edit"
