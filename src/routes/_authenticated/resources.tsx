@@ -15,7 +15,6 @@ import {
   ClipboardCheck,
   ShieldCheck,
   Files,
-  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -276,14 +275,8 @@ function ResourcesPage() {
       {/* Header */}
       <div className="mb-6 flex flex-wrap items-start justify-between gap-4">
         <div>
-          <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
-            <Link
-              to="/social/facebook"
-              className="inline-flex items-center gap-1 hover:text-foreground"
-            >
-              <ArrowLeft className="h-3 w-3" /> Back to Facebook
-            </Link>
-          </div>
+          <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground" />
+
           <h1 className="text-3xl">Resources</h1>
           <p className="mt-1 text-sm text-muted-foreground">
             Save and organize files, SOPs, checklists, and audits with folders.

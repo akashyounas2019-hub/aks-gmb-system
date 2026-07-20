@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, Hash, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
+import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -19,7 +19,6 @@ import {
   listIntegrations,
   saveIntegration,
   deleteIntegration,
-  testFacebookBrandWebhook,
 } from "@/lib/user-integrations.functions";
 import { PROVIDER_RULES, validateField, type ProviderId } from "@/lib/user-integrations.validation";
 
@@ -211,8 +210,6 @@ function IntegrationsPage() {
           Connect external accounts to power live analytics and posting.
         </p>
       </div>
-
-      <HeartbeatIntegrationCard />
 
       {/* GMB card */}
       <div className="rounded-2xl border border-border bg-card p-5">
@@ -477,49 +474,8 @@ function IntegrationsPage() {
       {/* n8n */}
       <N8nIntegrationCard />
 
-      {/* Facebook */}
-      <ProviderCard
-        provider="facebook"
-        title="Facebook"
-        description="Post to a Facebook Page. Requires a Page ID and Page Access Token from Meta for Developers."
-        icon={<Plug className="h-6 w-6" />}
-        fields={[
-          { key: "page_id", label: "Page ID", secret: false, placeholder: "1234567890" },
-          { key: "access_token", label: "Page Access Token", secret: true, placeholder: "EAAB••••" },
-        ]}
-        docsUrl="https://developers.facebook.com/docs/pages-api"
-      />
-
-      {/* Facebook brand + GHL inbound webhook */}
-      <FacebookBrandCard />
 
 
-
-      {/* Instagram */}
-      <ProviderCard
-        provider="instagram"
-        title="Instagram"
-        description="Post to an Instagram Business account via the Graph API. Requires the IG business account ID and an access token."
-        icon={<Plug className="h-6 w-6" />}
-        fields={[
-          { key: "account_id", label: "Instagram Business Account ID", secret: false, placeholder: "1784••••" },
-          { key: "access_token", label: "Access Token", secret: true, placeholder: "EAAB••••" },
-        ]}
-        docsUrl="https://developers.facebook.com/docs/instagram-api"
-      />
-
-      {/* LinkedIn */}
-      <ProviderCard
-        provider="linkedin"
-        title="LinkedIn"
-        description="Publish to a LinkedIn Page or member profile via the LinkedIn API. Requires an organization or member URN and an OAuth access token."
-        icon={<Plug className="h-6 w-6" />}
-        fields={[
-          { key: "organization_id", label: "Organization or Member URN", secret: false, placeholder: "urn:li:organization:123456" },
-          { key: "access_token", label: "Access Token", secret: true, placeholder: "AQV••••" },
-        ]}
-        docsUrl="https://learn.microsoft.com/linkedin/marketing/integrations/community-management/shares/posts-api"
-      />
 
 
 
@@ -1071,127 +1027,7 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
   );
 }
 
-function HeartbeatIntegrationCard() {
-  const [url, setUrl] = useState("");
-  const [draft, setDraft] = useState("");
-  const [reachable, setReachable] = useState<boolean | null>(null);
 
-  useEffect(() => {
-    // Lazy import to avoid SSR window ref.
-    import("@/lib/heartbeat").then(({ getHeartbeatBaseUrl }) => {
-      const v = getHeartbeatBaseUrl();
-      setUrl(v);
-      setDraft(v);
-    });
-  }, []);
 
-  useEffect(() => {
-    if (!url) { setReachable(null); return; }
-    let cancelled = false;
-    const probe = new Image();
-    probe.onload = () => !cancelled && setReachable(true);
-    probe.onerror = () => !cancelled && setReachable(false);
-    probe.src = url.replace(/\/+$/, "") + "/offers/house-01.png?_=" + Date.now();
-    return () => { cancelled = true; };
-  }, [url]);
-
-  async function save() {
-    const { validateHeartbeatBaseUrl, setHeartbeatBaseUrl } = await import("@/lib/heartbeat");
-    const v = validateHeartbeatBaseUrl(draft);
-    if (!v.valid) { toast.error(v.message); return; }
-    setHeartbeatBaseUrl(draft);
-    setUrl(draft.trim().replace(/\/+$/, ""));
-    toast.success("HeartBeat URL saved");
-  }
-
-  return (
-    <div className="rounded-2xl border border-border bg-card p-5">
-      <div className="flex flex-wrap items-start gap-4">
-        <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-rose-500/15 text-rose-500">
-          <Plug className="h-6 w-6" />
-        </div>
-        <div className="min-w-[220px] flex-1">
-          <div className="flex items-center gap-2">
-            <h3 className="text-base font-semibold">HeartBeat Helper</h3>
-            {reachable === true ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-emerald-500">
-                <CheckCircle2 className="h-3 w-3" /> Reachable
-              </span>
-            ) : reachable === false ? (
-              <span className="inline-flex items-center gap-1 rounded-full border border-rose-500/40 bg-rose-500/10 px-2 py-0.5 text-[10px] uppercase tracking-widest text-rose-500">
-                <XCircle className="h-3 w-3" /> Unreachable
-              </span>
-            ) : (
-              <span className="inline-flex items-center gap-1 rounded-full border border-border bg-muted/40 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                Not configured
-              </span>
-            )}
-          </div>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Live-links the HeartBeat creative gallery so you can import Facebook images into this project. Paste the published URL of your HeartBeat project.
-          </p>
-          <div className="mt-3 flex flex-wrap items-center gap-2">
-            <input
-              type="url"
-              value={draft}
-              onChange={(e) => setDraft(e.target.value)}
-              placeholder="https://your-heartbeat.lovable.app"
-              className="min-w-[280px] flex-1 rounded-md border border-border bg-background px-3 py-2 font-mono text-xs outline-none focus:border-primary"
-            />
-            <button
-              onClick={save}
-              className="rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
-            >
-              Save URL
-            </button>
-            <Link
-              to="/social/facebook/heartbeat"
-              className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs hover:bg-accent"
-            >
-              Open gallery <ExternalLink className="h-3.5 w-3.5" />
-            </Link>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
-function FacebookBrandCard() {
-  const runTest = useServerFn(testFacebookBrandWebhook);
-  async function handleTest() {
-    try {
-      const r = await runTest({});
-      toast.success(`Webhook ok · HTTP ${r.status} · ${r.elapsedMs}ms`);
-    } catch (err) {
-      toast.error(err instanceof Error ? err.message : "Test failed");
-    }
-  }
-  return (
-    <ProviderCard
-      provider="facebook_brand"
-      title="Facebook brand & GHL inbound webhook"
-      description="Save your brand hashtags to append to Facebook posts and store the GHL Inbound Webhook URL that receives them. Values are encrypted at rest."
-      icon={<Hash className="h-6 w-6" />}
-      fields={[
-        {
-          key: "brand_hashtags",
-          label: "Brand hashtags",
-          secret: false,
-          placeholder: "#brand #campaign #location",
-        },
-        {
-          key: "ghl_inbound_webhook_url",
-          label: "GHL Inbound Webhook URL",
-          secret: true,
-          placeholder: "https://services.leadconnectorhq.com/hooks/…",
-        },
-      ]}
-      docsUrl="https://help.gohighlevel.com/support/solutions/articles/48001215536-inbound-webhook"
-      onTest={handleTest}
-      testLabel="Send test"
-    />
-  );
-}
 
 

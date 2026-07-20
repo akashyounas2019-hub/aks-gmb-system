@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import {
   BarChart3,
   Bell,
@@ -23,17 +23,6 @@ import {
   Bot,
   FileVideo,
   Scissors,
-  Upload,
-  Sparkles,
-  Wand2,
-  Facebook,
-  Instagram,
-  Linkedin,
-  LayoutGrid,
-  Building2,
-  Heart,
-  FolderHeart,
-  FileSpreadsheet,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
@@ -43,243 +32,45 @@ type NavItem = {
   to: string;
   label: string;
   icon: React.ComponentType<{ className?: string }>;
-  search?: Record<string, string>;
   exact?: boolean;
 };
 type NavGroup = { label: string; items: NavItem[] };
-type Workspace = {
-  id: string;
-  label: string;
-  icon: React.ComponentType<{ className?: string }>;
-  landing: string;
-  match: (path: string) => boolean;
-  groups: NavGroup[];
-};
 
-const workspaces: Workspace[] = [
+const navGroups: NavGroup[] = [
   {
-    id: "overview",
-    label: "Overview",
-    icon: LayoutGrid,
-    landing: "/dashboard",
-    match: (p) =>
-      p === "/" ||
-      p.startsWith("/dashboard") ||
-      p.startsWith("/automation") ||
-      p.startsWith("/agents") ||
-      p.startsWith("/keywords") ||
-      p.startsWith("/competitors") ||
-      p.startsWith("/video-converter") ||
-      p.startsWith("/video-compress") ||
-      p.startsWith("/wizard") ||
-      p.startsWith("/upload") ||
-      p.startsWith("/videos") ||
-      p.startsWith("/resources"),
-    groups: [
-      {
-        label: "Home",
-        items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
-      },
-      {
-        label: "Workflow",
-        items: [
-          { to: "/automation", label: "Automation", icon: Zap },
-          { to: "/agents", label: "Agents", icon: Bot },
-        ],
-      },
-      {
-        label: "Growth",
-        items: [
-          { to: "/keywords", label: "Keywords", icon: KeyRound },
-          { to: "/competitors", label: "Competitors", icon: Target },
-        ],
-      },
-      {
-        label: "Video Tools",
-        items: [
-          { to: "/video-converter", label: "Video Converter", icon: FileVideo },
-          { to: "/video-compress", label: "Compress & Crop", icon: Scissors },
-        ],
-      },
+    label: "Home",
+    items: [{ to: "/dashboard", label: "Dashboard", icon: LayoutDashboard }],
+  },
+  {
+    label: "Workflow",
+    items: [
+      { to: "/automation", label: "Automation", icon: Zap },
+      { to: "/agents", label: "Agents", icon: Bot },
     ],
   },
   {
-    id: "gmb",
-    label: "GMB",
-    icon: Building2,
-    landing: "/gmb-analytics",
-    match: (p) =>
-      p.startsWith("/gmb-analytics") ||
-      p.startsWith("/post-generator") ||
-      p.startsWith("/geotagging") ||
-      p.startsWith("/library") ||
-      p.startsWith("/calendar") ||
-      p.startsWith("/backups"),
-    groups: [
-      {
-        label: "Google My Business",
-        items: [
-          { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
-          { to: "/post-generator", label: "Post Generator", icon: PenSquare },
-          { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
-          { to: "/library", label: "Image and Video Library", icon: Images },
-          { to: "/calendar", label: "Calendar", icon: CalendarDays },
-          { to: "/backups", label: "Backups", icon: ShieldCheck },
-        ],
-      },
+    label: "Growth",
+    items: [
+      { to: "/keywords", label: "Keywords", icon: KeyRound },
+      { to: "/competitors", label: "Competitors", icon: Target },
     ],
   },
   {
-    id: "facebook",
-    label: "Facebook",
-    icon: Facebook,
-    landing: "/social/facebook",
-    match: (p) => p.startsWith("/social/facebook"),
-    groups: [
-      {
-        label: "Facebook",
-        items: [
-          {
-            to: "/social/facebook",
-            label: "Upload",
-            icon: Upload,
-            search: { tab: "upload" },
-            exact: true,
-          },
-          {
-            to: "/social/facebook",
-            label: "Image Library",
-            icon: Images,
-            search: { tab: "library" },
-            exact: true,
-          },
-          {
-            to: "/social/facebook",
-            label: "Post Generator",
-            icon: PenSquare,
-            search: { tab: "compose" },
-            exact: true,
-          },
-          {
-            to: "/social/facebook",
-            label: "Calendar",
-            icon: CalendarDays,
-            search: { tab: "calendar" },
-            exact: true,
-          },
-          {
-            to: "/social/facebook",
-            label: "AI Image Prompts",
-            icon: Wand2,
-            search: { tab: "ai-prompts" },
-            exact: true,
-          },
-          {
-            to: "/social/facebook/ad-creatives",
-            label: "Ad Creatives",
-            icon: Sparkles,
-          },
-          {
-            to: "/social/facebook/heartbeat",
-            label: "HeartBeat Gallery",
-            icon: Heart,
-          },
-          {
-            to: "/social/facebook/collections",
-            label: "Collections",
-            icon: FolderHeart,
-          },
-          {
-            to: "/social/facebook/ghl-export",
-            label: "GHL Export",
-            icon: FileSpreadsheet,
-          },
-        ],
-      },
+    label: "Google My Business",
+    items: [
+      { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
+      { to: "/post-generator", label: "Post Generator", icon: PenSquare },
+      { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
+      { to: "/library", label: "Image and Video Library", icon: Images },
+      { to: "/calendar", label: "Calendar", icon: CalendarDays },
+      { to: "/backups", label: "Backups", icon: ShieldCheck },
     ],
   },
   {
-    id: "instagram",
-    label: "Instagram",
-    icon: Instagram,
-    landing: "/social/instagram",
-    match: (p) => p.startsWith("/social/instagram"),
-    groups: [
-      {
-        label: "Instagram",
-        items: [
-          {
-            to: "/social/instagram",
-            label: "Upload",
-            icon: Upload,
-            search: { tab: "upload" },
-            exact: true,
-          },
-          {
-            to: "/social/instagram",
-            label: "Image Library",
-            icon: Images,
-            search: { tab: "library" },
-            exact: true,
-          },
-          {
-            to: "/social/instagram",
-            label: "Post Generator",
-            icon: PenSquare,
-            search: { tab: "compose" },
-            exact: true,
-          },
-          {
-            to: "/social/instagram",
-            label: "Calendar",
-            icon: CalendarDays,
-            search: { tab: "calendar" },
-            exact: true,
-          },
-        ],
-      },
-    ],
-  },
-  {
-    id: "linkedin",
-    label: "LinkedIn",
-    icon: Linkedin,
-    landing: "/social/linkedin",
-    match: (p) => p.startsWith("/social/linkedin"),
-    groups: [
-      {
-        label: "LinkedIn",
-        items: [
-          {
-            to: "/social/linkedin",
-            label: "Upload",
-            icon: Upload,
-            search: { tab: "upload" },
-            exact: true,
-          },
-          {
-            to: "/social/linkedin",
-            label: "Image Library",
-            icon: Images,
-            search: { tab: "library" },
-            exact: true,
-          },
-          {
-            to: "/social/linkedin",
-            label: "Post Generator",
-            icon: PenSquare,
-            search: { tab: "compose" },
-            exact: true,
-          },
-          {
-            to: "/social/linkedin",
-            label: "Calendar",
-            icon: CalendarDays,
-            search: { tab: "calendar" },
-            exact: true,
-          },
-        ],
-      },
+    label: "Video Tools",
+    items: [
+      { to: "/video-converter", label: "Video Converter", icon: FileVideo },
+      { to: "/video-compress", label: "Compress & Crop", icon: Scissors },
     ],
   },
 ];
@@ -304,38 +95,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (settingsActive) setSettingsOpen(true);
   }, [settingsActive]);
 
-  const activeWorkspace = useMemo(() => {
-    if (settingsActive) return null;
-    return (
-      workspaces.find((w) => w.match(location.pathname)) ?? workspaces[0]
-    );
-  }, [location.pathname, settingsActive]);
-
   async function signOut() {
     await supabase.auth.signOut();
     navigate({ to: "/" });
   }
 
-  const currentTab =
-    typeof location.search === "object" && location.search
-      ? (location.search as Record<string, unknown>).tab
-      : undefined;
-
   const isItemActive = (item: NavItem) => {
-    const pathMatch = item.exact
+    return item.exact
       ? location.pathname === item.to
       : location.pathname === item.to ||
-        location.pathname.startsWith(item.to + "/");
-    if (!pathMatch) return false;
-    if (item.search?.tab) return currentTab === item.search.tab;
-    // If the item has no search but a sibling item on the same path uses search,
-    // treat this item active only when no tab is set. Simpler: match if pathMatch.
-    return true;
+          location.pathname.startsWith(item.to + "/");
   };
 
   return (
     <div className="flex min-h-screen flex-col">
-      {/* Global header with workspace tabs */}
+      {/* Global header */}
       <header className="sticky top-0 z-40 border-b border-border/60 bg-background/85 backdrop-blur-md supports-[backdrop-filter]:bg-background/70">
         <div className="flex items-center gap-3 px-4 py-2">
           <Link to="/" className="flex items-center gap-2">
@@ -351,33 +125,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             </span>
           </Link>
 
-          <nav
-            role="tablist"
-            aria-label="Workspaces"
-            className="ml-2 flex flex-1 items-center gap-1 overflow-x-auto"
-          >
-            {workspaces.map((w) => {
-              const active = activeWorkspace?.id === w.id;
-              return (
-                <Link
-                  key={w.id}
-                  to={w.landing}
-                  role="tab"
-                  aria-selected={active}
-                  className={`inline-flex items-center gap-1.5 whitespace-nowrap rounded-md px-3 py-1.5 text-xs font-medium transition ${
-                    active
-                      ? "bg-primary/15 text-primary"
-                      : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
-                  }`}
-                >
-                  <w.icon className="h-3.5 w-3.5" />
-                  {w.label}
-                </Link>
-              );
-            })}
-          </nav>
-
-          <div className="flex items-center gap-2">
+          <div className="ml-auto flex items-center gap-2">
             <Link
               to="/resources"
               className="hidden items-center gap-1.5 rounded-md border border-border/70 bg-card/60 px-3 py-1.5 text-xs font-medium text-foreground/90 shadow-sm transition-all hover:border-primary/40 hover:bg-accent hover:text-foreground sm:inline-flex"
@@ -422,7 +170,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
               </div>
             ) : (
-              activeWorkspace?.groups.map((g) => (
+              navGroups.map((g) => (
                 <div key={g.label}>
                   <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
                     {g.label}
@@ -434,7 +182,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <Link
                           key={`${item.to}-${item.label}`}
                           to={item.to}
-                          search={item.search as never}
                           className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
                             active
                               ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_0] shadow-primary"
