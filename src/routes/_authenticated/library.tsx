@@ -2232,7 +2232,7 @@ function VideosPanel() {
   const enqueueRegenerate = (v: VideoRow) => {
     // Skip duplicates
     if (regeneratingId === v.id) return;
-    if (regenQueueRef.current.some((q) => q.id === v.id)) return;
+    if (regenQueueRef.current.some((q: VideoRow) => q.id === v.id)) return;
     if (regenBusyRef.current) {
       regenQueueRef.current.push(v);
       setStatus(v.id, { status: "queued", message: "Waiting…", at: Date.now() });
