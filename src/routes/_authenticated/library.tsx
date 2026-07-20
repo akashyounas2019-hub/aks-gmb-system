@@ -359,7 +359,11 @@ function LibraryPage() {
     if (!data || tab === "videos") return [];
     const q = filter.toLowerCase();
     return data.images.filter((i) => {
-      if (imageBucket(i) !== tab) return false;
+      if (tab === "favorites") {
+        if (!(i as { is_favorite?: boolean }).is_favorite) return false;
+      } else {
+        if (imageBucket(i) !== tab) return false;
+      }
       // Folder scoping applies to raw / published / geotagged image tabs.
       if (tab === "raw" || tab === "published" || tab === "geotagged") {
         const fid = folderByTab[tab];
