@@ -2388,6 +2388,7 @@ function VideosPanel() {
                 }
               }}
               regenerating={regeneratingId === v.id}
+              anyRegenerating={regeneratingId !== null}
               regenProgress={regeneratingId === v.id ? regenProgress : null}
             />
           ))}
