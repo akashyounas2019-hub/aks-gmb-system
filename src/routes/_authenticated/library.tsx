@@ -2416,6 +2416,86 @@ function VideosPanel() {
         </div>
       </div>
 
+      {/* Select all + bulk delete toolbar (below folders widget) */}
+      {visible.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/40 px-3 py-2 text-xs">
+          {(() => {
+            const allSelected = visible.length > 0 && visible.every((v) => selected.has(v.id));
+            return (
+              <button
+                onClick={() =>
+                  setSelected((prev) => {
+                    if (allSelected) {
+                      const next = new Set(prev);
+                      visible.forEach((v) => next.delete(v.id));
+                      return next;
+                    }
+                    const next = new Set(prev);
+                    visible.forEach((v) => next.add(v.id));
+                    return next;
+                  })
+                }
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-medium hover:bg-accent"
+              >
+                {allSelected ? <Square className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+                {allSelected ? "Clear" : `Select all (${visible.length})`}
+              </button>
+            );
+          })()}
+          <span className="text-muted-foreground">
+            <strong className="text-foreground">{selected.size}</strong> selected
+          </span>
+          <div className="ml-auto flex items-center gap-2">
+            {selected.size > 0 && (
+              <button
+                onClick={() => setSelected(new Set())}
+                className="rounded-md border border-border px-2.5 py-1.5 font-medium hover:bg-accent"
+              >
+                Clear selection
+              </button>
+            )}
+            <button
+              onClick={async () => {
+                if (selected.size === 0) return;
+                const items = (data ?? []).filter((v) => selected.has(v.id));
+                if (
+                  !window.confirm(
+                    `Delete ${items.length} video${items.length === 1 ? "" : "s"}? This can't be undone.`,
+                  )
+                )
+                  return;
+                setBulkDeleting(true);
+                let ok = 0;
+                let failed = 0;
+                for (const v of items) {
+                  try {
+                    const { error: sErr } = await supabase.storage.from("videos").remove([v.storage_path]);
+                    if (sErr) throw sErr;
+                    const { error } = await supabase.from("videos").delete().eq("id", v.id);
+                    if (error) throw error;
+                    ok++;
+                  } catch (e) {
+                    failed++;
+                    console.error("Bulk delete failed for", v.id, e);
+                  }
+                }
+                setBulkDeleting(false);
+                setSelected(new Set());
+                qc.invalidateQueries({ queryKey: ["videos"] });
+                if (failed === 0) toast.success(`Deleted ${ok} video${ok === 1 ? "" : "s"}`);
+                else toast.error(`Deleted ${ok}, failed ${failed}`);
+              }}
+              disabled={selected.size === 0 || bulkDeleting}
+              className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              {bulkDeleting ? "Deleting…" : `Delete selected${selected.size ? ` (${selected.size})` : ""}`}
+            </button>
+          </div>
+        </div>
+      )}
+
+
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
       ) : visible.length === 0 ? (
