@@ -206,12 +206,22 @@ function ImageDetail() {
 
       <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-          <SignedImage
-            bucket="frames"
-            path={image.storage_path}
-            alt={image.name}
-            className="w-full object-contain"
-          />
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            aria-label="Enlarge image"
+            className="group block w-full cursor-zoom-in"
+          >
+            <SignedImage
+              bucket="frames"
+              path={image.storage_path}
+              alt={defaultTitle}
+              className="w-full object-contain transition group-hover:opacity-95"
+            />
+            <span className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-foreground opacity-0 backdrop-blur transition group-hover:opacity-100">
+              <Maximize2 className="h-3 w-3" /> Click to enlarge
+            </span>
+          </button>
           {image.lat != null && image.lng != null && (
             <div className="absolute left-3 top-3">
               <GeoTaggedBadge lat={Number(image.lat)} lng={Number(image.lng)} />
@@ -223,13 +233,14 @@ function ImageDetail() {
         <div className="space-y-6">
           <section>
             <label className="text-xs uppercase tracking-widest text-muted-foreground">
-              Name
+              Title
             </label>
             <input
-              defaultValue={image.name}
+              defaultValue={defaultTitle}
+              placeholder={image.name ?? "Untitled"}
               onBlur={(e) => {
-                if (e.target.value.trim() && e.target.value !== image.name)
-                  rename(e.target.value.trim());
+                const v = e.target.value.trim();
+                if (v && v !== defaultTitle) saveTitle(v);
               }}
               className="mt-2 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
@@ -237,6 +248,45 @@ function ImageDetail() {
               Sharpness score: {Number(image.sharpness_score).toFixed(1)} · at{" "}
               {Number(image.timestamp_seconds ?? 0).toFixed(1)}s
             </p>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between">
+              <label className="text-xs uppercase tracking-widest text-muted-foreground">
+                Description
+              </label>
+              <button
+                onClick={runDescribe}
+                disabled={describing}
+                className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20 disabled:opacity-50"
+              >
+                <Sparkles className="h-3 w-3" />
+                {describing ? "Generating…" : "AI describe"}
+              </button>
+            </div>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={(e) => saveDescription(e.target.value)}
+              rows={3}
+              placeholder="Add a description…"
+              className="mt-2 w-full resize-y rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Suggested:
+              </span>
+              {DESCRIPTION_KEYWORDS.map((kw) => (
+                <button
+                  key={kw}
+                  type="button"
+                  onClick={() => insertKeyword(kw)}
+                  className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  + {kw}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section>
