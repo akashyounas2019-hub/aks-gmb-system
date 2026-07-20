@@ -37,6 +37,7 @@ import { readGps, embedGps } from "@/lib/exif-geotag";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { FavoriteBadge } from "@/components/FavoriteBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
 import { UploadPanel } from "@/components/UploadPanel";
@@ -961,6 +962,11 @@ function LibraryPage() {
                   {isGeo && !selectMode && (
                     <div className="absolute left-2 top-2 z-10">
                       <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                    </div>
+                  )}
+                  {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
+                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
+                      <FavoriteBadge favorite compact />
                     </div>
                   )}
                   {activeFolderId === null && img.folder_id && !selectMode && (
