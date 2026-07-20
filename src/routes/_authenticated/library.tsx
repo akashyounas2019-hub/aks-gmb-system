@@ -1095,7 +1095,9 @@ function LibraryPage() {
             );
           })}
         </div>
+        </>
       )}
+
 
       {bulkPanel && (
         <BulkPanel
