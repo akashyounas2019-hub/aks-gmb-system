@@ -2615,8 +2615,16 @@ function VideoCard({
           </button>
           <button
             onClick={onRegenerate}
-            disabled={anyRegenerating}
-            title={anyRegenerating && !regenerating ? "Another video is regenerating" : "Regenerate frames from this video"}
+            disabled={regenerating || regenStatus?.status === "queued"}
+            title={
+              regenerating
+                ? "Regenerating…"
+                : regenStatus?.status === "queued"
+                  ? "Queued for regeneration"
+                  : anyRegenerating
+                    ? "Will queue after current job"
+                    : "Regenerate frames from this video"
+            }
             aria-label="Regenerate frames"
             className="inline-flex items-center justify-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-60 disabled:cursor-not-allowed"
           >
