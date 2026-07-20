@@ -618,8 +618,36 @@ function LibraryPage() {
               Create a folder in the Raw Images tab first.
             </span>
           )}
+          {tab === "geotagged" && (
+            <button
+              onClick={async () => {
+                const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                const ids = Array.from(new Set(Array.from(selected).filter((id) => uuidRe.test(id))));
+                if (ids.length === 0) return toast.error("No valid images selected.");
+                const chunk = 200;
+                for (let i = 0; i < ids.length; i += chunk) {
+                  const slice = ids.slice(i, i + chunk);
+                  const { error } = await supabase
+                    .from("images")
+                    .update({ lat: null, lng: null } as never)
+                    .in("id", slice);
+                  if (error) {
+                    console.error("[moveToRaw]", error);
+                    return toast.error(`Move failed: ${error.message}`);
+                  }
+                }
+                toast.success(`Moved ${ids.length} image${ids.length === 1 ? "" : "s"} to Raw.`);
+                clearSelection();
+                qc.invalidateQueries({ queryKey: ["library"] });
+              }}
+              className="ml-auto inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-amber-600 hover:bg-amber-500/20"
+            >
+              <ImagesIcon className="h-3 w-3" /> Move to Raw
+            </button>
+          )}
         </div>
       )}
+
 
 
       {(tab === "raw" || tab === "published" || tab === "geotagged") && !isLoading && (
