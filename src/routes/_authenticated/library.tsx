@@ -2485,6 +2485,7 @@ function VideoCard({
   regenerating,
   anyRegenerating,
   regenProgress,
+  regenStatus,
 
 }: {
   video: VideoRow;
@@ -2496,6 +2497,13 @@ function VideoCard({
   regenerating: boolean;
   anyRegenerating: boolean;
   regenProgress: { pct: number; message: string } | null;
+  regenStatus: {
+    status: "queued" | "running" | "completed" | "failed";
+    message?: string;
+    pct?: number;
+    error?: string;
+    at: number;
+  } | null;
 }) {
   const url = useVideoUrl(video.storage_path);
   const currentFolder = folders.find((f) => f.id === video.folder_id);
