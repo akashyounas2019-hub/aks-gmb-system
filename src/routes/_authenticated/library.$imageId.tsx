@@ -1,14 +1,27 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { toast } from "sonner";
-import { ArrowLeft, MapPin, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, MapPin, Maximize2, Sparkles, Trash2, X } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
-import { suggestTagsForImage } from "@/lib/ai.functions";
+import { describeImage, suggestTagsForImage } from "@/lib/ai.functions";
+
+const DESCRIPTION_KEYWORDS = [
+  "spotless",
+  "professional",
+  "pristine",
+  "sparkling",
+  "immaculate",
+  "meticulous",
+  "fresh",
+  "gleaming",
+  "deep clean",
+  "hygienic",
+];
 
 export const Route = createFileRoute("/_authenticated/library/$imageId")({
   component: ImageDetail,
@@ -18,7 +31,7 @@ async function fetchImage(imageId: string) {
   const { data: image, error } = await supabase
     .from("images")
     .select(
-      "id, name, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id",
+      "id, name, title, description, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id",
     )
     .eq("id", imageId)
     .is("deleted_at", null)
@@ -49,19 +62,69 @@ function ImageDetail() {
   });
   const [suggesting, setSuggesting] = useState(false);
   const [suggestions, setSuggestions] = useState<string[]>([]);
+  const [describing, setDescribing] = useState(false);
+  const [description, setDescription] = useState("");
+  const [lightboxOpen, setLightboxOpen] = useState(false);
   const suggestFn = useServerFn(suggestTagsForImage);
+  const describeFn = useServerFn(describeImage);
+
+  useEffect(() => {
+    if (data?.image) setDescription(data.image.description ?? "");
+  }, [data?.image?.id, data?.image?.description]);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLightboxOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   if (isLoading || !data) {
     return <div className="p-10 text-muted-foreground">Loading…</div>;
   }
   const { image, allTags, selectedTagIds, venues } = data;
+  const defaultTitle = image.title || image.name || "";
 
-  async function rename(name: string) {
-    const { error } = await supabase.from("images").update({ name }).eq("id", imageId);
+  async function saveTitle(title: string) {
+    const { error } = await supabase
+      .from("images")
+      .update({ title, name: title })
+      .eq("id", imageId);
     if (error) toast.error(error.message);
     else {
       qc.invalidateQueries({ queryKey: ["image", imageId] });
       qc.invalidateQueries({ queryKey: ["library"] });
+    }
+  }
+
+  async function saveDescription(next: string) {
+    const { error } = await supabase
+      .from("images")
+      .update({ description: next })
+      .eq("id", imageId);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+  function insertKeyword(kw: string) {
+    setDescription((prev) => {
+      const next = prev.trim().length ? `${prev.trim()} ${kw}` : kw;
+      saveDescription(next);
+      return next;
+    });
+  }
+
+  async function runDescribe() {
+    setDescribing(true);
+    try {
+      const res = await describeFn({ data: { imageId } });
+      setDescription(res.description);
+      await saveDescription(res.description);
+      toast.success("AI description generated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Description failed");
+    } finally {
+      setDescribing(false);
     }
   }
 
@@ -143,12 +206,22 @@ function ImageDetail() {
 
       <div className="mt-4 grid gap-8 lg:grid-cols-[minmax(0,1fr)_360px]">
         <div className="relative overflow-hidden rounded-2xl border border-border bg-card">
-          <SignedImage
-            bucket="frames"
-            path={image.storage_path}
-            alt={image.name}
-            className="w-full object-contain"
-          />
+          <button
+            type="button"
+            onClick={() => setLightboxOpen(true)}
+            aria-label="Enlarge image"
+            className="group block w-full cursor-zoom-in"
+          >
+            <SignedImage
+              bucket="frames"
+              path={image.storage_path}
+              alt={defaultTitle}
+              className="w-full object-contain transition group-hover:opacity-95"
+            />
+            <span className="pointer-events-none absolute right-3 top-3 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-xs text-foreground opacity-0 backdrop-blur transition group-hover:opacity-100">
+              <Maximize2 className="h-3 w-3" /> Click to enlarge
+            </span>
+          </button>
           {image.lat != null && image.lng != null && (
             <div className="absolute left-3 top-3">
               <GeoTaggedBadge lat={Number(image.lat)} lng={Number(image.lng)} />
@@ -160,13 +233,14 @@ function ImageDetail() {
         <div className="space-y-6">
           <section>
             <label className="text-xs uppercase tracking-widest text-muted-foreground">
-              Name
+              Title
             </label>
             <input
-              defaultValue={image.name}
+              defaultValue={defaultTitle}
+              placeholder={image.name ?? "Untitled"}
               onBlur={(e) => {
-                if (e.target.value.trim() && e.target.value !== image.name)
-                  rename(e.target.value.trim());
+                const v = e.target.value.trim();
+                if (v && v !== defaultTitle) saveTitle(v);
               }}
               className="mt-2 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
             />
@@ -174,6 +248,45 @@ function ImageDetail() {
               Sharpness score: {Number(image.sharpness_score).toFixed(1)} · at{" "}
               {Number(image.timestamp_seconds ?? 0).toFixed(1)}s
             </p>
+          </section>
+
+          <section>
+            <div className="flex items-center justify-between">
+              <label className="text-xs uppercase tracking-widest text-muted-foreground">
+                Description
+              </label>
+              <button
+                onClick={runDescribe}
+                disabled={describing}
+                className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-2 py-1 text-xs text-primary hover:bg-primary/20 disabled:opacity-50"
+              >
+                <Sparkles className="h-3 w-3" />
+                {describing ? "Generating…" : "AI describe"}
+              </button>
+            </div>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              onBlur={(e) => saveDescription(e.target.value)}
+              rows={3}
+              placeholder="Add a description…"
+              className="mt-2 w-full resize-y rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
+                Suggested:
+              </span>
+              {DESCRIPTION_KEYWORDS.map((kw) => (
+                <button
+                  key={kw}
+                  type="button"
+                  onClick={() => insertKeyword(kw)}
+                  className="rounded-full border border-border bg-muted/50 px-2 py-0.5 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  + {kw}
+                </button>
+              ))}
+            </div>
           </section>
 
           <section>
@@ -290,14 +403,14 @@ function ImageDetail() {
               </div>
             )}
 
-            <div className="mt-3 flex flex-wrap gap-1.5">
+            <div className="mt-3 flex gap-1.5 overflow-x-auto whitespace-nowrap pb-2 [scrollbar-width:thin]">
               {allTags.map((t) => {
                 const on = selectedTagIds.has(t.id);
                 return (
                   <button
                     key={t.id}
                     onClick={() => toggleTag(t.id, !on)}
-                    className={`rounded-full px-3 py-1 text-xs transition ${
+                    className={`shrink-0 rounded-full px-3 py-1 text-xs transition ${
                       on
                         ? "bg-primary text-primary-foreground"
                         : "bg-muted text-muted-foreground hover:bg-accent"
@@ -318,6 +431,33 @@ function ImageDetail() {
           </button>
         </div>
       </div>
+
+      {lightboxOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute right-4 top-4 rounded-full bg-background/20 p-2 text-white hover:bg-background/40"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div
+            className="max-h-full max-w-full overflow-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <SignedImage
+              bucket="frames"
+              path={image.storage_path}
+              alt={defaultTitle}
+              className="max-h-[95vh] w-auto max-w-[95vw] object-contain"
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }
