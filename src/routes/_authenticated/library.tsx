@@ -963,6 +963,11 @@ function LibraryPage() {
                       <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
                     </div>
                   )}
+                  {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
+                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
+                      <FavoriteBadge favorite compact />
+                    </div>
+                  )}
                   {activeFolderId === null && img.folder_id && !selectMode && (
                     <div className="absolute bottom-2 left-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground shadow ring-1 ring-border/60 backdrop-blur">
                       <FolderIcon className="h-3 w-3 shrink-0 text-primary" />
