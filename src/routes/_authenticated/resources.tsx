@@ -15,7 +15,6 @@ import {
   ClipboardCheck,
   ShieldCheck,
   Files,
-  ArrowLeft,
 } from "lucide-react";
 import { toast } from "sonner";
 
