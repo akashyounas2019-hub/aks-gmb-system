@@ -346,9 +346,10 @@ function LibraryPage() {
 
 
   const counts = useMemo(() => {
-    const c: Record<"raw" | "published" | "geotagged", number> = { raw: 0, published: 0, geotagged: 0 };
+    const c: Record<"raw" | "published" | "geotagged" | "favorites", number> = { raw: 0, published: 0, geotagged: 0, favorites: 0 };
     for (const i of data?.images ?? []) {
       c[imageBucket(i)]++;
+      if ((i as { is_favorite?: boolean }).is_favorite) c.favorites++;
     }
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
