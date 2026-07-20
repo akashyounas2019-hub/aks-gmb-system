@@ -2346,8 +2346,21 @@ function VideosPanel() {
                   deleteMut.mutate(v);
                 }
               }}
+              onRegenerate={() => {
+                if (regeneratingId) return;
+                if (
+                  confirm(
+                    `Regenerate frames for "${v.original_name}"? Existing frames from this video will be replaced.`,
+                  )
+                ) {
+                  regenerateMut.mutate(v);
+                }
+              }}
+              regenerating={regeneratingId === v.id}
+              regenProgress={regeneratingId === v.id ? regenProgress : null}
             />
           ))}
+
         </div>
       )}
 
