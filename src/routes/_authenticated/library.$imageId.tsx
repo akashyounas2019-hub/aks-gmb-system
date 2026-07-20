@@ -85,12 +85,46 @@ function ImageDetail() {
   const { image, allTags, selectedTagIds, venues } = data;
   const defaultTitle = image.title || image.name || "";
 
-  async function rename(name: string) {
-    const { error } = await supabase.from("images").update({ name }).eq("id", imageId);
+  async function saveTitle(title: string) {
+    const { error } = await supabase
+      .from("images")
+      .update({ title, name: title })
+      .eq("id", imageId);
     if (error) toast.error(error.message);
     else {
       qc.invalidateQueries({ queryKey: ["image", imageId] });
       qc.invalidateQueries({ queryKey: ["library"] });
+    }
+  }
+
+  async function saveDescription(next: string) {
+    const { error } = await supabase
+      .from("images")
+      .update({ description: next })
+      .eq("id", imageId);
+    if (error) toast.error(error.message);
+    else qc.invalidateQueries({ queryKey: ["library"] });
+  }
+
+  function insertKeyword(kw: string) {
+    setDescription((prev) => {
+      const next = prev.trim().length ? `${prev.trim()} ${kw}` : kw;
+      saveDescription(next);
+      return next;
+    });
+  }
+
+  async function runDescribe() {
+    setDescribing(true);
+    try {
+      const res = await describeFn({ data: { imageId } });
+      setDescription(res.description);
+      await saveDescription(res.description);
+      toast.success("AI description generated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Description failed");
+    } finally {
+      setDescribing(false);
     }
   }
 
