@@ -874,8 +874,21 @@ function LibraryPage() {
                         <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
                       </button>
                     )}
-
+                    <button
+                      onClick={() => {
+                        const picked = filtered.filter((i) => selected.has(i.id));
+                        downloadMany(picked, picked.length === 1 ? "image" : "images");
+                      }}
+                      disabled={selected.size === 0 || downloadingAll}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {downloadingAll && downloadProgress
+                        ? `Downloading… ${downloadProgress.done}/${downloadProgress.total}`
+                        : `Download selected (${selected.size})`}
+                    </button>
                   </div>
+
                 </>
               )}
             </div>
