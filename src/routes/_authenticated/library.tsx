@@ -836,6 +836,18 @@ function LibraryPage() {
                 <CheckSquare className="h-3.5 w-3.5" />
                 Select all ({filtered.length})
               </button>
+              <button
+                onClick={() => downloadMany(filtered, "images in this view")}
+                disabled={filtered.length === 0 || downloadingAll}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                title="Download every image in the current view"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {downloadingAll && downloadProgress
+                  ? `Downloading… ${downloadProgress.done}/${downloadProgress.total}`
+                  : `Download all (${filtered.length})`}
+              </button>
+
               {selectMode && (
                 <>
                   <button
