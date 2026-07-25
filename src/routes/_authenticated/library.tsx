@@ -333,6 +333,49 @@ function LibraryPage() {
     }
   }
 
+  const [downloadingAll, setDownloadingAll] = useState(false);
+  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(null);
+
+  async function downloadMany(
+    imgs: Array<{
+      id: string;
+      name: string;
+      storage_path: string;
+      lat: number | null;
+      lng: number | null;
+      title: string | null;
+      description?: string | null;
+    }>,
+    label = "images",
+  ) {
+    if (imgs.length === 0) return;
+    if (downloadingAll) return;
+    if (imgs.length > 5) {
+      const ok = window.confirm(`Download ${imgs.length} ${label}? This may take a while.`);
+      if (!ok) return;
+    }
+    setDownloadingAll(true);
+    setDownloadProgress({ done: 0, total: imgs.length });
+    let ok = 0;
+    let fail = 0;
+    for (let i = 0; i < imgs.length; i++) {
+      try {
+        await downloadImage(imgs[i]);
+        ok++;
+      } catch {
+        fail++;
+      }
+      setDownloadProgress({ done: i + 1, total: imgs.length });
+      await new Promise((r) => setTimeout(r, 250));
+    }
+    setDownloadingAll(false);
+    setDownloadProgress(null);
+    if (fail === 0) toast.success(`Downloaded ${ok} ${label}.`);
+    else toast.warning(`Downloaded ${ok}, ${fail} failed.`);
+  }
+
+
+
 
   function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
     // Published wins over geotagged so a geo-tagged image that gets published
@@ -793,6 +836,18 @@ function LibraryPage() {
                 <CheckSquare className="h-3.5 w-3.5" />
                 Select all ({filtered.length})
               </button>
+              <button
+                onClick={() => downloadMany(filtered, "images in this view")}
+                disabled={filtered.length === 0 || downloadingAll}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                title="Download every image in the current view"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {downloadingAll && downloadProgress
+                  ? `Downloading… ${downloadProgress.done}/${downloadProgress.total}`
+                  : `Download all (${filtered.length})`}
+              </button>
+
               {selectMode && (
                 <>
                   <button
@@ -831,8 +886,21 @@ function LibraryPage() {
                         <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
                       </button>
                     )}
-
+                    <button
+                      onClick={() => {
+                        const picked = filtered.filter((i) => selected.has(i.id));
+                        downloadMany(picked, picked.length === 1 ? "image" : "images");
+                      }}
+                      disabled={selected.size === 0 || downloadingAll}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                    >
+                      <Download className="h-3.5 w-3.5" />
+                      {downloadingAll && downloadProgress
+                        ? `Downloading… ${downloadProgress.done}/${downloadProgress.total}`
+                        : `Download selected (${selected.size})`}
+                    </button>
                   </div>
+
                 </>
               )}
             </div>
