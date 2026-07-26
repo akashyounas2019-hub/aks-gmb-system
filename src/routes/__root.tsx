@@ -81,14 +81,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         content:
           "Track Google Business rankings, visualize local visibility heat maps, and automate GBP content and media workflows.",
       },
-      { property: "og:title", content: "GMB Rank Pilot" },
+      { property: "og:title", content: "GMB Rank Pilot — Local SEO & Content Automation" },
       {
         property: "og:description",
         content:
-          "Local SEO command center: keyword rank tracking, geo-grid heat maps, and GHL-ready content automation.",
+          "Track Google Business rankings, visualize local visibility heat maps, and automate GBP content and media workflows.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "twitter:title", content: "GMB Rank Pilot — Local SEO & Content Automation" },
+      { name: "twitter:description", content: "Track Google Business rankings, visualize local visibility heat maps, and automate GBP content and media workflows." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/449d1eba-32b8-4a8e-ad7e-879c8bb7a723/id-preview-782ff5a7--f42c1a5b-d973-44ba-8d23-831eae34ca38.lovable.app-1785028752846.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/449d1eba-32b8-4a8e-ad7e-879c8bb7a723/id-preview-782ff5a7--f42c1a5b-d973-44ba-8d23-831eae34ca38.lovable.app-1785028752846.png" },
     ],
     links: [
       { rel: "stylesheet", href: appCss },
