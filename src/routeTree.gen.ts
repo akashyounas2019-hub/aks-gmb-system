@@ -43,6 +43,7 @@ import { Route as AuthenticatedSettingsBusinessProfileRouteImport } from './rout
 import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
 import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
 import { Route as AuthenticatedAgentsAgentIdRouteImport } from './routes/_authenticated/agents.$agentId'
+import { Route as ApiPublicImgIdRouteImport } from './routes/api/public/img/$id'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
 
 const AuthRoute = AuthRouteImport.update({
@@ -232,6 +233,11 @@ const AuthenticatedAgentsAgentIdRoute =
     path: '/$agentId',
     getParentRoute: () => AuthenticatedAgentsRoute,
   } as any)
+const ApiPublicImgIdRoute = ApiPublicImgIdRouteImport.update({
+  id: '/api/public/img/$id',
+  path: '/api/public/img/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicHooksRunAutomationsRoute =
   ApiPublicHooksRunAutomationsRouteImport.update({
     id: '/api/public/hooks/run-automations',
@@ -274,6 +280,7 @@ export interface FileRoutesByFullPath {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/img/$id': typeof ApiPublicImgIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -310,6 +317,7 @@ export interface FileRoutesByTo {
   '/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/img/$id': typeof ApiPublicImgIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -348,6 +356,7 @@ export interface FileRoutesById {
   '/_authenticated/settings/team': typeof AuthenticatedSettingsTeamRoute
   '/_authenticated/settings/webhooks': typeof AuthenticatedSettingsWebhooksRoute
   '/api/public/hooks/run-automations': typeof ApiPublicHooksRunAutomationsRoute
+  '/api/public/img/$id': typeof ApiPublicImgIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -386,6 +395,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/settings/webhooks'
     | '/api/public/hooks/run-automations'
+    | '/api/public/img/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -422,6 +432,7 @@ export interface FileRouteTypes {
     | '/settings/team'
     | '/settings/webhooks'
     | '/api/public/hooks/run-automations'
+    | '/api/public/img/$id'
   id:
     | '__root__'
     | '/'
@@ -459,6 +470,7 @@ export interface FileRouteTypes {
     | '/_authenticated/settings/team'
     | '/_authenticated/settings/webhooks'
     | '/api/public/hooks/run-automations'
+    | '/api/public/img/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -466,6 +478,7 @@ export interface RootRouteChildren {
   AuthenticatedRouteRoute: typeof AuthenticatedRouteRouteWithChildren
   AuthRoute: typeof AuthRoute
   ApiPublicHooksRunAutomationsRoute: typeof ApiPublicHooksRunAutomationsRoute
+  ApiPublicImgIdRoute: typeof ApiPublicImgIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -708,6 +721,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAgentsAgentIdRouteImport
       parentRoute: typeof AuthenticatedAgentsRoute
     }
+    '/api/public/img/$id': {
+      id: '/api/public/img/$id'
+      path: '/api/public/img/$id'
+      fullPath: '/api/public/img/$id'
+      preLoaderRoute: typeof ApiPublicImgIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/hooks/run-automations': {
       id: '/api/public/hooks/run-automations'
       path: '/api/public/hooks/run-automations'
@@ -826,6 +846,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthenticatedRouteRoute: AuthenticatedRouteRouteWithChildren,
   AuthRoute: AuthRoute,
   ApiPublicHooksRunAutomationsRoute: ApiPublicHooksRunAutomationsRoute,
+  ApiPublicImgIdRoute: ApiPublicImgIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
