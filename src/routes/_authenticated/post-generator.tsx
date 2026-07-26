@@ -696,8 +696,8 @@ export function PostGeneratorPage({
           lng: location?.lng,
           primaryKeyword: manualKw[0],
           scheduledAt: scheduledAt
-
             ? new Date(scheduledAt).toISOString()
+
             : undefined,
           networks: networks.length ? networks : ["gmb"],
           ctaType,
