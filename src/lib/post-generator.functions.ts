@@ -12,16 +12,13 @@ const ComposeInput = z.object({
   keywords: z.array(z.string().min(1)).min(1).max(20),
   imageIds: z.array(z.string().uuid()).max(4).default([]),
   locationLabel: z.string().max(200).optional(),
-  language: z.enum(["en", "ar", "both"]).default("en"),
-  tone: z
-    .enum(["friendly", "premium", "urgent", "informative"])
-    .default("premium"),
+  // Which LLM the user picked in the Compose screen.
+  llm: z.enum(["gemini", "chatgpt", "aks"]).default("gemini"),
   businessName: z.string().max(120).optional(),
   callToAction: z.string().max(200).optional(),
   extraContext: z.string().max(1000).optional(),
-  // Optional template used ONLY as a stylistic reference — the model must
-  // produce a fresh, unique caption in a similar voice/structure, never copy
-  // sentences from it verbatim.
+  // Template used ONLY as a structural blueprint — the model must mirror the
+  // layout/section order and write brand-new copy from the keywords + images.
   styleReference: z
     .object({
       name: z.string().max(120).optional(),
@@ -29,6 +26,12 @@ const ComposeInput = z.object({
     })
     .optional(),
 });
+
+const LLM_MODELS: Record<"gemini" | "chatgpt", string> = {
+  gemini: "google/gemini-2.5-flash",
+  chatgpt: "openai/gpt-5-mini",
+};
+
 
 
 export const composePost = createServerFn({ method: "POST" })
