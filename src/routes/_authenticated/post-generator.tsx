@@ -1762,17 +1762,7 @@ export function PostGeneratorPage({
             <div className="mb-3 text-sm font-medium">Publish</div>
             <div className="space-y-3 text-sm">
               <label className="block">
-                <span className="text-xs text-muted-foreground">
-                  GHL Location ID
-                </span>
-                <input
-                  value={ghlLocationId}
-                  onChange={(e) => setGhlLocationId(e.target.value)}
-                  placeholder="e.g. abc123XYZ (from your GHL account)"
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                />
-              </label>
-              <label className="block">
+
                 <span className="text-xs text-muted-foreground">
                   Schedule at (leave empty = send now)
                 </span>
