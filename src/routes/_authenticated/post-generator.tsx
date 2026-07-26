@@ -2331,11 +2331,12 @@ export function PostGeneratorPage({
                             />
                           </div>
                           <p className="mt-2 text-[10px] text-muted-foreground">
-                            Templates are used as a <strong>style reference only</strong>.
+                            Templates are used as a <strong>structural format only</strong>.
                             Your Description is never overwritten — clicking Generate
-                            will create a new caption in this template's tone and
-                            structure.
+                            writes brand-new copy from your keywords and image(s) in the
+                            template's layout.
                           </p>
+
                         </div>
                       </div>
 
