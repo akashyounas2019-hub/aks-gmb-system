@@ -99,7 +99,7 @@ export function PostGeneratorPage({
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
   const saveDraft = useServerFn(upsertDraft);
-  const [tab, setTab] = useState<"compose" | "storage" | "history">("compose");
+  const [tab, setTab] = useState<"compose" | "storage" | "scheduler" | "history">("compose");
   const [saving, setSaving] = useState(false);
 
 
