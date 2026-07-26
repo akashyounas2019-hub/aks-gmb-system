@@ -907,6 +907,7 @@ export function PostGeneratorPage({
           {[
             { id: "compose" as const, label: "Compose", icon: PenSquare },
             { id: "storage" as const, label: "Post Storage", icon: Inbox },
+            { id: "scheduler" as const, label: "Post Scheduler", icon: Calendar },
             { id: "history" as const, label: "History", icon: BarChart3 },
           ].map((t) => {
             const active = tab === t.id;
@@ -934,10 +935,15 @@ export function PostGeneratorPage({
         <div className="mt-6">
           <PostStoragePanel />
         </div>
+      ) : tab === "scheduler" ? (
+        <div className="mt-6">
+          <PostSchedulerPanel />
+        </div>
       ) : tab === "history" ? (
         <div className="mt-6">
           <PostHistoryPanel />
         </div>
+
       ) : (
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 
