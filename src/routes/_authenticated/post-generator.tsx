@@ -2303,16 +2303,20 @@ export function PostGeneratorPage({
                               }
                             />
                             <FieldPill
-                              label="Language"
+                              label="Template"
+                              value={styleTemplate?.name ?? "None"}
+                            />
+                            <FieldPill
+                              label="LLM"
                               value={
-                                language === "en"
-                                  ? "English"
-                                  : language === "ar"
-                                    ? "Arabic"
-                                    : "Bilingual"
+                                llm === "gemini"
+                                  ? "Gemini"
+                                  : llm === "chatgpt"
+                                    ? "ChatGPT"
+                                    : "AKS Cloud"
                               }
                             />
-                            <FieldPill label="Tone" value={tone} />
+
                             <FieldPill
                               label="Schedule"
                               value={
