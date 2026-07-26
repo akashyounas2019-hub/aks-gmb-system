@@ -2838,3 +2838,176 @@ function StatCard({
     </div>
   );
 }
+
+/* ------------------------------------------------------------------ */
+/*  Post Scheduler — upcoming schedule + GHL CSV export                */
+/* ------------------------------------------------------------------ */
+
+type ScheduledPost = {
+  id: string;
+  caption: string;
+  status: string;
+  scheduled_at: string | null;
+  created_at: string;
+  location_label: string | null;
+  image_ids: string[] | null;
+};
+
+function PostSchedulerPanel() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [scope, setScope] = useState<"upcoming" | "all">("upcoming");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    supabase
+      .from("social_posts")
+      .select(
+        "id,caption,status,scheduled_at,created_at,location_label,image_ids",
+      )
+      .not("scheduled_at", "is", null)
+      .order("scheduled_at", { ascending: true })
+      .limit(500)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setError(error.message);
+        setPosts((data ?? []) as unknown as ScheduledPost[]);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const rows = useMemo(() => {
+    const now = Date.now();
+    return scope === "upcoming"
+      ? posts.filter(
+          (p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now,
+        )
+      : posts;
+  }, [posts, scope]);
+
+  function downloadCsv() {
+    if (!rows.length) {
+      toast.error("Nothing scheduled to export.");
+      return;
+    }
+    const origin = window.location.origin;
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+    const header =
+      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OGmetaUrl),imageUrls,gifUrl,videoUrls,thumbnailUrl";
+    const lines = rows.map((p) => {
+      const when = p.scheduled_at ? new Date(p.scheduled_at) : new Date();
+      const urls = (p.image_ids ?? [])
+        .map((id) => `${origin}/api/public/img/${id}.jpg`)
+        .join(" ");
+      return [esc(fmt(when)), esc(p.caption ?? ""), "", esc(urls), "", "", ""].join(",");
+    });
+
+    const csv = `${header}\n${lines.join("\n")}\n`;
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ghl-schedule-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast.success(`GHL CSV ready — ${rows.length} ${rows.length === 1 ? "row" : "rows"}.`);
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Calendar className="h-4 w-4 text-primary" /> Post scheduler
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Every scheduled post, with a GoHighLevel-ready CSV export.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-border p-0.5">
+              {(["upcoming", "all"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setScope(s)}
+                  className={`rounded px-2.5 py-1 text-xs font-medium capitalize ${
+                    scope === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={downloadCsv}
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+              title="Download a GoHighLevel Social Planner CSV of this schedule"
+            >
+              <Save className="h-3.5 w-3.5" /> Download GHL CSV ({rows.length})
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4">
+        {loading ? (
+          <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading schedule…
+          </div>
+        ) : error ? (
+          <div className="p-4 text-sm text-destructive">{error}</div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No scheduled posts yet. Set a schedule time in Compose → Publish.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Scheduled</th>
+                  <th className="py-2 pr-4 font-medium">Status</th>
+                  <th className="py-2 pr-4 font-medium">Images</th>
+                  <th className="py-2 font-medium">Content</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id} className="border-b border-border/60 align-top">
+                    <td className="whitespace-nowrap py-2 pr-4 tabular-nums">
+                      {p.scheduled_at ? new Date(p.scheduled_at).toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className="rounded-full border border-border px-2 py-0.5 text-[11px] capitalize text-muted-foreground">
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums text-muted-foreground">
+                      {p.image_ids?.length ?? 0}
+                    </td>
+                    <td className="max-w-[520px] py-2 text-muted-foreground">
+                      <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+    </div>
+  );
+}
