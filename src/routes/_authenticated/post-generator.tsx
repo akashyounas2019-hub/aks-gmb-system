@@ -1994,7 +1994,7 @@ export function PostGeneratorPage({
                   }
                 />
                 <InfoRow label="Primary keyword" value={manualKw[0] ?? "—"} />
-                <InfoRow label="GHL Location" value={ghlLocationId || "default"} />
+
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
