@@ -638,8 +638,8 @@ export function PostGeneratorPage({
           keywords: seedKeywords,
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
-          language,
-          tone,
+          llm,
+
           businessName: businessName || undefined,
           callToAction: cta || undefined,
           styleReference: styleTemplate
