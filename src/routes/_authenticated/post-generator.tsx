@@ -695,8 +695,8 @@ export function PostGeneratorPage({
           lat: location?.lat,
           lng: location?.lng,
           primaryKeyword: manualKw[0],
-          ghlLocationId: ghlLocationId || undefined,
           scheduledAt: scheduledAt
+
             ? new Date(scheduledAt).toISOString()
             : undefined,
           networks: networks.length ? networks : ["gmb"],
