@@ -1044,18 +1044,37 @@ function LibraryPage() {
             <div className="text-xs text-muted-foreground">
               {filtered.length} {filtered.length === 1 ? "image" : "images"}
             </div>
-            <button
-              onClick={() => {
-                setSelectMode((s) => !s);
-                clearSelection();
-              }}
-              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
-                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"
-              }`}
-            >
-              <CheckSquare className="h-3.5 w-3.5" />
-              {selectMode ? "Done" : "Select"}
-            </button>
+            <div className="flex items-center gap-2">
+              {tab === "favorites" && (
+                <button
+                  onClick={() => {
+                    const picked =
+                      selectMode && selected.size > 0
+                        ? filtered.filter((i) => selected.has(i.id))
+                        : filtered;
+                    downloadGhlCsv(picked);
+                  }}
+                  title="Download a GoHighLevel Social Planner CSV with permanent, no-index image links"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  GHL CSV (
+                  {selectMode && selected.size > 0 ? selected.size : filtered.length})
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setSelectMode((s) => !s);
+                  clearSelection();
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
+                  selectMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"
+                }`}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                {selectMode ? "Done" : "Select"}
+              </button>
+            </div>
           </div>
         )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
