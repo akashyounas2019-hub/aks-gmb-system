@@ -1239,37 +1239,56 @@ export function PostGeneratorPage({
             )}
           </section>
 
-          {/* Voice */}
+          {/* Template + LLM */}
           <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 text-sm font-medium">Voice</div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-medium">Template &amp; AI model</div>
+              <button
+                onClick={openTemplatesModal}
+                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+              >
+                <LayoutTemplate className="h-3 w-3" /> Manage
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs text-muted-foreground">Language</span>
+                <span className="text-xs text-muted-foreground">Template (structure only)</span>
                 <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as any)}
+                  value={styleTemplate?.id ?? ""}
+                  onChange={(e) => {
+                    const t = templates.find((x) => x.id === e.target.value);
+                    setStyleTemplate(t ?? null);
+                  }}
                   className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
                 >
-                  <option value="en">English</option>
-                  <option value="ar">Arabic (العربية)</option>
-                  <option value="both">Both (EN + AR)</option>
+                  <option value="">No template — free-form</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="block">
-                <span className="text-xs text-muted-foreground">Tone</span>
+                <span className="text-xs text-muted-foreground">LLM</span>
                 <select
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value as any)}
+                  value={llm}
+                  onChange={(e) => setLlm(e.target.value as typeof llm)}
                   className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
                 >
-                  <option value="premium">Premium</option>
-                  <option value="friendly">Friendly</option>
-                  <option value="urgent">Urgent</option>
-                  <option value="informative">Informative</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="aks">AKS Cloud</option>
                 </select>
               </label>
             </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              The AI follows only the template's structural format — the wording is written
+              fresh from your keywords and the selected image(s).
+              {templates.length === 0 && " Save a template first to use one here."}
+            </p>
           </section>
+
 
 
           {/* GMB Call-to-action — hidden on Facebook/Instagram */}
