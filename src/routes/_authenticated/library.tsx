@@ -374,6 +374,68 @@ function LibraryPage() {
     else toast.warning(`Downloaded ${ok}, ${fail} failed.`);
   }
 
+  /**
+   * GoHighLevel Social Planner CSV.
+   * Columns match the official sample template. Image URLs point at the
+   * permanent /api/public/img/<id> endpoint (no expiring preview token) and
+   * that endpoint returns X-Robots-Tag: noindex so nothing gets indexed.
+   */
+  function downloadGhlCsv(
+    imgs: Array<{
+      id: string;
+      name: string;
+      title: string | null;
+      description?: string | null;
+    }>,
+  ) {
+    if (imgs.length === 0) {
+      toast.error("No favorite images to export.");
+      return;
+    }
+    const origin = window.location.origin;
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+    const start = new Date();
+    start.setDate(start.getDate() + 1);
+    start.setHours(10, 0, 0, 0);
+
+    const header =
+      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OGmetaUrl),imageUrls,gifUrl,videoUrls,thumbnailUrl";
+    const rows = imgs.map((img, i) => {
+      const when = new Date(start);
+      when.setDate(start.getDate() + i);
+      const tags = data?.tagMap.get(img.id)?.map((t) => t.label) ?? [];
+      const body = [
+        img.description?.trim() || img.title?.trim() || img.name.replace(/\.[^.]+$/, ""),
+        tags.length
+          ? tags
+              .map((t) => `#${t.replace(/[^\p{L}\p{N}]/gu, "")}`)
+              .filter((t) => t.length > 1)
+              .join(" ")
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+      const url = `${origin}/api/public/img/${img.id}.jpg`;
+      return [esc(fmt(when)), esc(body), "", esc(url), "", "", ""].join(",");
+    });
+
+    const csv = `${header}\n${rows.join("\n")}\n`;
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ghl-social-planner-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast.success(`GHL CSV ready — ${imgs.length} ${imgs.length === 1 ? "row" : "rows"}.`);
+  }
+
 
 
 
@@ -982,18 +1044,37 @@ function LibraryPage() {
             <div className="text-xs text-muted-foreground">
               {filtered.length} {filtered.length === 1 ? "image" : "images"}
             </div>
-            <button
-              onClick={() => {
-                setSelectMode((s) => !s);
-                clearSelection();
-              }}
-              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
-                selectMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"
-              }`}
-            >
-              <CheckSquare className="h-3.5 w-3.5" />
-              {selectMode ? "Done" : "Select"}
-            </button>
+            <div className="flex items-center gap-2">
+              {tab === "favorites" && (
+                <button
+                  onClick={() => {
+                    const picked =
+                      selectMode && selected.size > 0
+                        ? filtered.filter((i) => selected.has(i.id))
+                        : filtered;
+                    downloadGhlCsv(picked);
+                  }}
+                  title="Download a GoHighLevel Social Planner CSV with permanent, no-index image links"
+                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                >
+                  <Download className="h-3.5 w-3.5" />
+                  GHL CSV (
+                  {selectMode && selected.size > 0 ? selected.size : filtered.length})
+                </button>
+              )}
+              <button
+                onClick={() => {
+                  setSelectMode((s) => !s);
+                  clearSelection();
+                }}
+                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
+                  selectMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"
+                }`}
+              >
+                <CheckSquare className="h-3.5 w-3.5" />
+                {selectMode ? "Done" : "Select"}
+              </button>
+            </div>
           </div>
         )}
         <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
