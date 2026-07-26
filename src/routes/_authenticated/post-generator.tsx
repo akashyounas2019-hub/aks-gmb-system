@@ -116,13 +116,10 @@ export function PostGeneratorPage({
   const [showPosted, setShowPosted] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
-  const [language, setLanguage] = useState<"en" | "ar" | "both">("en");
-  const [tone, setTone] = useState<
-    "friendly" | "premium" | "urgent" | "informative"
-  >("premium");
+  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "aks">("gemini");
   const [businessName, setBusinessName] = useState("");
   const [cta, setCta] = useState("");
-  const [ghlLocationId, setGhlLocationId] = useState("");
+
   const [scheduledAt, setScheduledAt] = useState("");
   const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
   const isSocial = defaultPlatform === "facebook" || defaultPlatform === "instagram";
