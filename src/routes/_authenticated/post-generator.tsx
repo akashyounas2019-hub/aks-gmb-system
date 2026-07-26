@@ -1491,10 +1491,8 @@ export function PostGeneratorPage({
               <div
                 aria-hidden
                 ref={captionMirrorRef}
-                dir={language === "ar" ? "rtl" : "ltr"}
-                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm ${
-                  language === "ar" ? "text-right" : "text-left"
-                }`}
+                dir="ltr"
+                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm text-left`}
                 style={{ fontFamily: "inherit", lineHeight: "1.5" }}
               >
                 {caption.length <= CAPTION_LIMIT ? (
@@ -1523,7 +1521,7 @@ export function PostGeneratorPage({
                   }
                 }}
                 rows={16}
-                dir={language === "ar" ? "rtl" : "ltr"}
+                dir="ltr"
                 aria-invalid={captionOver}
                 placeholder="Click Generate with AI to draft a post, then edit here."
                 spellCheck
@@ -1742,7 +1740,7 @@ export function PostGeneratorPage({
 
                   <div
                     className="mt-3 whitespace-pre-wrap text-sm leading-relaxed"
-                    dir={language === "ar" ? "rtl" : "ltr"}
+                    dir="ltr"
                   >
                     {caption ? (
                       <>
@@ -1958,7 +1956,7 @@ export function PostGeneratorPage({
                 </div>
                 <div
                   className="mt-3 whitespace-pre-wrap text-sm leading-relaxed"
-                  dir={language === "ar" ? "rtl" : "ltr"}
+                  dir="ltr"
                 >
                   {caption}
                 </div>
