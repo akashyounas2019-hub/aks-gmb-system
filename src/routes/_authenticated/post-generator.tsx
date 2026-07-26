@@ -99,7 +99,7 @@ export function PostGeneratorPage({
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
   const saveDraft = useServerFn(upsertDraft);
-  const [tab, setTab] = useState<"compose" | "storage" | "history">("compose");
+  const [tab, setTab] = useState<"compose" | "storage" | "scheduler" | "history">("compose");
   const [saving, setSaving] = useState(false);
 
 
@@ -116,13 +116,10 @@ export function PostGeneratorPage({
   const [showPosted, setShowPosted] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
-  const [language, setLanguage] = useState<"en" | "ar" | "both">("en");
-  const [tone, setTone] = useState<
-    "friendly" | "premium" | "urgent" | "informative"
-  >("premium");
+  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "aks">("gemini");
   const [businessName, setBusinessName] = useState("");
   const [cta, setCta] = useState("");
-  const [ghlLocationId, setGhlLocationId] = useState("");
+
   const [scheduledAt, setScheduledAt] = useState("");
   const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
   const isSocial = defaultPlatform === "facebook" || defaultPlatform === "instagram";
@@ -641,8 +638,8 @@ export function PostGeneratorPage({
           keywords: seedKeywords,
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
-          language,
-          tone,
+          llm,
+
           businessName: businessName || undefined,
           callToAction: cta || undefined,
           styleReference: styleTemplate
@@ -698,9 +695,9 @@ export function PostGeneratorPage({
           lat: location?.lat,
           lng: location?.lng,
           primaryKeyword: manualKw[0],
-          ghlLocationId: ghlLocationId || undefined,
           scheduledAt: scheduledAt
             ? new Date(scheduledAt).toISOString()
+
             : undefined,
           networks: networks.length ? networks : ["gmb"],
           ctaType,
@@ -910,6 +907,7 @@ export function PostGeneratorPage({
           {[
             { id: "compose" as const, label: "Compose", icon: PenSquare },
             { id: "storage" as const, label: "Post Storage", icon: Inbox },
+            { id: "scheduler" as const, label: "Post Scheduler", icon: Calendar },
             { id: "history" as const, label: "History", icon: BarChart3 },
           ].map((t) => {
             const active = tab === t.id;
@@ -937,10 +935,15 @@ export function PostGeneratorPage({
         <div className="mt-6">
           <PostStoragePanel />
         </div>
+      ) : tab === "scheduler" ? (
+        <div className="mt-6">
+          <PostSchedulerPanel />
+        </div>
       ) : tab === "history" ? (
         <div className="mt-6">
           <PostHistoryPanel />
         </div>
+
       ) : (
       <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
 
@@ -1239,37 +1242,56 @@ export function PostGeneratorPage({
             )}
           </section>
 
-          {/* Voice */}
+          {/* Template + LLM */}
           <section className="rounded-xl border border-border bg-card p-4">
-            <div className="mb-3 text-sm font-medium">Voice</div>
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-sm font-medium">Template &amp; AI model</div>
+              <button
+                onClick={openTemplatesModal}
+                className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+              >
+                <LayoutTemplate className="h-3 w-3" /> Manage
+              </button>
+            </div>
+            <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
               <label className="block">
-                <span className="text-xs text-muted-foreground">Language</span>
+                <span className="text-xs text-muted-foreground">Template (structure only)</span>
                 <select
-                  value={language}
-                  onChange={(e) => setLanguage(e.target.value as any)}
+                  value={styleTemplate?.id ?? ""}
+                  onChange={(e) => {
+                    const t = templates.find((x) => x.id === e.target.value);
+                    setStyleTemplate(t ?? null);
+                  }}
                   className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
                 >
-                  <option value="en">English</option>
-                  <option value="ar">Arabic (العربية)</option>
-                  <option value="both">Both (EN + AR)</option>
+                  <option value="">No template — free-form</option>
+                  {templates.map((t) => (
+                    <option key={t.id} value={t.id}>
+                      {t.name}
+                    </option>
+                  ))}
                 </select>
               </label>
               <label className="block">
-                <span className="text-xs text-muted-foreground">Tone</span>
+                <span className="text-xs text-muted-foreground">LLM</span>
                 <select
-                  value={tone}
-                  onChange={(e) => setTone(e.target.value as any)}
+                  value={llm}
+                  onChange={(e) => setLlm(e.target.value as typeof llm)}
                   className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
                 >
-                  <option value="premium">Premium</option>
-                  <option value="friendly">Friendly</option>
-                  <option value="urgent">Urgent</option>
-                  <option value="informative">Informative</option>
+                  <option value="gemini">Gemini</option>
+                  <option value="chatgpt">ChatGPT</option>
+                  <option value="aks">AKS Cloud</option>
                 </select>
               </label>
             </div>
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              The AI follows only the template's structural format — the wording is written
+              fresh from your keywords and the selected image(s).
+              {templates.length === 0 && " Save a template first to use one here."}
+            </p>
           </section>
+
 
 
           {/* GMB Call-to-action — hidden on Facebook/Instagram */}
@@ -1433,14 +1455,14 @@ export function PostGeneratorPage({
                   <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
                     <LayoutTemplate className="h-3 w-3 shrink-0" />
                     <span className="truncate">
-                      Style reference: <strong>{styleTemplate.name}</strong>
+                      Template: <strong>{styleTemplate.name}</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => setStyleTemplate(null)}
                       className="rounded-full p-0.5 hover:bg-primary/20"
-                      aria-label="Clear style reference"
-                      title="Clear style reference"
+                      aria-label="Clear template"
+                      title="Clear template"
                     >
                       <X className="h-3 w-3" />
                     </button>
@@ -1475,10 +1497,8 @@ export function PostGeneratorPage({
               <div
                 aria-hidden
                 ref={captionMirrorRef}
-                dir={language === "ar" ? "rtl" : "ltr"}
-                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm ${
-                  language === "ar" ? "text-right" : "text-left"
-                }`}
+                dir="ltr"
+                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm text-left`}
                 style={{ fontFamily: "inherit", lineHeight: "1.5" }}
               >
                 {caption.length <= CAPTION_LIMIT ? (
@@ -1507,7 +1527,7 @@ export function PostGeneratorPage({
                   }
                 }}
                 rows={16}
-                dir={language === "ar" ? "rtl" : "ltr"}
+                dir="ltr"
                 aria-invalid={captionOver}
                 placeholder="Click Generate with AI to draft a post, then edit here."
                 spellCheck
@@ -1726,7 +1746,7 @@ export function PostGeneratorPage({
 
                   <div
                     className="mt-3 whitespace-pre-wrap text-sm leading-relaxed"
-                    dir={language === "ar" ? "rtl" : "ltr"}
+                    dir="ltr"
                   >
                     {caption ? (
                       <>
@@ -1762,17 +1782,7 @@ export function PostGeneratorPage({
             <div className="mb-3 text-sm font-medium">Publish</div>
             <div className="space-y-3 text-sm">
               <label className="block">
-                <span className="text-xs text-muted-foreground">
-                  GHL Location ID
-                </span>
-                <input
-                  value={ghlLocationId}
-                  onChange={(e) => setGhlLocationId(e.target.value)}
-                  placeholder="e.g. abc123XYZ (from your GHL account)"
-                  className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                />
-              </label>
-              <label className="block">
+
                 <span className="text-xs text-muted-foreground">
                   Schedule at (leave empty = send now)
                 </span>
@@ -1952,7 +1962,7 @@ export function PostGeneratorPage({
                 </div>
                 <div
                   className="mt-3 whitespace-pre-wrap text-sm leading-relaxed"
-                  dir={language === "ar" ? "rtl" : "ltr"}
+                  dir="ltr"
                 >
                   {caption}
                 </div>
@@ -1994,7 +2004,7 @@ export function PostGeneratorPage({
                   }
                 />
                 <InfoRow label="Primary keyword" value={manualKw[0] ?? "—"} />
-                <InfoRow label="GHL Location" value={ghlLocationId || "default"} />
+
               </div>
             </div>
             <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
@@ -2297,16 +2307,20 @@ export function PostGeneratorPage({
                               }
                             />
                             <FieldPill
-                              label="Language"
+                              label="Template"
+                              value={styleTemplate?.name ?? "None"}
+                            />
+                            <FieldPill
+                              label="LLM"
                               value={
-                                language === "en"
-                                  ? "English"
-                                  : language === "ar"
-                                    ? "Arabic"
-                                    : "Bilingual"
+                                llm === "gemini"
+                                  ? "Gemini"
+                                  : llm === "chatgpt"
+                                    ? "ChatGPT"
+                                    : "AKS Cloud"
                               }
                             />
-                            <FieldPill label="Tone" value={tone} />
+
                             <FieldPill
                               label="Schedule"
                               value={
@@ -2317,11 +2331,12 @@ export function PostGeneratorPage({
                             />
                           </div>
                           <p className="mt-2 text-[10px] text-muted-foreground">
-                            Templates are used as a <strong>style reference only</strong>.
+                            Templates are used as a <strong>structural format only</strong>.
                             Your Description is never overwritten — clicking Generate
-                            will create a new caption in this template's tone and
-                            structure.
+                            writes brand-new copy from your keywords and image(s) in the
+                            template's layout.
                           </p>
+
                         </div>
                       </div>
 
@@ -2835,6 +2850,179 @@ function StatCard({
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>
         {value.toLocaleString()}
       </div>
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Post Scheduler — upcoming schedule + GHL CSV export                */
+/* ------------------------------------------------------------------ */
+
+type ScheduledPost = {
+  id: string;
+  caption: string;
+  status: string;
+  scheduled_at: string | null;
+  created_at: string;
+  location_label: string | null;
+  image_ids: string[] | null;
+};
+
+function PostSchedulerPanel() {
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [posts, setPosts] = useState<ScheduledPost[]>([]);
+  const [scope, setScope] = useState<"upcoming" | "all">("upcoming");
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setError(null);
+    supabase
+      .from("social_posts")
+      .select(
+        "id,caption,status,scheduled_at,created_at,location_label,image_ids",
+      )
+      .not("scheduled_at", "is", null)
+      .order("scheduled_at", { ascending: true })
+      .limit(500)
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        if (error) setError(error.message);
+        setPosts((data ?? []) as unknown as ScheduledPost[]);
+        setLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const rows = useMemo(() => {
+    const now = Date.now();
+    return scope === "upcoming"
+      ? posts.filter(
+          (p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now,
+        )
+      : posts;
+  }, [posts, scope]);
+
+  function downloadCsv() {
+    if (!rows.length) {
+      toast.error("Nothing scheduled to export.");
+      return;
+    }
+    const origin = window.location.origin;
+    const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
+    const pad = (n: number) => String(n).padStart(2, "0");
+    const fmt = (d: Date) =>
+      `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
+
+    const header =
+      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OGmetaUrl),imageUrls,gifUrl,videoUrls,thumbnailUrl";
+    const lines = rows.map((p) => {
+      const when = p.scheduled_at ? new Date(p.scheduled_at) : new Date();
+      const urls = (p.image_ids ?? [])
+        .map((id) => `${origin}/api/public/img/${id}.jpg`)
+        .join(" ");
+      return [esc(fmt(when)), esc(p.caption ?? ""), "", esc(urls), "", "", ""].join(",");
+    });
+
+    const csv = `${header}\n${lines.join("\n")}\n`;
+    const blob = new Blob([`\uFEFF${csv}`], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `ghl-schedule-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    toast.success(`GHL CSV ready — ${rows.length} ${rows.length === 1 ? "row" : "rows"}.`);
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Calendar className="h-4 w-4 text-primary" /> Post scheduler
+            </div>
+            <div className="text-xs text-muted-foreground">
+              Every scheduled post, with a GoHighLevel-ready CSV export.
+            </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="flex rounded-md border border-border p-0.5">
+              {(["upcoming", "all"] as const).map((s) => (
+                <button
+                  key={s}
+                  onClick={() => setScope(s)}
+                  className={`rounded px-2.5 py-1 text-xs font-medium capitalize ${
+                    scope === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+                  }`}
+                >
+                  {s}
+                </button>
+              ))}
+            </div>
+            <button
+              onClick={downloadCsv}
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+              title="Download a GoHighLevel Social Planner CSV of this schedule"
+            >
+              <Save className="h-3.5 w-3.5" /> Download GHL CSV ({rows.length})
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4">
+        {loading ? (
+          <div className="flex items-center gap-2 p-4 text-sm text-muted-foreground">
+            <Loader2 className="h-4 w-4 animate-spin" /> Loading schedule…
+          </div>
+        ) : error ? (
+          <div className="p-4 text-sm text-destructive">{error}</div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-md border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
+            No scheduled posts yet. Set a schedule time in Compose → Publish.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead>
+                <tr className="border-b border-border text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <th className="py-2 pr-4 font-medium">Scheduled</th>
+                  <th className="py-2 pr-4 font-medium">Status</th>
+                  <th className="py-2 pr-4 font-medium">Images</th>
+                  <th className="py-2 font-medium">Content</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((p) => (
+                  <tr key={p.id} className="border-b border-border/60 align-top">
+                    <td className="whitespace-nowrap py-2 pr-4 tabular-nums">
+                      {p.scheduled_at ? new Date(p.scheduled_at).toLocaleString() : "—"}
+                    </td>
+                    <td className="py-2 pr-4">
+                      <span className="rounded-full border border-border px-2 py-0.5 text-[11px] capitalize text-muted-foreground">
+                        {p.status}
+                      </span>
+                    </td>
+                    <td className="py-2 pr-4 tabular-nums text-muted-foreground">
+                      {p.image_ids?.length ?? 0}
+                    </td>
+                    <td className="max-w-[520px] py-2 text-muted-foreground">
+                      <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
     </div>
   );
 }

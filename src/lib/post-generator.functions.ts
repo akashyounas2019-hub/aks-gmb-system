@@ -12,16 +12,13 @@ const ComposeInput = z.object({
   keywords: z.array(z.string().min(1)).min(1).max(20),
   imageIds: z.array(z.string().uuid()).max(4).default([]),
   locationLabel: z.string().max(200).optional(),
-  language: z.enum(["en", "ar", "both"]).default("en"),
-  tone: z
-    .enum(["friendly", "premium", "urgent", "informative"])
-    .default("premium"),
+  // Which LLM the user picked in the Compose screen.
+  llm: z.enum(["gemini", "chatgpt", "aks"]).default("gemini"),
   businessName: z.string().max(120).optional(),
   callToAction: z.string().max(200).optional(),
   extraContext: z.string().max(1000).optional(),
-  // Optional template used ONLY as a stylistic reference — the model must
-  // produce a fresh, unique caption in a similar voice/structure, never copy
-  // sentences from it verbatim.
+  // Template used ONLY as a structural blueprint — the model must mirror the
+  // layout/section order and write brand-new copy from the keywords + images.
   styleReference: z
     .object({
       name: z.string().max(120).optional(),
@@ -29,6 +26,12 @@ const ComposeInput = z.object({
     })
     .optional(),
 });
+
+const LLM_MODELS: Record<"gemini" | "chatgpt", string> = {
+  gemini: "google/gemini-2.5-flash",
+  chatgpt: "openai/gpt-5-mini",
+};
+
 
 
 export const composePost = createServerFn({ method: "POST" })
@@ -55,26 +58,20 @@ export const composePost = createServerFn({ method: "POST" })
       }
     }
 
-    const langInstruction =
-      data.language === "ar"
-        ? "Write the caption in Arabic (Modern Standard, natural UAE flavor). Use Arabic hashtags where possible."
-        : data.language === "both"
-          ? "Write two variants separated by a line with only '---'. First an English caption, then an Arabic caption (Modern Standard, natural UAE flavor)."
-          : "Write the caption in English.";
-
     const system = `You are a senior local-SEO copywriter for a premium Dubai cleaning company.
 Write a Google Business Profile post that:
-- Reads natural, ${data.tone}, and human — never spammy.
+- Reads natural and human — never spammy.
 - Weaves the provided keywords into the body naturally (do NOT list them).
+- Describes what is actually visible in the attached image(s) when they are provided.
 - Ends with 3–6 hashtags derived from the keywords.
 - Includes the location naturally in the first two sentences if provided.
 - Stays under 1500 characters.
-${langInstruction}
-- If a STYLE REFERENCE is provided, mirror only its structure, sentence rhythm, tone, and use of emojis/hashtags. Write a completely new caption for the current keywords — never reuse its wording, offers, prices, or brand-specific claims.
+- Written in English.
+- If a TEMPLATE is provided, follow ONLY its structural format: the order and number of sections, line/paragraph breaks, where emojis sit, bullet style, and where hashtags/CTA go. Every word must be newly written from the current keywords and images — never reuse its sentences, offers, prices, brand names, or hashtags.
 Return ONLY the caption text, no preamble.`;
 
     const styleBlock = data.styleReference
-      ? `\nSTYLE REFERENCE (structure, tone, rhythm, emoji/hashtag habits only — DO NOT copy phrases, sentences, offers, prices, brand names, or hashtags from it verbatim; treat product/service specifics in it as unrelated to the current post):\n"""\n${data.styleReference.body}\n"""\n`
+      ? `\nTEMPLATE (structural blueprint ONLY — copy the layout, section order, line breaks and emoji/hashtag placement; DO NOT copy any wording, offers, prices, brand names, or hashtags from it):\n"""\n${data.styleReference.body}\n"""\n`
       : "";
 
     const userText = [
@@ -84,7 +81,7 @@ Return ONLY the caption text, no preamble.`;
       data.callToAction ? `Call-to-action: ${data.callToAction}` : null,
       data.extraContext ? `Extra context: ${data.extraContext}` : null,
       imageUrls.length
-        ? `There ${imageUrls.length === 1 ? "is 1 image" : `are ${imageUrls.length} images`} attached — describe what's visible only if it strengthens the post.`
+        ? `There ${imageUrls.length === 1 ? "is 1 image" : `are ${imageUrls.length} images`} attached — analyse what is visible and let it shape the description.`
         : null,
       styleBlock || null,
     ]
@@ -101,14 +98,58 @@ Return ONLY the caption text, no preamble.`;
         ]
       : userText;
 
+    // "AKS Cloud" routes generation through the configured AKS/n8n worker
+    // instead of the built-in models.
+    if (data.llm === "aks") {
+      const worker = process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
+      if (!worker)
+        throw new Error(
+          "AKS Cloud is not connected yet. Add your AKS worker webhook in Settings → Integrations, or pick Gemini / ChatGPT.",
+        );
+      const res = await fetch(worker, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          source: "gmb-rank-pilot",
+          target: "aks-cloud",
+          action: "compose_post",
+          system,
+          prompt: userText,
+          keywords: data.keywords,
+          images: imageUrls,
+          template: data.styleReference?.body ?? null,
+        }),
+      });
+      if (!res.ok)
+        throw new Error(
+          `AKS Cloud responded ${res.status}: ${(await res.text()).slice(0, 300)}`,
+        );
+      const raw = await res.text();
+      let caption = raw;
+      try {
+        const json = JSON.parse(raw) as Record<string, unknown>;
+        caption =
+          (json.caption as string) ??
+          (json.description as string) ??
+          (json.text as string) ??
+          (json.output as string) ??
+          raw;
+      } catch {
+        // plain-text response
+      }
+      if (!caption.trim()) throw new Error("AKS Cloud returned an empty caption");
+      return { caption: caption.trim() };
+    }
+
     const content = await callLovableAI({
       apiKey,
-      model: "google/gemini-2.5-flash",
+      model: LLM_MODELS[data.llm],
       messages: [
         { role: "system", content: system },
         { role: "user", content: userContent },
       ],
     });
+
 
     return { caption: content.trim() };
   });
