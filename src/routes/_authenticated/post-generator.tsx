@@ -1455,14 +1455,14 @@ export function PostGeneratorPage({
                   <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
                     <LayoutTemplate className="h-3 w-3 shrink-0" />
                     <span className="truncate">
-                      Style reference: <strong>{styleTemplate.name}</strong>
+                      Template: <strong>{styleTemplate.name}</strong>
                     </span>
                     <button
                       type="button"
                       onClick={() => setStyleTemplate(null)}
                       className="rounded-full p-0.5 hover:bg-primary/20"
-                      aria-label="Clear style reference"
-                      title="Clear style reference"
+                      aria-label="Clear template"
+                      title="Clear template"
                     >
                       <X className="h-3 w-3" />
                     </button>
