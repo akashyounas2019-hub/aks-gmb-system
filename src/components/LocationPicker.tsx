@@ -418,15 +418,69 @@ export function LocationPicker({
       </div>
       {error && <div className="text-xs text-destructive">{error}</div>}
 
-      {/* Single place-type row. When a city is expanded it filters that city's
-          results; otherwise it seeds the search box for the typed area. */}
+      {/* Manual coordinate entry — type an exact lat/lng and use it directly. */}
+      <div className={compact ? "mt-2" : ""}>
+        <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
+          <MapPin className="h-3 w-3" /> Manual coordinates
+        </div>
+        <div className="flex flex-wrap items-center gap-1.5">
+          <input
+            value={manualLat}
+            onChange={(e) => setManualLat(e.target.value)}
+            inputMode="decimal"
+            placeholder="Latitude"
+            aria-label="Latitude"
+            className="w-32 rounded-md border border-border bg-card px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
+          />
+          <input
+            value={manualLng}
+            onChange={(e) => setManualLng(e.target.value)}
+            inputMode="decimal"
+            placeholder="Longitude"
+            aria-label="Longitude"
+            className="w-32 rounded-md border border-border bg-card px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
+          />
+          <button
+            type="button"
+            onClick={() => {
+              const lat = Number(manualLat.trim());
+              const lng = Number(manualLng.trim());
+              if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
+                setError("Latitude must be a number between -90 and 90");
+                return;
+              }
+              if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
+                setError("Longitude must be a number between -180 and 180");
+                return;
+              }
+              setError(null);
+              commit({
+                label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+                lat,
+                lng,
+                place_id: null,
+              });
+            }}
+            className="rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/20"
+          >
+            Use coordinates
+          </button>
+        </div>
+        <div className="mt-1 text-[11px] text-muted-foreground">
+          Tip: paste a "25.276987, 55.296249" pair into the latitude field —
+          decimal degrees only.
+        </div>
+      </div>
+
+      {/* Single place-type row. It filters the selected city, or the area
+          typed into the search box. */}
       {ready && (
         <div className={compact ? "mt-2" : ""}>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3" /> Place type
-            {expandedCity ? ` in ${expandedCity}` : ""}
+            {searchArea ? ` in ${searchArea.name}` : ""}
           </div>
-          <div className="flex flex-wrap gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             {CITY_PLACE_TYPES.map((t) => {
               const Icon = t.icon;
               const active = cityPlaceType === t.key;
@@ -436,13 +490,11 @@ export function LocationPicker({
                   type="button"
                   onClick={() => {
                     setCityPlaceType(t.key);
-                    const city = cityOptions?.find((c) => c.name === expandedCity);
-                    if (city) {
-                      loadCityPlaces(city, t.key);
-                    } else {
-                      const area = query.trim() || "Dubai";
-                      setQuery(`${t.term} in ${area}`);
-                    }
+                    const city =
+                      cityOptions?.find((c) => c.name === expandedCity) ??
+                      searchArea ?? { name: query.trim() || "Dubai" };
+                    setSearchArea(city);
+                    loadCityPlaces(city, t.key);
                   }}
                   className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
                     active
@@ -455,15 +507,30 @@ export function LocationPicker({
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                const area = query.trim();
+                if (!area) {
+                  setError("Type an area name first, then show it on the map");
+                  return;
+                }
+                setError(null);
+                setExpandedCity(null);
+                const next = { name: area };
+                setSearchArea(next);
+                loadCityPlaces(next, cityPlaceType);
+              }}
+              className="rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-primary hover:text-primary"
+            >
+              Show typed area on map
+            </button>
           </div>
         </div>
       )}
 
-
-
       {/* City shortcuts — clicking one runs a real Google Places search near
-          that city's centroid, so results are actual places, not fabricated
-          points. */}
+          that city's centroid, so results are actual places. */}
       {cityOptions && cityOptions.length > 0 && (
         <div className={compact ? "mt-2" : ""}>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -484,8 +551,13 @@ export function LocationPicker({
                     onClick={() => {
                       const next = active ? null : c.name;
                       setExpandedCity(next);
-                      setCityPlaceType(null);
                       setCityPlaces([]);
+                      if (next) {
+                        setSearchArea(c);
+                        loadCityPlaces(c, cityPlaceType);
+                      } else {
+                        setSearchArea(null);
+                      }
                     }}
                     className={`rounded-full border px-2.5 py-1 text-xs transition ${
                       active
@@ -498,71 +570,72 @@ export function LocationPicker({
                 );
               })}
           </div>
+        </div>
+      )}
 
-          {/* Map widget with a pin per matching location, plus a copyable
-              coordinate list. */}
-          {expandedCity && cityPlaceType && (
-            <div className="mt-2">
-              {cityPlacesLoading ? (
-                <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                  Searching {expandedCity}…
-                </div>
-              ) : cityPlaces.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
-                  No {CITY_PLACE_TYPES.find((t) => t.key === cityPlaceType)?.label.toLowerCase()} places found near{" "}
-                  {expandedCity}.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <div className="text-[11px] text-muted-foreground">
-                    Click a pin or the map to use that location · right-click anywhere to copy its coordinates.
-                  </div>
+      {/* Map widget with a pin per matching location, plus a copyable
+          coordinate list. Shown for both city chips and typed areas. */}
+      {searchArea && (
+        <div className="mt-2">
+          {cityPlacesLoading ? (
+            <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+              Searching {searchArea.name}…
+            </div>
+          ) : cityPlaces.length === 0 ? (
+            <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+              No places found near {searchArea.name}.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="text-[11px] text-muted-foreground">
+                {cityPlaces.length} results · click a pin or the map to use that
+                location · right-click anywhere to copy its coordinates.
+              </div>
+              <div
+                ref={mapRef}
+                className="h-[420px] w-full overflow-hidden rounded-md border border-border bg-muted md:h-[520px]"
+              />
+
+              <div className="grid gap-1.5 sm:grid-cols-2">
+                {cityPlaces.map((v) => (
                   <div
-                    ref={mapRef}
-                    className="h-[420px] w-full overflow-hidden rounded-md border border-border bg-muted md:h-[520px]"
-                  />
-
-                  <div className="grid gap-1.5 sm:grid-cols-2">
-                    {cityPlaces.map((v) => (
-                      <div
-                        key={v.placeId}
-                        className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
-                      >
-                        <button
-                          type="button"
-                          onClick={() =>
-                            commit({ label: v.label, lat: v.lat, lng: v.lng, place_id: v.placeId })
-                          }
-                          className="min-w-0 flex-1 truncate text-left hover:text-primary"
-                          title="Use this location"
-                        >
-                          {v.label}
-                        </button>
-                        <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                          {v.lat.toFixed(6)}, {v.lng.toFixed(6)}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => copyCoords(v.placeId, v.lat, v.lng)}
-                          className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                          aria-label="Copy coordinates"
-                          title="Copy coordinates"
-                        >
-                          {copiedPlaceId === v.placeId ? (
-                            <Check className="h-3 w-3 text-emerald-500" />
-                          ) : (
-                            <Copy className="h-3 w-3" />
-                          )}
-                        </button>
-                      </div>
-                    ))}
+                    key={v.placeId}
+                    className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-xs"
+                  >
+                    <button
+                      type="button"
+                      onClick={() =>
+                        commit({ label: v.label, lat: v.lat, lng: v.lng, place_id: v.placeId })
+                      }
+                      className="min-w-0 flex-1 truncate text-left hover:text-primary"
+                      title="Use this location"
+                    >
+                      {v.label}
+                    </button>
+                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
+                      {v.lat.toFixed(6)}, {v.lng.toFixed(6)}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => copyCoords(v.placeId, v.lat, v.lng)}
+                      className="shrink-0 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      aria-label="Copy coordinates"
+                      title="Copy coordinates"
+                    >
+                      {copiedPlaceId === v.placeId ? (
+                        <Check className="h-3 w-3 text-emerald-500" />
+                      ) : (
+                        <Copy className="h-3 w-3" />
+                      )}
+                    </button>
                   </div>
-                </div>
-              )}
+                ))}
+              </div>
             </div>
           )}
         </div>
       )}
+
 
       {history.length > 0 && !compact && (
         <div>
