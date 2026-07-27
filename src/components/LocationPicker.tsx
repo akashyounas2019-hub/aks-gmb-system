@@ -171,7 +171,8 @@ export function LocationPicker({
         zoom: 14,
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: false,
+        fullscreenControl: true,
+        clickableIcons: false,
       });
       const bounds = new google.maps.LatLngBounds();
       const infoWindow = new google.maps.InfoWindow();
@@ -179,22 +180,54 @@ export function LocationPicker({
         const position = { lat: p.lat, lng: p.lng };
         bounds.extend(position);
         const marker = new google.maps.Marker({ position, map, title: p.label });
+        // Left click a pin → select that place and continue.
         marker.addListener("click", () => {
+          commit({ label: p.label, lat: p.lat, lng: p.lng, place_id: p.placeId });
+        });
+        // Right click a pin → copy its coordinates.
+        marker.addListener("contextmenu", () => {
+          copyCoords(p.placeId, p.lat, p.lng);
           infoWindow.setContent(
             `<div style="font-family:system-ui;font-size:12px;max-width:220px">
               <div style="font-weight:600;margin-bottom:2px">${escapeHtml(p.label)}</div>
-              <div style="color:#64748b">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</div>
+              <div style="color:#64748b">Copied ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</div>
             </div>`,
           );
           infoWindow.open({ map, anchor: marker });
         });
+      });
+      // Click empty map → select that exact coordinate.
+      map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        const lat = e.latLng?.lat();
+        const lng = e.latLng?.lng();
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+        commit({
+          label: `Pinned ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          lat,
+          lng,
+          place_id: null,
+        });
+      });
+      // Right click empty map → copy that coordinate.
+      map.addListener("contextmenu", (e: google.maps.MapMouseEvent) => {
+        const lat = e.latLng?.lat();
+        const lng = e.latLng?.lng();
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+        copyCoords("map", lat, lng);
+        infoWindow.setPosition({ lat, lng });
+        infoWindow.setContent(
+          `<div style="font-family:system-ui;font-size:12px">Copied ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>`,
+        );
+        infoWindow.open({ map });
       });
       if (cityPlaces.length > 1) map.fitBounds(bounds);
     });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityPlaceType, cityPlaces]);
+
 
   async function copyCoords(placeId: string, lat: number, lng: number) {
     try {
