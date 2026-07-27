@@ -90,7 +90,7 @@ export function LocationPicker({
   // (Home / Office / Commercial / Villas) instead of returning anything
   // nearby.
   async function loadCityPlaces(
-    city: { name: string; lat: number; lng: number },
+    city: { name: string; lat?: number; lng?: number },
     type: CityPlaceType | null,
   ) {
     setCityPlacesLoading(true);
@@ -99,24 +99,30 @@ export function LocationPicker({
       const { Place } = (await (window as any).google.maps.importLibrary(
         "places",
       )) as any;
+      const hasCoords =
+        typeof city.lat === "number" && typeof city.lng === "number";
       let found: any[];
-      if (type) {
-        const term = CITY_PLACE_TYPES.find((t) => t.key === type)!.term;
+      if (type || !hasCoords) {
+        const term = type
+          ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term
+          : "places";
         const res = await Place.searchByText({
           textQuery: `${term} in ${city.name}`,
           fields: ["displayName", "formattedAddress", "location", "id"],
-          locationBias: { lat: city.lat, lng: city.lng, radius: 3000 },
-          maxResultCount: 12,
+          ...(hasCoords
+            ? { locationBias: { lat: city.lat!, lng: city.lng!, radius: 5000 } }
+            : {}),
+          maxResultCount: 20,
         });
         found = res.places ?? [];
       } else {
         const res = await Place.searchNearby({
           fields: ["displayName", "formattedAddress", "location", "id"],
           locationRestriction: {
-            center: { lat: city.lat, lng: city.lng },
-            radius: 1500,
+            center: { lat: city.lat!, lng: city.lng! },
+            radius: 2500,
           },
-          maxResultCount: 8,
+          maxResultCount: 20,
         });
         found = res.places ?? [];
       }
@@ -148,6 +154,7 @@ export function LocationPicker({
       setCityPlacesLoading(false);
     }
   }
+
 
   // Re-run the nearby/type search for the currently expanded city when the
   // parent asks for a refresh (e.g. the page's "Refresh coordinates" button).
