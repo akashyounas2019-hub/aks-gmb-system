@@ -723,11 +723,21 @@ function PostRow({
   const when = post.scheduled_at ?? post.created_at;
   const bucket = bucketOf(post);
   const meta = BUCKET_META[bucket];
+  const firstImageId = post.image_ids?.[0] ?? null;
+
   return (
     <div
       className={`rounded-xl border border-border bg-background p-3 ${compact ? "" : "md:p-4"}`}
     >
       <div className="flex items-start gap-3">
+        {firstImageId && (
+          <img
+            src={`/api/public/img/${firstImageId}.jpg`}
+            alt=""
+            loading="lazy"
+            className="h-16 w-16 shrink-0 rounded-lg object-cover"
+          />
+        )}
         <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">

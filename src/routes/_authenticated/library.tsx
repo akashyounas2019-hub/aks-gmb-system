@@ -1325,6 +1325,7 @@ function LibraryPage() {
       {editingId && (
         <ImageEditModal
           imageId={editingId}
+          isFavoritesTab={tab === "favorites"}
           onClose={() => setEditingId(null)}
           onSaved={() => {
             qc.invalidateQueries({ queryKey: ["library"] });
@@ -1582,10 +1583,12 @@ async function fetchImageEdit(imageId: string) {
 
 function ImageEditModal({
   imageId,
+  isFavoritesTab = false,
   onClose,
   onSaved,
 }: {
   imageId: string;
+  isFavoritesTab?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }) {
@@ -1671,14 +1674,16 @@ function ImageEditModal({
     }
   }, [data]);
 
-  // Close on Escape
+  // Close on Escape — but not while the enlarged-image lightbox is open;
+  // Escape there should only dismiss the lightbox (handled by its own
+  // listener above) and leave this Edit image popup open underneath.
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
+      if (e.key === "Escape" && !lightboxOpen) onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, [onClose, lightboxOpen]);
 
   function toggleTag(id: string) {
     setAssigned((prev) => {
@@ -1943,58 +1948,62 @@ function ImageEditModal({
                 )}
               </div>
 
-              {/* Folder (Raw Images organization) */}
-              <div>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Folder
+              {/* Folder (Raw Images organization) — hidden when editing from
+                  the Favorites tab; folders are for organizing raw/published/
+                  geotagged images, not the favorites view. */}
+              {!isFavoritesTab && (
+                <div>
+                  <div className="flex items-center justify-between">
+                    <div className="text-xs font-medium text-muted-foreground">
+                      Folder
+                    </div>
+                    {folderId && (
+                      <button
+                        type="button"
+                        onClick={() => setFolderId(null)}
+                        className="text-[11px] text-muted-foreground hover:text-foreground"
+                      >
+                        Clear
+                      </button>
+                    )}
                   </div>
-                  {folderId && (
+                  <div className="mt-2 flex flex-wrap gap-1.5 rounded-md border border-border p-2">
                     <button
                       type="button"
                       onClick={() => setFolderId(null)}
-                      className="text-[11px] text-muted-foreground hover:text-foreground"
+                      className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                        folderId === null
+                          ? "border-primary bg-primary/15 text-primary"
+                          : "border-border text-muted-foreground hover:bg-accent"
+                      }`}
                     >
-                      Clear
+                      <ImagesIcon className="h-3 w-3" /> Unfiled
                     </button>
-                  )}
+                    {data.folders.map((f) => {
+                      const on = folderId === f.id;
+                      return (
+                        <button
+                          key={f.id}
+                          type="button"
+                          onClick={() => setFolderId(f.id)}
+                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                            on
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-border text-muted-foreground hover:bg-accent"
+                          }`}
+                        >
+                          <FolderIcon className="h-3 w-3" /> {f.name}
+                        </button>
+                      );
+                    })}
+                    {data.folders.length === 0 && (
+                      <span className="text-xs text-muted-foreground">
+                        No folders yet — create one from the Raw Images tab.
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <div className="mt-2 flex flex-wrap gap-1.5 rounded-md border border-border p-2">
-                  <button
-                    type="button"
-                    onClick={() => setFolderId(null)}
-                    className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                      folderId === null
-                        ? "border-primary bg-primary/15 text-primary"
-                        : "border-border text-muted-foreground hover:bg-accent"
-                    }`}
-                  >
-                    <ImagesIcon className="h-3 w-3" /> Unfiled
-                  </button>
-                  {data.folders.map((f) => {
-                    const on = folderId === f.id;
-                    return (
-                      <button
-                        key={f.id}
-                        type="button"
-                        onClick={() => setFolderId(f.id)}
-                        className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                          on
-                            ? "border-primary bg-primary/15 text-primary"
-                            : "border-border text-muted-foreground hover:bg-accent"
-                        }`}
-                      >
-                        <FolderIcon className="h-3 w-3" /> {f.name}
-                      </button>
-                    );
-                  })}
-                  {data.folders.length === 0 && (
-                    <span className="text-xs text-muted-foreground">
-                      No folders yet — create one from the Raw Images tab.
-                    </span>
-                  )}
-                </div>
-              </div>
+              )}
 
 
               {/* Custom tag (preset tag grid removed) */}
@@ -2146,6 +2155,9 @@ const COMPOSER_CTA_LABELS: Record<ComposerCta, string> = {
 
 type ComposerTemplate = { id: string; name: string; body: string; folder?: string };
 const COMPOSER_TEMPLATES_KEY = "post-generator:templates";
+// Matches the server's SendInput caption cap (post-generator.functions.ts) —
+// keep in sync so the UI blocks the same posts the server would reject.
+const POST_BODY_LIMIT = 1500;
 
 function ImagePostComposer({
   image,
@@ -2220,6 +2232,12 @@ function ImagePostComposer({
   async function handleSchedule() {
     if (!caption.trim()) {
       toast.error("Write or generate a post body first");
+      return;
+    }
+    if (caption.length > POST_BODY_LIMIT) {
+      toast.error(
+        `Post body is ${caption.length - POST_BODY_LIMIT} character${caption.length - POST_BODY_LIMIT === 1 ? "" : "s"} over the ${POST_BODY_LIMIT}-character limit. Trim it before scheduling or sending.`,
+      );
       return;
     }
     if (ctaMissing) {
@@ -2351,14 +2369,34 @@ function ImagePostComposer({
 
       {/* Post body */}
       <div>
-        <label className="mb-1 block text-xs font-medium text-muted-foreground">Post body</label>
+        <div className="mb-1 flex items-center justify-between">
+          <label className="block text-xs font-medium text-muted-foreground">Post body</label>
+          <span
+            className={`text-[11px] font-mono ${
+              caption.length > POST_BODY_LIMIT ? "font-semibold text-destructive" : "text-muted-foreground"
+            }`}
+          >
+            {caption.length}/{POST_BODY_LIMIT}
+          </span>
+        </div>
         <textarea
           value={caption}
           onChange={(e) => setCaption(e.target.value)}
           rows={12}
           placeholder="Write the post, or generate one with AI above"
-          className="h-64 w-full resize-y overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          aria-invalid={caption.length > POST_BODY_LIMIT}
+          className={`h-64 w-full resize-y overflow-y-auto whitespace-pre-wrap break-words rounded-md border bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 ${
+            caption.length > POST_BODY_LIMIT
+              ? "border-destructive focus:ring-destructive"
+              : "border-input focus:ring-primary"
+          }`}
         />
+        {caption.length > POST_BODY_LIMIT && (
+          <p className="mt-1 text-[11px] text-destructive">
+            {caption.length - POST_BODY_LIMIT} character{caption.length - POST_BODY_LIMIT === 1 ? "" : "s"} over the
+            limit — trim the post body before scheduling or sending.
+          </p>
+        )}
       </div>
 
       {/* CTA button */}
@@ -2411,7 +2449,7 @@ function ImagePostComposer({
       <button
         type="button"
         onClick={handleSchedule}
-        disabled={scheduling}
+        disabled={scheduling || caption.length > POST_BODY_LIMIT}
         className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
       >
         {scheduling ? (

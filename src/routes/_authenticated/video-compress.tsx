@@ -1,6 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save, AlertTriangle } from "lucide-react";
+import {
+  Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save, AlertTriangle,
+  Library, Music, Wand2, X, Film,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   loadFFmpeg, getFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
@@ -14,6 +17,27 @@ export const Route = createFileRoute("/_authenticated/video-compress")({
 });
 
 type Crop = { x: number; y: number; w: number; h: number };
+
+type LibraryVideoRow = {
+  id: string;
+  original_name: string;
+  duration_seconds: number | null;
+  size_bytes: number | null;
+  created_at: string;
+  storage_path: string;
+};
+
+const AUDIO_EXTENSIONS = ["mp3", "wav", "m4a", "aac", "ogg", "flac", "webm"];
+
+function validateAudioFile(f: File): string | null {
+  const ext = f.name.match(/\.([^.]+)$/)?.[1]?.toLowerCase() ?? "";
+  const mimeOk = f.type.startsWith("audio/");
+  if (!mimeOk && !AUDIO_EXTENSIONS.includes(ext)) {
+    return `Unsupported audio type${ext ? ` ".${ext}"` : ""}. Supported: ${AUDIO_EXTENSIONS.join(", ").toUpperCase()}.`;
+  }
+  if (f.size > 100 * 1024 * 1024) return `Audio file is ${humanSize(f.size)}. Maximum is 100 MB.`;
+  return null;
+}
 
 function formatProcTime(sec: number): string {
   if (!isFinite(sec) || sec < 1) return "<1s";
@@ -46,6 +70,60 @@ function VideoCompressPage() {
   const [saving, setSaving] = useState(false);
   const [savePct, setSavePct] = useState(0);
   const [saved, setSaved] = useState(false);
+
+  // Select from Library
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryVideos, setLibraryVideos] = useState<LibraryVideoRow[] | null>(null);
+  const [libraryLoading, setLibraryLoading] = useState(false);
+  const [libraryFetchingId, setLibraryFetchingId] = useState<string | null>(null);
+
+  // Noise reduction
+  const [denoiseEnabled, setDenoiseEnabled] = useState(false);
+  const [denoiseStrength, setDenoiseStrength] = useState(12); // afftdn nr: 0.01-97, 12 is a sane default
+
+  // Custom audio: remove original + replace with an uploaded track
+  const [removeOriginalAudio, setRemoveOriginalAudio] = useState(false);
+  const [customAudioFile, setCustomAudioFile] = useState<File | null>(null);
+
+  async function openLibraryPicker() {
+    setLibraryOpen(true);
+    if (libraryVideos !== null) return;
+    setLibraryLoading(true);
+    try {
+      const { data, error } = await supabase
+        .from("videos")
+        .select("id, original_name, duration_seconds, size_bytes, created_at, storage_path")
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      setLibraryVideos(data ?? []);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load library");
+      setLibraryVideos([]);
+    } finally {
+      setLibraryLoading(false);
+    }
+  }
+
+  async function selectFromLibrary(v: LibraryVideoRow) {
+    setLibraryFetchingId(v.id);
+    try {
+      const { data, error } = await supabase.storage.from("videos").download(v.storage_path);
+      if (error || !data) throw error ?? new Error("Failed to download video");
+      const f = new File([data], v.original_name, { type: data.type || "video/mp4" });
+      const err = validateVideoFileBasic(f);
+      if (err) {
+        toast.error(err.message);
+        return;
+      }
+      setResult(null);
+      setFile(f);
+      setLibraryOpen(false);
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to load video");
+    } finally {
+      setLibraryFetchingId(null);
+    }
+  }
 
   async function saveToLibrary() {
     if (!result) return;
@@ -151,8 +229,12 @@ function VideoCompressPage() {
       }
     }
 
+    if (customAudioFile) {
+      warnings.push("The new audio track will replace the original; the video is cut to match the shorter of the two.");
+    }
+
     return { errors, warnings };
-  }, [file, dims, duration, trim.start, trim.end, crop, estimate]);
+  }, [file, dims, duration, trim.start, trim.end, crop, estimate, customAudioFile]);
 
   const hasBlockingIssues = preflight.errors.length > 0;
 
@@ -343,6 +425,13 @@ function VideoCompressPage() {
       setStatus("Reading file…");
       await ff.writeFile(inputName, await fetchFile(file));
 
+      const audioName = customAudioFile
+        ? "audio" + (customAudioFile.name.match(/\.[^.]+$/)?.[0] ?? ".mp3")
+        : null;
+      if (audioName && customAudioFile) {
+        await ff.writeFile(audioName, await fetchFile(customAudioFile));
+      }
+
       // Clamp + even crop dims for libx264 (odd or zero dims cause an "Invalid argument" abort).
       const clampedW = Math.max(2, Math.min(crop.w, dims.w - crop.x));
       const clampedH = Math.max(2, Math.min(crop.h, dims.h - crop.y));
@@ -355,33 +444,56 @@ function VideoCompressPage() {
       const outW = Math.max(2, targetW - (targetW % 2));
       const outH = Math.max(2, targetH - (targetH % 2));
 
-      const filters = [`crop=${cw}:${ch}:${cx}:${cy}`, `scale=${outW}:${outH}`].join(",");
+      const videoFilters = [`crop=${cw}:${ch}:${cx}:${cy}`, `scale=${outW}:${outH}`].join(",");
+      // afftdn: FFT-based denoise, built into ffmpeg core (no extra library). nr = noise reduction in dB.
+      const audioFilters = denoiseEnabled ? `afftdn=nr=${denoiseStrength}` : null;
 
       // Trim: use -ss BEFORE -i for fast seek, then -t for duration (more reliable than -to across builds).
       const trimStart = Math.max(0, trim.start);
       const trimDur = Math.max(0.05, trim.end - trim.start);
       const trimActive = duration !== null && (trimStart > 0.01 || trim.end < duration - 0.01);
 
+      const dropOriginalAudio = removeOriginalAudio || !!audioName;
+
       const args: string[] = [];
       if (trimActive) args.push("-ss", trimStart.toFixed(3));
       args.push("-i", inputName);
       if (trimActive) args.push("-t", trimDur.toFixed(3));
+      if (audioName) {
+        // Custom audio track: loop it if shorter than the video, trim to video length.
+        args.push("-i", audioName);
+      }
+      args.push("-map", "0:v:0");
+      if (audioName) {
+        args.push("-map", "1:a:0", "-shortest");
+      } else if (!dropOriginalAudio) {
+        args.push("-map", "0:a?");
+      }
+      args.push("-vf", videoFilters);
+      if (audioFilters && !dropOriginalAudio) {
+        args.push("-af", audioFilters);
+      }
       args.push(
-        // Take the first video stream; make audio optional so silent videos don't fail.
-        "-map", "0:v:0",
-        "-map", "0:a?",
-        "-vf", filters,
         "-c:v", "libx264",
         "-preset", "veryfast",
         "-crf", String(quality),
-        "-c:a", "aac",
-        "-b:a", "128k",
+      );
+      if (dropOriginalAudio && !audioName) {
+        args.push("-an");
+      } else {
+        args.push("-c:a", "aac", "-b:a", "128k");
+      }
+      args.push(
         "-movflags", "+faststart",
         "-pix_fmt", "yuv420p",
         outputName,
       );
 
-      setStatus(trimActive ? "Encoding (trim + crop)…" : "Encoding…");
+      const statusParts = [trimActive && "trim", "crop"];
+      if (denoiseEnabled && !dropOriginalAudio) statusParts.push("denoise");
+      if (audioName) statusParts.push("new audio");
+      else if (removeOriginalAudio) statusParts.push("mute");
+      setStatus(`Encoding (${statusParts.filter(Boolean).join(" + ")})…`);
       await ff.exec(args);
 
       const data = await ff.readFile(outputName);
@@ -395,6 +507,9 @@ function VideoCompressPage() {
       // Best-effort cleanup of in-memory FS.
       try { await ff.deleteFile(inputName); } catch { /* ignore */ }
       try { await ff.deleteFile(outputName); } catch { /* ignore */ }
+      if (audioName) {
+        try { await ff.deleteFile(audioName); } catch { /* ignore */ }
+      }
       toast.success(`Reduced from ${humanSize(file.size)} to ${humanSize(blob.size)}`);
     } catch (err) {
       console.error("[compress] ffmpeg failed", err, "\nlast ffmpeg logs:\n" + logs.slice(-25).join("\n"));
@@ -425,13 +540,22 @@ function VideoCompressPage() {
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
         <div className="rounded-xl border border-border/60 bg-card p-4">
           {!previewUrl ? (
-            <label
-              htmlFor="vc-input"
-              className="flex h-64 cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border-2 border-dashed border-border/60 bg-background/50 text-sm text-muted-foreground hover:border-primary/60"
-            >
+            <div className="flex h-64 flex-col items-center justify-center gap-3 rounded-lg border-2 border-dashed border-border/60 bg-background/50 text-sm text-muted-foreground">
               <Scissors className="h-8 w-8" />
-              Click to select a video
-            </label>
+              <label htmlFor="vc-input" className="cursor-pointer hover:text-foreground">
+                Click to select a video
+              </label>
+              <div className="flex items-center gap-2 text-xs">
+                <span className="opacity-60">or</span>
+                <button
+                  type="button"
+                  onClick={openLibraryPicker}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border/70 bg-card px-3 py-1.5 hover:bg-accent"
+                >
+                  <Library className="h-3.5 w-3.5" /> Select from library
+                </button>
+              </div>
+            </div>
           ) : (
             <div
               className="relative select-none overflow-hidden rounded-lg bg-black"
@@ -481,11 +605,16 @@ function VideoCompressPage() {
             }}
           />
           {file && (
-            <div className="mt-3 flex items-center justify-between text-xs text-muted-foreground">
+            <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
               <span>{file.name} · {humanSize(file.size)}{dims ? ` · ${dims.w}×${dims.h}` : ""}</span>
-              <button onClick={resetCrop} className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent">
-                <CropIcon className="h-3 w-3" /> Reset crop
-              </button>
+              <div className="flex items-center gap-2">
+                <button onClick={openLibraryPicker} className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent">
+                  <Library className="h-3 w-3" /> Select from library
+                </button>
+                <button onClick={resetCrop} className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent">
+                  <CropIcon className="h-3 w-3" /> Reset crop
+                </button>
+              </div>
             </div>
           )}
         </div>
@@ -558,6 +687,101 @@ function VideoCompressPage() {
               </button>
             </div>
           )}
+
+          <div className="space-y-2 border-t border-border/40 pt-4">
+            <label className="flex items-center justify-between gap-2 text-sm font-medium">
+              <span className="flex items-center gap-1.5">
+                <Wand2 className="h-3.5 w-3.5" /> Noise reduction
+              </span>
+              <input
+                type="checkbox"
+                checked={denoiseEnabled}
+                disabled={removeOriginalAudio || !!customAudioFile}
+                onChange={(e) => setDenoiseEnabled(e.target.checked)}
+                className="h-4 w-4"
+              />
+            </label>
+            {denoiseEnabled && !removeOriginalAudio && !customAudioFile && (
+              <div>
+                <div className="flex items-center justify-between text-[10px] text-muted-foreground">
+                  <span>Strength</span>
+                  <span className="tabular-nums">{denoiseStrength}</span>
+                </div>
+                <input
+                  type="range" min={0.5} max={40} step={0.5} value={denoiseStrength}
+                  onChange={(e) => setDenoiseStrength(Number(e.target.value))}
+                  className="mt-1 w-full"
+                />
+              </div>
+            )}
+            {(removeOriginalAudio || customAudioFile) && (
+              <p className="text-[10px] text-muted-foreground">Not applicable — original audio is being removed/replaced.</p>
+            )}
+            <p className="text-[10px] text-muted-foreground">
+              Free FFT-based denoise (afftdn), runs entirely in your browser.
+            </p>
+          </div>
+
+          <div className="space-y-2 border-t border-border/40 pt-4">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <Music className="h-3.5 w-3.5" /> Custom audio
+            </div>
+            <label className="flex items-center justify-between gap-2 text-xs">
+              <span>Remove original audio</span>
+              <input
+                type="checkbox"
+                checked={removeOriginalAudio}
+                disabled={!!customAudioFile}
+                onChange={(e) => setRemoveOriginalAudio(e.target.checked)}
+                className="h-4 w-4"
+              />
+            </label>
+            {!customAudioFile ? (
+              <label
+                htmlFor="vc-audio-input"
+                className="flex cursor-pointer items-center justify-center gap-1.5 rounded-md border border-dashed border-border/70 bg-background/50 px-3 py-2 text-xs text-muted-foreground hover:border-primary/60"
+              >
+                <Music className="h-3.5 w-3.5" /> Upload new audio track
+              </label>
+            ) : (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs">
+                <span className="truncate">{customAudioFile.name} · {humanSize(customAudioFile.size)}</span>
+                <button
+                  type="button"
+                  onClick={() => setCustomAudioFile(null)}
+                  className="shrink-0 rounded p-0.5 hover:bg-accent"
+                  aria-label="Remove custom audio"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            )}
+            <input
+              id="vc-audio-input"
+              type="file"
+              accept="audio/*"
+              className="hidden"
+              onChange={(e) => {
+                const f = e.target.files?.[0] ?? null;
+                if (f) {
+                  const err = validateAudioFile(f);
+                  if (err) {
+                    toast.error(err);
+                    e.target.value = "";
+                    return;
+                  }
+                }
+                setCustomAudioFile(f);
+                e.target.value = "";
+              }}
+            />
+            {customAudioFile && (
+              <p className="text-[10px] text-muted-foreground">
+                Original audio will be replaced by this track. Output length matches whichever is shorter.
+              </p>
+            )}
+          </div>
+
           {crop && dims && (
             <div className="rounded-md border border-border/60 bg-background/60 p-3 text-xs">
               <div className="font-medium text-foreground">Crop region</div>
@@ -853,6 +1077,137 @@ function VideoCompressPage() {
           </div>
         </div>
       )}
+
+      {libraryOpen && (
+        <LibraryPickerModal
+          videos={libraryVideos}
+          loading={libraryLoading}
+          fetchingId={libraryFetchingId}
+          onSelect={selectFromLibrary}
+          onClose={() => setLibraryOpen(false)}
+        />
+      )}
     </div>
+  );
+}
+
+function useSignedVideoUrl(path: string) {
+  const [url, setUrl] = useState<string | null>(null);
+  useEffect(() => {
+    let cancelled = false;
+    supabase.storage
+      .from("videos")
+      .createSignedUrl(path, 60 * 10)
+      .then(({ data }) => {
+        if (!cancelled && data?.signedUrl) setUrl(data.signedUrl);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [path]);
+  return url;
+}
+
+function LibraryPickerModal({
+  videos,
+  loading,
+  fetchingId,
+  onSelect,
+  onClose,
+}: {
+  videos: LibraryVideoRow[] | null;
+  loading: boolean;
+  fetchingId: string | null;
+  onSelect: (v: LibraryVideoRow) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div
+        className="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-xl border border-border bg-card p-5"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-center justify-between">
+          <div className="flex items-center gap-2 text-lg font-medium">
+            <Library className="h-5 w-5 text-primary" /> Select from library
+          </div>
+          <button onClick={onClose} className="rounded-md p-1 hover:bg-accent" aria-label="Close">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          {loading ? (
+            <div className="flex h-40 items-center justify-center text-sm text-muted-foreground">
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" /> Loading videos…
+            </div>
+          ) : !videos || videos.length === 0 ? (
+            <div className="flex h-40 flex-col items-center justify-center gap-2 text-sm text-muted-foreground">
+              <Film className="h-8 w-8" />
+              No videos in your library yet.
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {videos.map((v) => (
+                <LibraryVideoCard
+                  key={v.id}
+                  video={v}
+                  fetching={fetchingId === v.id}
+                  onSelect={() => onSelect(v)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LibraryVideoCard({
+  video,
+  fetching,
+  onSelect,
+}: {
+  video: LibraryVideoRow;
+  fetching: boolean;
+  onSelect: () => void;
+}) {
+  const url = useSignedVideoUrl(video.storage_path);
+  return (
+    <button
+      type="button"
+      onClick={onSelect}
+      disabled={fetching}
+      className="group overflow-hidden rounded-lg border border-border/60 bg-background/50 text-left hover:border-primary/60 disabled:opacity-60"
+    >
+      <div className="relative aspect-video bg-black">
+        {url ? (
+          <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+        ) : (
+          <div className="h-full w-full animate-pulse bg-muted" />
+        )}
+        {fetching && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/50">
+            <Loader2 className="h-5 w-5 animate-spin text-white" />
+          </div>
+        )}
+      </div>
+      <div className="p-2">
+        <div className="truncate text-xs font-medium">{video.original_name}</div>
+        <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
+          {video.duration_seconds ? <span>{formatDuration(video.duration_seconds * 1000)}</span> : null}
+          {video.size_bytes ? <span>{humanSize(video.size_bytes)}</span> : null}
+        </div>
+      </div>
+    </button>
   );
 }

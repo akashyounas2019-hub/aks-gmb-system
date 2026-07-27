@@ -75,15 +75,15 @@ Write a Google Business Profile post that:
 - Reads natural and human — never spammy.
 - Weaves the provided keywords into the body naturally (do NOT list them).
 - Describes what is actually visible in the attached image(s) when they are provided.
-- Ends with 3–6 hashtags derived from the keywords.
+- Does NOT use hashtags anywhere — Google Business Profile posts do not support them; hashtags are a social-media convention (Facebook/Instagram) and must never appear here.
 - Includes the location naturally in the first two sentences if provided.
-- Stays under 1500 characters.
+- MUST be 1480 characters or fewer in total, including all spaces, line breaks, and punctuation. This is a hard limit, not a target — count carefully as you write and stop well before it. If you are unsure, write shorter rather than risk going over.
 - Written in English.
-- If a TEMPLATE is provided, follow ONLY its structural format: the order and number of sections, line/paragraph breaks, where emojis sit, bullet style, and where hashtags/CTA go. Every word must be newly written from the current keywords and images — never reuse its sentences, offers, prices, brand names, or hashtags.
+- If a TEMPLATE is provided, follow ONLY its structural format: the order and number of sections, line/paragraph breaks, and where emojis/CTA sit (never hashtags, which are excluded regardless of what the template does). Every word must be newly written from the current keywords and images — never reuse its sentences, offers, prices, or brand names.
 Return ONLY the caption text, no preamble.`;
 
     const styleBlock = data.styleReference
-      ? `\nTEMPLATE (structural blueprint ONLY — copy the layout, section order, line breaks and emoji/hashtag placement; DO NOT copy any wording, offers, prices, brand names, or hashtags from it):\n"""\n${data.styleReference.body}\n"""\n`
+      ? `\nTEMPLATE (structural blueprint ONLY — copy the layout, section order, line breaks and emoji placement; DO NOT copy any wording, offers, prices, brand names, or hashtags from it, and DO NOT include hashtags even if the template has them):\n"""\n${data.styleReference.body}\n"""\n`
       : "";
 
     const userText = [
@@ -150,7 +150,7 @@ Return ONLY the caption text, no preamble.`;
         // plain-text response
       }
       if (!caption.trim()) throw new Error("AKS Cloud returned an empty caption");
-      return { caption: caption.trim() };
+      return { caption: enforceGmbPostRules(caption) };
     }
 
     // Prefer the user's own API key (Settings → Integrations) so generation
@@ -167,7 +167,7 @@ Return ONLY the caption text, no preamble.`;
           { role: "system", text: system },
           { role: "user", text: userText, imageUrls },
         ]);
-        if (caption.trim()) return { caption: caption.trim() };
+        if (caption.trim()) return { caption: enforceGmbPostRules(caption) };
       } catch (e) {
         // Fall through to the Lovable gateway below, but surface the direct
         // failure if that fallback also has no key configured.
@@ -192,8 +192,43 @@ Return ONLY the caption text, no preamble.`;
       ],
     });
 
-    return { caption: content.trim() };
+    return { caption: enforceGmbPostRules(content) };
   });
+
+const GMB_CAPTION_LIMIT = 1480;
+
+/**
+ * Belt-and-suspenders enforcement of the two rules the system prompt already
+ * asks for — a prompt instruction alone doesn't guarantee compliance, and
+ * models have been observed both exceeding the character limit and adding
+ * hashtags despite being told not to. Runs on every generated caption
+ * regardless of which provider produced it.
+ */
+function enforceGmbPostRules(raw: string): string {
+  let text = raw.trim();
+
+  // Strip hashtags — GMB posts don't support them; drop any trailing
+  // hashtag line(s) and any hashtag tokens embedded elsewhere.
+  text = text.replace(/(^|\s)#[\p{L}\p{N}_]+/gu, "$1").trim();
+  // Collapse any blank lines left behind by removed hashtag lines.
+  text = text.replace(/\n{3,}/g, "\n\n").trim();
+
+  if (text.length > GMB_CAPTION_LIMIT) {
+    // Trim to the limit, then back off to the last sentence/word boundary so
+    // the cut doesn't land mid-word.
+    let cut = text.slice(0, GMB_CAPTION_LIMIT);
+    const lastBoundary = Math.max(cut.lastIndexOf(". "), cut.lastIndexOf("\n"));
+    if (lastBoundary > GMB_CAPTION_LIMIT * 0.6) {
+      cut = cut.slice(0, lastBoundary + 1);
+    } else {
+      const lastSpace = cut.lastIndexOf(" ");
+      if (lastSpace > 0) cut = cut.slice(0, lastSpace);
+    }
+    text = cut.trim();
+  }
+
+  return text;
+}
 
 /* ------------------------------------------------------------------ */
 /*  Push the finished post to GHL Social Planner (via n8n or direct)   */

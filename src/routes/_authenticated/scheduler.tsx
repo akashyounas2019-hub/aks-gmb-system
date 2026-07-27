@@ -1,12 +1,12 @@
-import { createFileRoute } from "@tanstack/react-router";
+﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
 import {
   Calendar,
-  ChevronLeft,
-  ChevronRight,
-  Clock,
   Loader2,
+  Pencil,
   Save,
+  Trash2,
+  X,
 } from "lucide-react";
 import { toast } from "sonner";
 
@@ -88,29 +88,48 @@ function PostSchedulerPanel() {
   const [error, setError] = useState<string | null>(null);
   const [posts, setPosts] = useState<ScheduledPost[]>([]);
   const [scope, setScope] = useState<"upcoming" | "all">("upcoming");
+  const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
+  const [deletingPost, setDeletingPost] = useState<ScheduledPost | null>(null);
+  const [deleting, setDeleting] = useState(false);
 
-  useEffect(() => {
-    let cancelled = false;
+  async function reload() {
     setLoading(true);
     setError(null);
-    supabase
+    const { data, error } = await supabase
       .from("social_posts")
       .select(
         "id,caption,status,scheduled_at,created_at,location_label,image_ids",
       )
       .not("scheduled_at", "is", null)
       .order("scheduled_at", { ascending: true })
-      .limit(500)
-      .then(({ data, error }) => {
-        if (cancelled) return;
-        if (error) setError(error.message);
-        setPosts((data ?? []) as unknown as ScheduledPost[]);
-        setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
+      .limit(500);
+    if (error) setError(error.message);
+    setPosts((data ?? []) as unknown as ScheduledPost[]);
+    setLoading(false);
+  }
+
+  useEffect(() => {
+    reload();
   }, []);
+
+  async function confirmDelete() {
+    if (!deletingPost) return;
+    setDeleting(true);
+    try {
+      const { error } = await supabase
+        .from("social_posts")
+        .delete()
+        .eq("id", deletingPost.id);
+      if (error) throw error;
+      toast.success("Scheduled post deleted.");
+      setDeletingPost(null);
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to delete post");
+    } finally {
+      setDeleting(false);
+    }
+  }
 
   const rows = useMemo(() => {
     const now = Date.now();
@@ -126,7 +145,10 @@ function PostSchedulerPanel() {
       toast.error("Nothing scheduled to export.");
       return;
     }
-    const origin = window.location.origin;
+    // Lovable's temporary preview subdomain (preview--<project>.lovable.app)
+    // isn't a stable public link for GHL to fetch images from later — strip
+    // the "preview--" prefix so the CSV always points at the real domain.
+    const origin = window.location.origin.replace("preview--", "");
     const esc = (v: string) => `"${v.replace(/"/g, '""')}"`;
     const pad = (n: number) => String(n).padStart(2, "0");
     const fmt = (d: Date) =>
@@ -211,7 +233,8 @@ function PostSchedulerPanel() {
                   <th className="py-2 pr-4 font-medium">Scheduled</th>
                   <th className="py-2 pr-4 font-medium">Status</th>
                   <th className="py-2 pr-4 font-medium">Images</th>
-                  <th className="py-2 font-medium">Content</th>
+                  <th className="py-2 pr-4 font-medium">Content</th>
+                  <th className="py-2 font-medium text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
@@ -231,6 +254,26 @@ function PostSchedulerPanel() {
                     <td className="max-w-[520px] py-2 text-muted-foreground">
                       <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
                     </td>
+                    <td className="py-2 text-right">
+                      <div className="inline-flex items-center gap-1">
+                        <button
+                          type="button"
+                          onClick={() => setEditingPost(p)}
+                          className="inline-flex items-center gap-1 rounded-md border border-border px-2 py-1 text-xs hover:bg-accent"
+                          title="Edit scheduled post"
+                        >
+                          <Pencil className="h-3 w-3" /> Edit
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDeletingPost(p)}
+                          className="inline-flex items-center gap-1 rounded-md border border-destructive/40 px-2 py-1 text-xs text-destructive hover:bg-destructive/10"
+                          title="Delete scheduled post"
+                        >
+                          <Trash2 className="h-3 w-3" /> Delete
+                        </button>
+                      </div>
+                    </td>
                   </tr>
                 ))}
               </tbody>
@@ -239,187 +282,158 @@ function PostSchedulerPanel() {
         )}
       </section>
 
-      <PostSchedulerCalendar posts={rows} />
+      {editingPost && (
+        <EditScheduledPostModal
+          post={editingPost}
+          onClose={() => setEditingPost(null)}
+          onSaved={() => {
+            setEditingPost(null);
+            reload();
+          }}
+        />
+      )}
+
+      {deletingPost && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => !deleting && setDeletingPost(null)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-border bg-background p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-base font-medium">Delete scheduled post?</div>
+            <p className="mt-2 text-sm text-muted-foreground">
+              This removes it from the schedule permanently. This can&apos;t be undone.
+            </p>
+            <p className="mt-3 line-clamp-3 rounded-md border border-border bg-card p-2 text-xs text-muted-foreground">
+              {deletingPost.caption}
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setDeletingPost(null)}
+                disabled={deleting}
+                className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-2 rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Post Scheduler — mini calendar view                                */
-/* ------------------------------------------------------------------ */
-
-function dateKeyLocal(d: Date) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-    d.getDate(),
-  ).padStart(2, "0")}`;
-}
-
-function buildCalendarMonthGrid(cursor: Date): Date[] {
-  const y = cursor.getFullYear();
-  const m = cursor.getMonth();
-  const first = new Date(y, m, 1);
-  const startWeekday = first.getDay(); // 0 = Sun
-  const daysInMonth = new Date(y, m + 1, 0).getDate();
-  const cells: Date[] = [];
-  for (let i = startWeekday; i > 0; i--) cells.push(new Date(y, m, 1 - i));
-  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
-  while (cells.length % 7 !== 0) {
-    const last = cells[cells.length - 1];
-    cells.push(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1));
-  }
-  while (cells.length < 42) {
-    const last = cells[cells.length - 1];
-    cells.push(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1));
-  }
-  return cells;
-}
-
-function PostSchedulerCalendar({ posts }: { posts: ScheduledPost[] }) {
-  const [cursor, setCursor] = useState<Date>(() => {
-    const d = new Date();
-    return new Date(d.getFullYear(), d.getMonth(), 1);
+function EditScheduledPostModal({
+  post,
+  onClose,
+  onSaved,
+}: {
+  post: ScheduledPost;
+  onClose: () => void;
+  onSaved: () => void;
+}) {
+  const [caption, setCaption] = useState(post.caption);
+  const [scheduledAt, setScheduledAt] = useState(() => {
+    if (!post.scheduled_at) return "";
+    const d = new Date(post.scheduled_at);
+    const pad = (n: number) => String(n).padStart(2, "0");
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
   });
+  const [saving, setSaving] = useState(false);
 
-  const monthDays = useMemo(() => buildCalendarMonthGrid(cursor), [cursor]);
-  const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
-  const todayKey = dateKeyLocal(new Date());
-
-  const byDay = useMemo(() => {
-    const map = new Map<string, ScheduledPost[]>();
-    for (const p of posts) {
-      if (!p.scheduled_at) continue;
-      const key = dateKeyLocal(new Date(p.scheduled_at));
-      const arr = map.get(key) ?? [];
-      arr.push(p);
-      map.set(key, arr);
+  async function save() {
+    if (!caption.trim()) {
+      toast.error("Post body can't be empty");
+      return;
     }
-    for (const arr of map.values()) {
-      arr.sort(
-        (a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime(),
-      );
+    if (!scheduledAt) {
+      toast.error("Pick a schedule date/time");
+      return;
     }
-    return map;
-  }, [posts]);
+    setSaving(true);
+    try {
+      const { error } = await supabase
+        .from("social_posts")
+        .update({
+          caption: caption.trim(),
+          scheduled_at: new Date(scheduledAt).toISOString(),
+        } as never)
+        .eq("id", post.id);
+      if (error) throw error;
+      toast.success("Scheduled post updated.");
+      onSaved();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to save changes");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
-    <section className="rounded-xl border border-border bg-card p-4">
-      <div className="mb-3 flex items-center justify-between">
-        <div className="flex items-center gap-2 text-sm font-medium">
-          <Calendar className="h-4 w-4 text-primary" /> Calendar view
-        </div>
-        <div className="flex items-center gap-2">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+      <div
+        className="w-full max-w-lg rounded-xl border border-border bg-background p-5 shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between">
+          <div className="text-base font-medium">Edit scheduled post</div>
           <button
-            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
-            className="rounded-md border border-border p-1.5 hover:bg-accent"
-            aria-label="Previous month"
+            type="button"
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded p-1 text-muted-foreground hover:bg-accent"
           >
-            <ChevronLeft className="h-4 w-4" />
-          </button>
-          <div className="min-w-[9rem] text-center text-sm font-medium">{monthLabel}</div>
-          <button
-            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
-            className="rounded-md border border-border p-1.5 hover:bg-accent"
-            aria-label="Next month"
-          >
-            <ChevronRight className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => {
-              const t = new Date();
-              setCursor(new Date(t.getFullYear(), t.getMonth(), 1));
-            }}
-            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
-          >
-            Today
+            <X className="h-4 w-4" />
           </button>
         </div>
-      </div>
 
-      <div className="overflow-hidden rounded-lg border border-border">
-        <div className="grid grid-cols-7 border-b border-border bg-muted/30 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
-          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-            <div key={d} className="py-2">
-              {d}
-            </div>
-          ))}
-        </div>
-        <div className="grid grid-cols-7">
-          {monthDays.map((d, i) => {
-            const key = dateKeyLocal(d);
-            const inMonth = d.getMonth() === cursor.getMonth();
-            const isToday = key === todayKey;
-            const dayPosts = byDay.get(key) ?? [];
-            return (
-              <div
-                key={i}
-                className={`relative flex min-h-[132px] flex-col gap-1.5 border-b border-r border-border/60 p-2 ${
-                  inMonth ? "bg-card" : "bg-muted/20"
-                }`}
-              >
-                <span
-                  className={`inline-flex h-6 w-fit min-w-[1.5rem] items-center gap-1 rounded-full px-1.5 text-xs font-semibold ${
-                    isToday
-                      ? "bg-primary text-primary-foreground"
-                      : inMonth
-                        ? "text-foreground/80"
-                        : "text-muted-foreground/50"
-                  }`}
-                >
-                  {d.getDate()}
-                  {d.getDate() === 1 && (
-                    <span className="font-normal">
-                      {d.toLocaleDateString(undefined, { month: "short" })}
-                    </span>
-                  )}
-                </span>
-
-                <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
-                  {dayPosts.map((p) => (
-                    <CalendarPostCard key={p.id} post={p} />
-                  ))}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
-    </section>
-  );
-}
-
-function CalendarPostCard({ post }: { post: ScheduledPost }) {
-  const firstImageId = post.image_ids?.[0] ?? null;
-  const time = post.scheduled_at
-    ? new Date(post.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-    : "";
-  const firstLine = (post.caption ?? "").split("\n")[0].trim() || "Untitled post";
-
-  return (
-    <div
-      title={post.caption}
-      className="group flex flex-col gap-1.5 rounded-lg border border-border bg-background p-1.5 shadow-sm transition hover:border-primary/50 hover:shadow-md"
-    >
-      {post.location_label && (
-        <span className="truncate text-[10px] font-medium text-foreground/80">
-          {post.location_label}
-        </span>
-      )}
-      {time && (
-        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
-          <Clock className="h-3 w-3" /> {time}
-        </div>
-      )}
-      {firstImageId && (
-        <img
-          src={`/api/public/img/${firstImageId}.jpg`}
-          alt=""
-          loading="lazy"
-          className="h-16 w-full rounded-md object-cover"
+        <label className="mt-4 block text-xs font-medium text-muted-foreground">Post body</label>
+        <textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          rows={8}
+          className="mt-1 w-full resize-y rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
         />
-      )}
-      <div className="flex items-start gap-1 text-[11px]">
-        <Calendar className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
-        <span className="line-clamp-2">{firstLine}</span>
+
+        <label className="mt-3 block text-xs font-medium text-muted-foreground">Scheduled at</label>
+        <input
+          type="datetime-local"
+          value={scheduledAt}
+          onChange={(e) => setScheduledAt(e.target.value)}
+          className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+        />
+
+        <div className="mt-5 flex justify-end gap-2">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving}
+            className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            Save changes
+          </button>
+        </div>
       </div>
     </div>
   );

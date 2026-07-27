@@ -325,7 +325,11 @@ function GeotaggingPage() {
       .select("id,name,storage_path,lat,lng,title,description,is_favorite")
       .order("created_at", { ascending: false })
       .limit(500);
-    setLibrary((data ?? []) as LibraryImage[]);
+    // Favorites first (most-recent-first within each group), so they're
+    // easy to find at a glance instead of scattered by upload date.
+    const rows = (data ?? []) as LibraryImage[];
+    rows.sort((a, b) => Number(Boolean(b.is_favorite)) - Number(Boolean(a.is_favorite)));
+    setLibrary(rows);
     setLibraryLoading(false);
   }, []);
 
