@@ -177,7 +177,7 @@ export function LocationPicker({
   // Render the map widget with a pin per result once a place type has been
   // picked and results have loaded.
   useEffect(() => {
-    if (!cityPlaceType || cityPlaces.length === 0 || !mapRef.current) return;
+    if (cityPlaces.length === 0 || !mapRef.current) return;
     let cancelled = false;
     loadGoogleMaps().then((google) => {
       if (cancelled || !mapRef.current) return;
