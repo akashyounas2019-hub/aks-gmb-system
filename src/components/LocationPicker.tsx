@@ -369,42 +369,47 @@ export function LocationPicker({
       </div>
       {error && <div className="text-xs text-destructive">{error}</div>}
 
-      {/* Place-type presets — narrow suggestions to a category (Home,
-          Office, Commercial, Villas) within the current search area so
-          users don't drop a pin on a random storefront. */}
+      {/* Single place-type row. When a city is expanded it filters that city's
+          results; otherwise it seeds the search box for the typed area. */}
       {ready && (
         <div className={compact ? "mt-2" : ""}>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3" /> Place type
+            {expandedCity ? ` in ${expandedCity}` : ""}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {[
-              { key: "Home", label: "Home", icon: Home, term: "residential area" },
-              { key: "Office", label: "Office", icon: Building2, term: "office building" },
-              { key: "Commercial", label: "Commercial", icon: Store, term: "commercial area" },
-              { key: "Villas", label: "Villas", icon: Landmark, term: "villas" },
-            ].map((c) => {
-              const Icon = c.icon;
+            {CITY_PLACE_TYPES.map((t) => {
+              const Icon = t.icon;
+              const active = cityPlaceType === t.key;
               return (
                 <button
-                  key={c.key}
+                  key={t.key}
                   type="button"
                   onClick={() => {
-                    const area = query.trim() || expandedCity || "Dubai";
-                    // Seed the search input; the existing autocomplete effect
-                    // picks it up and returns matching places.
-                    setQuery(`${c.term} in ${area}`);
+                    setCityPlaceType(t.key);
+                    const city = cityOptions?.find((c) => c.name === expandedCity);
+                    if (city) {
+                      loadCityPlaces(city, t.key);
+                    } else {
+                      const area = query.trim() || "Dubai";
+                      setQuery(`${t.term} in ${area}`);
+                    }
                   }}
-                  className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-primary hover:text-primary"
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card hover:border-primary hover:text-primary"
+                  }`}
                 >
                   <Icon className="h-3 w-3" />
-                  {c.label}
+                  {t.label}
                 </button>
               );
             })}
           </div>
         </div>
       )}
+
 
 
       {/* City shortcuts — clicking one runs a real Google Places search near
