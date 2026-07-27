@@ -171,7 +171,8 @@ export function LocationPicker({
         zoom: 14,
         mapTypeControl: false,
         streetViewControl: false,
-        fullscreenControl: false,
+        fullscreenControl: true,
+        clickableIcons: false,
       });
       const bounds = new google.maps.LatLngBounds();
       const infoWindow = new google.maps.InfoWindow();
@@ -179,22 +180,54 @@ export function LocationPicker({
         const position = { lat: p.lat, lng: p.lng };
         bounds.extend(position);
         const marker = new google.maps.Marker({ position, map, title: p.label });
+        // Left click a pin → select that place and continue.
         marker.addListener("click", () => {
+          commit({ label: p.label, lat: p.lat, lng: p.lng, place_id: p.placeId });
+        });
+        // Right click a pin → copy its coordinates.
+        marker.addListener("contextmenu", () => {
+          copyCoords(p.placeId, p.lat, p.lng);
           infoWindow.setContent(
             `<div style="font-family:system-ui;font-size:12px;max-width:220px">
               <div style="font-weight:600;margin-bottom:2px">${escapeHtml(p.label)}</div>
-              <div style="color:#64748b">${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</div>
+              <div style="color:#64748b">Copied ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</div>
             </div>`,
           );
           infoWindow.open({ map, anchor: marker });
         });
+      });
+      // Click empty map → select that exact coordinate.
+      map.addListener("click", (e: google.maps.MapMouseEvent) => {
+        const lat = e.latLng?.lat();
+        const lng = e.latLng?.lng();
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+        commit({
+          label: `Pinned ${lat.toFixed(6)}, ${lng.toFixed(6)}`,
+          lat,
+          lng,
+          place_id: null,
+        });
+      });
+      // Right click empty map → copy that coordinate.
+      map.addListener("contextmenu", (e: google.maps.MapMouseEvent) => {
+        const lat = e.latLng?.lat();
+        const lng = e.latLng?.lng();
+        if (typeof lat !== "number" || typeof lng !== "number") return;
+        copyCoords("map", lat, lng);
+        infoWindow.setPosition({ lat, lng });
+        infoWindow.setContent(
+          `<div style="font-family:system-ui;font-size:12px">Copied ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>`,
+        );
+        infoWindow.open({ map });
       });
       if (cityPlaces.length > 1) map.fitBounds(bounds);
     });
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityPlaceType, cityPlaces]);
+
 
   async function copyCoords(placeId: string, lat: number, lng: number) {
     try {
@@ -369,42 +402,47 @@ export function LocationPicker({
       </div>
       {error && <div className="text-xs text-destructive">{error}</div>}
 
-      {/* Place-type presets — narrow suggestions to a category (Home,
-          Office, Commercial, Villas) within the current search area so
-          users don't drop a pin on a random storefront. */}
+      {/* Single place-type row. When a city is expanded it filters that city's
+          results; otherwise it seeds the search box for the typed area. */}
       {ready && (
         <div className={compact ? "mt-2" : ""}>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
             <MapPin className="h-3 w-3" /> Place type
+            {expandedCity ? ` in ${expandedCity}` : ""}
           </div>
           <div className="flex flex-wrap gap-1.5">
-            {[
-              { key: "Home", label: "Home", icon: Home, term: "residential area" },
-              { key: "Office", label: "Office", icon: Building2, term: "office building" },
-              { key: "Commercial", label: "Commercial", icon: Store, term: "commercial area" },
-              { key: "Villas", label: "Villas", icon: Landmark, term: "villas" },
-            ].map((c) => {
-              const Icon = c.icon;
+            {CITY_PLACE_TYPES.map((t) => {
+              const Icon = t.icon;
+              const active = cityPlaceType === t.key;
               return (
                 <button
-                  key={c.key}
+                  key={t.key}
                   type="button"
                   onClick={() => {
-                    const area = query.trim() || expandedCity || "Dubai";
-                    // Seed the search input; the existing autocomplete effect
-                    // picks it up and returns matching places.
-                    setQuery(`${c.term} in ${area}`);
+                    setCityPlaceType(t.key);
+                    const city = cityOptions?.find((c) => c.name === expandedCity);
+                    if (city) {
+                      loadCityPlaces(city, t.key);
+                    } else {
+                      const area = query.trim() || "Dubai";
+                      setQuery(`${t.term} in ${area}`);
+                    }
                   }}
-                  className="flex items-center gap-1 rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-primary hover:text-primary"
+                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card hover:border-primary hover:text-primary"
+                  }`}
                 >
                   <Icon className="h-3 w-3" />
-                  {c.label}
+                  {t.label}
                 </button>
               );
             })}
           </div>
         </div>
       )}
+
 
 
       {/* City shortcuts — clicking one runs a real Google Places search near
@@ -445,42 +483,8 @@ export function LocationPicker({
               })}
           </div>
 
-          {/* Step 2: once a city is picked, choose a property type to filter by. */}
-          {expandedCity && (
-            <div className="mt-2">
-              <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" /> Place type in {expandedCity}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {CITY_PLACE_TYPES.map((t) => {
-                  const Icon = t.icon;
-                  const active = cityPlaceType === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => {
-                        setCityPlaceType(t.key);
-                        const city = cityOptions.find((c) => c.name === expandedCity);
-                        if (city) loadCityPlaces(city, t.key);
-                      }}
-                      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                        active
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card hover:border-primary hover:text-primary"
-                      }`}
-                    >
-                      <Icon className="h-3 w-3" />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: map widget with a pin per matching location, plus a
-              copyable coordinate list. */}
+          {/* Map widget with a pin per matching location, plus a copyable
+              coordinate list. */}
           {expandedCity && cityPlaceType && (
             <div className="mt-2">
               {cityPlacesLoading ? (
@@ -494,10 +498,14 @@ export function LocationPicker({
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <div className="text-[11px] text-muted-foreground">
+                    Click a pin or the map to use that location · right-click anywhere to copy its coordinates.
+                  </div>
                   <div
                     ref={mapRef}
-                    className="h-56 w-full overflow-hidden rounded-md border border-border bg-muted"
+                    className="h-[420px] w-full overflow-hidden rounded-md border border-border bg-muted md:h-[520px]"
                   />
+
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {cityPlaces.map((v) => (
                       <div

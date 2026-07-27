@@ -78,7 +78,7 @@ export const Route = createFileRoute("/api/public/hooks/run-automations")({
         const { data: duePosts, error: postsErr } = await supabase
           .from("social_posts")
           .select(
-            "id, owner_id, caption, image_ids, location_label, lat, lng, ghl_location_id, scheduled_at, cta_type, cta_url",
+            "id, owner_id, caption, image_ids, location_label, lat, lng, ghl_location_id, scheduled_at",
           )
           .eq("status", "queued")
           .not("scheduled_at", "is", null)
