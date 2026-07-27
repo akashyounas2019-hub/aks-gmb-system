@@ -27,6 +27,8 @@ export interface UploadSettings {
   frameMaxDimension: number;
   autoGeotag: boolean;
   location: PickedLocation | null;
+  /** Base name applied to extracted frames as "<titleName> — Frame N". Empty = use the video's filename. */
+  titleName: string;
 }
 
 export interface QueueItem {
@@ -47,11 +49,13 @@ type StoreEvent = "imageSaved" | "drained";
 let items: QueueItem[] = [];
 let settings: UploadSettings = {
   maxFrames: 15,
-  minFrames: 3,
+  minFrames: 10,
   sampleMs: 1000,
-  frameMaxDimension: 1600,
+  // 1200px long edge matches Google's recommended Business Profile photo upload size (1200×900).
+  frameMaxDimension: 1200,
   autoGeotag: true,
   location: null,
+  titleName: "",
 };
 
 const listeners = new Set<Listener>();
@@ -185,7 +189,8 @@ export function clearFinished() {
 }
 
 async function processItem(item: QueueItem) {
-  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location } = item.opts;
+  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location, titleName } =
+    item.opts;
   const { data: userData } = await supabase.auth.getUser();
   const userId = userData.user?.id;
   if (!userId) throw new Error("Not signed in.");
@@ -266,7 +271,7 @@ async function processItem(item: QueueItem) {
   throwIfCancelled(item.id);
 
   patchItem(item.id, { stage: "saving", message: "Saving frames…", progress: 0.4 });
-  const baseName = item.file.name.replace(/\.[^.]+$/, "");
+  const baseName = titleName.trim() || item.file.name.replace(/\.[^.]+$/, "");
   for (let i = 0; i < frames.length; i++) {
     throwIfCancelled(item.id);
     const f = frames[i];

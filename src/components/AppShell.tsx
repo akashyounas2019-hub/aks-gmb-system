@@ -1,6 +1,7 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import {
+  ArrowLeft,
   BarChart3,
   Bell,
   Cable,
@@ -144,6 +145,13 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           <nav className="flex-1 space-y-5 overflow-y-auto px-3 py-5 text-sm">
             {settingsActive ? (
               <div>
+                <Link
+                  to="/dashboard"
+                  className="group mb-3 flex items-center gap-3 rounded-lg px-3 py-2 text-muted-foreground transition-all hover:bg-accent/60 hover:text-foreground"
+                >
+                  <ArrowLeft className="h-4 w-4 shrink-0" />
+                  Back
+                </Link>
                 <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
                   Settings
                 </div>

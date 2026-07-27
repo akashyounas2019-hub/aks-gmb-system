@@ -12,6 +12,8 @@ import {
   KeyRound,
   Plus,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
   CheckCircle2,
   Eye,
   PenSquare,
@@ -23,6 +25,7 @@ import {
   MapPin,
   TrendingUp,
   Smile,
+  Clock,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -3023,6 +3026,189 @@ function PostSchedulerPanel() {
           </div>
         )}
       </section>
+
+      <PostSchedulerCalendar posts={rows} />
+    </div>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  Post Scheduler — calendar view                                    */
+/* ------------------------------------------------------------------ */
+
+function dateKeyLocal(d: Date) {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
+    d.getDate(),
+  ).padStart(2, "0")}`;
+}
+
+function buildCalendarMonthGrid(cursor: Date): Date[] {
+  const y = cursor.getFullYear();
+  const m = cursor.getMonth();
+  const first = new Date(y, m, 1);
+  const startWeekday = first.getDay(); // 0 = Sun
+  const daysInMonth = new Date(y, m + 1, 0).getDate();
+  const cells: Date[] = [];
+  for (let i = startWeekday; i > 0; i--) cells.push(new Date(y, m, 1 - i));
+  for (let d = 1; d <= daysInMonth; d++) cells.push(new Date(y, m, d));
+  while (cells.length % 7 !== 0) {
+    const last = cells[cells.length - 1];
+    cells.push(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1));
+  }
+  while (cells.length < 42) {
+    const last = cells[cells.length - 1];
+    cells.push(new Date(last.getFullYear(), last.getMonth(), last.getDate() + 1));
+  }
+  return cells;
+}
+
+function PostSchedulerCalendar({ posts }: { posts: ScheduledPost[] }) {
+  const [cursor, setCursor] = useState<Date>(() => {
+    const d = new Date();
+    return new Date(d.getFullYear(), d.getMonth(), 1);
+  });
+
+  const monthDays = useMemo(() => buildCalendarMonthGrid(cursor), [cursor]);
+  const monthLabel = cursor.toLocaleDateString(undefined, { month: "long", year: "numeric" });
+  const todayKey = dateKeyLocal(new Date());
+
+  const byDay = useMemo(() => {
+    const map = new Map<string, ScheduledPost[]>();
+    for (const p of posts) {
+      if (!p.scheduled_at) continue;
+      const key = dateKeyLocal(new Date(p.scheduled_at));
+      const arr = map.get(key) ?? [];
+      arr.push(p);
+      map.set(key, arr);
+    }
+    for (const arr of map.values()) {
+      arr.sort(
+        (a, b) => new Date(a.scheduled_at!).getTime() - new Date(b.scheduled_at!).getTime(),
+      );
+    }
+    return map;
+  }, [posts]);
+
+  return (
+    <section className="rounded-xl border border-border bg-card p-4">
+      <div className="mb-3 flex items-center justify-between">
+        <div className="flex items-center gap-2 text-sm font-medium">
+          <Calendar className="h-4 w-4 text-primary" /> Calendar view
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() - 1, 1))}
+            className="rounded-md border border-border p-1.5 hover:bg-accent"
+            aria-label="Previous month"
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <div className="min-w-[9rem] text-center text-sm font-medium">{monthLabel}</div>
+          <button
+            onClick={() => setCursor(new Date(cursor.getFullYear(), cursor.getMonth() + 1, 1))}
+            className="rounded-md border border-border p-1.5 hover:bg-accent"
+            aria-label="Next month"
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+          <button
+            onClick={() => {
+              const t = new Date();
+              setCursor(new Date(t.getFullYear(), t.getMonth(), 1));
+            }}
+            className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+          >
+            Today
+          </button>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-lg border border-border">
+        <div className="grid grid-cols-7 border-b border-border bg-muted/30 text-center text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+          {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
+            <div key={d} className="py-2">
+              {d}
+            </div>
+          ))}
+        </div>
+        <div className="grid grid-cols-7">
+          {monthDays.map((d, i) => {
+            const key = dateKeyLocal(d);
+            const inMonth = d.getMonth() === cursor.getMonth();
+            const isToday = key === todayKey;
+            const dayPosts = byDay.get(key) ?? [];
+            return (
+              <div
+                key={i}
+                className={`relative flex min-h-[132px] flex-col gap-1.5 border-b border-r border-border/60 p-2 ${
+                  inMonth ? "bg-card" : "bg-muted/20"
+                }`}
+              >
+                <span
+                  className={`inline-flex h-6 w-fit min-w-[1.5rem] items-center gap-1 rounded-full px-1.5 text-xs font-semibold ${
+                    isToday
+                      ? "bg-primary text-primary-foreground"
+                      : inMonth
+                        ? "text-foreground/80"
+                        : "text-muted-foreground/50"
+                  }`}
+                >
+                  {d.getDate()}
+                  {d.getDate() === 1 && (
+                    <span className="font-normal">
+                      {d.toLocaleDateString(undefined, { month: "short" })}
+                    </span>
+                  )}
+                </span>
+
+                <div className="flex flex-1 flex-col gap-1.5 overflow-y-auto">
+                  {dayPosts.map((p) => (
+                    <CalendarPostCard key={p.id} post={p} />
+                  ))}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CalendarPostCard({ post }: { post: ScheduledPost }) {
+  const firstImageId = post.image_ids?.[0] ?? null;
+  const time = post.scheduled_at
+    ? new Date(post.scheduled_at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+    : "";
+  const firstLine = (post.caption ?? "").split("\n")[0].trim() || "Untitled post";
+
+  return (
+    <div
+      title={post.caption}
+      className="group flex flex-col gap-1.5 rounded-lg border border-border bg-background p-1.5 shadow-sm transition hover:border-primary/50 hover:shadow-md"
+    >
+      {post.location_label && (
+        <span className="truncate text-[10px] font-medium text-foreground/80">
+          {post.location_label}
+        </span>
+      )}
+      {time && (
+        <div className="flex items-center gap-1 text-[10px] text-muted-foreground">
+          <Clock className="h-3 w-3" /> {time}
+        </div>
+      )}
+      {firstImageId && (
+        <img
+          src={`/api/public/img/${firstImageId}.jpg`}
+          alt=""
+          loading="lazy"
+          className="h-16 w-full rounded-md object-cover"
+        />
+      )}
+      <div className="flex items-start gap-1 text-[11px]">
+        <Calendar className="mt-0.5 h-3 w-3 shrink-0 text-muted-foreground" />
+        <span className="line-clamp-2">{firstLine}</span>
+      </div>
     </div>
   );
 }

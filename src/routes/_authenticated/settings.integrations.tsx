@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { BarChart3, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Search, ShieldCheck, Webhook, XCircle } from "lucide-react";
+import { BarChart3, Bot, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Route as RouteIcon, Search, ShieldCheck, Sparkles, Webhook, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -480,6 +480,59 @@ function IntegrationsPage() {
 
 
 
+
+      {/* AI providers */}
+      <div>
+        <h3 className="text-lg font-semibold">AI providers</h3>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Connect your own LLM API keys to power AI features with the provider and model of your choice.
+          Keys are encrypted at rest and scoped to your user.
+        </p>
+      </div>
+
+      <ProviderCard
+        provider="openai"
+        title="ChatGPT (OpenAI)"
+        description="Use your own OpenAI API key for GPT models."
+        icon={<Sparkles className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "sk-••••••••••••••••" },
+        ]}
+        docsUrl="https://platform.openai.com/api-keys"
+      />
+
+      <ProviderCard
+        provider="gemini"
+        title="Gemini (Google AI)"
+        description="Use your own Google AI Studio API key for Gemini models."
+        icon={<Bot className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "••••••••••••••••" },
+        ]}
+        docsUrl="https://aistudio.google.com/app/apikey"
+      />
+
+      <ProviderCard
+        provider="anthropic"
+        title="Claude (Anthropic)"
+        description="Use your own Anthropic API key for Claude models."
+        icon={<Bot className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "sk-ant-••••••••••••••••" },
+        ]}
+        docsUrl="https://console.anthropic.com/settings/keys"
+      />
+
+      <ProviderCard
+        provider="openrouter"
+        title="OpenRouter"
+        description="Use your own OpenRouter API key to access many models through one account."
+        icon={<RouteIcon className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "sk-or-••••••••••••••••" },
+        ]}
+        docsUrl="https://openrouter.ai/keys"
+      />
 
       {/* Rank sources */}
       <div>

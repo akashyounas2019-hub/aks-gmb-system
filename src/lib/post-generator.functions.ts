@@ -181,29 +181,7 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => SendInput.parse(data))
   .handler(async ({ data, context }) => {
-    const webhook = process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
-    if (!webhook)
-      throw new Error(
-        "No webhook configured. Set N8N_WEBHOOK_URL or GHL_WEBHOOK_URL.",
-      );
     const { supabase, userId } = context;
-
-    // Sign each image URL for 24h so the receiving webhook (n8n / GHL) can fetch it
-    const imageUrls: Array<{ id: string; url: string; name: string }> = [];
-    if (data.imageIds.length) {
-      const { data: rows } = await supabase
-        .from("images")
-        .select("id, name, storage_path, owner_id")
-        .in("id", data.imageIds)
-        .eq("owner_id", userId);
-      for (const row of rows ?? []) {
-        const { data: signed } = await supabase.storage
-          .from("frames")
-          .createSignedUrl(row.storage_path, 60 * 60 * 24);
-        if (signed?.signedUrl)
-          imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
-      }
-    }
 
     // Persist to social_posts first (draft/queued)
     const status = data.scheduledAt ? "queued" : "sending";
@@ -223,6 +201,53 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
       .select("id")
       .single();
     if (insErr) throw insErr;
+
+    // Scheduling for later is a purely internal action — it just needs the
+    // social_posts row above so it shows up on the Post Scheduler calendar.
+    // Dispatch to the external social planner (n8n/GHL) only applies to
+    // "send now"; a future-dated post has nothing to send yet.
+    if (data.scheduledAt) {
+      if (data.imageIds.length) {
+        await supabase
+          .from("images")
+          .update({ posted_at: new Date().toISOString() } as any)
+          .in("id", data.imageIds)
+          .eq("owner_id", userId);
+      }
+      return { postId: inserted.id, status: "queued" as const };
+    }
+
+    const webhook = process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
+    if (!webhook) {
+      await supabase
+        .from("social_posts")
+        .update({
+          status: "failed",
+          error: "No webhook configured. Set N8N_WEBHOOK_URL or GHL_WEBHOOK_URL.",
+          updated_at: new Date().toISOString(),
+        } as any)
+        .eq("id", inserted.id);
+      throw new Error(
+        "No webhook configured. Set N8N_WEBHOOK_URL or GHL_WEBHOOK_URL.",
+      );
+    }
+
+    // Sign each image URL for 24h so the receiving webhook (n8n / GHL) can fetch it
+    const imageUrls: Array<{ id: string; url: string; name: string }> = [];
+    if (data.imageIds.length) {
+      const { data: rows } = await supabase
+        .from("images")
+        .select("id, name, storage_path, owner_id")
+        .in("id", data.imageIds)
+        .eq("owner_id", userId);
+      for (const row of rows ?? []) {
+        const { data: signed } = await supabase.storage
+          .from("frames")
+          .createSignedUrl(row.storage_path, 60 * 60 * 24);
+        if (signed?.signedUrl)
+          imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
+      }
+    }
 
     const GMB_ACTION_MAP: Record<string, string> = {
       book: "ACTION_TYPE_BOOK",

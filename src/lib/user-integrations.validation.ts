@@ -10,7 +10,15 @@ export type FieldRule = {
   patternMessage?: string;
 };
 
-export type ProviderId = "ghl" | "dataforseo" | "serpapi" | "local_falcon";
+export type ProviderId =
+  | "ghl"
+  | "dataforseo"
+  | "serpapi"
+  | "local_falcon"
+  | "openai"
+  | "gemini"
+  | "anthropic"
+  | "openrouter";
 
 export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
   ghl: {
@@ -59,6 +67,46 @@ export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
       max: 128,
       pattern: /^[A-Za-z0-9._-]+$/,
       patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
+    },
+  },
+  openai: {
+    api_key: {
+      label: "API key",
+      required: true,
+      min: 20,
+      max: 256,
+      pattern: /^sk-[A-Za-z0-9_-]+$/,
+      patternMessage: "OpenAI keys start with 'sk-'.",
+    },
+  },
+  gemini: {
+    api_key: {
+      label: "API key",
+      required: true,
+      min: 20,
+      max: 128,
+      pattern: /^[A-Za-z0-9_-]+$/,
+      patternMessage: "Only letters, numbers, '_', and '-' are allowed.",
+    },
+  },
+  anthropic: {
+    api_key: {
+      label: "API key",
+      required: true,
+      min: 20,
+      max: 256,
+      pattern: /^sk-ant-[A-Za-z0-9_-]+$/,
+      patternMessage: "Anthropic keys start with 'sk-ant-'.",
+    },
+  },
+  openrouter: {
+    api_key: {
+      label: "API key",
+      required: true,
+      min: 20,
+      max: 256,
+      pattern: /^sk-or-[A-Za-z0-9_-]+$/,
+      patternMessage: "OpenRouter keys start with 'sk-or-'.",
     },
   },
 };

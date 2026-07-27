@@ -29,6 +29,11 @@ import {
   FolderPlus,
   RefreshCw,
   Heart,
+  Maximize2,
+  Calendar,
+  Clock,
+  LayoutTemplate,
+  Send,
 } from "lucide-react";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 
@@ -41,6 +46,7 @@ import { FavoriteBadge } from "@/components/FavoriteBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
 import { UploadPanel } from "@/components/UploadPanel";
+import { composePost, sendPostToSocialPlanner } from "@/lib/post-generator.functions";
 
 export const Route = createFileRoute("/_authenticated/library")({
   component: LibraryPage,
@@ -257,7 +263,7 @@ function LibraryPage() {
 
 
 
-  async function downloadImage(img: {
+  type DownloadableImage = {
     id: string;
     name: string;
     storage_path: string;
@@ -265,65 +271,75 @@ function LibraryPage() {
     lng: number | null;
     title: string | null;
     description?: string | null;
-  }) {
+  };
+
+  // Fetches, GPS-tags (if applicable), and names a single image, without
+  // touching the DOM — shared by the single-image download and the zip-all path.
+  async function buildImageFile(img: DownloadableImage): Promise<{ filename: string; blob: Blob }> {
+    const { data: signed, error } = await supabase.storage
+      .from("frames")
+      .createSignedUrl(img.storage_path, 60 * 5);
+    if (error || !signed?.signedUrl) throw new Error(error?.message ?? "Signed URL failed");
+    const res = await fetch(signed.signedUrl);
+    const blob = await res.blob();
+
+    // Map MIME type -> canonical image extension. Falls back to sniffing the
+    // storage path only if it already carries a real image extension.
+    const mimeToExt: Record<string, string> = {
+      "image/jpeg": "jpg",
+      "image/jpg": "jpg",
+      "image/png": "png",
+      "image/webp": "webp",
+      "image/gif": "gif",
+      "image/avif": "avif",
+      "image/heic": "heic",
+      "image/heif": "heif",
+      "image/tiff": "tiff",
+      "image/bmp": "bmp",
+      "image/svg+xml": "svg",
+    };
+    const validExts = new Set(Object.values(mimeToExt));
+    const pathExt = (img.storage_path.split(".").pop() || "").toLowerCase();
+    const mime = (blob.type || "").toLowerCase();
+    const inferredExt =
+      mimeToExt[mime] ||
+      (validExts.has(pathExt) ? pathExt : "jpg");
+    const inferredMime =
+      mime.startsWith("image/") ? mime : `image/${inferredExt === "jpg" ? "jpeg" : inferredExt}`;
+
+    const source = new File(
+      [blob],
+      (img.name && /\.[a-z0-9]+$/i.test(img.name) ? img.name : `image.${inferredExt}`),
+      { type: inferredMime },
+    );
+    // Pull keywords (image_tags) so downloads carry them in EXIF XPKeywords.
+    const keywords =
+      data?.tagMap.get(img.id)?.map((t) => t.label).filter(Boolean) ?? [];
+    const output =
+      img.lat != null && img.lng != null
+        ? await embedGps(source, Number(img.lat), Number(img.lng), {
+            title: img.title,
+            description: img.description ?? null,
+            keywords,
+          })
+        : source;
+
+    const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
+    const base =
+      rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
+    const outExtRaw = (output.name.split(".").pop() || "").toLowerCase();
+    const outExt = validExts.has(outExtRaw) ? outExtRaw : inferredExt;
+
+    return { filename: `${base}.${outExt}`, blob: output };
+  }
+
+  async function downloadImage(img: DownloadableImage) {
     try {
-      const { data: signed, error } = await supabase.storage
-        .from("frames")
-        .createSignedUrl(img.storage_path, 60 * 5);
-      if (error || !signed?.signedUrl) throw new Error(error?.message ?? "Signed URL failed");
-      const res = await fetch(signed.signedUrl);
-      const blob = await res.blob();
-
-      // Map MIME type -> canonical image extension. Falls back to sniffing the
-      // storage path only if it already carries a real image extension.
-      const mimeToExt: Record<string, string> = {
-        "image/jpeg": "jpg",
-        "image/jpg": "jpg",
-        "image/png": "png",
-        "image/webp": "webp",
-        "image/gif": "gif",
-        "image/avif": "avif",
-        "image/heic": "heic",
-        "image/heif": "heif",
-        "image/tiff": "tiff",
-        "image/bmp": "bmp",
-        "image/svg+xml": "svg",
-      };
-      const validExts = new Set(Object.values(mimeToExt));
-      const pathExt = (img.storage_path.split(".").pop() || "").toLowerCase();
-      const mime = (blob.type || "").toLowerCase();
-      const inferredExt =
-        mimeToExt[mime] ||
-        (validExts.has(pathExt) ? pathExt : "jpg");
-      const inferredMime =
-        mime.startsWith("image/") ? mime : `image/${inferredExt === "jpg" ? "jpeg" : inferredExt}`;
-
-      const source = new File(
-        [blob],
-        (img.name && /\.[a-z0-9]+$/i.test(img.name) ? img.name : `image.${inferredExt}`),
-        { type: inferredMime },
-      );
-      // Pull keywords (image_tags) so downloads carry them in EXIF XPKeywords.
-      const keywords =
-        data?.tagMap.get(img.id)?.map((t) => t.label).filter(Boolean) ?? [];
-      const output =
-        img.lat != null && img.lng != null
-          ? await embedGps(source, Number(img.lat), Number(img.lng), {
-              title: img.title,
-              description: img.description ?? null,
-              keywords,
-            })
-          : source;
-
-      const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
-      const base =
-        rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
-      const outExtRaw = (output.name.split(".").pop() || "").toLowerCase();
-      const outExt = validExts.has(outExtRaw) ? outExtRaw : inferredExt;
-      const url = URL.createObjectURL(output);
+      const { filename, blob } = await buildImageFile(img);
+      const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${base}.${outExt}`;
+      a.download = filename;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -336,42 +352,74 @@ function LibraryPage() {
   const [downloadingAll, setDownloadingAll] = useState(false);
   const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(null);
 
-  async function downloadMany(
-    imgs: Array<{
-      id: string;
-      name: string;
-      storage_path: string;
-      lat: number | null;
-      lng: number | null;
-      title: string | null;
-      description?: string | null;
-    }>,
-    label = "images",
-  ) {
+  // Packs every image into a single .zip so "Download all" produces one file
+  // instead of triggering a separate browser download per image. `zipName`
+  // defaults to `label` but can be overridden (e.g. to the active tab's name)
+  // so the toast wording and the downloaded filename can differ.
+  async function downloadMany(imgs: DownloadableImage[], label = "images", zipName = label) {
     if (imgs.length === 0) return;
     if (downloadingAll) return;
-    if (imgs.length > 5) {
-      const ok = window.confirm(`Download ${imgs.length} ${label}? This may take a while.`);
-      if (!ok) return;
+
+    // A single image doesn't need zipping — keep the plain download.
+    if (imgs.length === 1) {
+      await downloadImage(imgs[0]);
+      return;
     }
+
     setDownloadingAll(true);
     setDownloadProgress({ done: 0, total: imgs.length });
-    let ok = 0;
-    let fail = 0;
-    for (let i = 0; i < imgs.length; i++) {
-      try {
-        await downloadImage(imgs[i]);
-        ok++;
-      } catch {
-        fail++;
+    try {
+      const { default: JSZip } = await import("jszip");
+      const zip = new JSZip();
+      const usedNames = new Set<string>();
+      let ok = 0;
+      let fail = 0;
+
+      for (let i = 0; i < imgs.length; i++) {
+        try {
+          const { filename, blob } = await buildImageFile(imgs[i]);
+          // De-duplicate filenames within the zip (e.g. two images titled the same).
+          let uniqueName = filename;
+          if (usedNames.has(uniqueName)) {
+            const dot = filename.lastIndexOf(".");
+            const stem = dot === -1 ? filename : filename.slice(0, dot);
+            const ext = dot === -1 ? "" : filename.slice(dot);
+            let n = 2;
+            while (usedNames.has(uniqueName)) {
+              uniqueName = `${stem}-${n}${ext}`;
+              n++;
+            }
+          }
+          usedNames.add(uniqueName);
+          zip.file(uniqueName, blob);
+          ok++;
+        } catch {
+          fail++;
+        }
+        setDownloadProgress({ done: i + 1, total: imgs.length });
       }
-      setDownloadProgress({ done: i + 1, total: imgs.length });
-      await new Promise((r) => setTimeout(r, 250));
+
+      if (ok === 0) {
+        toast.error("All downloads failed.");
+        return;
+      }
+
+      const zipBlob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(zipBlob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${zipName.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "images"}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 2000);
+
+      if (fail === 0) toast.success(`Downloaded ${ok} ${label} as a zip.`);
+      else toast.warning(`Zipped ${ok}, ${fail} failed.`);
+    } finally {
+      setDownloadingAll(false);
+      setDownloadProgress(null);
     }
-    setDownloadingAll(false);
-    setDownloadProgress(null);
-    if (fail === 0) toast.success(`Downloaded ${ok} ${label}.`);
-    else toast.warning(`Downloaded ${ok}, ${fail} failed.`);
   }
 
   /**
@@ -899,7 +947,13 @@ function LibraryPage() {
                 Select all ({filtered.length})
               </button>
               <button
-                onClick={() => downloadMany(filtered, "images in this view")}
+                onClick={() =>
+                  downloadMany(
+                    filtered,
+                    "images in this view",
+                    tabs.find((t) => t.id === tab)?.label ?? "images",
+                  )
+                }
                 disabled={filtered.length === 0 || downloadingAll}
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
                 title="Download every image in the current view"
@@ -1545,12 +1599,19 @@ function ImageEditModal({
   const [description, setDescription] = useState("");
   const [assigned, setAssigned] = useState<Set<string>>(new Set());
   const [newTag, setNewTag] = useState("");
-  const [tagFilter, setTagFilter] = useState("");
   const [bucket, setBucket] = useState<"raw" | "published" | "geotagged">("raw");
   const [loc, setLoc] = useState<PickedLocation | null>(null);
   const [folderId, setFolderId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
+  const [lightboxOpen, setLightboxOpen] = useState(false);
+
+  useEffect(() => {
+    if (!lightboxOpen) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && setLightboxOpen(false);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxOpen]);
 
   useEffect(() => {
     if (!data) return;
@@ -1618,15 +1679,6 @@ function ImageEditModal({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
-
-  const filteredTags = useMemo(() => {
-    const list = data?.tags ?? [];
-    const q = tagFilter.trim().toLowerCase();
-    if (!q) return list;
-    return list.filter(
-      (t) => t.label.toLowerCase().includes(q) || t.slug.toLowerCase().includes(q),
-    );
-  }, [data, tagFilter]);
 
   function toggleTag(id: string) {
     setAssigned((prev) => {
@@ -1794,12 +1846,12 @@ function ImageEditModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-3xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
+        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-background shadow-2xl"
         onClick={(e) => e.stopPropagation()}
         role="dialog"
         aria-modal="true"
       >
-        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+        <div className="flex shrink-0 items-center justify-between border-b border-border px-5 py-3">
           <h2 className="text-lg font-medium">Edit image</h2>
           <button
             onClick={onClose}
@@ -1813,16 +1865,24 @@ function ImageEditModal({
         {isLoading || !data ? (
           <div className="p-10 text-center text-sm text-muted-foreground">Loading…</div>
         ) : (
-          <div className="grid max-h-[75vh] gap-5 overflow-auto p-5 md:grid-cols-[280px_1fr]">
+          <div className="grid flex-1 gap-6 overflow-auto p-5 md:grid-cols-[360px_1fr]">
             <div>
-              <div className="overflow-hidden rounded-lg border border-border bg-muted">
+              <button
+                type="button"
+                onClick={() => setLightboxOpen(true)}
+                aria-label="Enlarge image"
+                className="group relative block w-full cursor-zoom-in overflow-hidden rounded-lg border border-border bg-muted"
+              >
                 <SignedImage
                   bucket="frames"
                   path={data.image.storage_path}
                   alt={data.image.name}
-                  className="aspect-square w-full object-cover"
+                  className="aspect-square w-full object-cover transition group-hover:opacity-90"
                 />
-              </div>
+                <span className="pointer-events-none absolute right-2 top-2 inline-flex items-center gap-1 rounded-md bg-background/80 px-2 py-1 text-[11px] text-foreground opacity-0 backdrop-blur transition group-hover:opacity-100">
+                  <Maximize2 className="h-3 w-3" /> Enlarge
+                </span>
+              </button>
               <label className="mt-4 block text-xs font-medium text-muted-foreground">Name</label>
               <input
                 value={name}
@@ -1937,44 +1997,9 @@ function ImageEditModal({
               </div>
 
 
-              {/* Tags */}
+              {/* Custom tag (preset tag grid removed) */}
               <div>
-                <div className="flex items-center justify-between">
-                  <div className="text-xs font-medium text-muted-foreground">
-                    Tags ({assigned.size})
-                  </div>
-                  <input
-                    type="search"
-                    placeholder="Filter…"
-                    value={tagFilter}
-                    onChange={(e) => setTagFilter(e.target.value)}
-                    className="w-40 rounded-md border border-input bg-background/50 px-2 py-1 text-xs outline-none focus:ring-2 focus:ring-primary"
-                  />
-                </div>
-                <div className="mt-2 flex max-h-40 flex-wrap gap-1.5 overflow-auto rounded-md border border-border p-2">
-                  {filteredTags.length === 0 ? (
-                    <span className="text-xs text-muted-foreground">No matches</span>
-                  ) : (
-                    filteredTags.map((t) => {
-                      const on = assigned.has(t.id);
-                      return (
-                        <button
-                          key={t.id}
-                          type="button"
-                          onClick={() => toggleTag(t.id)}
-                          className={`inline-flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                            on
-                              ? "border-primary bg-primary/15 text-primary"
-                              : "border-border text-muted-foreground hover:bg-accent"
-                          }`}
-                        >
-                          <TagIcon className="h-3 w-3" />
-                          {t.label}
-                        </button>
-                      );
-                    })
-                  )}
-                </div>
+                <div className="text-xs font-medium text-muted-foreground">Add custom tag</div>
                 <div className="mt-2 flex gap-2">
                   <input
                     value={newTag}
@@ -1996,7 +2021,29 @@ function ImageEditModal({
                     Add
                   </button>
                 </div>
+                {assigned.size > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {Array.from(assigned)
+                      .map((id) => data?.tags.find((t) => t.id === id))
+                      .filter((t): t is TagRow => !!t)
+                      .map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => toggleTag(t.id)}
+                          title="Remove tag"
+                          className="inline-flex items-center gap-1 rounded-full border border-primary bg-primary/15 px-2.5 py-1 text-xs text-primary"
+                        >
+                          <TagIcon className="h-3 w-3" />
+                          {t.label}
+                          <X className="h-3 w-3" />
+                        </button>
+                      ))}
+                  </div>
+                )}
               </div>
+
+              <ImagePostComposer image={data.image} />
             </div>
           </div>
         )}
@@ -2046,6 +2093,332 @@ function ImageEditModal({
           </div>
         </div>
       </div>
+
+      {lightboxOpen && data && (
+        <div
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/90 p-4"
+          onClick={() => setLightboxOpen(false)}
+        >
+          <button
+            type="button"
+            aria-label="Close"
+            onClick={() => setLightboxOpen(false)}
+            className="absolute right-4 top-4 rounded-full bg-background/20 p-2 text-white hover:bg-background/40"
+          >
+            <X className="h-5 w-5" />
+          </button>
+          <div className="max-h-full max-w-full overflow-auto" onClick={(e) => e.stopPropagation()}>
+            <SignedImage
+              bucket="frames"
+              path={data.image.storage_path}
+              alt={data.image.name}
+              className="max-h-[95vh] w-auto max-w-[95vw] object-contain"
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Per-image post composer (embedded in the Edit image modal)                */
+/* -------------------------------------------------------------------------- */
+
+type ComposerCta =
+  | "none"
+  | "book"
+  | "order"
+  | "shop"
+  | "learn_more"
+  | "sign_up"
+  | "call";
+
+const COMPOSER_CTA_LABELS: Record<ComposerCta, string> = {
+  none: "No button",
+  book: "Book",
+  order: "Order online",
+  shop: "Buy",
+  learn_more: "Learn more",
+  sign_up: "Sign up",
+  call: "Call now",
+};
+
+type ComposerTemplate = { id: string; name: string; body: string; folder?: string };
+const COMPOSER_TEMPLATES_KEY = "post-generator:templates";
+
+function ImagePostComposer({
+  image,
+}: {
+  image: { id: string; name: string; lat: number | null; lng: number | null };
+}) {
+  const compose = useServerFn(composePost);
+  const send = useServerFn(sendPostToSocialPlanner);
+
+  const [keywordInput, setKeywordInput] = useState("");
+  const [keywords, setKeywords] = useState<string[]>([]);
+  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "aks">("gemini");
+  const [templates, setTemplates] = useState<ComposerTemplate[]>([]);
+  const [templateId, setTemplateId] = useState<string>("");
+  const [caption, setCaption] = useState("");
+  const [generating, setGenerating] = useState(false);
+  const [ctaType, setCtaType] = useState<ComposerCta>("none");
+  const [ctaUrl, setCtaUrl] = useState("");
+  const [scheduledAt, setScheduledAt] = useState("");
+  const [scheduling, setScheduling] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(COMPOSER_TEMPLATES_KEY);
+      if (raw) setTemplates(JSON.parse(raw) as ComposerTemplate[]);
+    } catch {
+      /* ignore malformed localStorage */
+    }
+  }, []);
+
+  function addKeyword() {
+    const v = keywordInput.trim();
+    if (!v) return;
+    if (!keywords.includes(v)) setKeywords((k) => [...k, v]);
+    setKeywordInput("");
+  }
+  function removeKeyword(k: string) {
+    setKeywords((list) => list.filter((x) => x !== k));
+  }
+
+  const selectedTemplate = templates.find((t) => t.id === templateId) ?? null;
+
+  async function handleGenerate() {
+    if (keywords.length === 0) {
+      toast.error("Add at least one keyword to guide the AI");
+      return;
+    }
+    setGenerating(true);
+    try {
+      const res = await compose({
+        data: {
+          keywords,
+          imageIds: [image.id],
+          llm,
+          styleReference: selectedTemplate
+            ? { name: selectedTemplate.name, body: selectedTemplate.body }
+            : undefined,
+        },
+      });
+      setCaption(res.caption);
+      toast.success("Draft generated");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Generation failed");
+    } finally {
+      setGenerating(false);
+    }
+  }
+
+  const ctaNeedsUrl = ctaType !== "none";
+  const ctaMissing = ctaNeedsUrl && !ctaUrl.trim();
+
+  async function handleSchedule() {
+    if (!caption.trim()) {
+      toast.error("Write or generate a post body first");
+      return;
+    }
+    if (ctaMissing) {
+      toast.error(`Add a ${ctaType === "call" ? "phone number" : "link"} for the "${COMPOSER_CTA_LABELS[ctaType]}" button`);
+      return;
+    }
+    setScheduling(true);
+    try {
+      const res = await send({
+        data: {
+          caption,
+          imageIds: [image.id],
+          lat: image.lat ?? undefined,
+          lng: image.lng ?? undefined,
+          scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
+          networks: ["gmb"],
+          ctaType,
+          ctaUrl: ctaUrl.trim() || undefined,
+        },
+      });
+      toast.success(
+        scheduledAt
+          ? "Post scheduled — it will appear on the Post Scheduler calendar."
+          : res.status === "queued"
+            ? "Queued in GHL Social Planner"
+            : "Sent",
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to schedule post");
+    } finally {
+      setScheduling(false);
+    }
+  }
+
+  return (
+    <div className="mt-2 space-y-4 rounded-xl border border-border bg-card/40 p-4">
+      <div className="flex items-center gap-2 text-sm font-medium">
+        <Send className="h-4 w-4 text-primary" /> Create a post from this image
+      </div>
+
+      {/* Keywords */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Keywords</label>
+        <div className="flex gap-2">
+          <input
+            value={keywordInput}
+            onChange={(e) => setKeywordInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addKeyword();
+              }
+            }}
+            placeholder="e.g. bathroom deep cleaning Dubai"
+            className="flex-1 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+          <button
+            type="button"
+            onClick={addKeyword}
+            className="rounded-md border border-border px-3 py-2 text-xs hover:bg-accent"
+          >
+            Add
+          </button>
+        </div>
+        {keywords.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {keywords.map((k) => (
+              <button
+                key={k}
+                type="button"
+                onClick={() => removeKeyword(k)}
+                title="Remove"
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 text-xs hover:bg-accent"
+              >
+                {k}
+                <X className="h-3 w-3" />
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* LLM + Template */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">LLM</label>
+          <select
+            value={llm}
+            onChange={(e) => setLlm(e.target.value as "gemini" | "chatgpt" | "aks")}
+            className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="gemini">Gemini</option>
+            <option value="chatgpt">ChatGPT</option>
+            <option value="aks">AKS Cloud</option>
+          </select>
+        </div>
+        <div>
+          <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+            <LayoutTemplate className="h-3 w-3" /> Template (style reference)
+          </label>
+          <select
+            value={templateId}
+            onChange={(e) => setTemplateId(e.target.value)}
+            className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          >
+            <option value="">None</option>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleGenerate}
+        disabled={generating}
+        className="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+      >
+        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+        Generate with AI
+      </button>
+
+      {/* Post body */}
+      <div>
+        <label className="mb-1 block text-xs font-medium text-muted-foreground">Post body</label>
+        <textarea
+          value={caption}
+          onChange={(e) => setCaption(e.target.value)}
+          rows={12}
+          placeholder="Write the post, or generate one with AI above"
+          className="h-64 w-full resize-y overflow-y-auto whitespace-pre-wrap break-words rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+        />
+      </div>
+
+      {/* CTA button */}
+      <div className="grid gap-3 sm:grid-cols-2">
+        <div>
+          <label className="mb-1 block text-xs font-medium text-muted-foreground">Button</label>
+          <select
+            value={ctaType}
+            onChange={(e) => setCtaType(e.target.value as ComposerCta)}
+            className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          >
+            {(Object.keys(COMPOSER_CTA_LABELS) as ComposerCta[]).map((c) => (
+              <option key={c} value={c}>
+                {COMPOSER_CTA_LABELS[c]}
+              </option>
+            ))}
+          </select>
+        </div>
+        {ctaNeedsUrl && (
+          <div>
+            <label className="mb-1 block text-xs font-medium text-muted-foreground">
+              {ctaType === "call" ? "Phone number" : "Link"}
+            </label>
+            <input
+              value={ctaUrl}
+              onChange={(e) => setCtaUrl(e.target.value)}
+              placeholder={ctaType === "call" ? "+971 50 000 0000" : "https://example.com"}
+              className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        )}
+      </div>
+
+      {/* Schedule */}
+      <div>
+        <label className="mb-1 flex items-center gap-1 text-xs font-medium text-muted-foreground">
+          <Clock className="h-3 w-3" /> Schedule at (leave empty to send now)
+        </label>
+        <div className="flex items-center gap-2">
+          <Calendar className="h-4 w-4 text-muted-foreground" />
+          <input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={(e) => setScheduledAt(e.target.value)}
+            className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+        </div>
+      </div>
+
+      <button
+        type="button"
+        onClick={handleSchedule}
+        disabled={scheduling}
+        className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+      >
+        {scheduling ? (
+          <Loader2 className="h-4 w-4 animate-spin" />
+        ) : scheduledAt ? (
+          <Calendar className="h-4 w-4" />
+        ) : (
+          <Send className="h-4 w-4" />
+        )}
+        {scheduling ? "Working…" : scheduledAt ? "Schedule post" : "Send now"}
+      </button>
     </div>
   );
 }

@@ -7,6 +7,8 @@ import {
   RotateCw,
   X,
   Clock,
+  ChevronDown,
+  MapPin,
 } from "lucide-react";
 
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
@@ -31,19 +33,27 @@ export interface UploadPanelProps {
 export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: UploadPanelProps) {
   const queue = useUploadQueueItems();
   const settings = useUploadSettings();
-  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location } = settings;
+  const { maxFrames, minFrames, sampleMs, frameMaxDimension, autoGeotag, location, titleName } =
+    settings;
 
-  // Preset frame dimensions (longest edge). 0 = keep original resolution.
-  const framePresets: { label: string; value: number; hint: string }[] = [
-    { label: "Original", value: 0, hint: "Full source resolution" },
-    { label: "4K", value: 3840, hint: "3840 px long edge" },
-    { label: "2K", value: 2560, hint: "2560 px long edge" },
-    { label: "1080p", value: 1600, hint: "1600 px long edge" },
-    { label: "720p", value: 1280, hint: "1280 px long edge" },
-    { label: "480p", value: 854, hint: "854 px long edge" },
+  // Preset image dimensions — this controls pixel dimensions (longest edge of
+  // the extracted frame), not video/image quality. 0 = keep original resolution.
+  const dimensionPresets: { label: string; value: number; hint: string }[] = [
+    {
+      label: "1200px — Google Business Profile recommended",
+      value: 1200,
+      hint: "Matches Google's recommended 1200×900 Business Profile photo size",
+    },
+    { label: "3840px (largest)", value: 3840, hint: "3840 px long edge" },
+    { label: "2560px", value: 2560, hint: "2560 px long edge" },
+    { label: "1600px", value: 1600, hint: "1600 px long edge" },
+    { label: "1280px", value: 1280, hint: "1280 px long edge" },
+    { label: "854px (smallest)", value: 854, hint: "854 px long edge" },
+    { label: "Original resolution", value: 0, hint: "Full source resolution, no resizing" },
   ];
 
   const [dragOver, setDragOver] = useState(false);
+  const [geotagOpen, setGeotagOpen] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Keep latest callbacks reachable from the global-store subscriptions.
@@ -118,6 +128,23 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
       </div>
 
       <div className="mt-6 grid gap-4 sm:grid-cols-2">
+        <label className="rounded-lg border border-border bg-card p-4 text-sm sm:col-span-2">
+          <div className="flex items-center justify-between">
+            <span>Title name</span>
+          </div>
+          <input
+            type="text"
+            value={titleName}
+            onChange={(e) => updateSettings({ titleName: e.target.value })}
+            placeholder="e.g. Bathroom Deep Cleaning Dubai"
+            className="mt-2 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          />
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Base name for extracted frames from every video in this batch — each frame is saved
+            as "{titleName.trim() || "video filename"} — Frame 1", "— Frame 2", etc. Leave empty
+            to use each video's filename.
+          </p>
+        </label>
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
             <span>Min frames per video</span>
@@ -173,59 +200,68 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             Lower = more candidates, slower analysis.
           </div>
         </label>
-        <label className="rounded-lg border border-border bg-card p-4 text-sm sm:col-span-2">
+        <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
-            <span>Frame size</span>
-            <span className="font-mono text-primary">
-              {frameMaxDimension === 0 ? "Original" : `${frameMaxDimension}px`}
-            </span>
+            <span>Image dimensions</span>
           </div>
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {framePresets.map((p) => {
-              const active = frameMaxDimension === p.value;
-              return (
-                <button
-                  key={p.label}
-                  type="button"
-                  onClick={() => updateSettings({ frameMaxDimension: p.value })}
-                  title={p.hint}
-                  className={`rounded-full border px-2.5 py-1 text-xs transition ${
-                    active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-card hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  {p.label}
-                </button>
-              );
-            })}
-          </div>
+          <select
+            value={frameMaxDimension}
+            onChange={(e) => updateSettings({ frameMaxDimension: Number(e.target.value) })}
+            className="mt-2 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+          >
+            {dimensionPresets.map((p) => (
+              <option key={p.value} value={p.value} title={p.hint}>
+                {p.label}
+              </option>
+            ))}
+          </select>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Longest edge of each extracted frame. Larger = sharper detail but bigger files
-            and slower upload. Original keeps the source resolution.
+            Longest edge (in pixels) of each extracted frame — this controls dimensions, not
+            image quality. Larger = more detail but bigger files and slower upload.
           </p>
         </label>
       </div>
 
-      <div className="mt-6 rounded-lg border border-border bg-card p-4">
-        <div className="mb-3 flex items-center justify-between">
+      <div className="mt-6 rounded-lg border border-border bg-card">
+        <button
+          type="button"
+          onClick={() => setGeotagOpen((v) => !v)}
+          aria-expanded={geotagOpen}
+          className="flex w-full items-center justify-between gap-3 p-4 text-left"
+        >
           <div>
-            <div className="text-sm font-medium">Geotag frames</div>
-            <div className="text-xs text-muted-foreground">
-              Pick a location (e.g. Al Qusais, Dubai). Every extracted frame gets these coordinates.
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <MapPin className="h-3.5 w-3.5 text-muted-foreground" /> Geotag frames
+            </div>
+            <div className="mt-0.5 text-xs text-muted-foreground">
+              {location
+                ? `${location.label} · every extracted frame gets these coordinates`
+                : "Pick a location — every extracted frame gets these coordinates"}
             </div>
           </div>
-          <label className="flex cursor-pointer items-center gap-2 text-xs">
-            <input
-              type="checkbox"
-              checked={autoGeotag}
-              onChange={(e) => updateSettings({ autoGeotag: e.target.checked })}
-              className="accent-primary"
+          <div className="flex shrink-0 items-center gap-3">
+            <label
+              className="flex cursor-pointer items-center gap-2 text-xs"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <input
+                type="checkbox"
+                checked={autoGeotag}
+                onChange={(e) => updateSettings({ autoGeotag: e.target.checked })}
+                className="accent-primary"
+              />
+              Auto-apply
+            </label>
+            <ChevronDown
+              className={`h-4 w-4 text-muted-foreground transition-transform ${geotagOpen ? "rotate-180" : ""}`}
             />
-            Auto-apply on upload
-          </label>
-        </div>
-        <LocationPicker value={location} onChange={setLocation} />
+          </div>
+        </button>
+        {geotagOpen && (
+          <div className="border-t border-border p-4 pt-3">
+            <LocationPicker value={location} onChange={setLocation} />
+          </div>
+        )}
       </div>
 
       {queue.length > 0 && (
