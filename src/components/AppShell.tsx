@@ -61,9 +61,9 @@ const navGroups: NavGroup[] = [
     items: [
       { to: "/gmb-analytics", label: "GMB Analytics", icon: BarChart3 },
       { to: "/post-generator", label: "Post Generator", icon: PenSquare },
+      { to: "/scheduler", label: "Scheduler", icon: CalendarDays },
       { to: "/geotagging", label: "Geo-tagging", icon: MapPin },
-      { to: "/library", label: "Image and Video Library", icon: Images },
-      { to: "/calendar", label: "Calendar", icon: CalendarDays },
+      { to: "/library", label: "Library", icon: Images },
       { to: "/backups", label: "Backups", icon: ShieldCheck },
     ],
   },

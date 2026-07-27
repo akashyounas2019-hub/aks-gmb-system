@@ -1155,6 +1155,8 @@ export type Database = {
         Row: {
           caption: string
           created_at: string
+          cta_type: string | null
+          cta_url: string | null
           error: string | null
           ghl_location_id: string | null
           id: string
@@ -1172,6 +1174,8 @@ export type Database = {
         Insert: {
           caption: string
           created_at?: string
+          cta_type?: string | null
+          cta_url?: string | null
           error?: string | null
           ghl_location_id?: string | null
           id?: string
@@ -1189,6 +1193,8 @@ export type Database = {
         Update: {
           caption?: string
           created_at?: string
+          cta_type?: string | null
+          cta_url?: string | null
           error?: string | null
           ghl_location_id?: string | null
           id?: string

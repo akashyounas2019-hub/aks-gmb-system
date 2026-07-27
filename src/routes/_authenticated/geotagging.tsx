@@ -62,52 +62,93 @@ type Place = {
   address?: string;
 };
 
-// Curated Dubai locations — grouped by area, tagged by property type.
-const PLACES: Place[] = [
-  // Al Qusais
-  { id: "alq-1", name: "Al Qusais Residential Villa", area: "Al Qusais", type: "home", lat: 25.2867, lng: 55.3873, address: "Al Qusais 2, Dubai" },
-  { id: "alq-2", name: "Al Qusais Family Apartment", area: "Al Qusais", type: "home", lat: 25.2921, lng: 55.3944, address: "Al Qusais 3, Dubai" },
-  { id: "alq-3", name: "Al Qusais Business Center", area: "Al Qusais", type: "office", lat: 25.2841, lng: 55.3805, address: "Damascus St, Al Qusais" },
-  { id: "alq-4", name: "Al Nahda Office Tower", area: "Al Qusais", type: "office", lat: 25.2887, lng: 55.3688, address: "Al Nahda 1, Dubai" },
-  { id: "alq-5", name: "Al Bustan Centre", area: "Al Qusais", type: "commercial", lat: 25.2795, lng: 55.3777, address: "Al Qusais 1, Dubai" },
-  { id: "alq-6", name: "Grand Mall Al Qusais", area: "Al Qusais", type: "commercial", lat: 25.2934, lng: 55.3891 },
-  // Deira
-  { id: "der-1", name: "Deira Heritage Villa", area: "Deira", type: "home", lat: 25.2701, lng: 55.3160 },
-  { id: "der-2", name: "Deira Corporate Plaza", area: "Deira", type: "office", lat: 25.2650, lng: 55.3200 },
-  { id: "der-3", name: "Deira City Centre", area: "Deira", type: "commercial", lat: 25.2528, lng: 55.3319 },
-  // Business Bay
-  { id: "bb-1", name: "Executive Towers Residence", area: "Business Bay", type: "home", lat: 25.1867, lng: 55.2704 },
-  { id: "bb-2", name: "Bay Square Offices", area: "Business Bay", type: "office", lat: 25.1889, lng: 55.2650 },
-  { id: "bb-3", name: "Bay Avenue Mall", area: "Business Bay", type: "commercial", lat: 25.1874, lng: 55.2622 },
-  // Downtown Dubai
-  { id: "dt-1", name: "Burj Views Apartment", area: "Downtown Dubai", type: "home", lat: 25.1934, lng: 55.2751 },
-  { id: "dt-2", name: "Emaar Square Offices", area: "Downtown Dubai", type: "office", lat: 25.1963, lng: 55.2789 },
-  { id: "dt-3", name: "The Dubai Mall", area: "Downtown Dubai", type: "commercial", lat: 25.1972, lng: 55.2796 },
-  // Dubai Marina
-  { id: "dm-1", name: "Marina Residence", area: "Dubai Marina", type: "home", lat: 25.0805, lng: 55.1403 },
-  { id: "dm-2", name: "Marina Plaza Office", area: "Dubai Marina", type: "office", lat: 25.0764, lng: 55.1400 },
-  { id: "dm-3", name: "Marina Mall", area: "Dubai Marina", type: "commercial", lat: 25.0781, lng: 55.1416 },
-  // Al Barsha
-  { id: "ab-1", name: "Al Barsha South Villa", area: "Al Barsha", type: "home", lat: 25.1041, lng: 55.1936 },
-  { id: "ab-2", name: "Al Barsha Business Hub", area: "Al Barsha", type: "office", lat: 25.1105, lng: 55.2000 },
-  { id: "ab-3", name: "Mall of the Emirates", area: "Al Barsha", type: "commercial", lat: 25.1183, lng: 55.2000 },
-  // Jumeirah
-  { id: "jm-1", name: "Jumeirah Beach Villa", area: "Jumeirah", type: "home", lat: 25.2048, lng: 55.2708 },
-  { id: "jm-2", name: "Jumeirah Corporate Centre", area: "Jumeirah", type: "office", lat: 25.2144, lng: 55.2555 },
-  { id: "jm-3", name: "Mercato Shopping Mall", area: "Jumeirah", type: "commercial", lat: 25.2211, lng: 55.2544 },
-  // JLT
-  { id: "jlt-1", name: "JLT Cluster Residence", area: "JLT", type: "home", lat: 25.0705, lng: 55.1443 },
-  { id: "jlt-2", name: "JLT Tower Offices", area: "JLT", type: "office", lat: 25.0691, lng: 55.1421 },
-  { id: "jlt-3", name: "JLT Retail Plaza", area: "JLT", type: "commercial", lat: 25.0718, lng: 55.1462 },
-];
-
 const TYPE_META: Record<PlaceType, { label: string; icon: typeof Home; tone: string }> = {
   home: { label: "Home", icon: Home, tone: "bg-emerald-500/15 text-emerald-500" },
   office: { label: "Office", icon: Briefcase, tone: "bg-sky-500/15 text-sky-500" },
   commercial: { label: "Commercial", icon: Store, tone: "bg-amber-500/15 text-amber-500" },
 };
 
-const AREAS = Array.from(new Set(PLACES.map((p) => p.area))).sort();
+// Google Places search text per property type — combined with the user's
+// city/area to find real homes, offices, and commercial places.
+const TYPE_SEARCH_TERM: Record<PlaceType, string> = {
+  home: "residential building",
+  office: "office building",
+  commercial: "commercial building",
+};
+
+// Common Dubai areas — a shortcut for the area filter and the default map
+// city buttons. These are only starting points for a real Google Places
+// search; they are never used as a source of coordinates themselves.
+const AREAS = [
+  "Al Qusais",
+  "Deira",
+  "Business Bay",
+  "Downtown Dubai",
+  "Dubai Marina",
+  "Al Barsha",
+  "Jumeirah",
+  "JLT",
+].sort();
+
+const AREA_SEED_CENTERS: Record<string, { lat: number; lng: number }> = {
+  "Al Qusais": { lat: 25.2867, lng: 55.3873 },
+  Deira: { lat: 25.2701, lng: 55.3160 },
+  "Business Bay": { lat: 25.1867, lng: 55.2704 },
+  "Downtown Dubai": { lat: 25.1934, lng: 55.2751 },
+  "Dubai Marina": { lat: 25.0805, lng: 55.1403 },
+  "Al Barsha": { lat: 25.1041, lng: 55.1936 },
+  Jumeirah: { lat: 25.2048, lng: 55.2708 },
+  JLT: { lat: 25.0705, lng: 55.1443 },
+};
+
+/**
+ * Looks up real places from Google Places (Text Search) for a given property
+ * type within a city/area — replaces the old hardcoded, made-up location
+ * list. Returns actual addresses and coordinates.
+ */
+async function searchPlaces(
+  type: PlaceType | "All",
+  areaOrQuery: string,
+): Promise<Place[]> {
+  const google = (window as any).google;
+  if (!google?.maps?.importLibrary) throw new Error("Google Maps not loaded");
+  const { Place: GPlace } = (await google.maps.importLibrary("places")) as any;
+
+  const city = areaOrQuery.trim() || "Dubai";
+  const types: PlaceType[] = type === "All" ? ["home", "office", "commercial"] : [type];
+
+  const results = await Promise.all(
+    types.map(async (t) => {
+      try {
+        const { places: found } = await GPlace.searchByText({
+          textQuery: `${TYPE_SEARCH_TERM[t]} in ${city}`,
+          fields: ["displayName", "formattedAddress", "location", "id"],
+          locationBias: { lat: 25.2048, lng: 55.2708, radius: 60000 },
+          maxResultCount: 12,
+        });
+        return (found ?? []).map((p: any): Place | null => {
+          const loc = p.location;
+          const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
+          const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
+          if (typeof lat !== "number" || typeof lng !== "number") return null;
+          return {
+            id: p.id,
+            name: p.displayName?.text ?? p.displayName ?? "Unnamed place",
+            area: city,
+            type: t,
+            lat,
+            lng,
+            address: p.formattedAddress ?? undefined,
+          };
+        }).filter((p: Place | null): p is Place => p !== null);
+      } catch {
+        return [];
+      }
+    }),
+  );
+
+  return results.flat();
+}
 
 /** De-duplicate a keyword list (case-insensitive) and optionally seed it with
  *  the current location label so venue-scoped auto-tags survive alongside
@@ -201,10 +242,12 @@ function GeotaggingPage() {
   const [areaFilter, setAreaFilter] = useState<string>("All");
   const [typeFilter, setTypeFilter] = useState<PlaceType | "All">("All");
   const [placeSearch, setPlaceSearch] = useState("");
-  const [places, setPlaces] = useState<Place[]>(PLACES);
+  const [places, setPlaces] = useState<Place[]>([]);
+  const [placesLoading, setPlacesLoading] = useState(false);
+  const [placesError, setPlacesError] = useState<string | null>(null);
   const [refreshKey, setRefreshKey] = useState(0);
   const [refreshing, setRefreshing] = useState(false);
-  const [activePlace, setActivePlace] = useState<Place | null>(PLACES[0]);
+  const [activePlace, setActivePlace] = useState<Place | null>(null);
   const [customLocation, setCustomLocation] = useState<PickedLocation | null>(null);
   const [copied, setCopied] = useState(false);
   const [savingBulk, setSavingBulk] = useState(false);
@@ -217,52 +260,54 @@ function GeotaggingPage() {
   // Dedicated Home/Office quick pickers
   const homePlaces = useMemo(() => places.filter((p) => p.type === "home"), [places]);
   const officePlaces = useMemo(() => places.filter((p) => p.type === "office"), [places]);
-  const [homePickId, setHomePickId] = useState<string>(() => PLACES.find((p) => p.type === "home")?.id ?? "");
-  const [officePickId, setOfficePickId] = useState<string>(() => PLACES.find((p) => p.type === "office")?.id ?? "");
+  const [homePickId, setHomePickId] = useState<string>("");
+  const [officePickId, setOfficePickId] = useState<string>("");
 
-  // City centers (for map picker fallback) — derived once from seed data
-  const cityOptions = useMemo(() => {
-    const byArea = new Map<string, { lat: number; lng: number; count: number }>();
-    for (const p of places) {
-      const cur = byArea.get(p.area);
-      if (cur) {
-        cur.lat += p.lat;
-        cur.lng += p.lng;
-        cur.count += 1;
-      } else {
-        byArea.set(p.area, { lat: p.lat, lng: p.lng, count: 1 });
-      }
+  // City centers used only as map-picker shortcuts (not a source of coordinates
+  // for tagging — real coordinates always come from the live Google Places
+  // search below).
+  const cityOptions = useMemo(
+    () => AREAS.map((name) => ({ name, ...AREA_SEED_CENTERS[name] })),
+    [],
+  );
+
+  // Live lookup — runs whenever the type/city/search text changes, so "Home"
+  // + "Al Qusais" fetches real residential addresses in Al Qusais from Google
+  // Places, instead of filtering a fixed made-up list.
+  const runSearch = useCallback(async () => {
+    setPlacesLoading(true);
+    setPlacesError(null);
+    try {
+      const city = placeSearch.trim() || (areaFilter !== "All" ? areaFilter : "Dubai");
+      const found = await searchPlaces(typeFilter, city);
+      setPlaces(found);
+      setHomePickId((cur) => (found.some((p) => p.id === cur) ? cur : found.find((p) => p.type === "home")?.id ?? ""));
+      setOfficePickId((cur) => (found.some((p) => p.id === cur) ? cur : found.find((p) => p.type === "office")?.id ?? ""));
+      setActivePlace((cur) => (cur && found.some((p) => p.id === cur.id) ? cur : found[0] ?? null));
+    } catch (e) {
+      setPlacesError(e instanceof Error ? e.message : "Couldn't reach Google Places.");
+      setPlaces([]);
+    } finally {
+      setPlacesLoading(false);
     }
-    return Array.from(byArea.entries()).map(([name, v]) => ({
-      name,
-      lat: v.lat / v.count,
-      lng: v.lng / v.count,
-    }));
-  }, [places]);
+  }, [typeFilter, areaFilter, placeSearch]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      runSearch();
+    }, 350);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [typeFilter, areaFilter, placeSearch]);
 
   const refreshLocations = useCallback(() => {
     setRefreshing(true);
-    // Jitter every place coordinate slightly (~150m radius) — refreshes hardcoded values.
-    const jitter = () => (Math.random() - 0.5) * 0.003;
-    const nextPlaces = PLACES.map((p) => ({
-      ...p,
-      lat: +(p.lat + jitter()).toFixed(6),
-      lng: +(p.lng + jitter()).toFixed(6),
-    }));
-    // Preserve any place-level updates already made by rebasing to seed but keeping current id set.
-    setPlaces(nextPlaces);
-    // Resync activePlace to the freshly refreshed coordinate for the same id.
-    setActivePlace((cur) => (cur ? nextPlaces.find((p) => p.id === cur.id) ?? cur : cur));
-    setPinnedCoord((cur) =>
-      cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
-    );
-    setCustomLocation((cur) =>
-      cur ? { ...cur, lat: +(cur.lat + jitter()).toFixed(6), lng: +(cur.lng + jitter()).toFixed(6) } : cur,
-    );
-    setRefreshKey((k) => k + 1);
-    toast.success("Coordinates refreshed");
-    setTimeout(() => setRefreshing(false), 400);
-  }, []);
+    runSearch().finally(() => {
+      setRefreshKey((k) => k + 1);
+      toast.success("Coordinates refreshed from Google Places");
+      setRefreshing(false);
+    });
+  }, [runSearch]);
 
 
 
@@ -835,6 +880,8 @@ function GeotaggingPage() {
             setActivePlace={setActivePlace}
             setCustomLocation={setCustomLocation}
             filteredPlaces={filteredPlaces}
+            placesLoading={placesLoading}
+            placesError={placesError}
             activePlace={activePlace}
             customLocation={customLocation}
             areaFilter={areaFilter}
@@ -1301,6 +1348,8 @@ function StepLocation(props: {
   setActivePlace: (p: Place | null) => void;
   setCustomLocation: (l: PickedLocation | null) => void;
   filteredPlaces: Place[];
+  placesLoading: boolean;
+  placesError: string | null;
   activePlace: Place | null;
   customLocation: PickedLocation | null;
   areaFilter: string;
@@ -1332,6 +1381,8 @@ function StepLocation(props: {
     setActivePlace,
     setCustomLocation,
     filteredPlaces,
+    placesLoading,
+    placesError,
     activePlace,
     customLocation,
     areaFilter,
@@ -1433,17 +1484,25 @@ function StepLocation(props: {
                   </span>
                   <div className="text-sm font-medium">{meta.label} coordinate</div>
                 </div>
-                <select
-                  value={pickId}
-                  onChange={(e) => setPickId(e.target.value)}
-                  className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-                >
-                  {list.map((p) => (
-                    <option key={p.id} value={p.id}>
-                      {p.name} — {p.area}
-                    </option>
-                  ))}
-                </select>
+                {list.length === 0 ? (
+                  <div className="rounded-md border border-dashed border-border px-2.5 py-2 text-xs text-muted-foreground">
+                    {placesLoading
+                      ? "Searching Google Places…"
+                      : "No results yet — search a city in the Location library below."}
+                  </div>
+                ) : (
+                  <select
+                    value={pickId}
+                    onChange={(e) => setPickId(e.target.value)}
+                    className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    {list.map((p) => (
+                      <option key={p.id} value={p.id}>
+                        {p.name} — {p.area}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 {place && (
                   <div className="mt-2 rounded-md bg-muted/60 px-2 py-1.5 font-mono text-[11px]">
                     {place.lat.toFixed(6)}, {place.lng.toFixed(6)}
@@ -1495,7 +1554,11 @@ function StepLocation(props: {
       {/* Collapsible: library */}
       <Collapsible
         title="Location library"
-        subtitle={`${filteredPlaces.length} curated places · filter by area & type`}
+        subtitle={
+          placesLoading
+            ? "Searching Google Places…"
+            : `${filteredPlaces.length} real places found · filter by area & type`
+        }
         open={openSection === "library"}
         onToggle={() => setOpenSection("library")}
       >
@@ -1535,9 +1598,17 @@ function StepLocation(props: {
           </div>
         </div>
 
-        {filteredPlaces.length === 0 ? (
+        {placesError ? (
+          <div className="rounded-md border border-destructive/40 bg-destructive/10 p-6 text-center text-xs text-destructive">
+            {placesError}
+          </div>
+        ) : placesLoading ? (
+          <div className="flex items-center justify-center gap-2 rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
+            <Loader2 className="h-3.5 w-3.5 animate-spin" /> Searching Google Places…
+          </div>
+        ) : filteredPlaces.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-6 text-center text-xs text-muted-foreground">
-            No locations match your filters.
+            No real places found — try a different city or type.
           </div>
         ) : (
           <div

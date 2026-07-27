@@ -10,8 +10,9 @@ const ALLOWED_PROVIDERS = [
   "gemini",
   "anthropic",
   "openrouter",
+  "n8n",
 ] as const;
-type Provider = (typeof ALLOWED_PROVIDERS)[number];
+export type Provider = (typeof ALLOWED_PROVIDERS)[number];
 
 type StoredField = { c: string; m: string };
 
@@ -111,6 +112,18 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       pattern: /^sk-or-[A-Za-z0-9_-]+$/,
       patternMessage: "OpenRouter keys start with 'sk-or-'.",
     },
+  },
+  n8n: {
+    webhook_url: {
+      label: "Webhook URL",
+      required: true,
+      min: 10,
+      max: 1000,
+      pattern: /^https?:\/\/.+/,
+      patternMessage: "Enter a full http(s):// webhook URL.",
+    },
+    auth_header: { label: "Auth header name", max: 200 },
+    auth_token: { label: "Auth token", max: 1000 },
   },
 };
 

@@ -75,15 +75,30 @@ export async function executeAutomation(automation: AutomationRow, supabase: Cli
         break;
       }
       case "auto_publish": {
-        // Look for scheduled posts whose time has arrived.
+        // Find this user's scheduled posts whose time has arrived, and
+        // actually send each one — this used to only count rows in the
+        // wrong table (post_drafts) and never dispatch anything.
+        const { dispatchSocialPost } = await import("./post-generator.functions");
         const nowIso = new Date().toISOString();
         const { data: due } = await supabase
-          .from("post_drafts")
-          .select("id")
+          .from("social_posts")
+          .select(
+            "id, owner_id, caption, image_ids, location_label, lat, lng, ghl_location_id, scheduled_at, cta_type, cta_url",
+          )
           .eq("owner_id", automation.owner_id)
-          .eq("status", "scheduled")
-          .lte("scheduled_for", nowIso);
-        output = { due: due?.length ?? 0 };
+          .eq("status", "queued")
+          .not("scheduled_at", "is", null)
+          .lte("scheduled_at", nowIso)
+          .limit(20);
+
+        let sent = 0;
+        let failed = 0;
+        for (const post of due ?? []) {
+          const result = await dispatchSocialPost(post as never, supabase);
+          if (result.ok) sent++;
+          else failed++;
+        }
+        output = { due: due?.length ?? 0, sent, failed };
         break;
       }
       case "alert_scan": {

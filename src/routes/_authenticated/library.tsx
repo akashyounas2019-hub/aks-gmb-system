@@ -2157,7 +2157,7 @@ function ImagePostComposer({
 
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
-  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "aks">("gemini");
+  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
   const [templates, setTemplates] = useState<ComposerTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
   const [caption, setCaption] = useState("");
@@ -2308,11 +2308,15 @@ function ImagePostComposer({
           <label className="mb-1 block text-xs font-medium text-muted-foreground">LLM</label>
           <select
             value={llm}
-            onChange={(e) => setLlm(e.target.value as "gemini" | "chatgpt" | "aks")}
+            onChange={(e) =>
+              setLlm(e.target.value as "gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks")
+            }
             className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           >
             <option value="gemini">Gemini</option>
             <option value="chatgpt">ChatGPT</option>
+            <option value="anthropic">Claude</option>
+            <option value="openrouter">OpenRouter</option>
             <option value="aks">AKS Cloud</option>
           </select>
         </div>

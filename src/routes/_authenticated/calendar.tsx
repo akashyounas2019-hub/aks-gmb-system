@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
+import { createFileRoute, Link, redirect } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useState } from "react";
 import {
@@ -23,7 +23,12 @@ import {
   retrySocialPost,
 } from "@/lib/post-generator.functions";
 
+// The standalone Calendar page moved into the Scheduler screen as a tab —
+// redirect old links/bookmarks there instead of maintaining two calendars.
 export const Route = createFileRoute("/_authenticated/calendar")({
+  beforeLoad: () => {
+    throw redirect({ to: "/scheduler" });
+  },
   component: GmbCalendarRoute,
 });
 

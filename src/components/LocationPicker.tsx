@@ -65,7 +65,59 @@ export function LocationPicker({
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
+  const [cityPlaces, setCityPlaces] = useState<
+    { placeId: string; label: string; lat: number; lng: number }[]
+  >([]);
+  const [cityPlacesLoading, setCityPlacesLoading] = useState(false);
   const sessionTokenRef = useRef<any>(null);
+
+  // Real nearby-places lookup around a city's centroid — replaces the old
+  // fabricated "point 1..5" coordinates that were never real addresses.
+  async function loadCityPlaces(city: { name: string; lat: number; lng: number }) {
+    setCityPlacesLoading(true);
+    setCityPlaces([]);
+    try {
+      const { Place } = (await (window as any).google.maps.importLibrary(
+        "places",
+      )) as any;
+      const { places: found } = await Place.searchNearby({
+        fields: ["displayName", "formattedAddress", "location", "id"],
+        locationRestriction: {
+          center: { lat: city.lat, lng: city.lng },
+          radius: 1500,
+        },
+        maxResultCount: 8,
+      });
+      const mapped = (found ?? [])
+        .map((p: any) => {
+          const loc = p.location;
+          const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
+          const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
+          if (typeof lat !== "number" || typeof lng !== "number") return null;
+          return {
+            placeId: p.id,
+            label: p.displayName?.text ?? p.formattedAddress ?? p.displayName ?? "Unnamed place",
+            lat,
+            lng,
+          };
+        })
+        .filter(Boolean);
+      setCityPlaces(mapped);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Nearby search failed");
+    } finally {
+      setCityPlacesLoading(false);
+    }
+  }
+
+  // Re-run the nearby search for the currently expanded city when the parent
+  // asks for a refresh (e.g. the page's "Refresh coordinates" button).
+  useEffect(() => {
+    if (refreshKey === 0 || !expandedCity || !cityOptions) return;
+    const city = cityOptions.find((c) => c.name === expandedCity);
+    if (city) loadCityPlaces(city);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [refreshKey]);
 
 
   useEffect(() => {
@@ -269,7 +321,9 @@ export function LocationPicker({
       )}
 
 
-      {/* City recommendations + coordinate options within a city */}
+      {/* City shortcuts — clicking one runs a real Google Places search near
+          that city's centroid, so results are actual places, not fabricated
+          points. */}
       {cityOptions && cityOptions.length > 0 && (
         <div className={compact ? "mt-2" : ""}>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -287,7 +341,11 @@ export function LocationPicker({
                 return (
                   <button
                     key={c.name}
-                    onClick={() => setExpandedCity(active ? null : c.name)}
+                    onClick={() => {
+                      const next = active ? null : c.name;
+                      setExpandedCity(next);
+                      if (next) loadCityPlaces(c);
+                    }}
                     className={`rounded-full border px-2.5 py-1 text-xs transition ${
                       active
                         ? "border-primary bg-primary/10 text-primary"
@@ -299,29 +357,23 @@ export function LocationPicker({
                 );
               })}
           </div>
-          {expandedCity &&
-            (() => {
-              const city = cityOptions.find((c) => c.name === expandedCity);
-              if (!city) return null;
-              // Deterministic-but-refreshable variants around the city center.
-              const seed = refreshKey;
-              const variants = Array.from({ length: 5 }, (_, i) => {
-                // Rotate offsets so they change per refresh.
-                const angle = ((i + seed) * (2 * Math.PI)) / 5;
-                const r = 0.005 + ((seed + i) % 3) * 0.002;
-                return {
-                  label: `${city.name} · point ${i + 1}`,
-                  lat: +(city.lat + Math.cos(angle) * r).toFixed(6),
-                  lng: +(city.lng + Math.sin(angle) * r).toFixed(6),
-                };
-              });
-              return (
-                <div className="mt-2 grid gap-1.5 sm:grid-cols-2">
-                  {variants.map((v) => (
+          {expandedCity && (
+            <div className="mt-2">
+              {cityPlacesLoading ? (
+                <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                  Searching {expandedCity}…
+                </div>
+              ) : cityPlaces.length === 0 ? (
+                <div className="rounded-md border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                  No places found near {expandedCity}.
+                </div>
+              ) : (
+                <div className="grid gap-1.5 sm:grid-cols-2">
+                  {cityPlaces.map((v) => (
                     <button
-                      key={`${v.lat}-${v.lng}`}
+                      key={v.placeId}
                       onClick={() =>
-                        commit({ label: v.label, lat: v.lat, lng: v.lng, place_id: null })
+                        commit({ label: v.label, lat: v.lat, lng: v.lng, place_id: v.placeId })
                       }
                       className="flex items-center justify-between gap-2 rounded-md border border-border bg-card px-2.5 py-1.5 text-left text-xs hover:border-primary hover:bg-accent"
                     >
@@ -332,8 +384,9 @@ export function LocationPicker({
                     </button>
                   ))}
                 </div>
-              );
-            })()}
+              )}
+            </div>
+          )}
         </div>
       )}
 

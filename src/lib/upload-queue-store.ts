@@ -9,6 +9,7 @@
 import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
+import { readVideoGps } from "@/lib/video-gps";
 import type { PickedLocation } from "@/components/LocationPicker";
 
 export type QueueStage =
@@ -41,6 +42,11 @@ export interface QueueItem {
   framesSaved?: number;
   framesTotal?: number;
   opts: UploadSettings;
+  // Set once the video row + upload succeed, so a retry after a partial
+  // failure resumes from here instead of re-uploading the video and
+  // creating a second `videos` row for the same file.
+  videoRowId?: string;
+  framesAlreadySaved?: number;
 }
 
 type Listener = () => void;
@@ -222,7 +228,20 @@ async function processItem(item: QueueItem) {
     return;
   }
 
-  patchItem(item.id, { stage: "extracting", message: "Analyzing video…", progress: 0 });
+  // Prefer the video's own embedded GPS (written by the phone that shot it)
+  // over the manually-picked pin — mirrors how still-image uploads already
+  // prefer real EXIF GPS over the pin. Falls back to the pin when the video
+  // has no embedded location, which is the previous, only behavior.
+  const videoGps = await readVideoGps(item.file).catch(() => null);
+  const usingVideoGps = !!(videoGps?.hasGps && videoGps.lat != null && videoGps.lng != null);
+  const effectiveLat = usingVideoGps ? videoGps!.lat : (autoGeotag && location ? location.lat : null);
+  const effectiveLng = usingVideoGps ? videoGps!.lng : (autoGeotag && location ? location.lng : null);
+
+  patchItem(item.id, {
+    stage: "extracting",
+    message: usingVideoGps ? "Analyzing video… (using GPS found in video)" : "Analyzing video…",
+    progress: 0,
+  });
   const { frames, durationSeconds } = await extractSharpFrames(item.file, {
     sampleEveryMs: sampleMs,
     maxFrames,
@@ -240,57 +259,73 @@ async function processItem(item: QueueItem) {
   throwIfCancelled(item.id);
   if (frames.length === 0) throw new Error("Couldn't extract any frames.");
 
+  // Idempotent retry: if a previous attempt already created the video row and
+  // uploaded the file, reuse it instead of uploading again and creating a
+  // second `videos` row for the same file.
+  let videoRowId = item.videoRowId;
+  const startFrame = item.framesAlreadySaved ?? 0;
+
+  if (!videoRowId) {
+    patchItem(item.id, {
+      stage: "uploading",
+      message: "Uploading video…",
+      progress: 0.3,
+      framesTotal: frames.length,
+    });
+
+    const videoPath = `${userId}/${crypto.randomUUID()}-${item.file.name}`;
+    const { error: vErr } = await supabase.storage
+      .from("videos")
+      .upload(videoPath, item.file, { upsert: false, contentType: item.file.type });
+    if (vErr) throw vErr;
+    throwIfCancelled(item.id);
+
+    const { data: videoRow, error: vRowErr } = await supabase
+      .from("videos")
+      .insert({
+        owner_id: userId,
+        storage_path: videoPath,
+        original_name: item.file.name,
+        duration_seconds: durationSeconds,
+        size_bytes: item.file.size,
+        frame_count: frames.length,
+        status: "ready",
+      })
+      .select("id")
+      .single();
+    if (vRowErr) throw vRowErr;
+    throwIfCancelled(item.id);
+
+    videoRowId = videoRow.id;
+    patchItem(item.id, { videoRowId });
+  }
+
   patchItem(item.id, {
-    stage: "uploading",
-    message: "Uploading video…",
-    progress: 0.3,
+    stage: "saving",
+    message: startFrame > 0 ? `Resuming — saved ${startFrame}/${frames.length} already` : "Saving frames…",
+    progress: 0.4 + (startFrame / frames.length) * 0.6,
     framesTotal: frames.length,
   });
-
-  const videoPath = `${userId}/${crypto.randomUUID()}-${item.file.name}`;
-  const { error: vErr } = await supabase.storage
-    .from("videos")
-    .upload(videoPath, item.file, { upsert: false, contentType: item.file.type });
-  if (vErr) throw vErr;
-  throwIfCancelled(item.id);
-
-  const { data: videoRow, error: vRowErr } = await supabase
-    .from("videos")
-    .insert({
-      owner_id: userId,
-      storage_path: videoPath,
-      original_name: item.file.name,
-      duration_seconds: durationSeconds,
-      size_bytes: item.file.size,
-      frame_count: frames.length,
-      status: "ready",
-    })
-    .select("id")
-    .single();
-  if (vRowErr) throw vRowErr;
-  throwIfCancelled(item.id);
-
-  patchItem(item.id, { stage: "saving", message: "Saving frames…", progress: 0.4 });
   const baseName = titleName.trim() || item.file.name.replace(/\.[^.]+$/, "");
-  for (let i = 0; i < frames.length; i++) {
+  for (let i = startFrame; i < frames.length; i++) {
     throwIfCancelled(item.id);
     const f = frames[i];
-    const framePath = `${userId}/${videoRow.id}/${String(i + 1).padStart(3, "0")}.jpg`;
+    const framePath = `${userId}/${videoRowId}/${String(i + 1).padStart(3, "0")}.jpg`;
     const { error: fErr } = await supabase.storage
       .from("frames")
-      .upload(framePath, f.blob, { contentType: "image/jpeg", upsert: false });
+      .upload(framePath, f.blob, { contentType: "image/jpeg", upsert: true });
     if (fErr) throw fErr;
     const { error: iErr } = await supabase.from("images").insert({
       owner_id: userId,
-      video_id: videoRow.id,
+      video_id: videoRowId,
       storage_path: framePath,
       name: `${baseName} — Frame ${i + 1}`,
       sharpness_score: f.sharpness,
       timestamp_seconds: f.timestampSeconds,
       width: f.width,
       height: f.height,
-      lat: autoGeotag && location ? location.lat : null,
-      lng: autoGeotag && location ? location.lng : null,
+      lat: effectiveLat,
+      lng: effectiveLng,
     });
     if (iErr) throw iErr;
     const done = i + 1;
@@ -298,6 +333,7 @@ async function processItem(item: QueueItem) {
       progress: 0.4 + (done / frames.length) * 0.6,
       message: `Saved ${done}/${frames.length}`,
       framesSaved: done,
+      framesAlreadySaved: done,
     });
     fire("imageSaved");
   }

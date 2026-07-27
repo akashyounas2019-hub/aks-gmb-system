@@ -64,6 +64,22 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
     onImageSavedRef.current = onImageSaved;
   }, [onComplete, onImageSaved]);
 
+  // Warn before leaving the tab while a video is mid-extraction/upload — all
+  // progress lives only in this tab's memory, so closing or refreshing now
+  // would lose it (the underlying video File can't be recovered after reload).
+  useEffect(() => {
+    const isActive = queue.some(
+      (q) => q.stage === "extracting" || q.stage === "uploading" || q.stage === "saving",
+    );
+    if (!isActive) return;
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [queue]);
+
   useEffect(() => {
     const offSaved = onEvent("imageSaved", () => onImageSavedRef.current?.());
     const offDrained = onEvent("drained", () => onCompleteRef.current?.());

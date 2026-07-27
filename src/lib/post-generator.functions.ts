@@ -3,6 +3,8 @@ import { z } from "zod";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callLovableAI, type ChatMessage } from "./ai-gateway.server";
+import { getDecryptedIntegration } from "./user-integrations.functions";
+import { callDirectLLM, type DirectProvider } from "./direct-llm.server";
 
 /* ------------------------------------------------------------------ */
 /*  Compose a GMB caption with Lovable AI                              */
@@ -13,7 +15,7 @@ const ComposeInput = z.object({
   imageIds: z.array(z.string().uuid()).max(4).default([]),
   locationLabel: z.string().max(200).optional(),
   // Which LLM the user picked in the Compose screen.
-  llm: z.enum(["gemini", "chatgpt", "aks"]).default("gemini"),
+  llm: z.enum(["gemini", "chatgpt", "anthropic", "openrouter", "aks"]).default("gemini"),
   businessName: z.string().max(120).optional(),
   callToAction: z.string().max(200).optional(),
   extraContext: z.string().max(1000).optional(),
@@ -27,9 +29,21 @@ const ComposeInput = z.object({
     .optional(),
 });
 
-const LLM_MODELS: Record<"gemini" | "chatgpt", string> = {
+const LLM_MODELS: Record<"gemini" | "chatgpt" | "anthropic" | "openrouter", string> = {
   gemini: "google/gemini-2.5-flash",
   chatgpt: "openai/gpt-5-mini",
+  anthropic: "anthropic/claude-sonnet-5",
+  openrouter: "google/gemini-2.5-flash",
+};
+
+// Maps the Compose-screen LLM choice to the Settings → Integrations provider
+// whose saved key should be tried first, before falling back to the shared
+// Lovable AI gateway.
+const LLM_TO_DIRECT_PROVIDER: Record<"gemini" | "chatgpt" | "anthropic" | "openrouter", DirectProvider> = {
+  gemini: "gemini",
+  chatgpt: "openai",
+  anthropic: "anthropic",
+  openrouter: "openrouter",
 };
 
 
@@ -38,8 +52,6 @@ export const composePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => ComposeInput.parse(data))
   .handler(async ({ data, context }) => {
-    const apiKey = process.env.LOVABLE_API_KEY;
-    if (!apiKey) throw new Error("LOVABLE_API_KEY missing");
     const { supabase, userId } = context;
 
     // Sign up to 4 image URLs so the vision model can see the frames
@@ -141,15 +153,44 @@ Return ONLY the caption text, no preamble.`;
       return { caption: caption.trim() };
     }
 
+    // Prefer the user's own API key (Settings → Integrations) so generation
+    // doesn't depend on the shared Lovable AI gateway credit balance. Falls
+    // back to the Lovable gateway only if no key is saved or the direct call
+    // fails for a reason other than a bad/missing key.
+    const directProvider = LLM_TO_DIRECT_PROVIDER[data.llm];
+    const saved = await getDecryptedIntegration(supabase, userId, directProvider).catch(() => null);
+    const savedKey = saved?.api_key;
+
+    if (savedKey) {
+      try {
+        const caption = await callDirectLLM(directProvider, savedKey, [
+          { role: "system", text: system },
+          { role: "user", text: userText, imageUrls },
+        ]);
+        if (caption.trim()) return { caption: caption.trim() };
+      } catch (e) {
+        // Fall through to the Lovable gateway below, but surface the direct
+        // failure if that fallback also has no key configured.
+        const lovableKey = process.env.LOVABLE_API_KEY;
+        if (!lovableKey) throw e;
+      }
+    }
+
+    const apiKey = process.env.LOVABLE_API_KEY;
+    if (!apiKey) {
+      throw new Error(
+        `No ${directProvider} key configured in Settings → Integrations, and the built-in AI gateway is not set up. Add your own API key, or contact support to enable the built-in option.`,
+      );
+    }
+
     const content = await callLovableAI({
       apiKey,
-      model: LLM_MODELS[data.llm],
+      model: LLM_MODELS[data.llm as "gemini" | "chatgpt" | "anthropic" | "openrouter"],
       messages: [
         { role: "system", content: system },
         { role: "user", content: userContent },
       ],
     });
-
 
     return { caption: content.trim() };
   });
@@ -177,6 +218,171 @@ const SendInput = z.object({
 });
 
 
+/**
+ * A `social_posts` row as needed to actually dispatch it — shared shape
+ * between the "send now" server function and the cron dispatcher, which
+ * loads existing rows straight from the database.
+ */
+export type DispatchablePost = {
+  id: string;
+  owner_id: string;
+  caption: string;
+  image_ids: string[] | null;
+  location_label: string | null;
+  lat: number | null;
+  lng: number | null;
+  ghl_location_id: string | null;
+  scheduled_at: string | null;
+  primary_keyword?: string | null;
+  networks?: string[] | null;
+  cta_type?: string | null;
+  cta_url?: string | null;
+};
+
+const GMB_ACTION_MAP: Record<string, string> = {
+  book: "ACTION_TYPE_BOOK",
+  order: "ACTION_TYPE_ORDER",
+  shop: "ACTION_TYPE_SHOP",
+  learn_more: "ACTION_TYPE_LEARN_MORE",
+  sign_up: "ACTION_TYPE_SIGN_UP",
+  call: "ACTION_TYPE_CALL",
+};
+
+/**
+ * Sends a persisted social_posts row to the configured destination (GHL
+ * direct API if connected, otherwise the n8n/GHL webhook) and updates its
+ * status. Used both by "send now" and by the scheduled-post dispatcher —
+ * the one place that actually delivers a post, so the row's status always
+ * reflects reality instead of just "queued and hoped for."
+ *
+ * Only marks the post's images as posted on a real, successful dispatch —
+ * never just because the post was scheduled or created.
+ */
+export async function dispatchSocialPost(
+  post: DispatchablePost,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+): Promise<{ ok: boolean; status: "sent" | "failed"; error?: string }> {
+  const imageIds = post.image_ids ?? [];
+
+  // Sign each image URL for 24h so the receiving webhook (n8n / GHL) can fetch it
+  const imageUrls: Array<{ id: string; url: string; name: string }> = [];
+  if (imageIds.length) {
+    const { data: rows } = await supabase
+      .from("images")
+      .select("id, name, storage_path, owner_id")
+      .in("id", imageIds)
+      .eq("owner_id", post.owner_id);
+    for (const row of rows ?? []) {
+      const { data: signed } = await supabase.storage
+        .from("frames")
+        .createSignedUrl(row.storage_path, 60 * 60 * 24);
+      if (signed?.signedUrl)
+        imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
+    }
+  }
+
+  // Prefer a direct GHL connection (Settings → Integrations) if the user has
+  // one saved; otherwise fall back to the n8n/GHL webhook relay.
+  let ok = false;
+  let providerStatus = 0;
+  let errorText: string | null = null;
+  let usedDirectGhl = false;
+
+  const ghlCreds = await getDecryptedIntegration(supabase, post.owner_id, "ghl").catch(() => null);
+  if (ghlCreds?.api_key && ghlCreds?.location_id) {
+    usedDirectGhl = true;
+    try {
+      const { publishToGhl } = await import("./ghl-api.server");
+      const res = await publishToGhl(ghlCreds.api_key, ghlCreds.location_id, {
+        caption: post.caption,
+        imageUrls: imageUrls.map((i) => i.url),
+        ctaType: post.cta_type ?? "none",
+        ctaUrl: post.cta_url ?? null,
+      });
+      ok = res.ok;
+      providerStatus = res.status;
+      errorText = res.error ?? null;
+    } catch (err) {
+      errorText = err instanceof Error ? err.message : "GHL request failed";
+    }
+  }
+
+  if (!usedDirectGhl) {
+    // Prefer the user's own saved n8n webhook (Settings → Integrations) over
+    // the shared server env vars — this was previously localStorage-only and
+    // never actually reached the server, so a "Test" success there gave no
+    // indication of whether sending would really work.
+    const n8nCreds = await getDecryptedIntegration(supabase, post.owner_id, "n8n").catch(() => null);
+    const webhook = n8nCreds?.webhook_url || process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
+    if (!webhook) {
+      errorText = "No GHL connection and no webhook configured. Add a GHL API key or n8n webhook in Settings → Integrations.";
+    } else {
+      const payload = {
+        source: "gmb-rank-pilot",
+        target: "ghl-social-planner",
+        post_id: post.id,
+        caption: post.caption,
+        primary_keyword: post.primary_keyword ?? null,
+        networks: post.networks ?? ["gmb"],
+        ghl_location_id: post.ghl_location_id ?? null,
+        scheduled_at: post.scheduled_at ?? null,
+        location: {
+          label: post.location_label ?? null,
+          lat: post.lat ?? null,
+          lng: post.lng ?? null,
+        },
+        cta:
+          post.cta_type && post.cta_type !== "none"
+            ? {
+                type: post.cta_type,
+                gmb_action_type: GMB_ACTION_MAP[post.cta_type] ?? null,
+                url: post.cta_url ?? null,
+              }
+            : null,
+        images: imageUrls,
+      };
+      try {
+        const headers: Record<string, string> = { "Content-Type": "application/json" };
+        if (n8nCreds?.auth_header && n8nCreds?.auth_token) {
+          headers[n8nCreds.auth_header] = n8nCreds.auth_token;
+        }
+        const res = await fetch(webhook, {
+          method: "POST",
+          headers,
+          body: JSON.stringify(payload),
+        });
+        providerStatus = res.status;
+        ok = res.ok;
+        if (!res.ok) errorText = (await res.text()).slice(0, 500);
+      } catch (err) {
+        errorText = err instanceof Error ? err.message : "network error";
+      }
+    }
+  }
+
+  await supabase
+    .from("social_posts")
+    .update({
+      status: ok ? "sent" : "failed",
+      provider_response: { status: providerStatus, ok, via: usedDirectGhl ? "ghl_api" : "webhook" },
+      error: errorText,
+      updated_at: new Date().toISOString(),
+    } as any)
+    .eq("id", post.id);
+
+  // Only mark images posted once the post has actually, successfully gone out.
+  if (ok && imageIds.length) {
+    await supabase
+      .from("images")
+      .update({ posted_at: new Date().toISOString() } as any)
+      .in("id", imageIds)
+      .eq("owner_id", post.owner_id);
+  }
+
+  return { ok, status: ok ? "sent" : "failed", error: errorText ?? undefined };
+}
+
 export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: unknown) => SendInput.parse(data))
@@ -196,135 +402,44 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
         lng: data.lng ?? null,
         ghl_location_id: data.ghlLocationId ?? null,
         scheduled_at: data.scheduledAt ?? null,
+        cta_type: data.ctaType,
+        cta_url: data.ctaUrl ?? null,
         status,
-      })
+      } as any)
       .select("id")
       .single();
     if (insErr) throw insErr;
 
-    // Scheduling for later is a purely internal action — it just needs the
-    // social_posts row above so it shows up on the Post Scheduler calendar.
-    // Dispatch to the external social planner (n8n/GHL) only applies to
-    // "send now"; a future-dated post has nothing to send yet.
+    // Scheduling for later is a purely internal action — the social_posts row
+    // above already makes it show up on the Post Scheduler calendar. Actually
+    // sending it happens later, when the cron dispatcher sees its time is due
+    // (see run-automations → auto_publish). Nothing is marked "posted" yet.
     if (data.scheduledAt) {
-      if (data.imageIds.length) {
-        await supabase
-          .from("images")
-          .update({ posted_at: new Date().toISOString() } as any)
-          .in("id", data.imageIds)
-          .eq("owner_id", userId);
-      }
       return { postId: inserted.id, status: "queued" as const };
     }
 
-    const webhook = process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
-    if (!webhook) {
-      await supabase
-        .from("social_posts")
-        .update({
-          status: "failed",
-          error: "No webhook configured. Set N8N_WEBHOOK_URL or GHL_WEBHOOK_URL.",
-          updated_at: new Date().toISOString(),
-        } as any)
-        .eq("id", inserted.id);
-      throw new Error(
-        "No webhook configured. Set N8N_WEBHOOK_URL or GHL_WEBHOOK_URL.",
-      );
-    }
-
-    // Sign each image URL for 24h so the receiving webhook (n8n / GHL) can fetch it
-    const imageUrls: Array<{ id: string; url: string; name: string }> = [];
-    if (data.imageIds.length) {
-      const { data: rows } = await supabase
-        .from("images")
-        .select("id, name, storage_path, owner_id")
-        .in("id", data.imageIds)
-        .eq("owner_id", userId);
-      for (const row of rows ?? []) {
-        const { data: signed } = await supabase.storage
-          .from("frames")
-          .createSignedUrl(row.storage_path, 60 * 60 * 24);
-        if (signed?.signedUrl)
-          imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
-      }
-    }
-
-    const GMB_ACTION_MAP: Record<string, string> = {
-      book: "ACTION_TYPE_BOOK",
-      order: "ACTION_TYPE_ORDER",
-      shop: "ACTION_TYPE_SHOP",
-      learn_more: "ACTION_TYPE_LEARN_MORE",
-      sign_up: "ACTION_TYPE_SIGN_UP",
-      call: "ACTION_TYPE_CALL",
-    };
-
-    const payload = {
-      source: "gmb-rank-pilot",
-      target: "ghl-social-planner",
-      post_id: inserted.id,
-      caption: data.caption,
-      primary_keyword: data.primaryKeyword ?? null,
-      networks: data.networks,
-      ghl_location_id: data.ghlLocationId ?? null,
-      scheduled_at: data.scheduledAt ?? null,
-      location: {
-        label: data.locationLabel ?? null,
+    const result = await dispatchSocialPost(
+      {
+        id: inserted.id,
+        owner_id: userId,
+        caption: data.caption,
+        image_ids: data.imageIds,
+        location_label: data.locationLabel ?? null,
         lat: data.lat ?? null,
         lng: data.lng ?? null,
+        ghl_location_id: data.ghlLocationId ?? null,
+        scheduled_at: null,
+        primary_keyword: data.primaryKeyword,
+        networks: data.networks,
+        cta_type: data.ctaType,
+        cta_url: data.ctaUrl ?? null,
       },
-      cta:
-        data.ctaType && data.ctaType !== "none"
-          ? {
-              type: data.ctaType,
-              gmb_action_type: GMB_ACTION_MAP[data.ctaType] ?? null,
-              url: data.ctaUrl ?? null,
-            }
-          : null,
-      images: imageUrls,
-    };
+      supabase,
+    );
 
+    if (!result.ok) throw new Error(result.error ?? "Failed to send post");
 
-    let ok = false;
-    let providerStatus = 0;
-    let errorText: string | null = null;
-    try {
-      const res = await fetch(webhook, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-      providerStatus = res.status;
-      ok = res.ok;
-      if (!res.ok) errorText = (await res.text()).slice(0, 500);
-    } catch (err) {
-      errorText = err instanceof Error ? err.message : "network error";
-    }
-
-    await supabase
-      .from("social_posts")
-      .update({
-        status: ok ? (data.scheduledAt ? "queued" : "sent") : "failed",
-        provider_response: { status: providerStatus, ok },
-        error: errorText,
-        updated_at: new Date().toISOString(),
-      } as any)
-      .eq("id", inserted.id);
-
-    if (!ok)
-      throw new Error(
-        `Webhook responded ${providerStatus}: ${errorText ?? "unknown error"}`,
-      );
-
-    // Mark images as posted so they don't get selected again
-    if (data.imageIds.length) {
-      await supabase
-        .from("images")
-        .update({ posted_at: new Date().toISOString() } as any)
-        .in("id", data.imageIds)
-        .eq("owner_id", userId);
-    }
-
-    return { postId: inserted.id, status: data.scheduledAt ? "queued" : "sent" };
+    return { postId: inserted.id, status: "sent" as const };
   });
 
 /* ------------------------------------------------------------------ */

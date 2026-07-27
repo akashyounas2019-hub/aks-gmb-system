@@ -18,6 +18,7 @@ import { Route as AuthenticatedVideoConverterRouteImport } from './routes/_authe
 import { Route as AuthenticatedVideoCompressRouteImport } from './routes/_authenticated/video-compress'
 import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
 import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedSchedulerRouteImport } from './routes/_authenticated/scheduler'
 import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
 import { Route as AuthenticatedPostStorageRouteImport } from './routes/_authenticated/post-storage'
 import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
@@ -90,6 +91,11 @@ const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
 const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSchedulerRoute = AuthenticatedSchedulerRouteImport.update({
+  id: '/scheduler',
+  path: '/scheduler',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
@@ -262,6 +268,7 @@ export interface FileRoutesByFullPath {
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/post-storage': typeof AuthenticatedPostStorageRoute
   '/resources': typeof AuthenticatedResourcesRoute
+  '/scheduler': typeof AuthenticatedSchedulerRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
   '/video-compress': typeof AuthenticatedVideoCompressRoute
@@ -299,6 +306,7 @@ export interface FileRoutesByTo {
   '/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/post-storage': typeof AuthenticatedPostStorageRoute
   '/resources': typeof AuthenticatedResourcesRoute
+  '/scheduler': typeof AuthenticatedSchedulerRoute
   '/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/upload': typeof AuthenticatedUploadRoute
   '/video-compress': typeof AuthenticatedVideoCompressRoute
@@ -338,6 +346,7 @@ export interface FileRoutesById {
   '/_authenticated/post-generator': typeof AuthenticatedPostGeneratorRoute
   '/_authenticated/post-storage': typeof AuthenticatedPostStorageRoute
   '/_authenticated/resources': typeof AuthenticatedResourcesRoute
+  '/_authenticated/scheduler': typeof AuthenticatedSchedulerRoute
   '/_authenticated/settings': typeof AuthenticatedSettingsRouteWithChildren
   '/_authenticated/upload': typeof AuthenticatedUploadRoute
   '/_authenticated/video-compress': typeof AuthenticatedVideoCompressRoute
@@ -377,6 +386,7 @@ export interface FileRouteTypes {
     | '/post-generator'
     | '/post-storage'
     | '/resources'
+    | '/scheduler'
     | '/settings'
     | '/upload'
     | '/video-compress'
@@ -414,6 +424,7 @@ export interface FileRouteTypes {
     | '/post-generator'
     | '/post-storage'
     | '/resources'
+    | '/scheduler'
     | '/settings'
     | '/upload'
     | '/video-compress'
@@ -452,6 +463,7 @@ export interface FileRouteTypes {
     | '/_authenticated/post-generator'
     | '/_authenticated/post-storage'
     | '/_authenticated/resources'
+    | '/_authenticated/scheduler'
     | '/_authenticated/settings'
     | '/_authenticated/upload'
     | '/_authenticated/video-compress'
@@ -544,6 +556,13 @@ declare module '@tanstack/react-router' {
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/scheduler': {
+      id: '/_authenticated/scheduler'
+      path: '/scheduler'
+      fullPath: '/scheduler'
+      preLoaderRoute: typeof AuthenticatedSchedulerRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/resources': {
@@ -807,6 +826,7 @@ interface AuthenticatedRouteRouteChildren {
   AuthenticatedPostGeneratorRoute: typeof AuthenticatedPostGeneratorRoute
   AuthenticatedPostStorageRoute: typeof AuthenticatedPostStorageRoute
   AuthenticatedResourcesRoute: typeof AuthenticatedResourcesRoute
+  AuthenticatedSchedulerRoute: typeof AuthenticatedSchedulerRoute
   AuthenticatedSettingsRoute: typeof AuthenticatedSettingsRouteWithChildren
   AuthenticatedUploadRoute: typeof AuthenticatedUploadRoute
   AuthenticatedVideoCompressRoute: typeof AuthenticatedVideoCompressRoute
@@ -830,6 +850,7 @@ const AuthenticatedRouteRouteChildren: AuthenticatedRouteRouteChildren = {
   AuthenticatedPostGeneratorRoute: AuthenticatedPostGeneratorRoute,
   AuthenticatedPostStorageRoute: AuthenticatedPostStorageRoute,
   AuthenticatedResourcesRoute: AuthenticatedResourcesRoute,
+  AuthenticatedSchedulerRoute: AuthenticatedSchedulerRoute,
   AuthenticatedSettingsRoute: AuthenticatedSettingsRouteWithChildren,
   AuthenticatedUploadRoute: AuthenticatedUploadRoute,
   AuthenticatedVideoCompressRoute: AuthenticatedVideoCompressRoute,

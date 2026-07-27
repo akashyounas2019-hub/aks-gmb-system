@@ -132,7 +132,15 @@ export async function extractSharpFrames(
     score: number;
   }[] = [];
 
-  const step = sampleEveryMs / 1000;
+  // Hard cap on total samples so a very long video can't freeze the tab with
+  // thousands of sequential seeks — widen the sampling interval instead of
+  // sampling every `sampleEveryMs` no matter how long the clip is.
+  const MAX_SAMPLES = 600;
+  let step = sampleEveryMs / 1000;
+  const requestedSamples = Math.max(1, Math.floor(duration / step));
+  if (requestedSamples > MAX_SAMPLES) {
+    step = duration / MAX_SAMPLES;
+  }
   let t = 0;
   const totalSamples = Math.max(1, Math.floor(duration / step));
   let idx = 0;

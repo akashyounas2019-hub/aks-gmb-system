@@ -583,48 +583,51 @@ function IntegrationsPage() {
 /* n8n integration card                                                       */
 /* -------------------------------------------------------------------------- */
 
-const N8N_STORAGE_KEY = "n8n_integration_v1";
-
 type N8nConfig = {
   webhookUrl: string;
   authHeader: string;
   authToken: string;
   enabled: boolean;
-  updatedAt?: string;
 };
 
-function readN8n(): N8nConfig {
-  if (typeof window === "undefined")
-    return { webhookUrl: "", authHeader: "", authToken: "", enabled: false };
-  try {
-    const raw = localStorage.getItem(N8N_STORAGE_KEY);
-    if (!raw) return { webhookUrl: "", authHeader: "", authToken: "", enabled: false };
-    return JSON.parse(raw);
-  } catch {
-    return { webhookUrl: "", authHeader: "", authToken: "", enabled: false };
-  }
-}
+const N8N_ENABLED_KEY = "n8n_integration_enabled_v1";
 
 function N8nIntegrationCard() {
+  const fetchAll = useServerFn(listIntegrations);
+  const saveN8n = useServerFn(saveIntegration);
+  const removeN8n = useServerFn(deleteIntegration);
+
   const [cfg, setCfg] = useState<N8nConfig>({
     webhookUrl: "",
     authHeader: "",
     authToken: "",
     enabled: false,
   });
+  const [saved, setSaved] = useState(false);
   const [open, setOpen] = useState(false);
   const [showToken, setShowToken] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  // Whether the webhook is "enabled" is purely a UI toggle (server-side
+  // sending doesn't gate on it), so it stays as a small local preference
+  // rather than needing its own encrypted column.
+  async function refresh() {
+    try {
+      const all = await fetchAll();
+      const mine = all.find((r) => r.provider === "n8n");
+      setSaved(!!mine);
+      const enabled = localStorage.getItem(N8N_ENABLED_KEY) !== "false";
+      setCfg((c) => ({ ...c, enabled: !!mine && enabled }));
+    } catch {
+      setSaved(false);
+    }
+  }
 
   useEffect(() => {
-    setCfg(readN8n());
+    refresh();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
-  function save(next: N8nConfig) {
-    const withStamp = { ...next, updatedAt: new Date().toISOString() };
-    localStorage.setItem(N8N_STORAGE_KEY, JSON.stringify(withStamp));
-    setCfg(withStamp);
-  }
 
   async function testHook() {
     if (!cfg.webhookUrl) {
@@ -653,14 +656,54 @@ function N8nIntegrationCard() {
     }
   }
 
-  function disconnect() {
-    if (!confirm("Remove n8n webhook configuration?")) return;
-    localStorage.removeItem(N8N_STORAGE_KEY);
-    setCfg({ webhookUrl: "", authHeader: "", authToken: "", enabled: false });
-    toast.message("n8n disconnected");
+  async function saveConfig() {
+    if (!cfg.webhookUrl.trim()) {
+      toast.error("Add a webhook URL first.");
+      return;
+    }
+    setSaving(true);
+    try {
+      await saveN8n({
+        data: {
+          provider: "n8n",
+          config: {
+            webhook_url: cfg.webhookUrl.trim(),
+            auth_header: cfg.authHeader.trim(),
+            auth_token: cfg.authToken.trim(),
+          },
+        },
+      });
+      localStorage.setItem(N8N_ENABLED_KEY, "true");
+      setCfg((c) => ({ ...c, enabled: true }));
+      setOpen(false);
+      await refresh();
+      toast.success("n8n webhook saved — posts will now be sent through it.");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to save");
+    } finally {
+      setSaving(false);
+    }
   }
 
-  const connected = Boolean(cfg.webhookUrl);
+  function toggleEnabled() {
+    const next = !cfg.enabled;
+    localStorage.setItem(N8N_ENABLED_KEY, String(next));
+    setCfg((c) => ({ ...c, enabled: next }));
+  }
+
+  async function disconnect() {
+    if (!confirm("Remove n8n webhook configuration?")) return;
+    try {
+      await removeN8n({ data: { provider: "n8n" } });
+      setCfg({ webhookUrl: "", authHeader: "", authToken: "", enabled: false });
+      setSaved(false);
+      toast.message("n8n disconnected");
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Failed to remove");
+    }
+  }
+
+  const connected = saved;
 
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
@@ -702,7 +745,7 @@ function N8nIntegrationCard() {
                 {testing ? <Loader2 className="h-4 w-4 animate-spin" /> : "Send test"}
               </button>
               <button
-                onClick={() => save({ ...cfg, enabled: !cfg.enabled })}
+                onClick={toggleEnabled}
                 className={`rounded-lg px-3 py-2 text-sm ${
                   cfg.enabled
                     ? "border border-border bg-card hover:bg-accent"
@@ -788,10 +831,11 @@ function N8nIntegrationCard() {
 
       <div className="mt-4 flex flex-wrap items-center gap-2">
         <button
-          onClick={() => save({ ...cfg, enabled: cfg.enabled || Boolean(cfg.webhookUrl) })}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+          onClick={saveConfig}
+          disabled={saving}
+          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
         >
-          <ShieldCheck className="h-4 w-4" />
+          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
           Save n8n configuration
         </button>
         <Link
@@ -810,8 +854,8 @@ function N8nIntegrationCard() {
         </a>
       </div>
       <p className="mt-2 text-[11px] text-muted-foreground">
-        Stored locally on this device. For production pipelines, add the URL as a project secret
-        instead.
+        Encrypted at rest and used server-side when sending posts — this is the same webhook the
+        Post Scheduler and GHL publishing use, not just a local preference.
       </p>
         </>
       )}

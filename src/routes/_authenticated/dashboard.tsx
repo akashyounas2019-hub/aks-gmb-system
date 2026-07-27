@@ -174,9 +174,9 @@ function DashboardPage() {
       accent: "from-violet-500/20 to-transparent",
     },
     {
-      to: "/calendar",
+      to: "/scheduler",
       icon: CalendarDays,
-      title: "Calendar",
+      title: "Scheduler",
       description: "Weekly and monthly publishing schedule across every profile.",
       accent: "from-teal-500/20 to-transparent",
     },
