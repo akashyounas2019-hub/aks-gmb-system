@@ -232,7 +232,7 @@ export function LocationPicker({
         copyCoords("map", lat, lng);
         infoWindow.setPosition({ lat, lng });
         infoWindow.setContent(
-          `<div style="font-family:system-ui;font-size:12px">Copied ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>`,
+          `<div style="font-family:system-ui;font-size:12px;color:#000">Copied ${lat.toFixed(6)}, ${lng.toFixed(6)}</div>`,
         );
         infoWindow.open({ map });
       });
