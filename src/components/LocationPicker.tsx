@@ -168,11 +168,11 @@ export function LocationPicker({
   // Re-run the nearby/type search for the currently expanded city when the
   // parent asks for a refresh (e.g. the page's "Refresh coordinates" button).
   useEffect(() => {
-    if (refreshKey === 0 || !expandedCity || !cityOptions) return;
-    const city = cityOptions.find((c) => c.name === expandedCity);
-    if (city) loadCityPlaces(city, cityPlaceType);
+    if (refreshKey === 0 || !searchArea) return;
+    loadCityPlaces(searchArea, cityPlaceType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
+
 
   // Render the map widget with a pin per result once a place type has been
   // picked and results have loaded.
