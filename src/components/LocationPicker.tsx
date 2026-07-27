@@ -204,9 +204,9 @@ export function LocationPicker({
         marker.addListener("contextmenu", () => {
           copyCoords(p.placeId, p.lat, p.lng);
           infoWindow.setContent(
-            `<div style="font-family:system-ui;font-size:12px;max-width:220px">
-              <div style="font-weight:600;margin-bottom:2px">${escapeHtml(p.label)}</div>
-              <div style="color:#64748b">Copied ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</div>
+            `<div style="font-family:system-ui;font-size:12px;max-width:220px;color:#000">
+              <div style="font-weight:600;margin-bottom:2px;color:#000">${escapeHtml(p.label)}</div>
+              <div style="color:#000">Copied ${p.lat.toFixed(6)}, ${p.lng.toFixed(6)}</div>
             </div>`,
           );
           infoWindow.open({ map, anchor: marker });
