@@ -450,42 +450,8 @@ export function LocationPicker({
               })}
           </div>
 
-          {/* Step 2: once a city is picked, choose a property type to filter by. */}
-          {expandedCity && (
-            <div className="mt-2">
-              <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-                <MapPin className="h-3 w-3" /> Place type in {expandedCity}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {CITY_PLACE_TYPES.map((t) => {
-                  const Icon = t.icon;
-                  const active = cityPlaceType === t.key;
-                  return (
-                    <button
-                      key={t.key}
-                      type="button"
-                      onClick={() => {
-                        setCityPlaceType(t.key);
-                        const city = cityOptions.find((c) => c.name === expandedCity);
-                        if (city) loadCityPlaces(city, t.key);
-                      }}
-                      className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                        active
-                          ? "border-primary bg-primary/10 text-primary"
-                          : "border-border bg-card hover:border-primary hover:text-primary"
-                      }`}
-                    >
-                      <Icon className="h-3 w-3" />
-                      {t.label}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: map widget with a pin per matching location, plus a
-              copyable coordinate list. */}
+          {/* Map widget with a pin per matching location, plus a copyable
+              coordinate list. */}
           {expandedCity && cityPlaceType && (
             <div className="mt-2">
               {cityPlacesLoading ? (
@@ -499,10 +465,14 @@ export function LocationPicker({
                 </div>
               ) : (
                 <div className="space-y-2">
+                  <div className="text-[11px] text-muted-foreground">
+                    Click a pin or the map to use that location · right-click anywhere to copy its coordinates.
+                  </div>
                   <div
                     ref={mapRef}
-                    className="h-56 w-full overflow-hidden rounded-md border border-border bg-muted"
+                    className="h-[420px] w-full overflow-hidden rounded-md border border-border bg-muted md:h-[520px]"
                   />
+
                   <div className="grid gap-1.5 sm:grid-cols-2">
                     {cityPlaces.map((v) => (
                       <div
