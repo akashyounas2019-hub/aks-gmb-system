@@ -81,8 +81,17 @@ export function LocationPicker({
   >([]);
   const [cityPlacesLoading, setCityPlacesLoading] = useState(false);
   const [copiedPlaceId, setCopiedPlaceId] = useState<string | null>(null);
+  // Area currently shown on the map — either a city chip or a typed area.
+  const [searchArea, setSearchArea] = useState<{
+    name: string;
+    lat?: number;
+    lng?: number;
+  } | null>(null);
+  const [manualLat, setManualLat] = useState("");
+  const [manualLng, setManualLng] = useState("");
   const mapRef = useRef<HTMLDivElement>(null);
   const sessionTokenRef = useRef<any>(null);
+
 
   // Real nearby-places lookup around a city's centroid — replaces the old
   // fabricated "point 1..5" coordinates that were never real addresses.
