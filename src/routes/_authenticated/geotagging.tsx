@@ -374,10 +374,12 @@ function GeotaggingPage() {
       .select("id,name,storage_path,lat,lng,title,description,is_favorite,posted_at")
       .order("created_at", { ascending: false })
       .limit(500);
-    // Favorites first (most-recent-first within each group), so they're
-    // easy to find at a glance instead of scattered by upload date.
+    // Unpublished favorites first, then other unpublished, then published
+    // (published images never float to the top, even when favorited).
     const rows = (data ?? []) as LibraryImage[];
-    rows.sort((a, b) => Number(Boolean(b.is_favorite)) - Number(Boolean(a.is_favorite)));
+    const rank = (r: LibraryImage) =>
+      r.posted_at != null ? 2 : r.is_favorite ? 0 : 1;
+    rows.sort((a, b) => rank(a) - rank(b));
     setLibrary(rows);
     setLibraryLoading(false);
   }, []);
