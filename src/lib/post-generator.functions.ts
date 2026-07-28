@@ -236,6 +236,8 @@ function enforceGmbPostRules(raw: string): string {
 
 const SendInput = z.object({
   caption: z.string().min(1).max(1500),
+  title: z.string().max(300).optional(),
+  tags: z.array(z.string().max(80)).max(20).default([]),
   imageIds: z.array(z.string().uuid()).max(10).default([]),
   locationLabel: z.string().max(200).optional(),
   lat: z.number().optional(),
