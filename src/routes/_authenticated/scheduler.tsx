@@ -81,6 +81,10 @@ type ScheduledPost = {
   created_at: string;
   location_label: string | null;
   image_ids: string[] | null;
+  title: string | null;
+  tags: string[] | null;
+  cta_type: string | null;
+  cta_url: string | null;
 };
 
 function PostSchedulerPanel() {
@@ -98,7 +102,7 @@ function PostSchedulerPanel() {
     const { data, error } = await supabase
       .from("social_posts")
       .select(
-        "id,caption,status,scheduled_at,created_at,location_label,image_ids",
+        "id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags,cta_type,cta_url",
       )
       .not("scheduled_at", "is", null)
       .order("scheduled_at", { ascending: true })
@@ -161,7 +165,24 @@ function PostSchedulerPanel() {
       const urls = (p.image_ids ?? [])
         .map((id) => `${origin}/api/public/img/${id}.jpg`)
         .join(" ");
-      return [esc(fmt(when)), esc(p.caption ?? ""), "", esc(urls), "", "", ""].join(",");
+      // GHL's Social Planner CSV has a single "content" field, so the title,
+      // body and keyword tags are stitched into one post body.
+      const tagLine = (p.tags ?? [])
+        .filter(Boolean)
+        .map((t) => `#${t.trim().replace(/\s+/g, "")}`)
+        .join(" ");
+      const content = [p.title?.trim(), p.caption?.trim(), tagLine]
+        .filter(Boolean)
+        .join("\n\n");
+      // CTA destination → the link (OGmetaUrl) column GHL uses for the GMB
+      // button. "call" CTAs carry a phone number, so emit a tel: link.
+      const cta =
+        !p.cta_type || p.cta_type === "none" || !p.cta_url
+          ? ""
+          : p.cta_type === "call"
+            ? `tel:${p.cta_url.replace(/[^\d+]/g, "")}`
+            : p.cta_url;
+      return [esc(fmt(when)), esc(content), esc(cta), esc(urls), "", "", ""].join(",");
     });
 
     const csv = `${header}\n${lines.join("\n")}\n`;
@@ -252,7 +273,22 @@ function PostSchedulerPanel() {
                       {p.image_ids?.length ?? 0}
                     </td>
                     <td className="max-w-[520px] py-2 text-muted-foreground">
+                      {p.title && (
+                        <div className="text-foreground">{p.title}</div>
+                      )}
                       <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+                        {(p.tags ?? []).slice(0, 6).map((t) => (
+                          <span key={t} className="rounded-full border border-border px-1.5 py-0.5">
+                            #{t}
+                          </span>
+                        ))}
+                        {p.cta_type && p.cta_type !== "none" && (
+                          <span className="rounded-full border border-primary/40 px-1.5 py-0.5 text-primary">
+                            CTA: {p.cta_type.replace("_", " ")}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 text-right">
                       <div className="inline-flex items-center gap-1">
