@@ -83,8 +83,6 @@ type ScheduledPost = {
   image_ids: string[] | null;
   title: string | null;
   tags: string[] | null;
-  cta_type: string | null;
-  cta_url: string | null;
 };
 
 function PostSchedulerPanel() {
@@ -102,7 +100,7 @@ function PostSchedulerPanel() {
     const { data, error } = await supabase
       .from("social_posts")
       .select(
-        "id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags,cta_type,cta_url",
+        "id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags",
       )
       .not("scheduled_at", "is", null)
       .order("scheduled_at", { ascending: true })
@@ -159,7 +157,7 @@ function PostSchedulerPanel() {
       `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
     const header =
-      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OGmetaUrl),imageUrls,gifUrl,videoUrls,thumbnailUrl";
+      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,imageUrls,gifUrl,videoUrls,thumbnailUrl";
     const lines = rows.map((p) => {
       const when = p.scheduled_at ? new Date(p.scheduled_at) : new Date();
       const urls = (p.image_ids ?? [])
@@ -174,15 +172,7 @@ function PostSchedulerPanel() {
       const content = [p.title?.trim(), p.caption?.trim(), tagLine]
         .filter(Boolean)
         .join("\n\n");
-      // CTA destination → the link (OGmetaUrl) column GHL uses for the GMB
-      // button. "call" CTAs carry a phone number, so emit a tel: link.
-      const cta =
-        !p.cta_type || p.cta_type === "none" || !p.cta_url
-          ? ""
-          : p.cta_type === "call"
-            ? `tel:${p.cta_url.replace(/[^\d+]/g, "")}`
-            : p.cta_url;
-      return [esc(fmt(when)), esc(content), esc(cta), esc(urls), "", "", ""].join(",");
+      return [esc(fmt(when)), esc(content), esc(urls), "", "", ""].join(",");
     });
 
     const csv = `${header}\n${lines.join("\n")}\n`;
