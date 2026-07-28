@@ -383,6 +383,10 @@ function EditScheduledPostModal({
       toast.error("Pick a schedule date/time");
       return;
     }
+    if (new Date(scheduledAt).getTime() <= Date.now()) {
+      toast.error("Pick a future date and time — posts can't be scheduled in the past.");
+      return;
+    }
     setSaving(true);
     try {
       const { error } = await supabase
