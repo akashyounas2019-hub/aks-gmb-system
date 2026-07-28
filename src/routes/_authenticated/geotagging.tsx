@@ -975,6 +975,10 @@ function GeotaggingPage() {
             refreshing={refreshing}
             refreshKey={refreshKey}
             cityOptions={cityOptions}
+            images={images}
+            coordOptions={coordOptions}
+            assignCoordToImage={assignCoordToImage}
+
           />
 
         )}
