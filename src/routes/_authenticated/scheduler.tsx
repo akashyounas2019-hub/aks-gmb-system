@@ -273,11 +273,6 @@ function PostSchedulerPanel() {
                             #{t}
                           </span>
                         ))}
-                        {p.cta_type && p.cta_type !== "none" && (
-                          <span className="rounded-full border border-primary/40 px-1.5 py-0.5 text-primary">
-                            CTA: {p.cta_type.replace("_", " ")}
-                          </span>
-                        )}
                       </div>
                     </td>
                     <td className="py-2 text-right">
