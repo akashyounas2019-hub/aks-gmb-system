@@ -30,6 +30,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { SignedImage, useSignedUrl } from "@/components/SignedImage";
 import { FavoriteBadge } from "@/components/FavoriteBadge";
+import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { embedGps, readGps, readMeta, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
@@ -270,6 +272,7 @@ type LibraryImage = {
   title: string | null;
   description: string | null;
   is_favorite: boolean | null;
+  posted_at: string | null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -368,7 +371,7 @@ function GeotaggingPage() {
     setLibraryLoading(true);
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,lat,lng,title,description,is_favorite")
+      .select("id,name,storage_path,lat,lng,title,description,is_favorite,posted_at")
       .order("created_at", { ascending: false })
       .limit(500);
     // Favorites first (most-recent-first within each group), so they're
@@ -1399,11 +1402,12 @@ function LibraryThumb({
       ) : (
         <div className="aspect-square w-full animate-pulse bg-muted" />
       )}
-      {row.lat != null && row.lng != null && (
-        <span className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
-          <MapPin className="h-2.5 w-2.5" />
-        </span>
-      )}
+      {(row.lat != null && row.lng != null) || row.posted_at != null ? (
+        <div className="absolute left-1 top-1 flex items-center gap-1">
+          <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
+          <PublishedBadge published={row.posted_at != null} compact />
+        </div>
+      ) : null}
       {row.is_favorite && (
         <div className="absolute right-1 top-1">
           <FavoriteBadge favorite compact />
@@ -2601,12 +2605,15 @@ function GeoTagImager({
                               alt={row.name}
                               className="h-full w-full object-cover"
                             />
-                            {row.lat != null && row.lng != null && (
-                              <span className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
-                                <MapPin className="h-3 w-3" />
-                              </span>
+                            {((row.lat != null && row.lng != null) ||
+                              row.posted_at != null) && (
+                              <div className="absolute left-1.5 top-1.5 flex items-center gap-1">
+                                <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
+                                <PublishedBadge published={row.posted_at != null} compact />
+                              </div>
                             )}
                           </div>
+
 
                           <div className="truncate p-1.5 text-[10px] text-muted-foreground">
                             {row.name}

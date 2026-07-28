@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { FavoriteBadge } from "@/components/FavoriteBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
 import { UploadPanel } from "@/components/UploadPanel";
@@ -58,7 +59,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "favorites" | "
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, posted_at, created_at")
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
     // Hide soft-deleted (trashed) images from normal views.
@@ -487,12 +488,24 @@ function LibraryPage() {
 
 
 
-  function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
+  // An image counts as published if it carries the published/posted tag or has
+  // actually gone out (posted_at). Used for both bucketing and the badge.
+  function isPublished(img: { id: string; posted_at?: string | null }): boolean {
+    const tags = data?.tagMap.get(img.id) ?? [];
+    if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return true;
+    return img.posted_at != null;
+  }
+
+  function imageBucket(img: {
+    id: string;
+    lat: number | null;
+    lng: number | null;
+    posted_at?: string | null;
+  }): "raw" | "published" | "geotagged" {
     // Published wins over geotagged so a geo-tagged image that gets published
     // shows up under "Published" (with its GPS still intact) instead of
     // silently staying in the geo-tagged tab.
-    const tags = data?.tagMap.get(img.id) ?? [];
-    if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
+    if (isPublished(img)) return "published";
     if (img.lat != null && img.lng != null) return "geotagged";
     return "raw";
   }
@@ -1162,9 +1175,10 @@ function LibraryPage() {
                     alt={img.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
-                  {isGeo && !selectMode && (
-                    <div className="absolute left-2 top-2 z-10">
+                  {!selectMode && (isGeo || isPublished(img)) && (
+                    <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
                       <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                      <PublishedBadge published={isPublished(img)} />
                     </div>
                   )}
                   {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
