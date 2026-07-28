@@ -1175,9 +1175,10 @@ function LibraryPage() {
                     alt={img.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
-                  {isGeo && !selectMode && (
-                    <div className="absolute left-2 top-2 z-10">
+                  {!selectMode && (isGeo || isPublished(img)) && (
+                    <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
                       <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                      <PublishedBadge published={isPublished(img)} />
                     </div>
                   )}
                   {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
