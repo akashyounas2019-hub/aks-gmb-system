@@ -81,6 +81,10 @@ type ScheduledPost = {
   created_at: string;
   location_label: string | null;
   image_ids: string[] | null;
+  title: string | null;
+  tags: string[] | null;
+  cta_type: string | null;
+  cta_url: string | null;
 };
 
 function PostSchedulerPanel() {
