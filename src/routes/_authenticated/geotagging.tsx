@@ -583,6 +583,42 @@ function GeotaggingPage() {
     applyToTargets(ids);
   };
 
+  // Every coordinate the user can assign to a single image from Step 2.
+  const coordOptions = useMemo(() => {
+    const out: { key: string; label: string; lat: number; lng: number }[] = [];
+    const seen = new Set<string>();
+    const push = (key: string, label: string, lat: number, lng: number) => {
+      const k = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ key, label, lat, lng });
+    };
+    if (customLocation) push("custom", customLocation.label, customLocation.lat, customLocation.lng);
+    if (pinnedCoord) push("pinned", pinnedCoord.label, pinnedCoord.lat, pinnedCoord.lng);
+    filteredPlaces.forEach((p) => push(p.id, `${p.name}, ${p.area}`, p.lat, p.lng));
+    return out;
+  }, [customLocation, pinnedCoord, filteredPlaces]);
+
+  // Assign one specific coordinate to one specific image (per-image tagging).
+  const assignCoordToImage = (
+    id: string,
+    coord: { lat: number; lng: number; label: string } | null,
+  ) => {
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === id
+          ? {
+              ...img,
+              lat: coord?.lat ?? null,
+              lng: coord?.lng ?? null,
+              locationLabel: coord?.label ?? null,
+            }
+          : img,
+      ),
+    );
+  };
+
+
   const updateImageMeta = (
     id: string,
     patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
