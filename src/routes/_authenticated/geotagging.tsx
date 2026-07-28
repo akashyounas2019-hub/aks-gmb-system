@@ -209,6 +209,15 @@ function mergeKeywordSet(
   return out;
 }
 
+/** Best-effort city/area name from a location label like "Villa X, Dubai Marina". */
+function cityFromLabel(label: string): string {
+  const parts = label.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return label;
+  return parts[parts.length - 1];
+}
+
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -583,6 +592,42 @@ function GeotaggingPage() {
     applyToTargets(ids);
   };
 
+  // Every coordinate the user can assign to a single image from Step 2.
+  const coordOptions = useMemo(() => {
+    const out: { key: string; label: string; lat: number; lng: number }[] = [];
+    const seen = new Set<string>();
+    const push = (key: string, label: string, lat: number, lng: number) => {
+      const k = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ key, label, lat, lng });
+    };
+    if (customLocation) push("custom", customLocation.label, customLocation.lat, customLocation.lng);
+    if (pinnedCoord) push("pinned", pinnedCoord.label, pinnedCoord.lat, pinnedCoord.lng);
+    filteredPlaces.forEach((p) => push(p.id, `${p.name}, ${p.area}`, p.lat, p.lng));
+    return out;
+  }, [customLocation, pinnedCoord, filteredPlaces]);
+
+  // Assign one specific coordinate to one specific image (per-image tagging).
+  const assignCoordToImage = (
+    id: string,
+    coord: { lat: number; lng: number; label: string } | null,
+  ) => {
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === id
+          ? {
+              ...img,
+              lat: coord?.lat ?? null,
+              lng: coord?.lng ?? null,
+              locationLabel: coord?.label ?? null,
+            }
+          : img,
+      ),
+    );
+  };
+
+
   const updateImageMeta = (
     id: string,
     patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
@@ -939,6 +984,10 @@ function GeotaggingPage() {
             refreshing={refreshing}
             refreshKey={refreshKey}
             cityOptions={cityOptions}
+            images={images}
+            coordOptions={coordOptions}
+            assignCoordToImage={assignCoordToImage}
+
           />
 
         )}
@@ -1407,6 +1456,13 @@ function StepLocation(props: {
   refreshing: boolean;
   refreshKey: number;
   cityOptions: { name: string; lat: number; lng: number }[];
+  images: LocalImage[];
+  coordOptions: { key: string; label: string; lat: number; lng: number }[];
+  assignCoordToImage: (
+    id: string,
+    coord: { lat: number; lng: number; label: string } | null,
+  ) => void;
+
 }) {
   const {
     openSection,
@@ -1440,7 +1496,11 @@ function StepLocation(props: {
     refreshing,
     refreshKey,
     cityOptions,
+    images,
+    coordOptions,
+    assignCoordToImage,
   } = props;
+
 
   return (
     <div className="space-y-4">
@@ -1487,6 +1547,98 @@ function StepLocation(props: {
           {copied ? "Copied" : "Copy"}
         </button>
       </div>
+
+      {/* Per-image coordinate assignment */}
+      {images.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              Assign a location per image
+              <span className="ml-1 text-muted-foreground/70">
+                — optional; leave blank to use the batch coordinate in Step 3.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!activeCoord) return toast.error("Pick a location first.");
+                images.forEach((img) => assignCoordToImage(img.id, activeCoord));
+                toast.success(`Applied ${activeCoord.label} to all ${images.length} images.`);
+              }}
+              disabled={!activeCoord}
+              className="rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+            >
+              Use selected for all
+            </button>
+          </div>
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {images.map((img) => {
+              const currentKey =
+                img.lat !== null && img.lng !== null
+                  ? coordOptions.find(
+                      (o) =>
+                        o.lat.toFixed(6) === img.lat!.toFixed(6) &&
+                        o.lng.toFixed(6) === img.lng!.toFixed(6),
+                    )?.key ?? "__current"
+                  : "";
+              return (
+                <div
+                  key={img.id}
+                  className="flex items-center gap-3 rounded-md border border-border bg-background p-2"
+                >
+                  <img
+                    src={img.previewUrl}
+                    alt={img.file.name}
+                    className="h-11 w-11 shrink-0 rounded object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium" title={img.file.name}>
+                      {img.file.name}
+                    </div>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      {img.lat !== null && img.lng !== null
+                        ? `${img.lat.toFixed(6)}, ${img.lng.toFixed(6)}`
+                        : "Not tagged"}
+                    </div>
+                  </div>
+                  <select
+                    value={currentKey}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) return assignCoordToImage(img.id, null);
+                      if (v === "__active") {
+                        if (!activeCoord) return;
+                        return assignCoordToImage(img.id, activeCoord);
+                      }
+                      const opt = coordOptions.find((o) => o.key === v);
+                      if (opt)
+                        assignCoordToImage(img.id, {
+                          lat: opt.lat,
+                          lng: opt.lng,
+                          label: opt.label,
+                        });
+                    }}
+                    className="w-52 shrink-0 rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">No location</option>
+                    {currentKey === "__current" && (
+                      <option value="__current">{img.locationLabel ?? "Current coordinate"}</option>
+                    )}
+                    {activeCoord && <option value="__active">Selected: {activeCoord.label}</option>}
+                    {coordOptions.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
 
 
 
@@ -1822,9 +1974,18 @@ function StepAssign({
                   <div className="truncate text-xs font-medium" title={img.file.name}>
                     {img.file.name}
                   </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {img.locationLabel ?? "Not tagged"}
+                  <div className="truncate text-[11px] font-medium text-foreground" title={img.locationLabel ?? ""}>
+                    {img.locationLabel ? cityFromLabel(img.locationLabel) : "Not tagged"}
                   </div>
+                  <div className="truncate text-[10px] text-muted-foreground" title={img.locationLabel ?? ""}>
+                    {img.locationLabel ?? "No location assigned"}
+                  </div>
+                  <div className="truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+                    {img.lat !== null && img.lng !== null
+                      ? `${img.lat.toFixed(6)}, ${img.lng.toFixed(6)}`
+                      : "—"}
+                  </div>
+
                   <MetaFields
                     img={img}
                     updateImageMeta={updateImageMeta}
