@@ -209,6 +209,15 @@ function mergeKeywordSet(
   return out;
 }
 
+/** Best-effort city/area name from a location label like "Villa X, Dubai Marina". */
+function cityFromLabel(label: string): string {
+  const parts = label.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return label;
+  return parts[parts.length - 1];
+}
+
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
