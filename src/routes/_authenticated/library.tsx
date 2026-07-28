@@ -488,12 +488,24 @@ function LibraryPage() {
 
 
 
-  function imageBucket(img: { id: string; lat: number | null; lng: number | null }): "raw" | "published" | "geotagged" {
+  // An image counts as published if it carries the published/posted tag or has
+  // actually gone out (posted_at). Used for both bucketing and the badge.
+  function isPublished(img: { id: string; posted_at?: string | null }): boolean {
+    const tags = data?.tagMap.get(img.id) ?? [];
+    if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return true;
+    return img.posted_at != null;
+  }
+
+  function imageBucket(img: {
+    id: string;
+    lat: number | null;
+    lng: number | null;
+    posted_at?: string | null;
+  }): "raw" | "published" | "geotagged" {
     // Published wins over geotagged so a geo-tagged image that gets published
     // shows up under "Published" (with its GPS still intact) instead of
     // silently staying in the geo-tagged tab.
-    const tags = data?.tagMap.get(img.id) ?? [];
-    if (tags.some((t) => t.slug === "published" || t.slug === "posted")) return "published";
+    if (isPublished(img)) return "published";
     if (img.lat != null && img.lng != null) return "geotagged";
     return "raw";
   }
