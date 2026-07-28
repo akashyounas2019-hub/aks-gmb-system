@@ -1155,6 +1155,8 @@ export type Database = {
         Row: {
           caption: string
           created_at: string
+          cta_type: string | null
+          cta_url: string | null
           error: string | null
           ghl_location_id: string | null
           id: string
@@ -1162,16 +1164,22 @@ export type Database = {
           lat: number | null
           lng: number | null
           location_label: string | null
+          networks: string[]
           owner_id: string
+          primary_keyword: string | null
           primary_keyword_id: string | null
           provider_response: Json | null
           scheduled_at: string | null
           status: string
+          tags: string[]
+          title: string | null
           updated_at: string
         }
         Insert: {
           caption: string
           created_at?: string
+          cta_type?: string | null
+          cta_url?: string | null
           error?: string | null
           ghl_location_id?: string | null
           id?: string
@@ -1179,16 +1187,22 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           location_label?: string | null
+          networks?: string[]
           owner_id: string
+          primary_keyword?: string | null
           primary_keyword_id?: string | null
           provider_response?: Json | null
           scheduled_at?: string | null
           status?: string
+          tags?: string[]
+          title?: string | null
           updated_at?: string
         }
         Update: {
           caption?: string
           created_at?: string
+          cta_type?: string | null
+          cta_url?: string | null
           error?: string | null
           ghl_location_id?: string | null
           id?: string
@@ -1196,11 +1210,15 @@ export type Database = {
           lat?: number | null
           lng?: number | null
           location_label?: string | null
+          networks?: string[]
           owner_id?: string
+          primary_keyword?: string | null
           primary_keyword_id?: string | null
           provider_response?: Json | null
           scheduled_at?: string | null
           status?: string
+          tags?: string[]
+          title?: string | null
           updated_at?: string
         }
         Relationships: []
