@@ -365,28 +365,26 @@ export function LocationPicker({
     setHistory((data ?? []) as HistoryRow[]);
   }
 
-  if (value) {
-    return (
-      <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm">
-        <MapPin className="h-4 w-4 text-primary" />
-        <div className="min-w-0 flex-1 truncate">{value.label}</div>
-        <span className="font-mono text-xs text-muted-foreground">
-          {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
-        </span>
-        <button
-          onClick={() => onChange(null)}
-          className="rounded p-1 text-muted-foreground hover:bg-accent"
-          aria-label="Clear location"
-        >
-          <X className="h-3.5 w-3.5" />
-        </button>
-      </div>
-    );
-  }
-
   return (
     <div className={compact ? "" : "space-y-2"}>
+      {value && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+          <MapPin className="h-4 w-4 text-primary" />
+          <div className="min-w-0 flex-1 truncate">{value.label}</div>
+          <span className="font-mono text-xs text-muted-foreground">
+            {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
+          </span>
+          <button
+            onClick={() => onChange(null)}
+            className="rounded p-1 text-muted-foreground hover:bg-accent"
+            aria-label="Clear location"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        </div>
+      )}
       <div className="relative">
+
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
           <input
