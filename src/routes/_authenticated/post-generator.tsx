@@ -2020,14 +2020,6 @@ export function PostGeneratorPage({
                               }
                             />
                             <FieldPill
-                              label="Images"
-                              value={
-                                selectedImages.size
-                                  ? `${selectedImages.size} selected`
-                                  : "None"
-                              }
-                            />
-                            <FieldPill
                               label="Template"
                               value={styleTemplate?.name ?? "None"}
                             />
