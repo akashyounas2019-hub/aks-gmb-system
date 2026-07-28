@@ -92,7 +92,6 @@ export function PostGeneratorPage({
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
   const [businessName, setBusinessName] = useState("");
-  const [cta, setCta] = useState("");
 
   const [scheduledAt, setScheduledAt] = useState("");
   const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
@@ -500,7 +499,6 @@ export function PostGeneratorPage({
           llm,
 
           businessName: businessName || undefined,
-          callToAction: cta || undefined,
           styleReference: styleTemplate
             ? { name: styleTemplate.name, body: styleTemplate.body }
             : undefined,
