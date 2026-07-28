@@ -165,7 +165,24 @@ function PostSchedulerPanel() {
       const urls = (p.image_ids ?? [])
         .map((id) => `${origin}/api/public/img/${id}.jpg`)
         .join(" ");
-      return [esc(fmt(when)), esc(p.caption ?? ""), "", esc(urls), "", "", ""].join(",");
+      // GHL's Social Planner CSV has a single "content" field, so the title,
+      // body and keyword tags are stitched into one post body.
+      const tagLine = (p.tags ?? [])
+        .filter(Boolean)
+        .map((t) => `#${t.trim().replace(/\s+/g, "")}`)
+        .join(" ");
+      const content = [p.title?.trim(), p.caption?.trim(), tagLine]
+        .filter(Boolean)
+        .join("\n\n");
+      // CTA destination → the link (OGmetaUrl) column GHL uses for the GMB
+      // button. "call" CTAs carry a phone number, so emit a tel: link.
+      const cta =
+        !p.cta_type || p.cta_type === "none" || !p.cta_url
+          ? ""
+          : p.cta_type === "call"
+            ? `tel:${p.cta_url.replace(/[^\d+]/g, "")}`
+            : p.cta_url;
+      return [esc(fmt(when)), esc(content), esc(cta), esc(urls), "", "", ""].join(",");
     });
 
     const csv = `${header}\n${lines.join("\n")}\n`;
