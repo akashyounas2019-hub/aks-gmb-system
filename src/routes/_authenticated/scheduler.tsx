@@ -157,12 +157,11 @@ function PostSchedulerPanel() {
       `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
     const header =
-      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,imageUrls,gifUrl,videoUrls,thumbnailUrl";
+      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OG meta URL),imageUrls,gifUrl,videoUrls,thumbnailUrl";
     const lines = rows.map((p) => {
       const when = p.scheduled_at ? new Date(p.scheduled_at) : new Date();
-      const urls = (p.image_ids ?? [])
-        .map((id) => `${origin}/api/public/img/${id}.jpg`)
-        .join(" ");
+      const ids = p.image_ids ?? [];
+      const urls = ids.map((id) => `${origin}/api/public/img/${id}.jpg`).join(" ");
       // GHL's Social Planner CSV has a single "content" field, so the title,
       // body and keyword tags are stitched into one post body.
       const tagLine = (p.tags ?? [])
@@ -172,7 +171,10 @@ function PostSchedulerPanel() {
       const content = [p.title?.trim(), p.caption?.trim(), tagLine]
         .filter(Boolean)
         .join("\n\n");
-      return [esc(fmt(when)), esc(content), esc(urls), "", "", ""].join(",");
+      // GHL requires the "link (OG meta URL)" column to be present; use the
+      // first image as the link target so the row validates on upload.
+      const link = ids[0] ? `${origin}/api/public/img/${ids[0]}.jpg` : "";
+      return [esc(fmt(when)), esc(content), esc(link), esc(urls), "", "", ""].join(",");
     });
 
     const csv = `${header}\n${lines.join("\n")}\n`;
