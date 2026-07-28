@@ -102,7 +102,7 @@ function PostSchedulerPanel() {
     const { data, error } = await supabase
       .from("social_posts")
       .select(
-        "id,caption,status,scheduled_at,created_at,location_label,image_ids",
+        "id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags,cta_type,cta_url",
       )
       .not("scheduled_at", "is", null)
       .order("scheduled_at", { ascending: true })
