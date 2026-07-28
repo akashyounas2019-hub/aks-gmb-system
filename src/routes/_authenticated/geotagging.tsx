@@ -2603,7 +2603,6 @@ function GeoTagImager({
                               alt={row.name}
                               className="h-full w-full object-cover"
                             />
-                            {row.lat != null && row.lng != null && (
                             {((row.lat != null && row.lng != null) ||
                               row.posted_at != null) && (
                               <div className="absolute left-1.5 top-1.5 flex items-center gap-1">
