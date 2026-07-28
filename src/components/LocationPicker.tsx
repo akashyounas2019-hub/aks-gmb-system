@@ -333,6 +333,22 @@ export function LocationPicker({
     onChange(loc);
     setQuery("");
     setSuggestions([]);
+    // Keep a map visible after a selection: if nothing is plotted yet, plot
+    // the picked point itself so the user can still see/adjust it.
+    setSearchArea((cur) => cur ?? { name: loc.label, lat: loc.lat, lng: loc.lng });
+    setCityPlaces((cur) =>
+      cur.length > 0
+        ? cur
+        : [
+            {
+              placeId: loc.place_id ?? `picked-${loc.lat},${loc.lng}`,
+              label: loc.label,
+              lat: loc.lat,
+              lng: loc.lng,
+            },
+          ],
+    );
+
     // Upsert into location_history (MRU)
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user?.id;
