@@ -1487,7 +1487,11 @@ function StepLocation(props: {
     refreshing,
     refreshKey,
     cityOptions,
+    images,
+    coordOptions,
+    assignCoordToImage,
   } = props;
+
 
   return (
     <div className="space-y-4">
