@@ -43,6 +43,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { FavoriteBadge } from "@/components/FavoriteBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { autoTagImages } from "@/lib/image-tagging.functions";
 import { UploadPanel } from "@/components/UploadPanel";
@@ -58,7 +59,7 @@ type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "favorites" | "
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, created_at")
+    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, posted_at, created_at")
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
     // Hide soft-deleted (trashed) images from normal views.
