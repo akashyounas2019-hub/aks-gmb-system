@@ -530,11 +530,15 @@ export function PostGeneratorPage({
     reloadImages();
   }, []);
 
-  const visibleImages = useMemo(
-    () =>
-      showPosted ? images : images.filter((i) => !i.posted_at),
-    [images, showPosted],
-  );
+  const visibleImages = useMemo(() => {
+    const base = showPosted ? images : images.filter((i) => !i.posted_at);
+    return base.slice().sort((a, b) => {
+      const aGeo = a.lat != null && a.lng != null ? 1 : 0;
+      const bGeo = b.lat != null && b.lng != null ? 1 : 0;
+      if (aGeo !== bGeo) return bGeo - aGeo;
+      return 0;
+    });
+  }, [images, showPosted]);
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const filteredImportKw = useMemo(() => {
