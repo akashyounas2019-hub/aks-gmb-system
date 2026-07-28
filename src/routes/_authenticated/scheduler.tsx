@@ -273,7 +273,22 @@ function PostSchedulerPanel() {
                       {p.image_ids?.length ?? 0}
                     </td>
                     <td className="max-w-[520px] py-2 text-muted-foreground">
+                      {p.title && (
+                        <div className="text-foreground">{p.title}</div>
+                      )}
                       <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+                        {(p.tags ?? []).slice(0, 6).map((t) => (
+                          <span key={t} className="rounded-full border border-border px-1.5 py-0.5">
+                            #{t}
+                          </span>
+                        ))}
+                        {p.cta_type && p.cta_type !== "none" && (
+                          <span className="rounded-full border border-primary/40 px-1.5 py-0.5 text-primary">
+                            CTA: {p.cta_type.replace("_", " ")}
+                          </span>
+                        )}
+                      </div>
                     </td>
                     <td className="py-2 text-right">
                       <div className="inline-flex items-center gap-1">
