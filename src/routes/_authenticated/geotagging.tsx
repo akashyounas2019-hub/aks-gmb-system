@@ -30,6 +30,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { SignedImage, useSignedUrl } from "@/components/SignedImage";
 import { FavoriteBadge } from "@/components/FavoriteBadge";
+import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { embedGps, readGps, readMeta, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
