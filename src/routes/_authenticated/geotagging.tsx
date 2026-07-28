@@ -1400,11 +1400,12 @@ function LibraryThumb({
       ) : (
         <div className="aspect-square w-full animate-pulse bg-muted" />
       )}
-      {row.lat != null && row.lng != null && (
-        <span className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
-          <MapPin className="h-2.5 w-2.5" />
-        </span>
-      )}
+      {(row.lat != null && row.lng != null) || row.posted_at != null ? (
+        <div className="absolute left-1 top-1 flex items-center gap-1">
+          <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
+          <PublishedBadge published={row.posted_at != null} compact />
+        </div>
+      ) : null}
       {row.is_favorite && (
         <div className="absolute right-1 top-1">
           <FavoriteBadge favorite compact />
@@ -2603,11 +2604,15 @@ function GeoTagImager({
                               className="h-full w-full object-cover"
                             />
                             {row.lat != null && row.lng != null && (
-                              <span className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
-                                <MapPin className="h-3 w-3" />
-                              </span>
+                            {((row.lat != null && row.lng != null) ||
+                              row.posted_at != null) && (
+                              <div className="absolute left-1.5 top-1.5 flex items-center gap-1">
+                                <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
+                                <PublishedBadge published={row.posted_at != null} compact />
+                              </div>
                             )}
                           </div>
+
 
                           <div className="truncate p-1.5 text-[10px] text-muted-foreground">
                             {row.name}
