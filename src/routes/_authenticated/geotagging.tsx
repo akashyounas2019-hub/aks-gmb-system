@@ -1447,6 +1447,13 @@ function StepLocation(props: {
   refreshing: boolean;
   refreshKey: number;
   cityOptions: { name: string; lat: number; lng: number }[];
+  images: LocalImage[];
+  coordOptions: { key: string; label: string; lat: number; lng: number }[];
+  assignCoordToImage: (
+    id: string,
+    coord: { lat: number; lng: number; label: string } | null,
+  ) => void;
+
 }) {
   const {
     openSection,
