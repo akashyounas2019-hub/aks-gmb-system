@@ -40,7 +40,6 @@ import {
   sendPostToSocialPlanner,
 } from "@/lib/post-generator.functions";
 import { readGps } from "@/lib/exif-geotag";
-import { getPreferences } from "@/lib/user-preferences.functions";
 
 export const Route = createFileRoute("/_authenticated/post-generator")({
   component: () => <PostGeneratorPage />,
@@ -108,7 +107,6 @@ export function PostGeneratorPage({
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const loadPrefs = useServerFn(getPreferences);
   const captionMirrorRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLTextAreaElement>(null);
   const [symbolsOpen, setSymbolsOpen] = useState(false);
