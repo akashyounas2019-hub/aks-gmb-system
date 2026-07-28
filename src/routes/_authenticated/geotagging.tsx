@@ -1539,6 +1539,98 @@ function StepLocation(props: {
         </button>
       </div>
 
+      {/* Per-image coordinate assignment */}
+      {images.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              Assign a location per image
+              <span className="ml-1 text-muted-foreground/70">
+                — optional; leave blank to use the batch coordinate in Step 3.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!activeCoord) return toast.error("Pick a location first.");
+                images.forEach((img) => assignCoordToImage(img.id, activeCoord));
+                toast.success(`Applied ${activeCoord.label} to all ${images.length} images.`);
+              }}
+              disabled={!activeCoord}
+              className="rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+            >
+              Use selected for all
+            </button>
+          </div>
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {images.map((img) => {
+              const currentKey =
+                img.lat !== null && img.lng !== null
+                  ? coordOptions.find(
+                      (o) =>
+                        o.lat.toFixed(6) === img.lat!.toFixed(6) &&
+                        o.lng.toFixed(6) === img.lng!.toFixed(6),
+                    )?.key ?? "__current"
+                  : "";
+              return (
+                <div
+                  key={img.id}
+                  className="flex items-center gap-3 rounded-md border border-border bg-background p-2"
+                >
+                  <img
+                    src={img.previewUrl}
+                    alt={img.file.name}
+                    className="h-11 w-11 shrink-0 rounded object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium" title={img.file.name}>
+                      {img.file.name}
+                    </div>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      {img.lat !== null && img.lng !== null
+                        ? `${img.lat.toFixed(6)}, ${img.lng.toFixed(6)}`
+                        : "Not tagged"}
+                    </div>
+                  </div>
+                  <select
+                    value={currentKey}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) return assignCoordToImage(img.id, null);
+                      if (v === "__active") {
+                        if (!activeCoord) return;
+                        return assignCoordToImage(img.id, activeCoord);
+                      }
+                      const opt = coordOptions.find((o) => o.key === v);
+                      if (opt)
+                        assignCoordToImage(img.id, {
+                          lat: opt.lat,
+                          lng: opt.lng,
+                          label: opt.label,
+                        });
+                    }}
+                    className="w-52 shrink-0 rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
+                  >
+                    <option value="">No location</option>
+                    {currentKey === "__current" && (
+                      <option value="__current">{img.locationLabel ?? "Current coordinate"}</option>
+                    )}
+                    {activeCoord && <option value="__active">Selected: {activeCoord.label}</option>}
+                    {coordOptions.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      )}
+
+
+
 
 
 
