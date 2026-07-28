@@ -694,6 +694,9 @@ export function PostGeneratorPage({
       const res = await send({
         data: {
           caption,
+          title:
+            (manualKw[0] ?? businessName ?? caption.slice(0, 60).trim()) || undefined,
+          tags: manualKw.slice(0, 20),
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
           lat: location?.lat,
