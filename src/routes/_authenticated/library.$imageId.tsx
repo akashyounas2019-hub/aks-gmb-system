@@ -8,6 +8,7 @@ import { ArrowLeft, MapPin, Maximize2, Sparkles, Trash2, X } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { describeImage, suggestTagsForImage } from "@/lib/ai.functions";
 
 const DESCRIPTION_KEYWORDS = [

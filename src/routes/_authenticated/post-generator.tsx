@@ -2266,9 +2266,10 @@ function ImageThumb({
         alt={img.name}
         className="aspect-square w-full object-cover"
       />
-      {img.lat != null && img.lng != null && (
-        <div className="absolute left-1 top-1">
+      {(posted || (img.lat != null && img.lng != null)) && (
+        <div className="absolute left-1 top-1 flex items-center gap-1">
           <GeoTaggedBadge lat={img.lat} lng={img.lng} compact />
+          <PublishedBadge published={posted} compact />
         </div>
       )}
       {active && (
