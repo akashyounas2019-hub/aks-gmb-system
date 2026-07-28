@@ -270,6 +270,7 @@ type LibraryImage = {
   title: string | null;
   description: string | null;
   is_favorite: boolean | null;
+  posted_at: string | null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -368,7 +369,7 @@ function GeotaggingPage() {
     setLibraryLoading(true);
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,lat,lng,title,description,is_favorite")
+      .select("id,name,storage_path,lat,lng,title,description,is_favorite,posted_at")
       .order("created_at", { ascending: false })
       .limit(500);
     // Favorites first (most-recent-first within each group), so they're
