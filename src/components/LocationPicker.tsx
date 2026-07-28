@@ -304,6 +304,23 @@ export function LocationPicker({
     };
   }, [query, ready]);
 
+  // Typing a city/area name should show the map with pins automatically,
+  // without requiring the "Show typed area on map" button.
+  useEffect(() => {
+    const area = query.trim();
+    if (!ready || area.length < 3) return;
+    const timer = setTimeout(() => {
+      setExpandedCity(null);
+      const next = { name: area };
+      setSearchArea(next);
+      loadCityPlaces(next, cityPlaceType);
+    }, 900);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query, ready]);
+
+
+
   async function selectSuggestion(placeId: string, fallbackText: string) {
     try {
       const { Place } = (await (window as any).google.maps.importLibrary(
