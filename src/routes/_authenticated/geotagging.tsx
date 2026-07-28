@@ -1965,9 +1965,18 @@ function StepAssign({
                   <div className="truncate text-xs font-medium" title={img.file.name}>
                     {img.file.name}
                   </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {img.locationLabel ?? "Not tagged"}
+                  <div className="truncate text-[11px] font-medium text-foreground" title={img.locationLabel ?? ""}>
+                    {img.locationLabel ? cityFromLabel(img.locationLabel) : "Not tagged"}
                   </div>
+                  <div className="truncate text-[10px] text-muted-foreground" title={img.locationLabel ?? ""}>
+                    {img.locationLabel ?? "No location assigned"}
+                  </div>
+                  <div className="truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+                    {img.lat !== null && img.lng !== null
+                      ? `${img.lat.toFixed(6)}, ${img.lng.toFixed(6)}`
+                      : "—"}
+                  </div>
+
                   <MetaFields
                     img={img}
                     updateImageMeta={updateImageMeta}
