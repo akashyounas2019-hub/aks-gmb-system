@@ -5,7 +5,6 @@ import {
   Copy,
   Send,
   Sparkles,
-  Calendar,
   X,
   Loader2,
   ImageIcon,
@@ -65,6 +64,33 @@ type ImageRow = {
 
 const PREVIEW_COUNT = 8;
 
+// Dubai-area names the business serves — 7-8 are randomly picked per
+// generated post and mentioned as a "Serving:" line in the caption.
+const SERVING_AREAS = [
+  "Abu Hail", "Al Barsha", "Al Barsha Heights", "Al Furjan", "Al Jadaf",
+  "Al Khalil Gate", "Al Mamzar", "Al Nahda", "Al Qusais", "Al Rigga",
+  "Al Warqa", "Al Wasl", "Akoya", "Arabian Ranches", "Arjaan", "Boulevard",
+  "Burj Khalifa", "Business Bay", "DIFC", "Discovery Gardens",
+  "Dubai Downtown", "Dubai Falcon City", "Dubai Festival City",
+  "Dubai Health Care City", "Dubai Investment Park", "Dubai Land",
+  "Dubai Marina", "Emirates Hills", "IMPZ", "International City",
+  "Internet City", "JLT", "JVC", "Jumeirah", "Jumeirah Beach Residence",
+  "Jumeirah Park", "Layan Community", "Meadows", "Meydan", "Mirdiff",
+  "Mirdiff Hills", "Motor City", "Mudon", "Nad Al Hammar", "Nad Al Sheba",
+  "Palm Jumeirah", "Rashidiya", "Sheikh Zayed Road", "Sport City",
+  "Studio City", "Umm Suqeim", "Uptown Mirdiff",
+] as const;
+
+function pickServingAreas(): string[] {
+  const count = 7 + Math.round(Math.random());
+  const pool = [...SERVING_AREAS];
+  for (let i = pool.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [pool[i], pool[j]] = [pool[j], pool[i]];
+  }
+  return pool.slice(0, count);
+}
+
 
 
 export function PostGeneratorPage({
@@ -91,6 +117,7 @@ export function PostGeneratorPage({
   const [showPosted, setShowPosted] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
+  const [servingAreas, setServingAreas] = useState<string[]>(() => pickServingAreas());
   const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
   const [businessName, setBusinessName] = useState("");
 
@@ -503,6 +530,7 @@ export function PostGeneratorPage({
           styleReference: styleTemplate
             ? { name: styleTemplate.name, body: styleTemplate.body }
             : undefined,
+          servingAreas: isSocial ? undefined : servingAreas,
         },
       });
       // Append hashtags and @mentions to the generated caption for social posts.
@@ -910,6 +938,39 @@ export function PostGeneratorPage({
               </div>
             )}
           </section>
+
+          {/* Serving areas — 7-8 random Dubai areas mentioned in every GMB post */}
+          {!isSocial && (
+            <section className="rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-medium">
+                  <MapPin className="h-4 w-4 text-primary" /> Serving areas
+                  <span className="text-xs text-muted-foreground">
+                    ({servingAreas.length} of {SERVING_AREAS.length})
+                  </span>
+                </div>
+                <button
+                  onClick={() => setServingAreas(pickServingAreas())}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+                >
+                  Shuffle
+                </button>
+              </div>
+              <div className="flex flex-wrap gap-1.5">
+                {servingAreas.map((a) => (
+                  <span
+                    key={a}
+                    className="inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs text-primary"
+                  >
+                    {a}
+                  </span>
+                ))}
+              </div>
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                A fresh set of {servingAreas.length} areas is mentioned in every generated post. Shuffle to pick a different set.
+              </p>
+            </section>
+          )}
 
           {/* Hashtags & Mentions — social platforms only */}
           {isSocial && (
@@ -1499,41 +1560,6 @@ export function PostGeneratorPage({
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 text-sm font-medium">Publish</div>
             <div className="space-y-3 text-sm">
-              <label className="block">
-
-                <span className="text-xs text-muted-foreground">
-                  Schedule at (leave empty = send now)
-                </span>
-                <div className="mt-1 flex items-center gap-2">
-                  <Calendar className="h-4 w-4 text-muted-foreground" />
-                  <input
-                    type="datetime-local"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                    className="flex-1 rounded border border-border bg-background p-2 text-sm"
-                  />
-                  {scheduledAt && (
-                    <button
-                      onClick={() => setScheduledAt("")}
-                      className="rounded p-1 text-muted-foreground hover:bg-accent"
-                      aria-label="Clear"
-                    >
-                      <X className="h-4 w-4" />
-                    </button>
-                  )}
-                </div>
-              </label>
-
-              {/* Destination — GMB only */}
-              <div>
-                <div className="text-xs text-muted-foreground">Destination</div>
-                <div className="mt-1.5">
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-primary/40 bg-primary/10 px-3 py-1 text-xs font-medium text-primary">
-                    Google Business Profile
-                  </span>
-                </div>
-              </div>
-
               <div className="grid grid-cols-3 gap-2">
                 <button
                   onClick={() => setPreviewOpen(true)}
@@ -1561,7 +1587,7 @@ export function PostGeneratorPage({
                   ) : (
                     <Send className="h-4 w-4" />
                   )}
-                  {scheduledAt ? "Schedule…" : "Send…"}
+                  Send
                 </button>
               </div>
               <p className="text-xs text-muted-foreground">

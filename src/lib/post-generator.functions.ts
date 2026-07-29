@@ -27,6 +27,8 @@ const ComposeInput = z.object({
       body: z.string().max(4000),
     })
     .optional(),
+  // 7-8 Dubai-area names to weave into the post as a "Serving:" style mention.
+  servingAreas: z.array(z.string().min(1)).max(8).optional(),
 });
 
 const LLM_MODELS: Record<"gemini" | "chatgpt" | "anthropic" | "openrouter", string> = {
@@ -77,6 +79,7 @@ Write a Google Business Profile post that:
 - Describes what is actually visible in the attached image(s) when they are provided.
 - Does NOT use hashtags anywhere — Google Business Profile posts do not support them; hashtags are a social-media convention (Facebook/Instagram) and must never appear here.
 - Includes the location naturally in the first two sentences if provided.
+- If SERVING AREAS are provided, includes them as a short "Serving: <area>, <area>, …" style mention naming all of them — this is the areas the business covers, distinct from the specific job location.
 - MUST be 1480 characters or fewer in total, including all spaces, line breaks, and punctuation. This is a hard limit, not a target — count carefully as you write and stop well before it. If you are unsure, write shorter rather than risk going over.
 - Written in English.
 - If a TEMPLATE is provided, follow ONLY its structural format: the order and number of sections, line/paragraph breaks, and where emojis/CTA sit (never hashtags, which are excluded regardless of what the template does). Every word must be newly written from the current keywords and images — never reuse its sentences, offers, prices, or brand names.
@@ -92,6 +95,7 @@ Return ONLY the caption text, no preamble.`;
       `Keywords: ${data.keywords.join(", ")}`,
       data.callToAction ? `Call-to-action: ${data.callToAction}` : null,
       data.extraContext ? `Extra context: ${data.extraContext}` : null,
+      data.servingAreas?.length ? `Serving areas: ${data.servingAreas.join(", ")}` : null,
       imageUrls.length
         ? `There ${imageUrls.length === 1 ? "is 1 image" : `are ${imageUrls.length} images`} attached — analyse what is visible and let it shape the description.`
         : null,
@@ -130,6 +134,7 @@ Return ONLY the caption text, no preamble.`;
           keywords: data.keywords,
           images: imageUrls,
           template: data.styleReference?.body ?? null,
+          servingAreas: data.servingAreas ?? [],
         }),
       });
       if (!res.ok)
