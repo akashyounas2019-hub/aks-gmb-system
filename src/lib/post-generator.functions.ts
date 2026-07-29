@@ -236,6 +236,8 @@ function enforceGmbPostRules(raw: string): string {
 
 const SendInput = z.object({
   caption: z.string().min(1).max(1500),
+  title: z.string().max(300).optional(),
+  tags: z.array(z.string().max(80)).max(20).default([]),
   imageIds: z.array(z.string().uuid()).max(10).default([]),
   locationLabel: z.string().max(200).optional(),
   lat: z.number().optional(),
@@ -431,6 +433,10 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
       .insert({
         owner_id: userId,
         caption: data.caption,
+        title: data.title ?? null,
+        tags: data.tags ?? [],
+        primary_keyword: data.primaryKeyword ?? null,
+        networks: data.networks ?? ["gmb"],
         image_ids: data.imageIds,
         location_label: data.locationLabel ?? null,
         lat: data.lat ?? null,

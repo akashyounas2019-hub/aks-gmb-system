@@ -8,6 +8,7 @@ import { ArrowLeft, MapPin, Maximize2, Sparkles, Trash2, X } from "lucide-react"
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { describeImage, suggestTagsForImage } from "@/lib/ai.functions";
 
 const DESCRIPTION_KEYWORDS = [
@@ -31,7 +32,7 @@ async function fetchImage(imageId: string) {
   const { data: image, error } = await supabase
     .from("images")
     .select(
-      "id, name, title, description, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id",
+      "id, name, title, description, storage_path, sharpness_score, timestamp_seconds, venue_id, lat, lng, video_id, posted_at",
     )
     .eq("id", imageId)
     .is("deleted_at", null)
@@ -222,9 +223,10 @@ function ImageDetail() {
               <Maximize2 className="h-3 w-3" /> Click to enlarge
             </span>
           </button>
-          {image.lat != null && image.lng != null && (
-            <div className="absolute left-3 top-3">
+          {(image.posted_at != null || (image.lat != null && image.lng != null)) && (
+            <div className="absolute left-3 top-3 flex flex-wrap items-center gap-1">
               <GeoTaggedBadge lat={Number(image.lat)} lng={Number(image.lng)} />
+              <PublishedBadge published={image.posted_at != null} />
             </div>
           )}
         </div>

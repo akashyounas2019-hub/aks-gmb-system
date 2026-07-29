@@ -30,6 +30,8 @@ import { supabase } from "@/integrations/supabase/client";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { SignedImage, useSignedUrl } from "@/components/SignedImage";
 import { FavoriteBadge } from "@/components/FavoriteBadge";
+import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import { embedGps, readGps, readMeta, type GpsReadResult } from "@/lib/exif-geotag";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
@@ -79,27 +81,64 @@ const TYPE_SEARCH_TERM: Record<PlaceType, string> = {
 // Common Dubai areas — a shortcut for the area filter and the default map
 // city buttons. These are only starting points for a real Google Places
 // search; they are never used as a source of coordinates themselves.
-const AREAS = [
-  "Al Qusais",
-  "Deira",
-  "Business Bay",
-  "Downtown Dubai",
-  "Dubai Marina",
-  "Al Barsha",
-  "Jumeirah",
-  "JLT",
-].sort();
-
 const AREA_SEED_CENTERS: Record<string, { lat: number; lng: number }> = {
-  "Al Qusais": { lat: 25.2867, lng: 55.3873 },
-  Deira: { lat: 25.2701, lng: 55.3160 },
-  "Business Bay": { lat: 25.1867, lng: 55.2704 },
-  "Downtown Dubai": { lat: 25.1934, lng: 55.2751 },
-  "Dubai Marina": { lat: 25.0805, lng: 55.1403 },
+  "Abu Hail": { lat: 25.2857, lng: 55.3335 },
   "Al Barsha": { lat: 25.1041, lng: 55.1936 },
-  Jumeirah: { lat: 25.2048, lng: 55.2708 },
+  "Al Barsha Heights": { lat: 25.0985, lng: 55.1758 },
+  "Al Furjan": { lat: 25.0263, lng: 55.1442 },
+  "Al Jadaf": { lat: 25.2246, lng: 55.3325 },
+  "Al Khalil Gate": { lat: 25.1876, lng: 55.2622 },
+  "Al Mamzar": { lat: 25.3007, lng: 55.3441 },
+  "Al Nahda": { lat: 25.2939, lng: 55.3691 },
+  "Al Qusais": { lat: 25.2867, lng: 55.3873 },
+  "Al Rigga": { lat: 25.2646, lng: 55.3243 },
+  "Al Warqa": { lat: 25.2062, lng: 55.3903 },
+  "Al Wasl": { lat: 25.1963, lng: 55.2534 },
+  Akoya: { lat: 24.9297, lng: 55.2611 },
+  "Arabian Ranches": { lat: 25.0432, lng: 55.2703 },
+  Arjaan: { lat: 25.0995, lng: 55.1740 },
+  Boulevard: { lat: 25.1930, lng: 55.2760 },
+  "Burj Khalifa": { lat: 25.1972, lng: 55.2744 },
+  "Business Bay": { lat: 25.1867, lng: 55.2704 },
+  DIFC: { lat: 25.2110, lng: 55.2796 },
+  "Discovery Gardens": { lat: 25.0430, lng: 55.1385 },
+  "Dubai Downtown": { lat: 25.1934, lng: 55.2751 },
+  "Dubai Falcon City": { lat: 25.1183, lng: 55.3216 },
+  "Dubai Festival City": { lat: 25.2216, lng: 55.3536 },
+  "Dubai Health Care City": { lat: 25.2320, lng: 55.3234 },
+  "Dubai Investment Park": { lat: 24.9857, lng: 55.1770 },
+  "Dubai Land": { lat: 25.1000, lng: 55.3200 },
+  "Dubai Marina": { lat: 25.0805, lng: 55.1403 },
+  "Emirates Hills": { lat: 25.0682, lng: 55.1657 },
+  IMPZ: { lat: 25.0299, lng: 55.2088 },
+  "International City": { lat: 25.1615, lng: 55.4098 },
+  "Internet City": { lat: 25.0937, lng: 55.1626 },
   JLT: { lat: 25.0705, lng: 55.1443 },
+  JVC: { lat: 25.0587, lng: 55.2094 },
+  Jumeirah: { lat: 25.2048, lng: 55.2708 },
+  "Jumeirah Beach Residence": { lat: 25.0784, lng: 55.1336 },
+  "Jumeirah Park": { lat: 25.0447, lng: 55.1583 },
+  "Layan Community": { lat: 25.0640, lng: 55.3170 },
+  Meadows: { lat: 25.0575, lng: 55.1745 },
+  Meydan: { lat: 25.1571, lng: 55.3006 },
+  Mirdiff: { lat: 25.2168, lng: 55.4183 },
+  "Mirdiff Hills": { lat: 25.2110, lng: 55.4231 },
+  "Motor City": { lat: 25.0475, lng: 55.2385 },
+  Mudon: { lat: 25.0027, lng: 55.2646 },
+  "Nad Al Hammar": { lat: 25.2166, lng: 55.3670 },
+  "Nad Al Sheba": { lat: 25.1567, lng: 55.3200 },
+  "Palm Jumeirah": { lat: 25.1124, lng: 55.1390 },
+  Rashidiya: { lat: 25.2400, lng: 55.3897 },
+  "Sheikh Zayed Road": { lat: 25.2110, lng: 55.2740 },
+  "Sport City": { lat: 25.0388, lng: 55.2226 },
+  "Studio City": { lat: 25.0342, lng: 55.2418 },
+  "Umm Suqeim": { lat: 25.1413, lng: 55.1994 },
+  "Uptown Mirdiff": { lat: 25.2247, lng: 55.4149 },
+  Deira: { lat: 25.2701, lng: 55.3160 },
 };
+
+const AREAS = Object.keys(AREA_SEED_CENTERS).sort();
+
 
 /**
  * Looks up real places from Google Places (Text Search) for a given property
@@ -172,6 +211,15 @@ function mergeKeywordSet(
   return out;
 }
 
+/** Best-effort city/area name from a location label like "Villa X, Dubai Marina". */
+function cityFromLabel(label: string): string {
+  const parts = label.split(",").map((p) => p.trim()).filter(Boolean);
+  if (parts.length === 0) return label;
+  return parts[parts.length - 1];
+}
+
+
+
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -224,6 +272,7 @@ type LibraryImage = {
   title: string | null;
   description: string | null;
   is_favorite: boolean | null;
+  posted_at: string | null;
 };
 
 /* -------------------------------------------------------------------------- */
@@ -322,13 +371,15 @@ function GeotaggingPage() {
     setLibraryLoading(true);
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,lat,lng,title,description,is_favorite")
+      .select("id,name,storage_path,lat,lng,title,description,is_favorite,posted_at")
       .order("created_at", { ascending: false })
       .limit(500);
-    // Favorites first (most-recent-first within each group), so they're
-    // easy to find at a glance instead of scattered by upload date.
+    // Unpublished favorites first, then other unpublished, then published
+    // (published images never float to the top, even when favorited).
     const rows = (data ?? []) as LibraryImage[];
-    rows.sort((a, b) => Number(Boolean(b.is_favorite)) - Number(Boolean(a.is_favorite)));
+    const rank = (r: LibraryImage) =>
+      r.posted_at != null ? 2 : r.is_favorite ? 0 : 1;
+    rows.sort((a, b) => rank(a) - rank(b));
     setLibrary(rows);
     setLibraryLoading(false);
   }, []);
@@ -545,6 +596,42 @@ function GeotaggingPage() {
     }
     applyToTargets(ids);
   };
+
+  // Every coordinate the user can assign to a single image from Step 2.
+  const coordOptions = useMemo(() => {
+    const out: { key: string; label: string; lat: number; lng: number }[] = [];
+    const seen = new Set<string>();
+    const push = (key: string, label: string, lat: number, lng: number) => {
+      const k = `${lat.toFixed(6)},${lng.toFixed(6)}`;
+      if (seen.has(k)) return;
+      seen.add(k);
+      out.push({ key, label, lat, lng });
+    };
+    if (customLocation) push("custom", customLocation.label, customLocation.lat, customLocation.lng);
+    if (pinnedCoord) push("pinned", pinnedCoord.label, pinnedCoord.lat, pinnedCoord.lng);
+    filteredPlaces.forEach((p) => push(p.id, `${p.name}, ${p.area}`, p.lat, p.lng));
+    return out;
+  }, [customLocation, pinnedCoord, filteredPlaces]);
+
+  // Assign one specific coordinate to one specific image (per-image tagging).
+  const assignCoordToImage = (
+    id: string,
+    coord: { lat: number; lng: number; label: string } | null,
+  ) => {
+    setImages((prev) =>
+      prev.map((img) =>
+        img.id === id
+          ? {
+              ...img,
+              lat: coord?.lat ?? null,
+              lng: coord?.lng ?? null,
+              locationLabel: coord?.label ?? null,
+            }
+          : img,
+      ),
+    );
+  };
+
 
   const updateImageMeta = (
     id: string,
@@ -902,6 +989,10 @@ function GeotaggingPage() {
             refreshing={refreshing}
             refreshKey={refreshKey}
             cityOptions={cityOptions}
+            images={images}
+            coordOptions={coordOptions}
+            assignCoordToImage={assignCoordToImage}
+
           />
 
         )}
@@ -1313,11 +1404,12 @@ function LibraryThumb({
       ) : (
         <div className="aspect-square w-full animate-pulse bg-muted" />
       )}
-      {row.lat != null && row.lng != null && (
-        <span className="absolute left-1 top-1 inline-flex h-4 w-4 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
-          <MapPin className="h-2.5 w-2.5" />
-        </span>
-      )}
+      {(row.lat != null && row.lng != null) || row.posted_at != null ? (
+        <div className="absolute left-1 top-1 flex items-center gap-1">
+          <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
+          <PublishedBadge published={row.posted_at != null} compact />
+        </div>
+      ) : null}
       {row.is_favorite && (
         <div className="absolute right-1 top-1">
           <FavoriteBadge favorite compact />
@@ -1370,6 +1462,13 @@ function StepLocation(props: {
   refreshing: boolean;
   refreshKey: number;
   cityOptions: { name: string; lat: number; lng: number }[];
+  images: LocalImage[];
+  coordOptions: { key: string; label: string; lat: number; lng: number }[];
+  assignCoordToImage: (
+    id: string,
+    coord: { lat: number; lng: number; label: string } | null,
+  ) => void;
+
 }) {
   const {
     openSection,
@@ -1403,7 +1502,11 @@ function StepLocation(props: {
     refreshing,
     refreshKey,
     cityOptions,
+    images,
+    coordOptions,
+    assignCoordToImage,
   } = props;
+
 
   return (
     <div className="space-y-4">
@@ -1451,109 +1554,100 @@ function StepLocation(props: {
         </button>
       </div>
 
-      {/* Collapsible: quick home/office */}
-      <Collapsible
-        title="Quick pick — Home / Office"
-        subtitle="One-tap presets. Pin one to auto-tag new uploads."
-        open={openSection === "quick"}
-        onToggle={() => setOpenSection("quick")}
-        badge={
-          pinnedCoord && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-primary/15 px-2 py-0.5 text-[10px] font-medium text-primary">
-              <Pin className="h-3 w-3" /> Pinned
-            </span>
-          )
-        }
-      >
-        <div className="grid gap-3 md:grid-cols-2">
-          {(
-            [
-              { kind: "home" as const, list: homePlaces, pickId: homePickId, setPickId: setHomePickId },
-              { kind: "office" as const, list: officePlaces, pickId: officePickId, setPickId: setOfficePickId },
-            ]
-          ).map(({ kind, list, pickId, setPickId }) => {
-            const meta = TYPE_META[kind];
-            const Icon = meta.icon;
-            const place = list.find((p) => p.id === pickId) ?? list[0];
-            const isPinned =
-              pinnedCoord?.kind === kind &&
-              place &&
-              pinnedCoord.lat === place.lat &&
-              pinnedCoord.lng === place.lng;
-            return (
-              <div key={kind} className="rounded-lg border border-border p-3">
-                <div className="mb-2 flex items-center gap-2">
-                  <span className={`grid h-8 w-8 place-items-center rounded-md ${meta.tone}`}>
-                    <Icon className="h-4 w-4" />
-                  </span>
-                  <div className="text-sm font-medium">{meta.label} coordinate</div>
-                </div>
-                {list.length === 0 ? (
-                  <div className="rounded-md border border-dashed border-border px-2.5 py-2 text-xs text-muted-foreground">
-                    {placesLoading
-                      ? "Searching Google Places…"
-                      : "No results yet — search a city in the Location library below."}
+      {/* Per-image coordinate assignment */}
+      {images.length > 0 && (
+        <div className="rounded-lg border border-border bg-muted/20 p-3">
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div className="text-xs font-medium text-muted-foreground">
+              Assign a location per image
+              <span className="ml-1 text-muted-foreground/70">
+                — optional; leave blank to use the batch coordinate in Step 3.
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => {
+                if (!activeCoord) return toast.error("Pick a location first.");
+                images.forEach((img) => assignCoordToImage(img.id, activeCoord));
+                toast.success(`Applied ${activeCoord.label} to all ${images.length} images.`);
+              }}
+              disabled={!activeCoord}
+              className="rounded-md border border-border px-2.5 py-1 text-[11px] hover:bg-accent disabled:opacity-40"
+            >
+              Use selected for all
+            </button>
+          </div>
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {images.map((img) => {
+              const currentKey =
+                img.lat !== null && img.lng !== null
+                  ? coordOptions.find(
+                      (o) =>
+                        o.lat.toFixed(6) === img.lat!.toFixed(6) &&
+                        o.lng.toFixed(6) === img.lng!.toFixed(6),
+                    )?.key ?? "__current"
+                  : "";
+              return (
+                <div
+                  key={img.id}
+                  className="flex items-center gap-3 rounded-md border border-border bg-background p-2"
+                >
+                  <img
+                    src={img.previewUrl}
+                    alt={img.file.name}
+                    className="h-11 w-11 shrink-0 rounded object-cover"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate text-xs font-medium" title={img.file.name}>
+                      {img.file.name}
+                    </div>
+                    <div className="truncate font-mono text-[11px] text-muted-foreground">
+                      {img.lat !== null && img.lng !== null
+                        ? `${img.lat.toFixed(6)}, ${img.lng.toFixed(6)}`
+                        : "Not tagged"}
+                    </div>
                   </div>
-                ) : (
                   <select
-                    value={pickId}
-                    onChange={(e) => setPickId(e.target.value)}
-                    className="w-full rounded-md border border-input bg-background px-2.5 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
+                    value={currentKey}
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      if (!v) return assignCoordToImage(img.id, null);
+                      if (v === "__active") {
+                        if (!activeCoord) return;
+                        return assignCoordToImage(img.id, activeCoord);
+                      }
+                      const opt = coordOptions.find((o) => o.key === v);
+                      if (opt)
+                        assignCoordToImage(img.id, {
+                          lat: opt.lat,
+                          lng: opt.lng,
+                          label: opt.label,
+                        });
+                    }}
+                    className="w-52 shrink-0 rounded-md border border-input bg-background px-2 py-1.5 text-xs outline-none focus:ring-2 focus:ring-ring"
                   >
-                    {list.map((p) => (
-                      <option key={p.id} value={p.id}>
-                        {p.name} — {p.area}
+                    <option value="">No location</option>
+                    {currentKey === "__current" && (
+                      <option value="__current">{img.locationLabel ?? "Current coordinate"}</option>
+                    )}
+                    {activeCoord && <option value="__active">Selected: {activeCoord.label}</option>}
+                    {coordOptions.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.label}
                       </option>
                     ))}
                   </select>
-                )}
-                {place && (
-                  <div className="mt-2 rounded-md bg-muted/60 px-2 py-1.5 font-mono text-[11px]">
-                    {place.lat.toFixed(6)}, {place.lng.toFixed(6)}
-                  </div>
-                )}
-                <div className="mt-3 flex gap-2">
-                  <button
-                    onClick={() => {
-                      if (!place) return;
-                      setActivePlace(place);
-                      setCustomLocation(null);
-                    }}
-                    className="flex-1 rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-accent"
-                  >
-                    Use as active
-                  </button>
-                  <button
-                    onClick={() => {
-                      if (!place) return;
-                      if (isPinned) {
-                        setPinnedCoord(null);
-                      } else {
-                        setPinnedCoord({
-                          lat: place.lat,
-                          lng: place.lng,
-                          label: `${place.name}, ${place.area}`,
-                          kind,
-                        });
-                        setActivePlace(place);
-                        setCustomLocation(null);
-                      }
-                    }}
-                    className={`flex-1 inline-flex items-center justify-center gap-1.5 rounded-md px-2.5 py-1.5 text-xs font-medium transition ${
-                      isPinned
-                        ? "border border-border hover:bg-accent"
-                        : "bg-primary text-primary-foreground hover:opacity-90"
-                    }`}
-                  >
-                    <Pin className="h-3.5 w-3.5" />
-                    {isPinned ? "Unpin" : "Pin"}
-                  </button>
                 </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
         </div>
-      </Collapsible>
+      )}
+
+
+
+
+
 
       {/* Collapsible: library */}
       <Collapsible
@@ -1886,9 +1980,18 @@ function StepAssign({
                   <div className="truncate text-xs font-medium" title={img.file.name}>
                     {img.file.name}
                   </div>
-                  <div className="truncate text-[11px] text-muted-foreground">
-                    {img.locationLabel ?? "Not tagged"}
+                  <div className="truncate text-[11px] font-medium text-foreground" title={img.locationLabel ?? ""}>
+                    {img.locationLabel ? cityFromLabel(img.locationLabel) : "Not tagged"}
                   </div>
+                  <div className="truncate text-[10px] text-muted-foreground" title={img.locationLabel ?? ""}>
+                    {img.locationLabel ?? "No location assigned"}
+                  </div>
+                  <div className="truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
+                    {img.lat !== null && img.lng !== null
+                      ? `${img.lat.toFixed(6)}, ${img.lng.toFixed(6)}`
+                      : "—"}
+                  </div>
+
                   <MetaFields
                     img={img}
                     updateImageMeta={updateImageMeta}
@@ -2504,12 +2607,15 @@ function GeoTagImager({
                               alt={row.name}
                               className="h-full w-full object-cover"
                             />
-                            {row.lat != null && row.lng != null && (
-                              <span className="absolute left-1.5 top-1.5 inline-flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white shadow ring-2 ring-emerald-500/20">
-                                <MapPin className="h-3 w-3" />
-                              </span>
+                            {((row.lat != null && row.lng != null) ||
+                              row.posted_at != null) && (
+                              <div className="absolute left-1.5 top-1.5 flex items-center gap-1">
+                                <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
+                                <PublishedBadge published={row.posted_at != null} compact />
+                              </div>
                             )}
                           </div>
+
 
                           <div className="truncate p-1.5 text-[10px] text-muted-foreground">
                             {row.name}

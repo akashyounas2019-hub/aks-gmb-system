@@ -81,6 +81,8 @@ type ScheduledPost = {
   created_at: string;
   location_label: string | null;
   image_ids: string[] | null;
+  title: string | null;
+  tags: string[] | null;
 };
 
 function PostSchedulerPanel() {
@@ -98,7 +100,7 @@ function PostSchedulerPanel() {
     const { data, error } = await supabase
       .from("social_posts")
       .select(
-        "id,caption,status,scheduled_at,created_at,location_label,image_ids",
+        "id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags",
       )
       .not("scheduled_at", "is", null)
       .order("scheduled_at", { ascending: true })
@@ -158,10 +160,21 @@ function PostSchedulerPanel() {
       "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OGmetaUrl),imageUrls,gifUrl,videoUrls,thumbnailUrl";
     const lines = rows.map((p) => {
       const when = p.scheduled_at ? new Date(p.scheduled_at) : new Date();
-      const urls = (p.image_ids ?? [])
-        .map((id) => `${origin}/api/public/img/${id}.jpg`)
+      const ids = p.image_ids ?? [];
+      const urls = ids.map((id) => `${origin}/api/public/img/${id}.jpg`).join(" ");
+      // GHL's Social Planner CSV has a single "content" field, so the title,
+      // body and keyword tags are stitched into one post body.
+      const tagLine = (p.tags ?? [])
+        .filter(Boolean)
+        .map((t) => `#${t.trim().replace(/\s+/g, "")}`)
         .join(" ");
-      return [esc(fmt(when)), esc(p.caption ?? ""), "", esc(urls), "", "", ""].join(",");
+      const content = [p.title?.trim(), p.caption?.trim(), tagLine]
+        .filter(Boolean)
+        .join("\n\n");
+      // GHL requires the "link (OG meta URL)" column to be present; use the
+      // first image as the link target so the row validates on upload.
+      const link = ids[0] ? `${origin}/api/public/img/${ids[0]}.jpg` : "";
+      return [esc(fmt(when)), esc(content), esc(link), esc(urls), "", "", ""].join(",");
     });
 
     const csv = `${header}\n${lines.join("\n")}\n`;
@@ -252,7 +265,17 @@ function PostSchedulerPanel() {
                       {p.image_ids?.length ?? 0}
                     </td>
                     <td className="max-w-[520px] py-2 text-muted-foreground">
+                      {p.title && (
+                        <div className="text-foreground">{p.title}</div>
+                      )}
                       <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
+                      <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
+                        {(p.tags ?? []).slice(0, 6).map((t) => (
+                          <span key={t} className="rounded-full border border-border px-1.5 py-0.5">
+                            #{t}
+                          </span>
+                        ))}
+                      </div>
                     </td>
                     <td className="py-2 text-right">
                       <div className="inline-flex items-center gap-1">
@@ -360,6 +383,10 @@ function EditScheduledPostModal({
     }
     if (!scheduledAt) {
       toast.error("Pick a schedule date/time");
+      return;
+    }
+    if (new Date(scheduledAt).getTime() <= Date.now()) {
+      toast.error("Pick a future date and time — posts can't be scheduled in the past.");
       return;
     }
     setSaving(true);

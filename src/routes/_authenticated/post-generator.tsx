@@ -32,6 +32,7 @@ import { toast } from "sonner";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
+import { PublishedBadge } from "@/components/PublishedBadge";
 import {
   type PickedLocation,
 } from "@/components/LocationPicker";
@@ -40,7 +41,6 @@ import {
   sendPostToSocialPlanner,
 } from "@/lib/post-generator.functions";
 import { readGps } from "@/lib/exif-geotag";
-import { getPreferences } from "@/lib/user-preferences.functions";
 
 export const Route = createFileRoute("/_authenticated/post-generator")({
   component: () => <PostGeneratorPage />,
@@ -65,31 +65,6 @@ type ImageRow = {
 
 const PREVIEW_COUNT = 8;
 
-function isHttpsUrl(v: string): boolean {
-  const s = v.trim();
-  if (!s) return false;
-  try {
-    const u = new URL(s);
-    return (
-      (u.protocol === "https:" || u.protocol === "http:") &&
-      !!u.hostname &&
-      u.hostname.includes(".")
-    );
-  } catch {
-    return false;
-  }
-}
-
-function isValidPhone(v: string): boolean {
-  const digits = v.replace(/[^\d]/g, "");
-  return digits.length >= 7 && digits.length <= 15;
-}
-
-function joinPath(base: string, path: string): string {
-  const b = base.trim().replace(/\/+$/, "");
-  if (!b) return "";
-  return `${b}${path.startsWith("/") ? path : `/${path}`}`;
-}
 
 
 export function PostGeneratorPage({
@@ -118,7 +93,6 @@ export function PostGeneratorPage({
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
   const [businessName, setBusinessName] = useState("");
-  const [cta, setCta] = useState("");
 
   const [scheduledAt, setScheduledAt] = useState("");
   const [networks, setNetworks] = useState<Array<SocialPlatform>>(defaultPlatform ? [defaultPlatform] : ["gmb"]);
@@ -133,15 +107,6 @@ export function PostGeneratorPage({
   const [generating, setGenerating] = useState(false);
   const [sending, setSending] = useState(false);
 
-  const [ctaType, setCtaType] = useState<
-    "none" | "book" | "order" | "shop" | "learn_more" | "sign_up" | "call"
-  >("none");
-  const [ctaUrl, setCtaUrl] = useState("");
-  const [businessPhone, setBusinessPhone] = useState("");
-  const [businessWebsite, setBusinessWebsite] = useState("");
-  const [phoneManuallyEdited, setPhoneManuallyEdited] = useState(false);
-  const [ctaManuallyEdited, setCtaManuallyEdited] = useState(false);
-  const loadPrefs = useServerFn(getPreferences);
   const captionMirrorRef = useRef<HTMLDivElement>(null);
   const captionRef = useRef<HTMLTextAreaElement>(null);
   const [symbolsOpen, setSymbolsOpen] = useState(false);
@@ -393,117 +358,7 @@ export function PostGeneratorPage({
   }, [importOpen, templatesOpen, symbolsOpen]);
 
 
-  // Load business phone + website from settings for CTA auto-populate.
-  useEffect(() => {
-    loadPrefs()
-      .then((p) => {
-        const g = (p?.general ?? {}) as { phone?: string; website?: string };
-        if (g.phone) setBusinessPhone(g.phone);
-        if (g.website) setBusinessWebsite(g.website);
-      })
-      .catch(() => {
-        /* ignore — user may not have saved business settings yet */
-      });
-  }, [loadPrefs]);
 
-  // CTA metadata — button label, help copy, placeholder, validator, and
-  // suggested URL derived from business settings. Keeps the CTA input
-  // aware of the "post type" (action) the user picked.
-  const CTA_META: Record<
-    typeof ctaType,
-    {
-      buttonLabel: string;
-      help: string;
-      placeholder: string;
-      inputMode: "tel" | "url" | "text";
-      validate: (v: string) => string | null;
-      suggest: (ctx: { phone: string; website: string }) => string;
-    }
-  > = {
-    none: {
-      buttonLabel: "No button",
-      help: "No action button will appear on the post.",
-      placeholder: "",
-      inputMode: "text",
-      validate: () => null,
-      suggest: () => "",
-    },
-    book: {
-      buttonLabel: "Book",
-      help: "Sends customers to a booking or reservation page.",
-      placeholder: "https://example.com/book",
-      inputMode: "url",
-      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// booking link."),
-      suggest: ({ website }) => (website ? joinPath(website, "/book") : ""),
-    },
-    order: {
-      buttonLabel: "Order online",
-      help: "Links to your online-ordering page.",
-      placeholder: "https://example.com/order",
-      inputMode: "url",
-      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// ordering link."),
-      suggest: ({ website }) => (website ? joinPath(website, "/order") : ""),
-    },
-    shop: {
-      buttonLabel: "Buy",
-      help: "Links to a product or storefront page.",
-      placeholder: "https://example.com/product",
-      inputMode: "url",
-      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// product or shop link."),
-      suggest: ({ website }) => (website ? joinPath(website, "/shop") : ""),
-    },
-    learn_more: {
-      buttonLabel: "Learn more",
-      help: "Sends customers to a landing or info page.",
-      placeholder: "https://example.com/services",
-      inputMode: "url",
-      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// link."),
-      suggest: ({ website }) => website || "",
-    },
-    sign_up: {
-      buttonLabel: "Sign up",
-      help: "Links to a newsletter, waitlist, or account sign-up page.",
-      placeholder: "https://example.com/signup",
-      inputMode: "url",
-      validate: (v) => (isHttpsUrl(v) ? null : "Enter a full https:// sign-up link."),
-      suggest: ({ website }) => (website ? joinPath(website, "/signup") : ""),
-    },
-    call: {
-      buttonLabel: "Call now",
-      help: "Dials your business phone from the customer's device.",
-      placeholder: "+971 50 000 0000",
-      inputMode: "tel",
-      validate: (v) =>
-        isValidPhone(v)
-          ? null
-          : "Enter a phone number with at least 7 digits (international format recommended).",
-      suggest: ({ phone }) => phone,
-    },
-  };
-
-  const ctaMeta = CTA_META[ctaType];
-  const ctaSuggestion =
-    ctaType === "none" ? "" : ctaMeta.suggest({ phone: businessPhone, website: businessWebsite });
-  const ctaError =
-    ctaType === "none" || !ctaUrl.trim() ? null : ctaMeta.validate(ctaUrl.trim());
-  const ctaMissing = ctaType !== "none" && !ctaUrl.trim();
-
-  // Auto-populate the CTA value when the action changes and the user hasn't
-  // manually edited it. Works for phone (Call) and URL (all others).
-  useEffect(() => {
-    if (ctaType === "none") return;
-    const suggestion = CTA_META[ctaType].suggest({
-      phone: businessPhone,
-      website: businessWebsite,
-    });
-    if (!suggestion) return;
-    if (ctaType === "call") {
-      if (!phoneManuallyEdited && !ctaUrl) setCtaUrl(suggestion);
-    } else {
-      if (!ctaManuallyEdited && !ctaUrl) setCtaUrl(suggestion);
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [ctaType, businessPhone, businessWebsite]);
 
 
   const CAPTION_LIMIT = 1500;
@@ -530,11 +385,15 @@ export function PostGeneratorPage({
     reloadImages();
   }, []);
 
-  const visibleImages = useMemo(
-    () =>
-      showPosted ? images : images.filter((i) => !i.posted_at),
-    [images, showPosted],
-  );
+  const visibleImages = useMemo(() => {
+    const base = showPosted ? images : images.filter((i) => !i.posted_at);
+    return base.slice().sort((a, b) => {
+      const aGeo = a.lat != null && a.lng != null ? 1 : 0;
+      const bGeo = b.lat != null && b.lng != null ? 1 : 0;
+      if (aGeo !== bGeo) return bGeo - aGeo;
+      return 0;
+    });
+  }, [images, showPosted]);
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const filteredImportKw = useMemo(() => {
@@ -641,7 +500,6 @@ export function PostGeneratorPage({
           llm,
 
           businessName: businessName || undefined,
-          callToAction: cta || undefined,
           styleReference: styleTemplate
             ? { name: styleTemplate.name, body: styleTemplate.body }
             : undefined,
@@ -673,16 +531,9 @@ export function PostGeneratorPage({
       toast.error(`Post body exceeds ${CAPTION_LIMIT} characters (${captionLen}).`);
       return;
     }
-    if (ctaMissing) {
-      toast.error(
-        ctaType === "call"
-          ? "Add a phone number for the Call CTA"
-          : `Add a destination for the "${ctaMeta.buttonLabel}" button`,
-      );
-      return;
-    }
-    if (ctaError) {
-      toast.error(`${ctaMeta.buttonLabel} button: ${ctaError}`);
+    // Scheduling into the past would never dispatch — block it up front.
+    if (scheduledAt && new Date(scheduledAt).getTime() <= Date.now()) {
+      toast.error("Pick a future date and time — posts can't be scheduled in the past.");
       return;
     }
     setSending(true);
@@ -690,6 +541,9 @@ export function PostGeneratorPage({
       const res = await send({
         data: {
           caption,
+          title:
+            (manualKw[0] ?? businessName ?? caption.slice(0, 60).trim()) || undefined,
+          tags: manualKw.slice(0, 20),
           imageIds: Array.from(selectedImages),
           locationLabel: location?.label,
           lat: location?.lat,
@@ -700,8 +554,6 @@ export function PostGeneratorPage({
 
             : undefined,
           networks: networks.length ? networks : ["gmb"],
-          ctaType,
-          ctaUrl: ctaUrl.trim() || undefined,
         },
       });
       toast.success(
@@ -1291,138 +1143,7 @@ export function PostGeneratorPage({
 
 
 
-          {/* GMB Call-to-action — hidden on Facebook/Instagram */}
-          {!isSocial && (
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-medium">GMB call-to-action</div>
-                <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                  Google standard
-                </span>
-              </div>
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Post type / action</span>
-                  <select
-                    value={ctaType}
-                    onChange={(e) => {
-                      setCtaType(e.target.value as typeof ctaType);
-                      // Reset "manually edited" flags so auto-suggest kicks in
-                      // for the newly selected action.
-                      setCtaUrl("");
-                      setPhoneManuallyEdited(false);
-                      setCtaManuallyEdited(false);
-                    }}
-                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                  >
-                    <option value="none">No button</option>
-                    <option value="book">Book</option>
-                    <option value="order">Order online</option>
-                    <option value="shop">Buy</option>
-                    <option value="learn_more">Learn more</option>
-                    <option value="sign_up">Sign up</option>
-                    <option value="call">Call now</option>
-                  </select>
-                </label>
-                {ctaType !== "none" && (
-                  <label className="block">
-                    <span className="flex items-center justify-between text-xs text-muted-foreground">
-                      <span>{ctaType === "call" ? "Phone number" : "Destination URL"}</span>
-                      {ctaSuggestion && ctaUrl === ctaSuggestion && (
-                        <span className="text-[10px] uppercase tracking-widest text-primary">
-                          From settings
-                        </span>
-                      )}
-                    </span>
-                    <div className="relative mt-1">
-                      <input
-                        value={ctaUrl}
-                        onChange={(e) => {
-                          setCtaUrl(e.target.value);
-                          if (ctaType === "call") setPhoneManuallyEdited(true);
-                          else setCtaManuallyEdited(true);
-                        }}
-                        placeholder={ctaMeta.placeholder}
-                        inputMode={ctaMeta.inputMode}
-                        aria-invalid={!!ctaError}
-                        className={`w-full rounded border bg-background p-2 pr-9 text-sm outline-none transition ${
-                          ctaError
-                            ? "border-red-500 focus:ring-2 focus:ring-red-500/40"
-                            : "border-border focus:ring-2 focus:ring-primary/40"
-                        }`}
-                      />
-                      {ctaUrl && (
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setCtaUrl("");
-                            if (ctaType === "call") setPhoneManuallyEdited(true);
-                            else setCtaManuallyEdited(true);
-                          }}
-                          aria-label="Clear"
-                          className="absolute right-1.5 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        >
-                          <X className="h-4 w-4" />
-                        </button>
-                      )}
-                    </div>
-                  </label>
-                )}
-              </div>
 
-              {ctaType !== "none" && (
-                <div className="mt-2 space-y-1.5">
-                  <p className="text-[11px] text-muted-foreground">{ctaMeta.help}</p>
-                  {/* Live button preview */}
-                  <div className="flex items-center gap-2">
-                    <span className="text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Button
-                    </span>
-                    <span
-                      className={`inline-flex items-center rounded-full border px-3 py-1 text-[11px] font-medium ${
-                        ctaError || ctaMissing
-                          ? "border-red-500/40 bg-red-500/10 text-red-500"
-                          : "border-primary/40 bg-primary/10 text-primary"
-                      }`}
-                    >
-                      {ctaMeta.buttonLabel}
-                    </span>
-                  </div>
-                  {/* Suggestion chips */}
-                  {ctaSuggestion && ctaUrl !== ctaSuggestion && (
-                    <div className="flex flex-wrap items-center gap-1.5 pt-1">
-                      <span className="text-[11px] text-muted-foreground">Suggested:</span>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setCtaUrl(ctaSuggestion);
-                          if (ctaType === "call") setPhoneManuallyEdited(false);
-                          else setCtaManuallyEdited(false);
-                        }}
-                        className="rounded-full border border-primary/40 bg-primary/10 px-2.5 py-0.5 text-[11px] text-primary hover:bg-primary/20"
-                      >
-                        {ctaSuggestion}
-                      </button>
-                    </div>
-                  )}
-                  {/* Inline validation */}
-                  {ctaError && (
-                    <p className="text-[11px] font-medium text-red-500">{ctaError}</p>
-                  )}
-                  {!ctaError && ctaMissing && (
-                    <p className="text-[11px] text-amber-500">
-                      Add a {ctaType === "call" ? "phone number" : "URL"} — the button will be
-                      hidden until you do.
-                    </p>
-                  )}
-                </div>
-              )}
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                These map to Google Business Profile's standard action buttons (Book, Order, Buy,
-                Learn more, Sign up, Call).
-              </p>
-            </section>
-          )}
 
 
           <button
@@ -2288,14 +2009,6 @@ export function PostGeneratorPage({
                               value={location?.label ?? "—"}
                             />
                             <FieldPill
-                              label="CTA"
-                              value={
-                                ctaType === "none"
-                                  ? "No button"
-                                  : `${ctaMeta.buttonLabel}${ctaUrl ? ` → ${ctaUrl}` : ""}`
-                              }
-                            />
-                            <FieldPill
                               label="Images"
                               value={
                                 selectedImages.size
@@ -2554,9 +2267,10 @@ function ImageThumb({
         alt={img.name}
         className="aspect-square w-full object-cover"
       />
-      {img.lat != null && img.lng != null && (
-        <div className="absolute left-1 top-1">
+      {(posted || (img.lat != null && img.lng != null)) && (
+        <div className="absolute left-1 top-1 flex items-center gap-1">
           <GeoTaggedBadge lat={img.lat} lng={img.lng} compact />
+          <PublishedBadge published={posted} compact />
         </div>
       )}
       {active && (
