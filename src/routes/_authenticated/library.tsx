@@ -427,6 +427,9 @@ function LibraryPage() {
    * Columns match the official sample template. Image URLs point at the
    * permanent /api/public/img/<id> endpoint (no expiring preview token) and
    * that endpoint returns X-Robots-Tag: noindex so nothing gets indexed.
+   * This targets Google My Business, not social platforms: image URLs are
+   * kept strictly in the imageUrls column (never the content body), and
+   * hashtags are never included — GMB posts don't support them.
    */
   function downloadGhlCsv(
     imgs: Array<{
@@ -455,18 +458,7 @@ function LibraryPage() {
     const rows = imgs.map((img, i) => {
       const when = new Date(start);
       when.setDate(start.getDate() + i);
-      const tags = data?.tagMap.get(img.id)?.map((t) => t.label) ?? [];
-      const body = [
-        img.description?.trim() || img.title?.trim() || img.name.replace(/\.[^.]+$/, ""),
-        tags.length
-          ? tags
-              .map((t) => `#${t.replace(/[^\p{L}\p{N}]/gu, "")}`)
-              .filter((t) => t.length > 1)
-              .join(" ")
-          : "",
-      ]
-        .filter(Boolean)
-        .join("\n");
+      const body = img.description?.trim() || img.title?.trim() || img.name.replace(/\.[^.]+$/, "");
       const url = `${origin}/api/public/img/${img.id}.jpg`;
       return [esc(fmt(when)), esc(body), "", esc(url), "", "", ""].join(",");
     });
@@ -502,8 +494,11 @@ function LibraryPage() {
   const counts = useMemo(() => {
     const c: Record<"raw" | "published" | "geotagged" | "favorites", number> = { raw: 0, published: 0, geotagged: 0, favorites: 0 };
     for (const i of data?.images ?? []) {
-      c[imageBucket(i)]++;
-      if ((i as { is_favorite?: boolean }).is_favorite) c.favorites++;
+      const bucket = imageBucket(i);
+      c[bucket]++;
+      // Published images move out of Favorites — once posted, they only
+      // live in the Published tab even if is_favorite is still true.
+      if (bucket !== "published" && (i as { is_favorite?: boolean }).is_favorite) c.favorites++;
     }
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -516,6 +511,7 @@ function LibraryPage() {
     return data.images.filter((i) => {
       if (tab === "favorites") {
         if (!(i as { is_favorite?: boolean }).is_favorite) return false;
+        if (imageBucket(i) === "published") return false;
       } else {
         if (imageBucket(i) !== tab) return false;
       }
