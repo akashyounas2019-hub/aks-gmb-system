@@ -157,7 +157,7 @@ function PostSchedulerPanel() {
       `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:00`;
 
     const header =
-      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OG meta URL),imageUrls,gifUrl,videoUrls,thumbnailUrl";
+      "postAtSpecificTime (YYYY-MM-DD HH:mm:ss),content,link (OGmetaUrl),imageUrls,gifUrl,videoUrls,thumbnailUrl";
     const lines = rows.map((p) => {
       const when = p.scheduled_at ? new Date(p.scheduled_at) : new Date();
       const ids = p.image_ids ?? [];
