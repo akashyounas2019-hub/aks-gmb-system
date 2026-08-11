@@ -1,75 +1,126 @@
-# Google Drive backup
+# Launch Prep Todo: Cleanup, Stripe, and Pricing
 
-## What you'll get
+## Phase 1 — Cleanup (Week 1)
 
-A new **Backups** section in the app with:
+Goal: remove dead weight and fix the obvious UX gaps before taking money.
 
-- **Connect Google Drive** button — each user links their own Google account.
-- **Backup Now** — immediately uploads every image to their Drive, preserving folder structure.
-- **Schedule** — off / daily / weekly, running automatically in the background.
-- **Backup history** — status, file count, size, timestamp, error messages if any.
+- [ ] **Audit and hide unfinished features**
+  - Remove or disable Facebook/HeartBeat leftovers (routes, tables, sidebar entries if any remain).
+  - Hide "Agents" and "Automation" pages unless they have real end-to-end flows; otherwise show "Coming soon" placeholders.
+  - Remove any unused imports, dead routes, and orphaned components surfaced by `bun run build`.
 
-## How the Drive folders are laid out
+- [ ] **Fix navigation and state bugs**
+  - Ensure upload queue stays visible and survives all navigation paths.
+  - Verify library selection toolbar appears only above the correct grid.
+  - Re-test move/delete on raw, geo-tagged, and published tabs for duplicates or data loss.
 
-```text
-My Drive/
-  GMB Library Backups/
-    Raw Images/
-      <Folder name>/     ← same folder names as in the app
-        image1.jpg
-      Unfiled/
-        image2.jpg
-    Published Images/
-      ...
-    Geo-Tagged Images/
-      ...
-    Videos/
-      <video name>/
-        original.mp4
-        frames/
-          001.jpg
-```
+- [ ] **Polish the three core screens**
+  - Library: consistent empty states, badge placement, and bulk-action feedback.
+  - Geo-tagging: validate that manual lat/lng inputs persist and map stays centered.
+  - Post generator / Scheduler: confirm CTA fields are fully gone and CSV upload passes in GHL.
 
-Existing files at the same path are skipped so re-running a backup only uploads what's new or changed.
+- [ ] **Add a simple landing/marketing page**
+  - Replace the current root (`/`) with a public-facing hero + pricing + CTA.
+  - Keep `/dashboard` as the authenticated entry point.
 
-## Prerequisites (you must do this once)
+- [ ] **Smoke-test the entire happy path**
+  - Upload video → extract frames → geo-tag → create post → schedule → export CSV.
+  - Document any blocking bugs.
 
-Google Drive per-user access uses an **App User Connector**. A workspace admin needs to configure a Google OAuth client in workspace settings before end users can connect. I'll surface this and stop cleanly if it isn't ready — no half-built UI.
+## Phase 2 — Stripe Billing (Weeks 2–3)
 
-## Technical breakdown
+Goal: turn the app into a paid product with a single subscription tier.
 
-1. **Connector wiring**
-   - Use the `google_drive` App User Connector (per-user OAuth, offline access).
-   - Store each user's encrypted connection key in a new server-only table `app_user_connections` (Lovable-provided encryption secret).
+- [ ] **Choose the billing model**
+  - Recommendation: one plan at $49–$149/month with usage-based overages (seats, images, or videos).
+  - Keep it simple: flat monthly subscription for v1; add tiers later based on feedback.
 
-2. **Backup engine** (`src/lib/backup.functions.ts`, server-only)
-   - Lists all live images + videos for the user.
-   - Creates/reuses the Drive folder tree via `files.list` + `files.create` (mimeType `application/vnd.google-apps.folder`).
-   - Downloads each object from Supabase Storage and uploads via multipart `POST /upload/drive/v3/files`.
-   - Writes progress to a `backup_runs` table (status, counts, error).
+- [ ] **Enable Lovable Payments (Stripe)**
+  - Run provider eligibility check.
+  - Enable Stripe seamless payments.
+  - Create the product/price in test mode.
 
-3. **Schema** (single migration)
-   - `app_user_connections` (user_id, connector_id, encrypted key)
-   - `backup_settings` (user_id, schedule: off/daily/weekly, hour_utc, drive_root_folder_id)
-   - `backup_runs` (user_id, started_at, finished_at, status, files_uploaded, bytes, error)
+- [ ] **Build subscription gating**
+  - Add `subscriptions` table or use Stripe Customer/Subscription webhooks.
+  - Add RLS-protected `user_subscriptions` view.
+  - Gate core features (post scheduling, bulk download, video processing) behind active subscription.
+  - Show an upgrade CTA for free/trialing users instead of hard errors.
 
-4. **Scheduling**
-   - Public server route `/api/public/hooks/run-backups` — verifies `apikey` header, finds users whose schedule is due, runs the backup engine for each.
-   - `pg_cron` job every hour that POSTs to that route.
+- [ ] **Implement checkout and billing portal**
+  - "Upgrade" button in settings and on paywalls.
+  - Stripe Checkout session for new subscriptions.
+  - Stripe Customer Portal for plan changes/cancellations.
+  - Webhook handler at `/api/public/webhooks/stripe` to sync status.
 
-5. **UI** (`src/routes/_authenticated/backups.tsx` + nav entry)
-   - Connection status + Connect / Disconnect.
-   - Backup Now button (calls the engine directly, shows live progress).
-   - Schedule selector (Off / Daily / Weekly + time-of-day).
-   - Runs history table.
+- [ ] **Free trial logic**
+  - 14-day trial on signup, no card required.
+  - Show trial countdown in UI.
+  - Convert or lock at trial end.
 
-## Out of scope for this pass
+## Phase 3 — Pricing & Packaging (Week 4)
 
-- No two-way sync (Drive → app).
-- No selective backup (whole library only for v1).
-- No sharing/permissions changes on the Drive folder.
+Goal: decide what to charge and how to present it.
 
-## Confirm before I build
+- [ ] **Define the launch tier**
+  - **Pro:** $99/month (recommended starting price for agencies).
+  - Includes: unlimited images, 50 videos/month, 3 team seats, GMB post scheduler, geo-tagging, CSV export.
+  - Overages: $2 per extra video or $10 per extra seat.
 
-- Are you OK with the folder layout above?
-- Ready to configure the Google OAuth client in Workspace → App User Connectors when I prompt you? Without it, connect will fail.
+- [ ] **Create the pricing page**
+  - Public `/pricing` route.
+  - One clear plan + FAQ + "Start 14-day free trial" CTA.
+  - Avoid complex tier tables for launch.
+
+- [ ] **Add usage tracking**
+  - Count videos processed, images uploaded, scheduled posts.
+  - Show current usage in Settings → Billing.
+  - Enforce soft limits before billing overages.
+
+- [ ] **Set up customer support paths**
+  - In-app "Request feature" / "Report bug" form.
+  - Support email in footer and billing emails.
+
+## Phase 4 — Pre-Launch Hardening (Week 5)
+
+- [ ] **Security and privacy**
+  - Re-run security scan and fix any new findings.
+  - Add public privacy policy and terms of service pages.
+  - Ensure all image URLs are signed and no-indexed.
+
+- [ ] **Onboarding**
+  - First-run wizard: connect GMB (if still desired), upload first image, geo-tag one photo.
+  - Empty-state CTAs that guide new users.
+
+- [ ] **Analytics and monitoring**
+  - Track key events: signup, trial start, subscription convert, video upload, post scheduled.
+  - Add a simple dashboard for weekly active users and conversion.
+
+- [ ] **Launch checklist**
+  - Switch Stripe to live mode.
+  - Configure custom domain and remove Lovable badge.
+  - Set up support inbox.
+  - Soft launch to 5–10 agency friends for feedback.
+
+## Suggested timeline
+
+| Phase | Duration | Deliverable |
+|-------|----------|-------------|
+| Cleanup | 1 week | Stable, de-cluttered app |
+| Stripe billing | 2 weeks | Paid subscription + trial |
+| Pricing & packaging | 1 week | Public pricing + usage limits |
+| Pre-launch hardening | 1 week | Launch-ready private beta |
+| **Total** | **~5 weeks** | **Paid private beta** |
+
+## Out of scope for launch
+
+- Multi-tenant workspaces / agencies-as-orgs.
+- Direct GMB API publishing (keep CSV scheduler).
+- Two-way Google Drive sync.
+- Advanced AI agents beyond post generation.
+- Mobile native app.
+
+## Open decisions before I build
+
+1. Should I start with the cleanup pass, or do you want to jump straight to Stripe setup?
+2. Is $99/month the right starting price, or do you want a lower $49/month starter tier?
+3. Do you want to keep a limited free plan, or only a 14-day free trial?
