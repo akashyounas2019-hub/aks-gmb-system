@@ -2171,8 +2171,13 @@ const POST_BODY_LIMIT = 1500;
 
 function ImagePostComposer({
   image,
+  caption,
+  onCaptionChange,
 }: {
   image: { id: string; name: string; lat: number | null; lng: number | null };
+  /** Shared with the Edit modal's Description field so generated copy is saved. */
+  caption: string;
+  onCaptionChange: (next: string) => void;
 }) {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
