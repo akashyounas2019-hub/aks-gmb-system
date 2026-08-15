@@ -114,7 +114,6 @@ export function PostGeneratorPage({
   const [images, setImages] = useState<ImageRow[]>([]);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [showPosted, setShowPosted] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [servingAreas, setServingAreas] = useState<string[]>(() => pickServingAreas());
