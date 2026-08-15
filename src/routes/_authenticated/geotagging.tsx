@@ -1135,7 +1135,9 @@ function GeotaggingPage() {
                 if (filtered.length === 0) {
                   return (
                     <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                      No images match.
+                      No untagged favourite images match your search.
+                      <br />
+                      Favourited images that are already geo-tagged do not appear here.
                     </div>
                   );
                 }
