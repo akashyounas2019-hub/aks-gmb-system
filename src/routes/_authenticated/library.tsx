@@ -2062,7 +2062,11 @@ function ImageEditModal({
                 )}
               </div>
 
-              <ImagePostComposer image={data.image} />
+              <ImagePostComposer
+                image={data.image}
+                caption={description}
+                onCaptionChange={setDescription}
+              />
             </div>
           </div>
         )}
