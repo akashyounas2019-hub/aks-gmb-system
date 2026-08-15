@@ -1102,9 +1102,9 @@ function GeotaggingPage() {
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <div>
-                <div className="text-sm font-medium">Your image library</div>
+                <div className="text-sm font-medium">Favourite images waiting to be geo-tagged</div>
                 <div className="text-xs text-muted-foreground">
-                  {library.length} available · {alreadyImportedIds.size} already added
+                  {library.length} available · {alreadyImportedIds.size} already added · tagged images are hidden
                 </div>
               </div>
               <div className="flex items-center gap-2">
