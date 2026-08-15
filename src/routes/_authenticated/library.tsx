@@ -34,6 +34,8 @@ import {
   Clock,
   LayoutTemplate,
   Send,
+  ChevronDown,
+  FolderOpen,
 } from "lucide-react";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 
@@ -2170,6 +2172,19 @@ const COMPOSER_TEMPLATES_KEY = "post-generator:templates";
 // keep in sync so the UI blocks the same posts the server would reject.
 const POST_BODY_LIMIT = 1500;
 
+type ComposerKeywordRow = {
+  id: string;
+  phrase: string;
+  cluster: string | null;
+  volume: number | null;
+  folder_id: string | null;
+};
+type ComposerKeywordFolder = {
+  id: string;
+  name: string;
+  color: string | null;
+};
+
 function ImagePostComposer({
   image,
   caption,
@@ -2185,6 +2200,13 @@ function ImagePostComposer({
 
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [libraryKeywords, setLibraryKeywords] = useState<ComposerKeywordRow[]>([]);
+  const [keywordFolders, setKeywordFolders] = useState<ComposerKeywordFolder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("all");
+  const [libraryOpen, setLibraryOpen] = useState(false);
+  const [libraryFilter, setLibraryFilter] = useState("");
+  const libraryPopupRef = useRef<HTMLDivElement>(null);
+
   const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">(
     "gemini",
   );
@@ -2196,6 +2218,66 @@ function ImagePostComposer({
   const [ctaUrl, setCtaUrl] = useState("");
   const [scheduledAt, setScheduledAt] = useState("");
   const [scheduling, setScheduling] = useState(false);
+
+  // Load keywords & folders from Keyword Library when dropdown opens
+  useEffect(() => {
+    if (!libraryOpen) return;
+    Promise.all([
+      supabase
+        .from("keywords")
+        .select("id,phrase,cluster,volume,folder_id")
+        .order("created_at", { ascending: false })
+        .limit(2000),
+      supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("keyword_folders" as any)
+        .select("id,name,color")
+        .order("position", { ascending: true }),
+    ]).then(([{ data: kws }, { data: fs }]) => {
+      setLibraryKeywords((kws ?? []) as ComposerKeywordRow[]);
+      setKeywordFolders((fs ?? []) as unknown as ComposerKeywordFolder[]);
+    });
+  }, [libraryOpen]);
+
+  // Close library popup on outside click
+  useEffect(() => {
+    function onDown(e: MouseEvent) {
+      if (
+        libraryOpen &&
+        libraryPopupRef.current &&
+        !libraryPopupRef.current.contains(e.target as Node)
+      ) {
+        setLibraryOpen(false);
+      }
+    }
+    document.addEventListener("mousedown", onDown);
+    return () => document.removeEventListener("mousedown", onDown);
+  }, [libraryOpen]);
+
+  const folderMap = useMemo(() => {
+    const map = new Map<string, string>();
+    keywordFolders.forEach((f) => map.set(f.id, f.name));
+    return map;
+  }, [keywordFolders]);
+
+  const filteredLibraryKw = useMemo(() => {
+    const q = libraryFilter.trim().toLowerCase();
+    const already = new Set(keywords.map((k) => k.toLowerCase()));
+    return libraryKeywords.filter((k) => {
+      if (already.has(k.phrase.toLowerCase())) return false;
+      if (selectedFolderId === "unfiled" && k.folder_id) return false;
+      if (
+        selectedFolderId !== "all" &&
+        selectedFolderId !== "unfiled" &&
+        k.folder_id !== selectedFolderId
+      )
+        return false;
+      if (!q) return true;
+      const folderName = k.folder_id ? (folderMap.get(k.folder_id) ?? "") : "";
+      const hay = `${k.phrase} ${k.cluster ?? ""} ${folderName}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [libraryKeywords, libraryFilter, keywords, selectedFolderId, folderMap]);
 
   useEffect(() => {
     try {
@@ -2301,26 +2383,148 @@ function ImagePostComposer({
       {/* Keywords */}
       <div>
         <label className="mb-1 block text-xs font-medium text-muted-foreground">Keywords</label>
-        <div className="flex gap-2">
-          <input
-            value={keywordInput}
-            onChange={(e) => setKeywordInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addKeyword();
-              }
-            }}
-            placeholder="e.g. bathroom deep cleaning Dubai"
-            className="flex-1 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-          />
-          <button
-            type="button"
-            onClick={addKeyword}
-            className="rounded-md border border-border px-3 py-2 text-xs hover:bg-accent"
-          >
-            Add
-          </button>
+        <div className="flex flex-wrap gap-2">
+          <div className="flex flex-1 min-w-[200px] gap-2">
+            <input
+              value={keywordInput}
+              onChange={(e) => setKeywordInput(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  addKeyword();
+                }
+              }}
+              placeholder="e.g. bathroom deep cleaning Dubai"
+              className="flex-1 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+            <button
+              type="button"
+              onClick={addKeyword}
+              className="rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+            >
+              Add
+            </button>
+          </div>
+
+          <div className="relative" ref={libraryPopupRef}>
+            <button
+              type="button"
+              onClick={() => setLibraryOpen((v) => !v)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 px-3 py-2 text-xs font-semibold text-primary shadow-sm transition hover:border-primary hover:from-primary/25 hover:to-primary/10"
+            >
+              <FolderOpen className="h-3.5 w-3.5" />
+              Select from Library
+              <ChevronDown className="h-3 w-3 opacity-70" />
+            </button>
+
+            {libraryOpen && (
+              <div className="absolute right-0 z-50 mt-1 w-96 rounded-xl border border-border bg-popover p-3 shadow-2xl">
+                <div className="mb-2 flex items-center justify-between">
+                  <div className="flex items-center gap-1.5 text-xs font-semibold">
+                    <FolderIcon className="h-3.5 w-3.5 text-primary" /> Keyword Library
+                  </div>
+                  <Link
+                    to="/keywords"
+                    className="text-[11px] font-medium text-primary hover:underline"
+                  >
+                    Manage Library →
+                  </Link>
+                </div>
+
+                <div className="mb-2.5 flex gap-2">
+                  <input
+                    autoFocus
+                    value={libraryFilter}
+                    onChange={(e) => setLibraryFilter(e.target.value)}
+                    placeholder="Search phrase or category…"
+                    className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                  />
+                  <select
+                    value={selectedFolderId}
+                    onChange={(e) => setSelectedFolderId(e.target.value)}
+                    className="max-w-[130px] truncate rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                    title="Filter by Category/Folder"
+                  >
+                    <option value="all">All Folders ({libraryKeywords.length})</option>
+                    <option value="unfiled">Uncategorized</option>
+                    {keywordFolders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+
+                <div className="max-h-60 overflow-y-auto space-y-1 pr-0.5">
+                  {filteredLibraryKw.length === 0 ? (
+                    <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                      {libraryKeywords.length === 0
+                        ? "No keywords in library yet. Add or import in Keywords tab."
+                        : "No keywords match your search or category filter."}
+                    </div>
+                  ) : (
+                    filteredLibraryKw.slice(0, 150).map((k) => {
+                      const folderName = k.folder_id ? folderMap.get(k.folder_id) : null;
+                      return (
+                        <button
+                          key={k.id}
+                          type="button"
+                          onClick={() => {
+                            if (!keywords.includes(k.phrase)) {
+                              setKeywords((prev) => [...prev, k.phrase]);
+                            }
+                          }}
+                          className="group flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition hover:bg-accent"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate font-medium">{k.phrase}</div>
+                            <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                              {folderName && (
+                                <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                                  {folderName}
+                                </span>
+                              )}
+                              {k.cluster && <span>{k.cluster}</span>}
+                            </div>
+                          </div>
+                          {k.volume ? (
+                            <span className="text-[10px] text-muted-foreground group-hover:text-foreground">
+                              {k.volume.toLocaleString()} vol
+                            </span>
+                          ) : null}
+                        </button>
+                      );
+                    })
+                  )}
+                </div>
+
+                {filteredLibraryKw.length > 0 && (
+                  <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2 text-[11px] text-muted-foreground">
+                    <span>
+                      Showing {Math.min(filteredLibraryKw.length, 150)} of{" "}
+                      {filteredLibraryKw.length}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const toAdd = filteredLibraryKw
+                          .slice(0, 20)
+                          .map((k) => k.phrase)
+                          .filter((p) => !keywords.includes(p));
+                        if (toAdd.length > 0) {
+                          setKeywords((prev) => [...prev, ...toAdd]);
+                        }
+                        setLibraryOpen(false);
+                      }}
+                      className="font-medium text-primary hover:underline"
+                    >
+                      + Add top 20 to post
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
         </div>
         {keywords.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">

@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -22,6 +22,8 @@ import {
   MapPin,
   TrendingUp,
   Smile,
+  FolderOpen,
+  Folder,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -47,6 +49,15 @@ type KeywordRow = {
   phrase: string;
   cluster: string | null;
   volume: number | null;
+  folder_id: string | null;
+  intent: string | null;
+  created_at: string;
+};
+type KeywordFolder = {
+  id: string;
+  name: string;
+  color: string | null;
+  parent_id: string | null;
 };
 type ImageRow = {
   id: string;
@@ -140,6 +151,8 @@ export function PostGeneratorPage({
   const [manualKw, setManualKw] = useState<string[]>([]);
   const [manualInput, setManualInput] = useState("");
   const [importedKw, setImportedKw] = useState<KeywordRow[]>([]);
+  const [keywordFolders, setKeywordFolders] = useState<KeywordFolder[]>([]);
+  const [selectedFolderId, setSelectedFolderId] = useState<string>("all");
   const [importOpen, setImportOpen] = useState(false);
   const [importFilter, setImportFilter] = useState("");
 
@@ -483,29 +496,52 @@ export function PostGeneratorPage({
   }
 
   useEffect(() => {
-    supabase
-      .from("keywords")
-      .select("id,phrase,cluster,volume")
-      .order("volume", { ascending: false, nullsFirst: false })
-      .limit(500)
-      .then(({ data }) => setImportedKw((data ?? []) as KeywordRow[]));
+    Promise.all([
+      supabase
+        .from("keywords")
+        .select("id,phrase,cluster,volume,folder_id,intent,created_at")
+        .order("created_at", { ascending: false })
+        .limit(2000),
+      supabase
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        .from("keyword_folders" as any)
+        .select("id,name,color,parent_id")
+        .order("position", { ascending: true }),
+    ]).then(([{ data: kws }, { data: fs }]) => {
+      setImportedKw((kws ?? []) as KeywordRow[]);
+      setKeywordFolders((fs ?? []) as unknown as KeywordFolder[]);
+    });
     reloadImages();
   }, []);
 
-  // The post generator only surfaces geo-tagged images that have not yet been
-  // published. Already-posted images are excluded by design.
+  // Map folder IDs to folder names for category badging and filtering
+  const folderMap = useMemo(() => {
+    const map = new Map<string, string>();
+    keywordFolders.forEach((f) => map.set(f.id, f.name));
+    return map;
+  }, [keywordFolders]);
+
   const visibleImages = useMemo(() => images, [images]);
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const filteredImportKw = useMemo(() => {
     const q = importFilter.trim().toLowerCase();
     const already = new Set(manualKw.map((k) => k.toLowerCase()));
-    return importedKw.filter(
-      (k) =>
-        !already.has(k.phrase.toLowerCase()) &&
-        (!q || k.phrase.toLowerCase().includes(q) || (k.cluster ?? "").toLowerCase().includes(q)),
-    );
-  }, [importedKw, importFilter, manualKw]);
+    return importedKw.filter((k) => {
+      if (already.has(k.phrase.toLowerCase())) return false;
+      if (selectedFolderId === "unfiled" && k.folder_id) return false;
+      if (
+        selectedFolderId !== "all" &&
+        selectedFolderId !== "unfiled" &&
+        k.folder_id !== selectedFolderId
+      )
+        return false;
+      if (!q) return true;
+      const folderName = k.folder_id ? (folderMap.get(k.folder_id) ?? "") : "";
+      const hay = `${k.phrase} ${k.cluster ?? ""} ${folderName}`.toLowerCase();
+      return hay.includes(q);
+    });
+  }, [importedKw, importFilter, manualKw, selectedFolderId, folderMap]);
 
   function addManualKw(raw: string) {
     const parts = raw
@@ -907,54 +943,105 @@ export function PostGeneratorPage({
                     onClick={() => setImportOpen((v) => !v)}
                     className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm transition hover:border-primary hover:from-primary/25 hover:to-primary/10 hover:shadow"
                   >
-                    <Sparkles className="h-3.5 w-3.5" />
-                    Import from Semrush
+                    <FolderOpen className="h-3.5 w-3.5" />
+                    Import from Keyword Library
                     <ChevronDown className="h-3 w-3 opacity-70" />
                   </button>
                   {importOpen && (
-                    <div className="absolute right-0 z-20 mt-1 w-80 rounded-lg border border-border bg-popover p-2 shadow-lg">
-                      <input
-                        autoFocus
-                        value={importFilter}
-                        onChange={(e) => setImportFilter(e.target.value)}
-                        placeholder="Search imported keywords…"
-                        className="mb-2 w-full rounded border border-border bg-background px-2 py-1.5 text-xs outline-none"
-                      />
-                      <div className="max-h-64 overflow-auto">
+                    <div className="absolute right-0 z-20 mt-1 w-96 rounded-xl border border-border bg-popover p-3 shadow-2xl">
+                      <div className="mb-2 flex items-center justify-between">
+                        <div className="flex items-center gap-1.5 text-xs font-semibold">
+                          <Folder className="h-3.5 w-3.5 text-primary" /> Keyword Library
+                        </div>
+                        <Link
+                          to="/keywords"
+                          className="text-[11px] font-medium text-primary hover:underline"
+                        >
+                          Manage Library →
+                        </Link>
+                      </div>
+
+                      <div className="mb-2.5 flex gap-2">
+                        <input
+                          autoFocus
+                          value={importFilter}
+                          onChange={(e) => setImportFilter(e.target.value)}
+                          placeholder="Search phrase or category…"
+                          className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                        />
+                        <select
+                          value={selectedFolderId}
+                          onChange={(e) => setSelectedFolderId(e.target.value)}
+                          className="max-w-[130px] truncate rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                          title="Filter by Category/Folder"
+                        >
+                          <option value="all">All Folders ({importedKw.length})</option>
+                          <option value="unfiled">Uncategorized</option>
+                          {keywordFolders.map((f) => (
+                            <option key={f.id} value={f.id}>
+                              {f.name}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      <div className="max-h-72 overflow-y-auto space-y-1 pr-0.5">
                         {filteredImportKw.length === 0 ? (
                           <div className="px-2 py-6 text-center text-xs text-muted-foreground">
                             {importedKw.length === 0
-                              ? "No CSV imported yet. Go to Keywords tab."
-                              : "No matches."}
+                              ? "No keywords in library yet. Add or import in Keywords tab."
+                              : "No keywords match your search or category filter."}
                           </div>
                         ) : (
-                          filteredImportKw.slice(0, 100).map((k) => (
-                            <button
-                              key={k.id}
-                              onClick={() => {
-                                addManualKw(k.phrase);
-                                setImportFilter("");
-                              }}
-                              className="flex w-full items-center justify-between rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
-                            >
-                              <span>{k.phrase}</span>
-                              {k.volume ? (
-                                <span className="text-muted-foreground">
-                                  {k.volume.toLocaleString()}
-                                </span>
-                              ) : null}
-                            </button>
-                          ))
+                          filteredImportKw.slice(0, 150).map((k) => {
+                            const folderName = k.folder_id ? folderMap.get(k.folder_id) : null;
+                            return (
+                              <button
+                                key={k.id}
+                                onClick={() => {
+                                  addManualKw(k.phrase);
+                                }}
+                                className="group flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition hover:bg-accent"
+                              >
+                                <div className="min-w-0 flex-1">
+                                  <div className="truncate font-medium">{k.phrase}</div>
+                                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                    {folderName && (
+                                      <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                                        {folderName}
+                                      </span>
+                                    )}
+                                    {k.cluster && <span>{k.cluster}</span>}
+                                  </div>
+                                </div>
+                                {k.volume ? (
+                                  <span className="text-[10px] text-muted-foreground group-hover:text-foreground">
+                                    {k.volume.toLocaleString()} vol
+                                  </span>
+                                ) : null}
+                              </button>
+                            );
+                          })
                         )}
                       </div>
-                      <div className="mt-1 flex justify-end border-t border-border pt-2">
-                        <button
-                          onClick={() => setImportOpen(false)}
-                          className="rounded px-2 py-1 text-xs text-muted-foreground hover:bg-accent"
-                        >
-                          Close
-                        </button>
-                      </div>
+
+                      {filteredImportKw.length > 0 && (
+                        <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2 text-[11px] text-muted-foreground">
+                          <span>
+                            Showing {Math.min(filteredImportKw.length, 150)} of{" "}
+                            {filteredImportKw.length}
+                          </span>
+                          <button
+                            onClick={() => {
+                              filteredImportKw.slice(0, 20).forEach((k) => addManualKw(k.phrase));
+                              setImportOpen(false);
+                            }}
+                            className="font-medium text-primary hover:underline"
+                          >
+                            + Add top 20 to post
+                          </button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </div>

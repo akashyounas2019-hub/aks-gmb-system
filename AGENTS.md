@@ -10,3 +10,6 @@
 > the editor, so keep the branch in a working state.
 
 <!-- LOVABLE:END -->
+
+> [!IMPORTANT]
+> Do NOT automatically commit (`git commit`) or push (`git push`) code changes without explicit instructions from the user.

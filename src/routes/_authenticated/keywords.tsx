@@ -229,7 +229,7 @@ function KeywordsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: kws }, { data: fs }] = await Promise.all([
-      supabase.from("keywords").select("*").order("created_at", { ascending: false }).limit(2000),
+      supabase.from("keywords").select("*").order("created_at", { ascending: false }).limit(10000),
       supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from("keyword_folders" as any)
@@ -413,24 +413,59 @@ function KeywordsPage() {
     await load();
   }
 
-  async function deleteFolder(id: string) {
+  async function deleteFolder(id: string, purgeKeywords = false) {
     const f = folderById.get(id);
     if (!f) return;
-    if (
-      !confirm(
-        `Delete folder "${f.name}"? Nested folders are also removed. Keywords inside are moved to Unfiled.`,
+    if (purgeKeywords) {
+      if (!confirm(`Delete folder "${f.name}" and ALL keywords inside it?`)) return;
+      const descIds = descendantIds(id);
+      const targetKeywordIds = rows
+        .filter((r) => r.folder_id && descIds.has(r.folder_id))
+        .map((r) => r.id);
+      if (targetKeywordIds.length > 0) {
+        const chunks = chunkArray(targetKeywordIds, BULK_KEYWORD_ACTION_CHUNK_SIZE);
+        for (const chunk of chunks) {
+          await supabase.from("keywords").delete().in("id", chunk);
+        }
+      }
+    } else {
+      if (
+        !confirm(
+          `Delete folder "${f.name}"? Nested folders are also removed. Keywords inside are moved to Unfiled.`,
+        )
       )
-    )
-      return;
+        return;
+    }
     const { error } = await supabase
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
       .from("keyword_folders" as any)
       .delete()
       .eq("id", id);
     if (error) return toast.error(error.message);
-    toast.message("Folder removed");
+    toast.success("Folder removed");
     if (scope === id) setScope("all");
     await load();
+  }
+
+  async function clearEntireLibrary() {
+    const uid = (await supabase.auth.getUser()).data.user?.id;
+    if (!uid) return toast.error("Not signed in");
+    if (
+      !confirm(
+        `Are you sure you want to delete ALL ${rows.length.toLocaleString()} keywords from your database? This will clear your entire library.`,
+      )
+    )
+      return;
+    setLoading(true);
+    const { error } = await supabase.from("keywords").delete().eq("owner_id", uid);
+    if (error) {
+      toast.error(`Failed to clear library: ${error.message}`);
+    } else {
+      toast.success("Keyword library cleared completely");
+      setRows([]);
+      setSelection(new Set());
+    }
+    setLoading(false);
   }
 
   // ---------- Keyword ops ----------
@@ -693,11 +728,30 @@ function KeywordsPage() {
       toast.error("No keywords found in file");
       return { ids: [], phrases: [] };
     }
+
+    // Deduplicate phrases against existing library keywords (case-insensitive)
+    const existingPhrases = new Set(rows.map((r) => r.phrase.trim().toLowerCase()));
+    const uniquePayload = payload.filter((k) => {
+      const key = k.phrase.trim().toLowerCase();
+      if (!key || existingPhrases.has(key)) return false;
+      existingPhrases.add(key);
+      return true;
+    });
+
+    if (uniquePayload.length === 0) {
+      toast.info("All keywords in file already exist in your library");
+      return { ids: [], phrases: [] };
+    }
+
+    if (uniquePayload.length < payload.length) {
+      toast.info(`Skipped ${payload.length - uniquePayload.length} duplicate keywords`);
+    }
+
     const ids: string[] = [];
     const phrases: string[] = [];
     const chunk = 200;
-    for (let i = 0; i < payload.length; i += chunk) {
-      const slice = payload.slice(i, i + chunk);
+    for (let i = 0; i < uniquePayload.length; i += chunk) {
+      const slice = uniquePayload.slice(i, i + chunk);
       const { data, error } = await supabase.from("keywords").insert(slice).select("id, phrase");
       if (error) {
         toast.error(error.message);
@@ -708,8 +762,8 @@ function KeywordsPage() {
         phrases.push(row.phrase);
       }
     }
-    toast.success(`Imported ${ids.length} keywords`);
-    load();
+    toast.success(`Imported ${ids.length} new keywords`);
+    await load();
     return { ids, phrases };
   }
 
@@ -1260,6 +1314,28 @@ function KeywordsPage() {
                 >
                   <Download className="h-4 w-4" /> Export
                 </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm text-destructive hover:border-destructive/50 hover:bg-destructive/10">
+                      <Trash2 className="h-4 w-4" /> Manage
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    {currentFolder && (
+                      <DropdownMenuItem
+                        onClick={() => deleteFolder(currentFolder.id, true)}
+                        className="text-destructive"
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" /> Delete folder "{currentFolder.name}" &
+                        keywords
+                      </DropdownMenuItem>
+                    )}
+                    <DropdownMenuItem onClick={clearEntireLibrary} className="text-destructive">
+                      <Trash2 className="mr-2 h-4 w-4" /> Clear entire keyword library (
+                      {rows.length})
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
 

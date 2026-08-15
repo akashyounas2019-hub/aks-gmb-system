@@ -1,31 +1,13 @@
 import { useEffect, useRef, useState } from "react";
-import { MapPin, Clock, X, Home, Building2, Store, Landmark, Copy, Check } from "lucide-react";
+import { MapPin, X, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGoogleMaps } from "@/lib/google-maps";
-
-type CityPlaceType = "home" | "office" | "commercial" | "villas";
-
-const CITY_PLACE_TYPES: { key: CityPlaceType; label: string; icon: typeof Home; term: string }[] = [
-  { key: "home", label: "Home", icon: Home, term: "residential building" },
-  { key: "office", label: "Office", icon: Building2, term: "office building" },
-  { key: "commercial", label: "Commercial", icon: Store, term: "commercial building" },
-  { key: "villas", label: "Villas", icon: Landmark, term: "villas" },
-];
 
 export type PickedLocation = {
   label: string;
   lat: number;
   lng: number;
   place_id?: string | null;
-};
-
-type HistoryRow = {
-  id: string;
-  label: string;
-  lat: number;
-  lng: number;
-  place_id: string | null;
-  used_count?: number;
 };
 
 const MAPS_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
@@ -67,11 +49,9 @@ export function LocationPicker({
 }) {
   const [query, setQuery] = useState("");
   const [suggestions, setSuggestions] = useState<{ text: string; placeId: string }[]>([]);
-  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
-  const [cityPlaceType, setCityPlaceType] = useState<CityPlaceType | null>(null);
   const [cityPlaces, setCityPlaces] = useState<
     { placeId: string; label: string; lat: number; lng: number }[]
   >([]);
@@ -83,8 +63,6 @@ export function LocationPicker({
     lat?: number;
     lng?: number;
   } | null>(null);
-  const [manualLat, setManualLat] = useState("");
-  const [manualLng, setManualLng] = useState("");
   const mapRef = useRef<HTMLDivElement>(null);
   const sessionTokenRef = useRef<any>(null);
 
@@ -157,16 +135,15 @@ export function LocationPicker({
     }
   }
 
-  // Re-run the nearby/type search for the currently expanded city when the
+  // Re-run the nearby search for the currently expanded city when the
   // parent asks for a refresh (e.g. the page's "Refresh coordinates" button).
   useEffect(() => {
     if (refreshKey === 0 || !searchArea) return;
-    loadCityPlaces(searchArea, cityPlaceType);
+    loadCityPlaces(searchArea, null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
 
-  // Render the map widget with a pin per result once a place type has been
-  // picked and results have loaded.
+  // Render the map widget with a pin per result once results have loaded.
   useEffect(() => {
     if (cityPlaces.length === 0 || !mapRef.current) return;
     let cancelled = false;
@@ -233,7 +210,7 @@ export function LocationPicker({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [cityPlaceType, cityPlaces]);
+  }, [cityPlaces]);
 
   async function copyCoords(placeId: string, lat: number, lng: number) {
     try {
@@ -249,12 +226,6 @@ export function LocationPicker({
     loadMaps()
       .then(() => setReady(true))
       .catch((e) => setError(e.message));
-    supabase
-      .from("location_history")
-      .select("id,label,lat,lng,place_id,used_count")
-      .order("last_used_at", { ascending: false })
-      .limit(8)
-      .then(({ data }) => setHistory((data ?? []) as HistoryRow[]));
   }, []);
 
   useEffect(() => {
@@ -296,8 +267,7 @@ export function LocationPicker({
     };
   }, [query, ready]);
 
-  // Typing a city/area name should show the map with pins automatically,
-  // without requiring the "Show typed area on map" button.
+  // Typing a city/area name should show the map with pins automatically.
   useEffect(() => {
     const area = query.trim();
     if (!ready || area.length < 3) return;
@@ -305,7 +275,7 @@ export function LocationPicker({
       setExpandedCity(null);
       const next = { name: area };
       setSearchArea(next);
-      loadCityPlaces(next, cityPlaceType);
+      loadCityPlaces(next, null);
     }, 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -384,159 +354,26 @@ export function LocationPicker({
   return (
     <div className={compact ? "" : "space-y-2"}>
       {value && (
-        <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
-          <MapPin className="h-4 w-4 text-primary" />
-          <div className="min-w-0 flex-1 truncate">{value.label}</div>
-          <span className="font-mono text-xs text-muted-foreground">
-            {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
-          </span>
-          <button
-            onClick={() => onChange(null)}
-            className="rounded p-1 text-muted-foreground hover:bg-accent"
-            aria-label="Clear location"
-          >
-            <X className="h-3.5 w-3.5" />
-          </button>
-        </div>
-      )}
-      <div className="relative">
-        <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-          <MapPin className="h-4 w-4 text-muted-foreground" />
-          <input
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
-            placeholder={
-              ready ? "Search a location, e.g. Al Qusais, Dubai" : "Loading Google Maps…"
-            }
-            className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
-          />
-        </div>
-        {suggestions.length > 0 && (
-          <ul className="absolute left-0 right-0 top-full z-30 mt-1 max-h-72 overflow-auto rounded-lg border border-border bg-popover shadow-lg">
-            {suggestions.map((s) => (
-              <li key={s.placeId}>
-                <button
-                  onClick={() => selectSuggestion(s.placeId, s.text)}
-                  className="flex w-full items-center gap-2 px-3 py-2 text-left text-sm hover:bg-accent"
-                >
-                  <MapPin className="h-3.5 w-3.5 text-muted-foreground" />
-                  {s.text}
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
-      {error && <div className="text-xs text-destructive">{error}</div>}
-
-      {/* Manual coordinate entry — type an exact lat/lng and use it directly. */}
-      <div className={compact ? "mt-2" : ""}>
-        <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-          <MapPin className="h-3 w-3" /> Manual coordinates
-        </div>
-        <div className="flex flex-wrap items-center gap-1.5">
-          <input
-            value={manualLat}
-            onChange={(e) => setManualLat(e.target.value)}
-            inputMode="decimal"
-            placeholder="Latitude"
-            aria-label="Latitude"
-            className="w-32 rounded-md border border-border bg-card px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
-          />
-          <input
-            value={manualLng}
-            onChange={(e) => setManualLng(e.target.value)}
-            inputMode="decimal"
-            placeholder="Longitude"
-            aria-label="Longitude"
-            className="w-32 rounded-md border border-border bg-card px-2 py-1.5 font-mono text-xs outline-none focus:border-primary"
-          />
-          <button
-            type="button"
-            onClick={() => {
-              const lat = Number(manualLat.trim());
-              const lng = Number(manualLng.trim());
-              if (!Number.isFinite(lat) || lat < -90 || lat > 90) {
-                setError("Latitude must be a number between -90 and 90");
-                return;
-              }
-              if (!Number.isFinite(lng) || lng < -180 || lng > 180) {
-                setError("Longitude must be a number between -180 and 180");
-                return;
-              }
-              setError(null);
-              commit({
-                label: `${lat.toFixed(6)}, ${lng.toFixed(6)}`,
-                lat,
-                lng,
-                place_id: null,
-              });
-            }}
-            className="rounded-md border border-primary bg-primary/10 px-2.5 py-1.5 text-xs text-primary hover:bg-primary/20"
-          >
-            Use coordinates
-          </button>
-        </div>
-        <div className="mt-1 text-[11px] text-muted-foreground">
-          Tip: paste a "25.276987, 55.296249" pair into the latitude field — decimal degrees only.
-        </div>
-      </div>
-
-      {/* Single place-type row. It filters the selected city, or the area
-          typed into the search box. */}
-      {ready && (
-        <div className={compact ? "mt-2" : ""}>
-          <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-            <MapPin className="h-3 w-3" /> Place type
-            {searchArea ? ` in ${searchArea.name}` : ""}
+        <div className="flex items-center justify-between gap-3 rounded-lg border border-primary/40 bg-primary/5 px-3 py-2 text-sm">
+          <div className="flex items-center gap-2 min-w-0 flex-1">
+            <MapPin className="h-4 w-4 text-primary shrink-0" />
+            <span className="truncate font-medium text-foreground">{value.label}</span>
           </div>
-          <div className="flex flex-wrap items-center gap-1.5">
-            {CITY_PLACE_TYPES.map((t) => {
-              const Icon = t.icon;
-              const active = cityPlaceType === t.key;
-              return (
-                <button
-                  key={t.key}
-                  type="button"
-                  onClick={() => {
-                    setCityPlaceType(t.key);
-                    const city = cityOptions?.find((c) => c.name === expandedCity) ??
-                      searchArea ?? { name: query.trim() || "Dubai" };
-                    setSearchArea(city);
-                    loadCityPlaces(city, t.key);
-                  }}
-                  className={`flex items-center gap-1 rounded-full border px-2.5 py-1 text-xs transition ${
-                    active
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border bg-card hover:border-primary hover:text-primary"
-                  }`}
-                >
-                  <Icon className="h-3 w-3" />
-                  {t.label}
-                </button>
-              );
-            })}
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="font-mono text-xs text-muted-foreground">
+              {value.lat.toFixed(4)}, {value.lng.toFixed(4)}
+            </span>
             <button
-              type="button"
-              onClick={() => {
-                const area = query.trim();
-                if (!area) {
-                  setError("Type an area name first, then show it on the map");
-                  return;
-                }
-                setError(null);
-                setExpandedCity(null);
-                const next = { name: area };
-                setSearchArea(next);
-                loadCityPlaces(next, cityPlaceType);
-              }}
-              className="rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-primary hover:text-primary"
+              onClick={() => onChange(null)}
+              className="rounded p-1 text-muted-foreground hover:bg-accent"
+              aria-label="Clear location"
             >
-              Show typed area on map
+              <X className="h-3.5 w-3.5" />
             </button>
           </div>
         </div>
       )}
+      {error && <div className="text-xs text-destructive">{error}</div>}
 
       {/* City shortcuts — clicking one runs a real Google Places search near
           that city's centroid, so results are actual places. */}
@@ -563,7 +400,7 @@ export function LocationPicker({
                       setCityPlaces([]);
                       if (next) {
                         setSearchArea(c);
-                        loadCityPlaces(c, cityPlaceType);
+                        loadCityPlaces(c, null);
                       } else {
                         setSearchArea(null);
                       }
@@ -616,14 +453,11 @@ export function LocationPicker({
                       onClick={() =>
                         commit({ label: v.label, lat: v.lat, lng: v.lng, place_id: v.placeId })
                       }
-                      className="min-w-0 flex-1 truncate text-left hover:text-primary"
+                      className="min-w-0 flex-1 truncate text-left hover:text-primary font-medium"
                       title="Use this location"
                     >
                       {v.label}
                     </button>
-                    <span className="shrink-0 font-mono text-[10px] text-muted-foreground">
-                      {v.lat.toFixed(6)}, {v.lng.toFixed(6)}
-                    </span>
                     <button
                       type="button"
                       onClick={() => copyCoords(v.placeId, v.lat, v.lng)}
@@ -642,32 +476,6 @@ export function LocationPicker({
               </div>
             </div>
           )}
-        </div>
-      )}
-
-      {history.length > 0 && !compact && (
-        <div>
-          <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
-            <Clock className="h-3 w-3" /> Recent
-          </div>
-          <div className="flex flex-wrap gap-1.5">
-            {history.map((h) => (
-              <button
-                key={h.id}
-                onClick={() =>
-                  commit({
-                    label: h.label,
-                    lat: Number(h.lat),
-                    lng: Number(h.lng),
-                    place_id: h.place_id,
-                  })
-                }
-                className="rounded-full border border-border bg-card px-2.5 py-1 text-xs hover:border-primary hover:text-primary"
-              >
-                {h.label.length > 40 ? h.label.slice(0, 40) + "…" : h.label}
-              </button>
-            ))}
-          </div>
         </div>
       )}
     </div>
