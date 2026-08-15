@@ -372,14 +372,13 @@ function GeotaggingPage() {
     const { data } = await supabase
       .from("images")
       .select("id,name,storage_path,lat,lng,title,description,is_favorite,posted_at")
+      .eq("is_favorite", true)
+      .or("lat.is.null,lng.is.null")
       .order("created_at", { ascending: false })
       .limit(500);
-    // Unpublished favorites first, then other unpublished, then published
-    // (published images never float to the top, even when favorited).
+    // The geo-tagging picker only surfaces favorited images that have not yet
+    // been tagged. Already-tagged images are excluded by design.
     const rows = (data ?? []) as LibraryImage[];
-    const rank = (r: LibraryImage) =>
-      r.posted_at != null ? 2 : r.is_favorite ? 0 : 1;
-    rows.sort((a, b) => rank(a) - rank(b));
     setLibrary(rows);
     setLibraryLoading(false);
   }, []);
@@ -1103,9 +1102,9 @@ function GeotaggingPage() {
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <div>
-                <div className="text-sm font-medium">Your image library</div>
+                <div className="text-sm font-medium">Favourite images waiting to be geo-tagged</div>
                 <div className="text-xs text-muted-foreground">
-                  {library.length} available · {alreadyImportedIds.size} already added
+                  {library.length} available · {alreadyImportedIds.size} already added · tagged images are hidden
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1136,7 +1135,9 @@ function GeotaggingPage() {
                 if (filtered.length === 0) {
                   return (
                     <div className="rounded-md border border-dashed border-border p-8 text-center text-sm text-muted-foreground">
-                      No images match.
+                      No untagged favourite images match your search.
+                      <br />
+                      Favourited images that are already geo-tagged do not appear here.
                     </div>
                   );
                 }
@@ -1314,7 +1315,9 @@ function StepUpload({
         </div>
         {previewLibrary.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-            No images in your library yet. Uploaded and geotagged images will appear here.
+            No untagged favourite images available.
+            <br />
+            Favourite images that have not been geo-tagged will appear here.
           </div>
         ) : (
           <>
