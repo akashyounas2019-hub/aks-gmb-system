@@ -396,6 +396,9 @@ export function PostGeneratorPage({
     const { data } = await supabase
       .from("images")
       .select("id,name,storage_path,posted_at,lat,lng")
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .is("posted_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
     setImages((data ?? []) as ImageRow[]);
@@ -411,15 +414,9 @@ export function PostGeneratorPage({
     reloadImages();
   }, []);
 
-  const visibleImages = useMemo(() => {
-    const base = showPosted ? images : images.filter((i) => !i.posted_at);
-    return base.slice().sort((a, b) => {
-      const aGeo = a.lat != null && a.lng != null ? 1 : 0;
-      const bGeo = b.lat != null && b.lng != null ? 1 : 0;
-      if (aGeo !== bGeo) return bGeo - aGeo;
-      return 0;
-    });
-  }, [images, showPosted]);
+  // The post generator only surfaces geo-tagged images that have not yet been
+  // published. Already-posted images are excluded by design.
+  const visibleImages = useMemo(() => images, [images]);
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const filteredImportKw = useMemo(() => {
