@@ -372,14 +372,13 @@ function GeotaggingPage() {
     const { data } = await supabase
       .from("images")
       .select("id,name,storage_path,lat,lng,title,description,is_favorite,posted_at")
+      .eq("is_favorite", true)
+      .or("lat.is.null,lng.is.null")
       .order("created_at", { ascending: false })
       .limit(500);
-    // Unpublished favorites first, then other unpublished, then published
-    // (published images never float to the top, even when favorited).
+    // The geo-tagging picker only surfaces favorited images that have not yet
+    // been tagged. Already-tagged images are excluded by design.
     const rows = (data ?? []) as LibraryImage[];
-    const rank = (r: LibraryImage) =>
-      r.posted_at != null ? 2 : r.is_favorite ? 0 : 1;
-    rows.sort((a, b) => rank(a) - rank(b));
     setLibrary(rows);
     setLibraryLoading(false);
   }, []);
