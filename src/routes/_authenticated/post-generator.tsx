@@ -1076,10 +1076,10 @@ export function PostGeneratorPage({
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <ImageIcon className="h-4 w-4 text-primary" /> Images
+                <ImageIcon className="h-4 w-4 text-primary" /> Geo-tagged images
                 <span className="text-xs text-muted-foreground">
                   ({selectedImages.size}/4 selected · {visibleImages.length}{" "}
-                  available)
+                  available · unpublished only)
                 </span>
               </div>
               <div className="flex items-center gap-3">
