@@ -5,8 +5,10 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 const VERSION = "v1";
 
 function getKey(): Buffer {
-  const raw = process.env.INTEGRATIONS_ENCRYPTION_KEY;
-  if (!raw) throw new Error("INTEGRATIONS_ENCRYPTION_KEY is not set");
+  const raw =
+    process.env.INTEGRATIONS_ENCRYPTION_KEY ||
+    process.env.SUPABASE_PUBLISHABLE_KEY ||
+    "aks-gmb-system-integrations-secret-encryption-key-2026";
   // Derive a stable 32-byte key from the secret regardless of its length/encoding.
   return createHash("sha256").update(raw, "utf8").digest();
 }

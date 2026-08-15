@@ -163,7 +163,8 @@ Return ONLY the caption text, no preamble.`;
     // fails for a reason other than a bad/missing key.
     const directProvider = LLM_TO_DIRECT_PROVIDER[data.llm];
     const saved = await getDecryptedIntegration(supabase, userId, directProvider).catch(() => null);
-    const savedKey = saved?.api_key;
+    const savedKey =
+      saved?.api_key || (directProvider === "gemini" ? process.env.GEMINI_API_KEY : undefined);
 
     if (savedKey) {
       try {
