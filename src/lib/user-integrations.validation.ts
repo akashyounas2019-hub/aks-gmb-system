@@ -127,8 +127,11 @@ export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
 export function validateField(rule: FieldRule, raw: string): string | null {
   const v = raw.trim();
   if (!v) return rule.required ? `${rule.label} is required.` : null;
-  if (rule.min && v.length < rule.min) return `${rule.label} must be at least ${rule.min} characters.`;
-  if (rule.max && v.length > rule.max) return `${rule.label} must be at most ${rule.max} characters.`;
-  if (rule.pattern && !rule.pattern.test(v)) return rule.patternMessage ?? `${rule.label} format is invalid.`;
+  if (rule.min && v.length < rule.min)
+    return `${rule.label} must be at least ${rule.min} characters.`;
+  if (rule.max && v.length > rule.max)
+    return `${rule.label} must be at most ${rule.max} characters.`;
+  if (rule.pattern && !rule.pattern.test(v))
+    return rule.patternMessage ?? `${rule.label} format is invalid.`;
   return null;
 }

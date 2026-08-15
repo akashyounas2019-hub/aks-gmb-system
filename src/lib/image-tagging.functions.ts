@@ -32,9 +32,7 @@ export const autoTagImages = createServerFn({ method: "POST" })
       .limit(100);
     const keywords = kwRows ?? [];
     if (keywords.length === 0) {
-      throw new Error(
-        "No keywords in library. Import or add keywords first, then run auto-tag.",
-      );
+      throw new Error("No keywords in library. Import or add keywords first, then run auto-tag.");
     }
 
     // Load images
@@ -74,7 +72,10 @@ export const autoTagImages = createServerFn({ method: "POST" })
           .join("\n");
 
         const userContent: ChatMessage["content"] = [
-          { type: "text", text: `Candidate keywords:\n${kwList}\n\nPick the 3 most relevant for the attached image.` },
+          {
+            type: "text",
+            text: `Candidate keywords:\n${kwList}\n\nPick the 3 most relevant for the attached image.`,
+          },
           { type: "image_url", image_url: { url: signed.signedUrl } },
         ];
 
@@ -98,8 +99,7 @@ export const autoTagImages = createServerFn({ method: "POST" })
         };
 
         const validIds = new Set(keywords.map((k) => k.id));
-        const primaryId =
-          validIds.has(parsed.primaryId) ? parsed.primaryId : keywords[0].id;
+        const primaryId = validIds.has(parsed.primaryId) ? parsed.primaryId : keywords[0].id;
         const secondary = (parsed.secondaryIds ?? [])
           .filter((id) => validIds.has(id) && id !== primaryId)
           .slice(0, 2);

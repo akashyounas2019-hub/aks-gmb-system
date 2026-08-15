@@ -8,7 +8,8 @@ const UrlSchema = z
   .url()
   .refine((u) => /^https?:\/\//i.test(u), { message: "Must be http(s)" })
   .refine(
-    (u) => /google\.[a-z.]+\/maps|maps\.google|goo\.gl\/maps|maps\.app\.goo\.gl|share\.google/i.test(u),
+    (u) =>
+      /google\.[a-z.]+\/maps|maps\.google|goo\.gl\/maps|maps\.app\.goo\.gl|share\.google/i.test(u),
     { message: "Must be a Google Maps / Business Profile URL" },
   );
 
@@ -36,7 +37,12 @@ async function expandShortUrl(url: string): Promise<string> {
 }
 
 /** Local hints we can pull from the URL without any API call. */
-function extractHintsFromUrl(url: string): { placeId?: string; ftid?: string; cid?: string; name?: string } {
+function extractHintsFromUrl(url: string): {
+  placeId?: string;
+  ftid?: string;
+  cid?: string;
+  name?: string;
+} {
   const out: { placeId?: string; ftid?: string; cid?: string; name?: string } = {};
 
   const placeidParam = url.match(/[?&]place_?id=([^&]+)/i);
@@ -82,7 +88,9 @@ export async function resolvePlaceId(rawUrl: string): Promise<string | null> {
     u.searchParams.set("fields", "place_id");
     u.searchParams.set("key", key);
     try {
-      const r = await fetch(u).then((res) => res.json() as Promise<{ result?: { place_id?: string }; status?: string }>);
+      const r = await fetch(u).then(
+        (res) => res.json() as Promise<{ result?: { place_id?: string }; status?: string }>,
+      );
       const pid = r?.result?.place_id;
       if (pid && PLACE_ID_RE.test(pid)) return pid;
     } catch {

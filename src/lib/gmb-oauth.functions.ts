@@ -29,15 +29,12 @@ function mask(value: string | null | undefined, keep = 4): string {
 function logGmb(step: string, userId: string, payload: Record<string, unknown> = {}) {
   try {
     // eslint-disable-next-line no-console
-    console.log(
-      `[gmb] step=${step} user=${userId.slice(0, 8)} ${JSON.stringify(payload)}`,
-    );
+    console.log(`[gmb] step=${step} user=${userId.slice(0, 8)} ${JSON.stringify(payload)}`);
   } catch {
     // eslint-disable-next-line no-console
     console.log(`[gmb] step=${step} user=${userId.slice(0, 8)} <unserializable payload>`);
   }
 }
-
 
 type SupabaseCtx = {
   supabase: ReturnType<typeof getSupabaseType>;
@@ -198,11 +195,18 @@ async function callGoogle(accessToken: string, url: string, userId?: string): Pr
     const retriable = res.status === 429 || res.status === 503 || res.status === 500;
     if (retriable && attempt < GMB_MAX_RETRIES) {
       const retryAfter = Number(res.headers.get("retry-after"));
-      const backoff = Number.isFinite(retryAfter) && retryAfter > 0
-        ? retryAfter * 1000
-        : Math.min(16_000, 500 * Math.pow(2, attempt)) + Math.floor(Math.random() * 250);
+      const backoff =
+        Number.isFinite(retryAfter) && retryAfter > 0
+          ? retryAfter * 1000
+          : Math.min(16_000, 500 * Math.pow(2, attempt)) + Math.floor(Math.random() * 250);
       if (userId) {
-        logGmb("google.retry", userId, { endpoint, status: res.status, ms, attempt, backoffMs: backoff });
+        logGmb("google.retry", userId, {
+          endpoint,
+          status: res.status,
+          ms,
+          attempt,
+          backoffMs: backoff,
+        });
       }
       // Push the shared gate out so parallel callers also back off.
       gmbNextAllowedAt = Math.max(gmbNextAllowedAt, Date.now() + backoff);
@@ -218,7 +222,9 @@ async function callGoogle(accessToken: string, url: string, userId?: string): Pr
       logGmb("google.error", userId, { endpoint, status: res.status, ms, attempt, message: msg });
     } else {
       // eslint-disable-next-line no-console
-      console.log(`[gmb] step=google.error endpoint=${endpoint} status=${res.status} ms=${ms} message=${msg}`);
+      console.log(
+        `[gmb] step=google.error endpoint=${endpoint} status=${res.status} ms=${ms} message=${msg}`,
+      );
     }
     throw new Error(`Google API ${res.status}: ${msg}`);
   }
@@ -227,9 +233,7 @@ async function callGoogle(accessToken: string, url: string, userId?: string): Pr
 // ─── Build authorization URL ──────────────────────────────────────────
 export const getGmbAuthUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { origin: string }) =>
-    z.object({ origin: z.string().url() }).parse(data),
-  )
+  .inputValidator((data: { origin: string }) => z.object({ origin: z.string().url() }).parse(data))
   .handler(async ({ data, context }) => {
     const creds = await loadCreds(context as SupabaseCtx);
     const redirectUri = `${data.origin}${REDIRECT_PATH}`;
@@ -282,7 +286,9 @@ export const exchangeGmbCode = createServerFn({ method: "POST" })
         description: json.error_description,
         redirectUri,
       });
-      throw new Error(`Token exchange failed: ${json.error_description ?? json.error ?? res.statusText}`);
+      throw new Error(
+        `Token exchange failed: ${json.error_description ?? json.error ?? res.statusText}`,
+      );
     }
     const expiresAt = new Date(Date.now() + (json.expires_in ?? 3600) * 1000).toISOString();
 
@@ -444,15 +450,14 @@ export const listGmbAccounts = createServerFn({ method: "GET" })
 // ─── Persist selected location ────────────────────────────────────────
 export const setGmbLocation = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (data: { account: string; location: string; locationTitle: string }) =>
-      z
-        .object({
-          account: z.string().min(1),
-          location: z.string().min(1),
-          locationTitle: z.string().min(1),
-        })
-        .parse(data),
+  .inputValidator((data: { account: string; location: string; locationTitle: string }) =>
+    z
+      .object({
+        account: z.string().min(1),
+        location: z.string().min(1),
+        locationTitle: z.string().min(1),
+      })
+      .parse(data),
   )
   .handler(async ({ data, context }) => {
     const ctx = context as SupabaseCtx;
@@ -574,10 +579,7 @@ export const getGmbMetrics = createServerFn({ method: "GET" })
       return { totals, daily };
     }
 
-    const [cur, prev] = await Promise.all([
-      fetchRange(start, end),
-      fetchRange(prevStart, prevEnd),
-    ]);
+    const [cur, prev] = await Promise.all([fetchRange(start, end), fetchRange(prevStart, prevEnd)]);
     const curAgg = sumBy(cur);
     const prevAgg = sumBy(prev);
 

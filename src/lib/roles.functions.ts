@@ -40,7 +40,9 @@ export const listMembers = createServerFn({ method: "GET" })
       perPage: 200,
     });
     if (usersErr) throw new Error(usersErr.message);
-    const { data: rolesRows, error: rolesErr } = await supabaseAdmin.from("user_roles").select("user_id, role");
+    const { data: rolesRows, error: rolesErr } = await supabaseAdmin
+      .from("user_roles")
+      .select("user_id, role");
     if (rolesErr) throw new Error(rolesErr.message);
     const byId = new Map<string, AppRole[]>();
     for (const r of rolesRows ?? []) {

@@ -211,8 +211,8 @@ function TeamSettings() {
                               r === "admin"
                                 ? "border-primary/40 bg-primary/10 text-primary"
                                 : r === "moderator"
-                                ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
-                                : "border-border text-muted-foreground"
+                                  ? "border-amber-500/40 bg-amber-500/10 text-amber-500"
+                                  : "border-border text-muted-foreground"
                             }`}
                           >
                             {r === "admin" && <Crown className="h-3 w-3" />}

@@ -12,13 +12,7 @@ import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 import { readVideoGps } from "@/lib/video-gps";
 import type { PickedLocation } from "@/components/LocationPicker";
 
-export type QueueStage =
-  | "pending"
-  | "extracting"
-  | "uploading"
-  | "saving"
-  | "done"
-  | "error";
+export type QueueStage = "pending" | "extracting" | "uploading" | "saving" | "done" | "error";
 
 export interface UploadSettings {
   maxFrames: number;
@@ -177,11 +171,7 @@ export function removeItem(id: string) {
 export function cancelItem(id: string) {
   const item = items.find((q) => q.id === id);
   if (!item) return;
-  if (
-    item.stage === "extracting" ||
-    item.stage === "uploading" ||
-    item.stage === "saving"
-  ) {
+  if (item.stage === "extracting" || item.stage === "uploading" || item.stage === "saving") {
     cancelled.add(id);
     patchItem(id, { message: "Cancelling…" });
   } else {
@@ -234,8 +224,8 @@ async function processItem(item: QueueItem) {
   // has no embedded location, which is the previous, only behavior.
   const videoGps = await readVideoGps(item.file).catch(() => null);
   const usingVideoGps = !!(videoGps?.hasGps && videoGps.lat != null && videoGps.lng != null);
-  const effectiveLat = usingVideoGps ? videoGps!.lat : (autoGeotag && location ? location.lat : null);
-  const effectiveLng = usingVideoGps ? videoGps!.lng : (autoGeotag && location ? location.lng : null);
+  const effectiveLat = usingVideoGps ? videoGps!.lat : autoGeotag && location ? location.lat : null;
+  const effectiveLng = usingVideoGps ? videoGps!.lng : autoGeotag && location ? location.lng : null;
 
   patchItem(item.id, {
     stage: "extracting",
@@ -302,7 +292,8 @@ async function processItem(item: QueueItem) {
 
   patchItem(item.id, {
     stage: "saving",
-    message: startFrame > 0 ? `Resuming — saved ${startFrame}/${frames.length} already` : "Saving frames…",
+    message:
+      startFrame > 0 ? `Resuming — saved ${startFrame}/${frames.length} already` : "Saving frames…",
     progress: 0.4 + (startFrame / frames.length) * 0.6,
     framesTotal: frames.length,
   });

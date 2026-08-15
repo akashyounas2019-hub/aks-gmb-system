@@ -104,8 +104,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const isItemActive = (item: NavItem) => {
     return item.exact
       ? location.pathname === item.to
-      : location.pathname === item.to ||
-          location.pathname.startsWith(item.to + "/");
+      : location.pathname === item.to || location.pathname.startsWith(item.to + "/");
   };
 
   return (
@@ -121,9 +120,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               height={24}
               className="h-6 w-6 rounded-md ring-1 ring-border/40"
             />
-            <span className="font-display text-sm tracking-tight md:text-base">
-              GMB Rank Pilot
-            </span>
+            <span className="font-display text-sm tracking-tight md:text-base">GMB Rank Pilot</span>
           </Link>
 
           <div className="ml-auto flex items-center gap-2">
@@ -158,8 +155,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <div className="space-y-0.5">
                   {settingsChildren.map((s) => {
                     const active =
-                      location.pathname === s.to ||
-                      location.pathname.startsWith(s.to + "/");
+                      location.pathname === s.to || location.pathname.startsWith(s.to + "/");
                     return (
                       <Link
                         key={s.to}

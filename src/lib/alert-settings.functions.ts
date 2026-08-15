@@ -63,14 +63,13 @@ export const updateAlertSettings = createServerFn({ method: "POST" })
       threat_enabled?: boolean;
       improvement_enabled?: boolean;
     } = { user_id: userId };
-    if (data.threatKeywordThreshold != null) row.threat_keyword_threshold = data.threatKeywordThreshold;
+    if (data.threatKeywordThreshold != null)
+      row.threat_keyword_threshold = data.threatKeywordThreshold;
     if (data.rankImprovementDelta != null) row.rank_improvement_delta = data.rankImprovementDelta;
     if (data.overtakeEnabled != null) row.overtake_enabled = data.overtakeEnabled;
     if (data.threatEnabled != null) row.threat_enabled = data.threatEnabled;
     if (data.improvementEnabled != null) row.improvement_enabled = data.improvementEnabled;
-    const { error } = await supabase
-      .from("alert_settings")
-      .upsert(row, { onConflict: "user_id" });
+    const { error } = await supabase.from("alert_settings").upsert(row, { onConflict: "user_id" });
     if (error) throw new Error(error.message);
     return { ok: true };
   });

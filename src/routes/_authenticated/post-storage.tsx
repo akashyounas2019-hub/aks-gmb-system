@@ -37,7 +37,6 @@ export function PostStoragePage() {
   return <PostStoragePanel />;
 }
 
-
 type PostStatus = "Draft" | "Upcoming" | "Published" | "Live";
 
 // Folder and Post types re-declared as local aliases so the rest of the file
@@ -66,9 +65,9 @@ export function PostStoragePanel() {
   const [imageMap, setImageMap] = useState<ImageMap>({});
 
   useEffect(() => {
-    const ids = Array.from(
-      new Set(posts.flatMap((p) => p.imageIds ?? [])),
-    ).filter((id) => !imageMap[id]);
+    const ids = Array.from(new Set(posts.flatMap((p) => p.imageIds ?? []))).filter(
+      (id) => !imageMap[id],
+    );
     if (ids.length === 0) return;
     let cancelled = false;
     supabase
@@ -88,7 +87,6 @@ export function PostStoragePanel() {
     };
   }, [posts, imageMap]);
 
-
   const loadDraftsFn = useServerFn(listDrafts);
   const loadFoldersFn = useServerFn(listFolders);
   const saveDraftFn = useServerFn(upsertDraft);
@@ -100,8 +98,18 @@ export function PostStoragePanel() {
       .then((rows) => {
         if (rows.length === 0) {
           const seed: Folder[] = [
-            { id: `f-${Date.now()}-g`, name: "General", parentId: null, createdAt: new Date().toISOString() },
-            { id: `f-${Date.now()}-c`, name: "Campaigns", parentId: null, createdAt: new Date().toISOString() },
+            {
+              id: `f-${Date.now()}-g`,
+              name: "General",
+              parentId: null,
+              createdAt: new Date().toISOString(),
+            },
+            {
+              id: `f-${Date.now()}-c`,
+              name: "Campaigns",
+              parentId: null,
+              createdAt: new Date().toISOString(),
+            },
           ];
           setFolders(seed);
           saveFoldersFn({ data: { folders: seed } }).catch((e) =>
@@ -139,8 +147,7 @@ export function PostStoragePanel() {
       if (statusFilter !== "All" && p.status !== statusFilter) return false;
       if (query) {
         const q = query.toLowerCase();
-        if (!p.title.toLowerCase().includes(q) && !p.body.toLowerCase().includes(q))
-          return false;
+        if (!p.title.toLowerCase().includes(q) && !p.body.toLowerCase().includes(q)) return false;
       }
       return true;
     });
@@ -154,7 +161,9 @@ export function PostStoragePanel() {
       Published: 0,
       Live: 0,
     };
-    posts.forEach((p) => { c[(p.status as PostStatus) ?? "Draft"]++; });
+    posts.forEach((p) => {
+      c[(p.status as PostStatus) ?? "Draft"]++;
+    });
     return c;
   }, [posts]);
 
@@ -225,9 +234,7 @@ export function PostStoragePanel() {
 
   function updatePost(id: string, patch: Partial<Post>) {
     setPosts((prev) =>
-      prev.map((p) =>
-        p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p,
-      ),
+      prev.map((p) => (p.id === id ? { ...p, ...patch, updatedAt: new Date().toISOString() } : p)),
     );
     if (selectedPost?.id === id) setSelectedPost((s) => (s ? { ...s, ...patch } : s));
     saveDraftFn({
@@ -284,7 +291,6 @@ export function PostStoragePanel() {
   return (
     <div>
       <div className="flex min-h-[calc(100vh-3.5rem)] flex-col">
-
         {/* Header */}
         <div className="border-b border-border px-6 py-4">
           <div className="flex items-center justify-between gap-4">
@@ -313,11 +319,7 @@ export function PostStoragePanel() {
 
         {/* Folder tabs (horizontal) */}
         <div className="border-b border-border bg-card/40 px-6">
-          <nav
-            role="tablist"
-            aria-label="Folders"
-            className="flex gap-1 overflow-x-auto"
-          >
+          <nav role="tablist" aria-label="Folders" className="flex gap-1 overflow-x-auto">
             {folderTabs.map((t) => {
               const active = activeFolder === t.key;
               const isFolder = t.key !== "all" && t.key !== "unfiled";
@@ -481,8 +483,6 @@ export function PostStoragePanel() {
         />
       )}
     </div>
-
-
   );
 }
 
@@ -501,7 +501,9 @@ function FolderRow({
     <button
       onClick={onClick}
       className={`flex w-full items-center justify-between rounded-md px-2 py-1.5 text-sm ${
-        active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+        active
+          ? "bg-primary/15 text-primary"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground"
       }`}
     >
       <span className="flex items-center gap-2">
@@ -539,15 +541,14 @@ function FolderTreeNode({
     <div>
       <div
         className={`group flex items-center gap-1 rounded-md pr-1 text-sm ${
-          active ? "bg-primary/15 text-primary" : "text-muted-foreground hover:bg-accent hover:text-foreground"
+          active
+            ? "bg-primary/15 text-primary"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground"
         }`}
         style={{ paddingLeft: depth * 12 }}
       >
         {kids.length > 0 ? (
-          <button
-            onClick={() => setOpen((v) => !v)}
-            className="p-1 opacity-70 hover:opacity-100"
-          >
+          <button onClick={() => setOpen((v) => !v)} className="p-1 opacity-70 hover:opacity-100">
             <ChevronRight className={`h-3 w-3 transition-transform ${open ? "rotate-90" : ""}`} />
           </button>
         ) : (
@@ -620,11 +621,7 @@ function PostCard({
   return (
     <div className="group overflow-hidden rounded-lg border border-border bg-card hover:border-primary/40 transition-colors">
       {attached.length > 0 ? (
-        <button
-          onClick={onOpen}
-          className="block w-full text-left"
-          aria-label="Open post"
-        >
+        <button onClick={onOpen} className="block w-full text-left" aria-label="Open post">
           <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
             <SignedImage
               bucket="images"
@@ -726,27 +723,27 @@ function PostCard({
           </div>
         </div>
 
-      <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-
-
-        <span className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}>
-          {post.status}
-        </span>
-        {folderName && (
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <Folder className="h-3 w-3" /> {folderName}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <span
+            className={`rounded-full border px-2 py-0.5 ${STATUS_STYLES[(post.status as PostStatus) ?? "Draft"]}`}
+          >
+            {post.status}
           </span>
-        )}
-        {post.scheduledAt && (
-          <span className="inline-flex items-center gap-1 text-muted-foreground">
-            <CalendarClock className="h-3 w-3" />
-            {new Date(post.scheduledAt).toLocaleString()}
+          {folderName && (
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <Folder className="h-3 w-3" /> {folderName}
+            </span>
+          )}
+          {post.scheduledAt && (
+            <span className="inline-flex items-center gap-1 text-muted-foreground">
+              <CalendarClock className="h-3 w-3" />
+              {new Date(post.scheduledAt).toLocaleString()}
+            </span>
+          )}
+          <span className="ml-auto text-muted-foreground/70">
+            {new Date(post.updatedAt).toLocaleDateString()}
           </span>
-        )}
-        <span className="ml-auto text-muted-foreground/70">
-          {new Date(post.updatedAt).toLocaleDateString()}
-        </span>
-      </div>
+        </div>
       </div>
     </div>
   );
@@ -781,10 +778,7 @@ function PostEditor({
         <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
           Edit post
         </span>
-        <button
-          onClick={onClose}
-          className="text-xs text-muted-foreground hover:text-foreground"
-        >
+        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
           Close
         </button>
       </div>
@@ -843,7 +837,6 @@ function PostEditor({
           )}
         </div>
         <div>
-
           <label className="block text-xs text-muted-foreground mb-1">Status</label>
           <div className="flex flex-wrap gap-1.5">
             {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (

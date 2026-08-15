@@ -131,7 +131,10 @@ export const Route = createFileRoute("/_authenticated/agents/$agentId")({
   head: () => ({
     meta: [
       { title: "Agent profile — Autonomous GMB Team" },
-      { name: "description", content: "Agent status, metrics, recent activity, and main-skill configuration." },
+      {
+        name: "description",
+        content: "Agent status, metrics, recent activity, and main-skill configuration.",
+      },
     ],
   }),
 });
@@ -160,7 +163,9 @@ const mainSkillSchema = z
     message: "Only letters, numbers, spaces, and , . ' & / ( ) + - are allowed.",
   })
   .refine((v) => !/(.)\1{4,}/.test(v), { message: "Avoid long runs of the same character." })
-  .refine((v) => /[\p{L}\p{N}]/u.test(v), { message: "Must contain at least one letter or number." });
+  .refine((v) => /[\p{L}\p{N}]/u.test(v), {
+    message: "Must contain at least one letter or number.",
+  });
 
 function validateMainSkill(value: string): string | null {
   const result = mainSkillSchema.safeParse(value);
@@ -208,7 +213,11 @@ function AgentProfilePage() {
   const [active, setActive] = useState(true);
   const [autoSchedule, setAutoSchedule] = useState(true);
 
-  const [newTask, setNewTask] = useState<{ title: string; due: string; priority: "Low" | "Medium" | "High" }>({
+  const [newTask, setNewTask] = useState<{
+    title: string;
+    due: string;
+    priority: "Low" | "Medium" | "High";
+  }>({
     title: "",
     due: "",
     priority: "Medium",
@@ -267,7 +276,10 @@ function AgentProfilePage() {
       <div className="mx-auto max-w-lg p-10 text-center">
         <h1 className="font-display text-2xl">Agent not found</h1>
         <p className="mt-2 text-sm text-muted-foreground">This agent may have been removed.</p>
-        <Link to="/agents" className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent">
+        <Link
+          to="/agents"
+          className="mt-4 inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-accent"
+        >
           <ArrowLeft className="h-4 w-4" /> Back to team
         </Link>
       </div>
@@ -278,9 +290,7 @@ function AgentProfilePage() {
   const img = agentImageMap[agent.icon_key];
   const isLeader = agent.parent_id === null;
   const dirty =
-    (agent.main_skill ?? "") !== skill ||
-    agent.name !== name ||
-    (agent.scope ?? "") !== scope;
+    (agent.main_skill ?? "") !== skill || agent.name !== name || (agent.scope ?? "") !== scope;
 
   const priorityChip = (p: string) => {
     const map: Record<string, string> = {
@@ -294,7 +304,12 @@ function AgentProfilePage() {
   const addTask = () => {
     if (!newTask.title.trim()) return;
     setScheduled((p) => [
-      { id: crypto.randomUUID(), title: newTask.title.trim(), due: newTask.due || "—", priority: newTask.priority },
+      {
+        id: crypto.randomUUID(),
+        title: newTask.title.trim(),
+        due: newTask.due || "—",
+        priority: newTask.priority,
+      },
       ...p,
     ]);
     setNewTask({ title: "", due: "", priority: "Medium" });
@@ -302,7 +317,10 @@ function AgentProfilePage() {
 
   const addFact = () => {
     if (!factDraft.trim()) return;
-    setFacts((p) => [{ id: crypto.randomUUID(), text: factDraft.trim(), at: new Date().toLocaleString() }, ...p]);
+    setFacts((p) => [
+      { id: crypto.randomUUID(), text: factDraft.trim(), at: new Date().toLocaleString() },
+      ...p,
+    ]);
     setFactDraft("");
   };
 
@@ -336,18 +354,30 @@ function AgentProfilePage() {
           <nav aria-label="Breadcrumb" className="min-w-0 text-xs text-muted-foreground">
             <ol className="flex flex-wrap items-center gap-1.5">
               <li>
-                <Link to="/" className="transition hover:text-foreground">Console</Link>
+                <Link to="/" className="transition hover:text-foreground">
+                  Console
+                </Link>
               </li>
-              <li aria-hidden className="text-border">/</li>
+              <li aria-hidden className="text-border">
+                /
+              </li>
               <li>
-                <Link to="/agents" className="transition hover:text-foreground">{meta.headline}</Link>
+                <Link to="/agents" className="transition hover:text-foreground">
+                  {meta.headline}
+                </Link>
               </li>
-              <li aria-hidden className="text-border">/</li>
-              <li aria-current="page" className="max-w-[220px] truncate font-medium text-foreground">{agent.name}</li>
+              <li aria-hidden className="text-border">
+                /
+              </li>
+              <li
+                aria-current="page"
+                className="max-w-[220px] truncate font-medium text-foreground"
+              >
+                {agent.name}
+              </li>
             </ol>
           </nav>
         </div>
-
 
         {/* Header card */}
         <header
@@ -360,19 +390,33 @@ function AgentProfilePage() {
           <span
             aria-hidden
             className={`pointer-events-none absolute inset-x-0 top-0 h-px ${
-              isLeader ? "bg-gradient-to-r from-transparent via-amber-300 to-transparent" : "bg-gradient-to-r from-transparent via-cyan-300 to-transparent"
+              isLeader
+                ? "bg-gradient-to-r from-transparent via-amber-300 to-transparent"
+                : "bg-gradient-to-r from-transparent via-cyan-300 to-transparent"
             }`}
           />
           <div className="grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-5">
-            <div className={`grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border bg-background/70 ${isLeader ? "border-amber-300/60 ring-2 ring-amber-300/25" : "border-cyan-400/40 ring-2 ring-cyan-400/20"}`}>
-              {img ? <img src={img} alt={agent.name} className="h-[92%] w-[92%] object-contain" /> : <Icon className="h-8 w-8" />}
+            <div
+              className={`grid h-16 w-16 place-items-center overflow-hidden rounded-2xl border bg-background/70 ${isLeader ? "border-amber-300/60 ring-2 ring-amber-300/25" : "border-cyan-400/40 ring-2 ring-cyan-400/20"}`}
+            >
+              {img ? (
+                <img src={img} alt={agent.name} className="h-[92%] w-[92%] object-contain" />
+              ) : (
+                <Icon className="h-8 w-8" />
+              )}
             </div>
             <div className="min-w-0">
               <div className="mb-1 inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-muted-foreground">
-                {isLeader ? <Crown className="h-3 w-3 text-amber-300" /> : <Bot className="h-3 w-3 text-cyan-300" />}
+                {isLeader ? (
+                  <Crown className="h-3 w-3 text-amber-300" />
+                ) : (
+                  <Bot className="h-3 w-3 text-cyan-300" />
+                )}
                 GMB Agent Profile
               </div>
-              <h1 className="truncate font-display text-2xl leading-tight tracking-tight sm:text-3xl">{agent.name}</h1>
+              <h1 className="truncate font-display text-2xl leading-tight tracking-tight sm:text-3xl">
+                {agent.name}
+              </h1>
               <p className="mt-1 truncate text-xs text-muted-foreground">{meta.blurb}</p>
             </div>
 
@@ -391,7 +435,9 @@ function AgentProfilePage() {
           <div className="space-y-4">
             {/* Skill set */}
             <Panel icon={Brain} title="Skill set" accent={isLeader ? "amber" : "cyan"}>
-              <label htmlFor="agent-main-skill" className="sr-only">Main skill</label>
+              <label htmlFor="agent-main-skill" className="sr-only">
+                Main skill
+              </label>
               <textarea
                 id="agent-main-skill"
                 value={skill}
@@ -409,7 +455,10 @@ function AgentProfilePage() {
                     : "border-border"
                 }`}
               />
-              <div id="agent-main-skill-help" className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground">
+              <div
+                id="agent-main-skill-help"
+                className="mt-2 flex items-center justify-between text-[11px] text-muted-foreground"
+              >
                 <span>Required. Defines how this agent performs tasks.</span>
                 <span className={skill.length > MAIN_SKILL_MAX ? "text-rose-400" : ""}>
                   {skill.trim().length}/{MAIN_SKILL_MAX}
@@ -431,8 +480,13 @@ function AgentProfilePage() {
             <Panel icon={Settings2} title="Agent settings" accent={isLeader ? "amber" : "cyan"}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Default priority">
-                  <Select value={priority} onValueChange={(v) => setPriority(v as "Low" | "Medium" | "High")}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={priority}
+                    onValueChange={(v) => setPriority(v as "Low" | "Medium" | "High")}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Low">Low</SelectItem>
                       <SelectItem value="Medium">Medium</SelectItem>
@@ -442,7 +496,9 @@ function AgentProfilePage() {
                 </Field>
                 <Field label="Model">
                   <Select value={model} onValueChange={setModel}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="gpt-4o">gpt-4o</SelectItem>
                       <SelectItem value="gpt-4o-mini">gpt-4o-mini</SelectItem>
@@ -469,7 +525,9 @@ function AgentProfilePage() {
               </div>
 
               <div className="mt-4">
-                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Operator notes</label>
+                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  Operator notes
+                </label>
                 <textarea
                   value={notes}
                   onChange={(e) => setNotes(e.target.value)}
@@ -525,7 +583,11 @@ function AgentProfilePage() {
                     title={skillError ?? undefined}
                     className="inline-flex items-center gap-1.5 rounded-md bg-cyan-500 px-3 py-1.5 text-xs font-semibold text-cyan-950 hover:bg-cyan-400 disabled:cursor-not-allowed disabled:opacity-50"
                   >
-                    {saveMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+                    {saveMut.isPending ? (
+                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    ) : (
+                      <Save className="h-3.5 w-3.5" />
+                    )}
                     Save changes
                   </button>
                 </div>
@@ -536,7 +598,11 @@ function AgentProfilePage() {
           {/* RIGHT COLUMN */}
           <div className="space-y-4">
             {/* Assign & schedule */}
-            <Panel icon={CalendarClock} title="Assign & schedule task" accent={isLeader ? "amber" : "cyan"}>
+            <Panel
+              icon={CalendarClock}
+              title="Assign & schedule task"
+              accent={isLeader ? "amber" : "cyan"}
+            >
               <input
                 value={newTask.title}
                 onChange={(e) => setNewTask((p) => ({ ...p, title: e.target.value }))}
@@ -546,7 +612,9 @@ function AgentProfilePage() {
               <div className="mt-3 grid grid-cols-3 gap-3">
                 <Field label="Assignee">
                   <Select value={agent.id} onValueChange={() => {}}>
-                    <SelectTrigger><SelectValue placeholder={agent.name} /></SelectTrigger>
+                    <SelectTrigger>
+                      <SelectValue placeholder={agent.name} />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value={agent.id}>{agent.name}</SelectItem>
                     </SelectContent>
@@ -561,8 +629,15 @@ function AgentProfilePage() {
                   />
                 </Field>
                 <Field label="Priority">
-                  <Select value={newTask.priority} onValueChange={(v) => setNewTask((p) => ({ ...p, priority: v as "Low" | "Medium" | "High" }))}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                  <Select
+                    value={newTask.priority}
+                    onValueChange={(v) =>
+                      setNewTask((p) => ({ ...p, priority: v as "Low" | "Medium" | "High" }))
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="Low">Low</SelectItem>
                       <SelectItem value="Medium">Medium</SelectItem>
@@ -580,7 +655,11 @@ function AgentProfilePage() {
             </Panel>
 
             {/* Scheduled tasks */}
-            <Panel icon={ListChecks} title={`Scheduled tasks (${scheduled.length})`} accent={isLeader ? "amber" : "cyan"}>
+            <Panel
+              icon={ListChecks}
+              title={`Scheduled tasks (${scheduled.length})`}
+              accent={isLeader ? "amber" : "cyan"}
+            >
               {scheduled.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border/60 py-8 text-center text-sm text-muted-foreground">
                   No tasks scheduled yet
@@ -588,12 +667,17 @@ function AgentProfilePage() {
               ) : (
                 <ul className="space-y-2">
                   {scheduled.map((t) => (
-                    <li key={t.id} className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3">
+                    <li
+                      key={t.id}
+                      className="flex items-center gap-3 rounded-lg border border-border/60 bg-background/40 p-3"
+                    >
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-sm font-medium">{t.title}</div>
                         <div className="mt-0.5 text-[11px] text-muted-foreground">Due {t.due}</div>
                       </div>
-                      <span className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ring-1 ${priorityChip(t.priority)}`}>
+                      <span
+                        className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ring-1 ${priorityChip(t.priority)}`}
+                      >
                         {t.priority}
                       </span>
                       <button
@@ -610,8 +694,14 @@ function AgentProfilePage() {
             </Panel>
 
             {/* Memory */}
-            <Panel icon={BookOpen} title={`Memory (${facts.length})`} accent={isLeader ? "amber" : "cyan"}>
-              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Long-term memory</label>
+            <Panel
+              icon={BookOpen}
+              title={`Memory (${facts.length})`}
+              accent={isLeader ? "amber" : "cyan"}
+            >
+              <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                Long-term memory
+              </label>
               <textarea
                 value={longMemory}
                 onChange={(e) => setLongMemory(e.target.value)}
@@ -624,7 +714,9 @@ function AgentProfilePage() {
               </p>
 
               <div className="mt-4 rounded-lg border border-dashed border-border/60 p-3">
-                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">Teach a new fact</label>
+                <label className="mb-1 block text-[11px] font-medium text-muted-foreground">
+                  Teach a new fact
+                </label>
                 <div className="flex gap-2">
                   <input
                     value={factDraft}
@@ -646,7 +738,10 @@ function AgentProfilePage() {
                 ) : (
                   <ul className="mt-2 space-y-1.5">
                     {facts.map((f) => (
-                      <li key={f.id} className="flex items-start gap-2 rounded-md bg-background/50 p-2 text-xs">
+                      <li
+                        key={f.id}
+                        className="flex items-start gap-2 rounded-md bg-background/50 p-2 text-xs"
+                      >
                         <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-cyan-400" />
                         <div className="min-w-0 flex-1">
                           <div className="truncate">{f.text}</div>
@@ -667,7 +762,11 @@ function AgentProfilePage() {
             </Panel>
 
             {/* Logs */}
-            <Panel icon={Terminal} title={`Logs (${events.length})`} accent={isLeader ? "amber" : "cyan"}>
+            <Panel
+              icon={Terminal}
+              title={`Logs (${events.length})`}
+              accent={isLeader ? "amber" : "cyan"}
+            >
               <div className="mb-3 flex items-center justify-between text-[11px] text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="relative flex h-2 w-2">
@@ -683,17 +782,29 @@ function AgentProfilePage() {
                 </div>
               ) : (
                 <ol className="max-h-72 space-y-1.5 overflow-y-auto pr-1">
-                  {events.slice(0, 30).map((e: { id: string; event_type: string; message: string; created_at: string }) => (
-                    <li key={e.id} className="flex items-center gap-2 rounded-md border border-border/40 bg-background/40 px-2.5 py-1.5 font-mono text-[11px]">
-                      <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
-                        {e.event_type}
-                      </span>
-                      <span className="flex-1 truncate">{e.message}</span>
-                      <span className="text-[10px] text-muted-foreground">
-                        {new Date(e.created_at).toLocaleTimeString()}
-                      </span>
-                    </li>
-                  ))}
+                  {events
+                    .slice(0, 30)
+                    .map(
+                      (e: {
+                        id: string;
+                        event_type: string;
+                        message: string;
+                        created_at: string;
+                      }) => (
+                        <li
+                          key={e.id}
+                          className="flex items-center gap-2 rounded-md border border-border/40 bg-background/40 px-2.5 py-1.5 font-mono text-[11px]"
+                        >
+                          <span className="rounded bg-cyan-500/15 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-cyan-300">
+                            {e.event_type}
+                          </span>
+                          <span className="flex-1 truncate">{e.message}</span>
+                          <span className="text-[10px] text-muted-foreground">
+                            {new Date(e.created_at).toLocaleTimeString()}
+                          </span>
+                        </li>
+                      ),
+                    )}
                 </ol>
               )}
             </Panel>
@@ -703,7 +814,11 @@ function AgentProfilePage() {
         {leader && !isLeader && (
           <p className="mt-6 text-xs text-muted-foreground">
             Reports to{" "}
-            <Link to="/agents/$agentId" params={{ agentId: leader.id }} className="text-foreground underline underline-offset-4 hover:text-cyan-400">
+            <Link
+              to="/agents/$agentId"
+              params={{ agentId: leader.id }}
+              className="text-foreground underline underline-offset-4 hover:text-cyan-400"
+            >
               {leader.name}
             </Link>
             .
@@ -730,7 +845,9 @@ function Panel({
   const ring = accent === "amber" ? "border-amber-300/40" : "border-cyan-400/30";
   const iconTone = accent === "amber" ? "text-amber-300" : "text-cyan-300";
   return (
-    <section className={`overflow-hidden rounded-2xl border ${ring} bg-card/60 p-5 backdrop-blur-sm`}>
+    <section
+      className={`overflow-hidden rounded-2xl border ${ring} bg-card/60 p-5 backdrop-blur-sm`}
+    >
       <div className="mb-3 flex items-center gap-2">
         <Icon className={`h-4 w-4 ${iconTone}`} />
         <h2 className="font-display text-sm font-semibold uppercase tracking-widest">{title}</h2>
@@ -752,18 +869,34 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 function MiniChip({ label, value }: { label: string; value: number | string }) {
   return (
     <div className="rounded-lg border border-border/60 bg-background/50 px-2.5 py-1.5 text-center min-w-[64px]">
-      <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+        {label}
+      </div>
       <div className="font-display text-lg leading-none">{value}</div>
     </div>
   );
 }
 
-function ToggleChip({ label, checked, onChange }: { label: string; checked: boolean; onChange: (v: boolean) => void }) {
+function ToggleChip({
+  label,
+  checked,
+  onChange,
+}: {
+  label: string;
+  checked: boolean;
+  onChange: (v: boolean) => void;
+}) {
   return (
-    <label className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition ${checked ? "border-cyan-400/50 bg-cyan-500/10 text-cyan-200" : "border-border/60 bg-background/50 text-muted-foreground"}`}>
+    <label
+      className={`inline-flex items-center gap-2 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold uppercase tracking-widest transition ${checked ? "border-cyan-400/50 bg-cyan-500/10 text-cyan-200" : "border-border/60 bg-background/50 text-muted-foreground"}`}
+    >
       {label}
       <Switch checked={checked} onCheckedChange={onChange} />
-      <span className="sr-only"><Activity className="h-3 w-3" /><CheckCircle2 className="h-3 w-3" /><Clock className="h-3 w-3" /></span>
+      <span className="sr-only">
+        <Activity className="h-3 w-3" />
+        <CheckCircle2 className="h-3 w-3" />
+        <Clock className="h-3 w-3" />
+      </span>
     </label>
   );
 }

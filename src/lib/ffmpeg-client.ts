@@ -69,8 +69,26 @@ export function downloadBlob(blob: Blob, filename: string) {
 
 // Allowed input formats for ffmpeg.wasm. Broad but explicit — anything not here is rejected early.
 export const SUPPORTED_VIDEO_EXTENSIONS = [
-  "mp4", "m4v", "mov", "webm", "mkv", "avi", "flv", "wmv", "mpg", "mpeg",
-  "ts", "mts", "m2ts", "3gp", "3g2", "ogv", "ogg", "asf", "vob", "f4v",
+  "mp4",
+  "m4v",
+  "mov",
+  "webm",
+  "mkv",
+  "avi",
+  "flv",
+  "wmv",
+  "mpg",
+  "mpeg",
+  "ts",
+  "mts",
+  "m2ts",
+  "3gp",
+  "3g2",
+  "ogv",
+  "ogg",
+  "asf",
+  "vob",
+  "f4v",
 ] as const;
 
 export const SUPPORTED_VIDEO_MIME_PREFIXES = ["video/"];
@@ -118,14 +136,21 @@ export function probeVideoDuration(file: File): Promise<number | null> {
       video.removeAttribute("src");
       video.load();
     };
-    const timeout = setTimeout(() => { cleanup(); resolve(null); }, 8000);
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 8000);
     video.onloadedmetadata = () => {
       clearTimeout(timeout);
       const d = Number.isFinite(video.duration) ? video.duration : null;
       cleanup();
       resolve(d);
     };
-    video.onerror = () => { clearTimeout(timeout); cleanup(); resolve(null); };
+    video.onerror = () => {
+      clearTimeout(timeout);
+      cleanup();
+      resolve(null);
+    };
     video.src = url;
   });
 }

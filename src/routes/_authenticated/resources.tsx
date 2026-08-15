@@ -24,8 +24,7 @@ export const Route = createFileRoute("/_authenticated/resources")({
       { title: "Resources — GMB Rank Pilot" },
       {
         name: "description",
-        content:
-          "Save, organize, and access files, SOPs, checklists, and audits in one place.",
+        content: "Save, organize, and access files, SOPs, checklists, and audits in one place.",
       },
     ],
   }),
@@ -155,9 +154,7 @@ function ResourcesPage() {
 
   function countInFolder(folderId: string, kind?: ResourceKind) {
     const set = descendantsOf.get(folderId) ?? new Set([folderId]);
-    return items.filter(
-      (i) => set.has(i.folderId) && (!kind || i.kind === kind),
-    ).length;
+    return items.filter((i) => set.has(i.folderId) && (!kind || i.kind === kind)).length;
   }
 
   const activeFolder = folders.find((f) => f.id === activeFolderId) ?? folders[0];
@@ -199,11 +196,7 @@ function ResourcesPage() {
     }
     const descendants = descendantsOf.get(id) ?? new Set([id]);
     const itemCount = items.filter((i) => descendants.has(i.folderId)).length;
-    if (
-      !window.confirm(
-        `Delete this folder${itemCount ? ` and its ${itemCount} item(s)` : ""}?`,
-      )
-    )
+    if (!window.confirm(`Delete this folder${itemCount ? ` and its ${itemCount} item(s)` : ""}?`))
       return;
     setFolders((prev) => prev.filter((f) => !descendants.has(f.id)));
     setItems((prev) => prev.filter((i) => !descendants.has(i.folderId)));
@@ -317,13 +310,13 @@ function ResourcesPage() {
               key={k}
               onClick={() => setKindFilter(on ? "all" : k)}
               className={`flex items-center justify-between rounded-xl border p-4 text-left transition ${
-                on
-                  ? "border-primary bg-primary/5"
-                  : "border-border bg-card hover:border-primary/40"
+                on ? "border-primary bg-primary/5" : "border-border bg-card hover:border-primary/40"
               }`}
             >
               <div>
-                <div className={`inline-flex items-center gap-1.5 text-xs uppercase tracking-widest ${meta.tone}`}>
+                <div
+                  className={`inline-flex items-center gap-1.5 text-xs uppercase tracking-widest ${meta.tone}`}
+                >
                   <Icon className="h-3.5 w-3.5" />
                   {meta.label}
                 </div>
@@ -407,7 +400,9 @@ function ResourcesPage() {
                 const folder = folders.find((f) => f.id === item.folderId);
                 return (
                   <li key={item.id} className="flex items-center gap-3 px-4 py-3">
-                    <div className={`flex h-9 w-9 items-center justify-center rounded-lg bg-muted ${meta.tone}`}>
+                    <div
+                      className={`flex h-9 w-9 items-center justify-center rounded-lg bg-muted ${meta.tone}`}
+                    >
                       <Icon className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">

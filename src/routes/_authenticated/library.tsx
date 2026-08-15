@@ -55,18 +55,18 @@ export const Route = createFileRoute("/_authenticated/library")({
 
 type LibraryTab = "upload" | "raw" | "published" | "geotagged" | "favorites" | "videos" | "trash";
 
-
 async function fetchLibrary() {
   const { data: images, error } = await supabase
     .from("images")
-    .select("id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, posted_at, created_at")
+    .select(
+      "id, name, storage_path, sharpness_score, venue_id, lat, lng, title, description, folder_id, is_favorite, posted_at, created_at",
+    )
     // Isolate GMB library from social-account uploads (Facebook / Instagram / LinkedIn).
     .not("storage_path", "ilike", "%/social-%")
     // Hide soft-deleted (trashed) images from normal views.
     .is("deleted_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
-
 
   const { data: venues } = await supabase.from("venues").select("id, name");
   const { data: tagRows } = await supabase
@@ -89,7 +89,6 @@ async function fetchLibrary() {
   return { images: images ?? [], venueMap, tagMap, folders: folders ?? [] };
 }
 
-
 async function fetchTrash() {
   const { data, error } = await supabase
     .from("images")
@@ -100,7 +99,6 @@ async function fetchTrash() {
   if (error) throw error;
   return data ?? [];
 }
-
 
 async function fetchKeywords() {
   const { data, error } = await supabase
@@ -128,18 +126,20 @@ function LibraryPage() {
   const [editingId, setEditingId] = useState<string | null>(null);
   // Per-tab folder filter. null = "All" (folder chip); "__uncategorized" = images with no folder.
   // Applies to raw / published / geotagged image tabs (and separately to videos).
-  const [folderByTab, setFolderByTab] = useState<Record<"raw" | "published" | "geotagged", string | null>>({
+  const [folderByTab, setFolderByTab] = useState<
+    Record<"raw" | "published" | "geotagged", string | null>
+  >({
     raw: null,
     published: null,
     geotagged: null,
   });
-  const activeFolderId = tab === "raw" || tab === "published" || tab === "geotagged" ? folderByTab[tab] : null;
+  const activeFolderId =
+    tab === "raw" || tab === "published" || tab === "geotagged" ? folderByTab[tab] : null;
   const setActiveFolderId = (id: string | null) => {
     if (tab !== "raw" && tab !== "published" && tab !== "geotagged") return;
     setFolderByTab((prev) => ({ ...prev, [tab]: id }));
   };
   const autoTag = useServerFn(autoTagImages);
-
 
   async function runAutoTag() {
     if (selected.size === 0) return;
@@ -158,8 +158,6 @@ function LibraryPage() {
       setAutoTagging(false);
     }
   }
-
-
 
   // Soft-delete: images are marked with deleted_at and moved to the Trash tab.
   // Purge (permanent deletion + storage removal) happens from the Trash tab.
@@ -188,11 +186,11 @@ function LibraryPage() {
     qc.invalidateQueries({ queryKey: ["library"] });
   }
 
-
-
   async function bulkDeleteImages(ids: string[], _paths: string[], label: string) {
     if (ids.length === 0) return;
-    if (!window.confirm(`Move ${ids.length} ${label} to Trash? You can restore from the Trash tab.`)) {
+    if (
+      !window.confirm(`Move ${ids.length} ${label} to Trash? You can restore from the Trash tab.`)
+    ) {
       return;
     }
     const now = new Date().toISOString();
@@ -262,8 +260,6 @@ function LibraryPage() {
     qc.invalidateQueries({ queryKey: ["trash"] });
   }
 
-
-
   type DownloadableImage = {
     id: string;
     name: string;
@@ -302,20 +298,22 @@ function LibraryPage() {
     const validExts = new Set(Object.values(mimeToExt));
     const pathExt = (img.storage_path.split(".").pop() || "").toLowerCase();
     const mime = (blob.type || "").toLowerCase();
-    const inferredExt =
-      mimeToExt[mime] ||
-      (validExts.has(pathExt) ? pathExt : "jpg");
-    const inferredMime =
-      mime.startsWith("image/") ? mime : `image/${inferredExt === "jpg" ? "jpeg" : inferredExt}`;
+    const inferredExt = mimeToExt[mime] || (validExts.has(pathExt) ? pathExt : "jpg");
+    const inferredMime = mime.startsWith("image/")
+      ? mime
+      : `image/${inferredExt === "jpg" ? "jpeg" : inferredExt}`;
 
     const source = new File(
       [blob],
-      (img.name && /\.[a-z0-9]+$/i.test(img.name) ? img.name : `image.${inferredExt}`),
+      img.name && /\.[a-z0-9]+$/i.test(img.name) ? img.name : `image.${inferredExt}`,
       { type: inferredMime },
     );
     // Pull keywords (image_tags) so downloads carry them in EXIF XPKeywords.
     const keywords =
-      data?.tagMap.get(img.id)?.map((t) => t.label).filter(Boolean) ?? [];
+      data?.tagMap
+        .get(img.id)
+        ?.map((t) => t.label)
+        .filter(Boolean) ?? [];
     const output =
       img.lat != null && img.lng != null
         ? await embedGps(source, Number(img.lat), Number(img.lng), {
@@ -325,9 +323,12 @@ function LibraryPage() {
           })
         : source;
 
-    const rawBase = (img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, ""));
+    const rawBase = img.title?.trim() || (img.name || "image").replace(/\.[^.]+$/, "");
     const base =
-      rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
+      rawBase
+        .replace(/[^\p{L}\p{N}\s._-]/gu, "")
+        .trim()
+        .replace(/\s+/g, "-") || "image";
     const outExtRaw = (output.name.split(".").pop() || "").toLowerCase();
     const outExt = validExts.has(outExtRaw) ? outExtRaw : inferredExt;
 
@@ -351,7 +352,9 @@ function LibraryPage() {
   }
 
   const [downloadingAll, setDownloadingAll] = useState(false);
-  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(null);
+  const [downloadProgress, setDownloadProgress] = useState<{ done: number; total: number } | null>(
+    null,
+  );
 
   // Packs every image into a single .zip so "Download all" produces one file
   // instead of triggering a separate browser download per image. `zipName`
@@ -409,7 +412,12 @@ function LibraryPage() {
       const url = URL.createObjectURL(zipBlob);
       const a = document.createElement("a");
       a.href = url;
-      a.download = `${zipName.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "images"}.zip`;
+      a.download = `${
+        zipName
+          .replace(/[^\p{L}\p{N}\s._-]/gu, "")
+          .trim()
+          .replace(/\s+/g, "-") || "images"
+      }.zip`;
       document.body.appendChild(a);
       a.click();
       a.remove();
@@ -477,9 +485,6 @@ function LibraryPage() {
     toast.success(`GHL CSV ready — ${imgs.length} ${imgs.length === 1 ? "row" : "rows"}.`);
   }
 
-
-
-
   // An image counts as published if it carries the published/posted tag or has
   // actually gone out (posted_at). Used for both bucketing and the badge.
   function isPublished(img: { id: string; posted_at?: string | null }): boolean {
@@ -502,10 +507,13 @@ function LibraryPage() {
     return "raw";
   }
 
-
-
   const counts = useMemo(() => {
-    const c: Record<"raw" | "published" | "geotagged" | "favorites", number> = { raw: 0, published: 0, geotagged: 0, favorites: 0 };
+    const c: Record<"raw" | "published" | "geotagged" | "favorites", number> = {
+      raw: 0,
+      published: 0,
+      geotagged: 0,
+      favorites: 0,
+    };
     for (const i of data?.images ?? []) {
       const bucket = imageBucket(i);
       c[bucket]++;
@@ -516,7 +524,6 @@ function LibraryPage() {
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data]);
-
 
   const filtered = useMemo(() => {
     if (!data || tab === "videos") return [];
@@ -539,8 +546,7 @@ function LibraryPage() {
       const venue = i.venue_id ? data.venueMap.get(i.venue_id) : undefined;
       if (venue?.toLowerCase().includes(q)) return true;
       const tags = data.tagMap.get(i.id);
-      if (tags?.some((t) => t.slug.includes(q) || t.label.toLowerCase().includes(q)))
-        return true;
+      if (tags?.some((t) => t.slug.includes(q) || t.label.toLowerCase().includes(q))) return true;
       return false;
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -583,7 +589,9 @@ function LibraryPage() {
     toast.success("Folder deleted.");
     setFolderByTab((prev) => {
       const next = { ...prev };
-      (["raw", "published", "geotagged"] as const).forEach((k) => { if (next[k] === id) next[k] = null; });
+      (["raw", "published", "geotagged"] as const).forEach((k) => {
+        if (next[k] === id) next[k] = null;
+      });
       return next;
     });
     qc.invalidateQueries({ queryKey: ["library"] });
@@ -593,7 +601,9 @@ function LibraryPage() {
     // Defensive: strip null/undefined/non-uuid ids that can slip in when
     // selections span mixed tabs or stale rows — those cause PostgREST 400.
     const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-    const cleanIds = Array.from(new Set(imageIds.filter((id): id is string => typeof id === "string" && uuidRe.test(id))));
+    const cleanIds = Array.from(
+      new Set(imageIds.filter((id): id is string => typeof id === "string" && uuidRe.test(id))),
+    );
     if (cleanIds.length === 0) {
       toast.error("No valid images selected.");
       return;
@@ -620,10 +630,6 @@ function LibraryPage() {
     qc.invalidateQueries({ queryKey: ["library"] });
   }
 
-
-
-
-
   function toggleSelect(id: string) {
     setSelectedViaAll(false);
     setSelected((prev) => {
@@ -643,8 +649,12 @@ function LibraryPage() {
     setSelectedViaAll(false);
   }
 
-
-  const tabs: { id: LibraryTab; label: string; icon: React.ComponentType<{ className?: string }>; count?: number }[] = [
+  const tabs: {
+    id: LibraryTab;
+    label: string;
+    icon: React.ComponentType<{ className?: string }>;
+    count?: number;
+  }[] = [
     { id: "upload", label: "Upload", icon: UploadCloud },
     { id: "raw", label: "Raw Images", icon: ImagesIcon, count: counts.raw },
     { id: "published", label: "Published Images", icon: CheckCircle2, count: counts.published },
@@ -675,12 +685,15 @@ function LibraryPage() {
             />
           </div>
         )}
-
       </div>
 
       {/* Horizontal tabs */}
       <div className="mt-6 border-b border-border">
-        <nav role="tablist" aria-label="Library sections" className="-mb-px flex flex-wrap gap-1 overflow-x-auto">
+        <nav
+          role="tablist"
+          aria-label="Library sections"
+          className="-mb-px flex flex-wrap gap-1 overflow-x-auto"
+        >
           {tabs.map((t) => {
             const active = tab === t.id;
             return (
@@ -702,7 +715,9 @@ function LibraryPage() {
                 <t.icon className="h-4 w-4" />
                 {t.label}
                 {t.count !== undefined && (
-                  <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}>
+                  <span
+                    className={`rounded-full px-1.5 py-0.5 text-[10px] font-semibold ${active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"}`}
+                  >
                     {t.count}
                   </span>
                 )}
@@ -712,9 +727,7 @@ function LibraryPage() {
         </nav>
       </div>
 
-
       {tab !== "videos" && tab !== "upload" && tab !== "trash" && selectMode && (
-
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
           <span className="text-sm">
             <strong>{selected.size}</strong> selected
@@ -762,68 +775,71 @@ function LibraryPage() {
         </div>
       )}
 
-      {tab !== "videos" && tab !== "upload" && tab !== "trash" && tab !== "raw" && selectMode && selected.size > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-3 text-xs">
-          <span className="font-medium">
-            Move {selected.size} selected to folder:
-          </span>
-          {data?.folders.map((f) => (
+      {tab !== "videos" &&
+        tab !== "upload" &&
+        tab !== "trash" &&
+        tab !== "raw" &&
+        selectMode &&
+        selected.size > 0 && (
+          <div className="mt-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.04] p-3 text-xs">
+            <span className="font-medium">Move {selected.size} selected to folder:</span>
+            {data?.folders.map((f) => (
+              <button
+                key={f.id}
+                onClick={async () => {
+                  await moveImagesToFolder(Array.from(selected), f.id);
+                  clearSelection();
+                }}
+                className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
+              >
+                <FolderIcon className="h-3 w-3" /> {f.name}
+              </button>
+            ))}
             <button
-              key={f.id}
               onClick={async () => {
-                await moveImagesToFolder(Array.from(selected), f.id);
+                await moveImagesToFolder(Array.from(selected), null);
                 clearSelection();
               }}
               className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
             >
-              <FolderIcon className="h-3 w-3" /> {f.name}
+              <X className="h-3 w-3" /> Unfiled
             </button>
-          ))}
-          <button
-            onClick={async () => {
-              await moveImagesToFolder(Array.from(selected), null);
-              clearSelection();
-            }}
-            className="inline-flex items-center gap-1 rounded-full border border-border bg-background px-2.5 py-1 hover:border-primary hover:bg-primary/10"
-          >
-            <X className="h-3 w-3" /> Unfiled
-          </button>
-          {(!data?.folders || data.folders.length === 0) && (
-            <span className="text-muted-foreground">
-              Create a folder in the Raw Images tab first.
-            </span>
-          )}
-          {tab === "geotagged" && (
-            <button
-              onClick={async () => {
-                const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-                const ids = Array.from(new Set(Array.from(selected).filter((id) => uuidRe.test(id))));
-                if (ids.length === 0) return toast.error("No valid images selected.");
-                const chunk = 200;
-                for (let i = 0; i < ids.length; i += chunk) {
-                  const slice = ids.slice(i, i + chunk);
-                  const { error } = await supabase
-                    .from("images")
-                    .update({ lat: null, lng: null } as never)
-                    .in("id", slice);
-                  if (error) {
-                    console.error("[moveToRaw]", error);
-                    return toast.error(`Move failed: ${error.message}`);
+            {(!data?.folders || data.folders.length === 0) && (
+              <span className="text-muted-foreground">
+                Create a folder in the Raw Images tab first.
+              </span>
+            )}
+            {tab === "geotagged" && (
+              <button
+                onClick={async () => {
+                  const uuidRe = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+                  const ids = Array.from(
+                    new Set(Array.from(selected).filter((id) => uuidRe.test(id))),
+                  );
+                  if (ids.length === 0) return toast.error("No valid images selected.");
+                  const chunk = 200;
+                  for (let i = 0; i < ids.length; i += chunk) {
+                    const slice = ids.slice(i, i + chunk);
+                    const { error } = await supabase
+                      .from("images")
+                      .update({ lat: null, lng: null } as never)
+                      .in("id", slice);
+                    if (error) {
+                      console.error("[moveToRaw]", error);
+                      return toast.error(`Move failed: ${error.message}`);
+                    }
                   }
-                }
-                toast.success(`Moved ${ids.length} image${ids.length === 1 ? "" : "s"} to Raw.`);
-                clearSelection();
-                qc.invalidateQueries({ queryKey: ["library"] });
-              }}
-              className="ml-auto inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-amber-600 hover:bg-amber-500/20"
-            >
-              <ImagesIcon className="h-3 w-3" /> Move to Raw
-            </button>
-          )}
-        </div>
-      )}
-
-
+                  toast.success(`Moved ${ids.length} image${ids.length === 1 ? "" : "s"} to Raw.`);
+                  clearSelection();
+                  qc.invalidateQueries({ queryKey: ["library"] });
+                }}
+                className="ml-auto inline-flex items-center gap-1 rounded-full border border-amber-500/40 bg-amber-500/10 px-2.5 py-1 text-amber-600 hover:bg-amber-500/20"
+              >
+                <ImagesIcon className="h-3 w-3" /> Move to Raw
+              </button>
+            )}
+          </div>
+        )}
 
       {(tab === "raw" || tab === "published" || tab === "geotagged") && !isLoading && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
@@ -852,7 +868,9 @@ function LibraryPage() {
             <FolderChip
               active={activeFolderId === null}
               icon={ImagesIcon}
-              label={tab === "raw" ? "All raw" : tab === "published" ? "All published" : "All geo-tagged"}
+              label={
+                tab === "raw" ? "All raw" : tab === "published" ? "All published" : "All geo-tagged"
+              }
               count={data?.images.filter((i) => imageBucket(i) === tab).length ?? 0}
               onClick={() => setActiveFolderId(null)}
             />
@@ -861,7 +879,8 @@ function LibraryPage() {
               icon={ImagesIcon}
               label="Unfiled"
               count={
-                data?.images.filter((i) => imageBucket(i) === tab && i.folder_id == null).length ?? 0
+                data?.images.filter((i) => imageBucket(i) === tab && i.folder_id == null).length ??
+                0
               }
               onClick={() => setActiveFolderId("__uncategorized")}
             />
@@ -889,9 +908,7 @@ function LibraryPage() {
                     <span>{f.name}</span>
                     <span
                       className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
-                        active
-                          ? "bg-primary/15 text-primary"
-                          : "bg-muted text-muted-foreground"
+                        active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
                       }`}
                     >
                       {count}
@@ -1025,19 +1042,14 @@ function LibraryPage() {
                         : `Download selected (${selected.size})`}
                     </button>
                   </div>
-
                 </>
               )}
             </div>
           )}
 
-
-
           {selectMode && selected.size > 0 && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-primary/[0.04] px-4 py-2.5 text-xs">
-              <span className="font-medium">
-                Move {selected.size} selected to
-              </span>
+              <span className="font-medium">Move {selected.size} selected to</span>
               {data?.folders.map((f) => (
                 <button
                   key={f.id}
@@ -1060,9 +1072,7 @@ function LibraryPage() {
                 <X className="h-3 w-3" /> Remove from folder
               </button>
               {data?.folders.length === 0 && (
-                <span className="text-muted-foreground">
-                  Create a folder first, then move.
-                </span>
+                <span className="text-muted-foreground">Create a folder first, then move.</span>
               )}
             </div>
           )}
@@ -1088,7 +1098,6 @@ function LibraryPage() {
       ) : tab === "trash" ? (
         <TrashPanel onRestore={restoreImages} onPurge={purgeImages} />
       ) : isLoading ? (
-
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
@@ -1102,221 +1111,233 @@ function LibraryPage() {
         </div>
       ) : (
         <>
-        {tab !== "raw" && (
-          <div className="mt-6 flex items-center justify-between gap-2">
-            <div className="text-xs text-muted-foreground">
-              {filtered.length} {filtered.length === 1 ? "image" : "images"}
-            </div>
-            <div className="flex items-center gap-2">
-              {tab === "favorites" && (
+          {tab !== "raw" && (
+            <div className="mt-6 flex items-center justify-between gap-2">
+              <div className="text-xs text-muted-foreground">
+                {filtered.length} {filtered.length === 1 ? "image" : "images"}
+              </div>
+              <div className="flex items-center gap-2">
+                {tab === "favorites" && (
+                  <button
+                    onClick={() => {
+                      const picked =
+                        selectMode && selected.size > 0
+                          ? filtered.filter((i) => selected.has(i.id))
+                          : filtered;
+                      downloadGhlCsv(picked);
+                    }}
+                    title="Download a GoHighLevel Social Planner CSV with permanent, no-index image links"
+                    className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    GHL CSV ({selectMode && selected.size > 0 ? selected.size : filtered.length})
+                  </button>
+                )}
                 <button
                   onClick={() => {
-                    const picked =
-                      selectMode && selected.size > 0
-                        ? filtered.filter((i) => selected.has(i.id))
-                        : filtered;
-                    downloadGhlCsv(picked);
+                    setSelectMode((s) => !s);
+                    clearSelection();
                   }}
-                  title="Download a GoHighLevel Social Planner CSV with permanent, no-index image links"
-                  className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
+                  className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
+                    selectMode
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border hover:bg-accent"
+                  }`}
                 >
-                  <Download className="h-3.5 w-3.5" />
-                  GHL CSV (
-                  {selectMode && selected.size > 0 ? selected.size : filtered.length})
+                  <CheckSquare className="h-3.5 w-3.5" />
+                  {selectMode ? "Done" : "Select"}
                 </button>
-              )}
-              <button
-                onClick={() => {
-                  setSelectMode((s) => !s);
-                  clearSelection();
-                }}
-                className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
-                  selectMode ? "border-primary bg-primary/10 text-primary" : "border-border hover:bg-accent"
-                }`}
-              >
-                <CheckSquare className="h-3.5 w-3.5" />
-                {selectMode ? "Done" : "Select"}
-              </button>
+              </div>
             </div>
-          </div>
-        )}
-        <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-
-          {filtered.map((img) => {
-            const tags = data!.tagMap.get(img.id) ?? [];
-            const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
-            const isSelected = selected.has(img.id);
-            const CardTag: any = selectMode ? "div" : Link;
-            const linkProps = selectMode
-              ? {}
-              : { to: "/library/$imageId", params: { imageId: img.id } };
-            const isGeo = img.lat != null && img.lng != null;
-            const hoverTitle = [img.title, img.description].filter(Boolean).join(" — ");
-            return (
-              <CardTag
-                key={img.id}
-                {...linkProps}
-                onClick={selectMode ? () => toggleSelect(img.id) : undefined}
-                title={hoverTitle || img.name}
-                className={`group relative overflow-hidden rounded-xl border bg-card transition ${
-                  isSelected
-                    ? "border-primary ring-2 ring-primary"
-                    : "border-border hover:border-primary/50"
-                } ${selectMode ? "cursor-pointer" : ""}`}
-              >
-                <div className="relative aspect-video overflow-hidden">
-                  <SignedImage
-                    bucket="frames"
-                    path={img.storage_path}
-                    alt={img.name}
-                    className="h-full w-full object-cover transition group-hover:scale-105"
-                  />
-                  {!selectMode && (isGeo || isPublished(img)) && (
-                    <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
-                      <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
-                      <PublishedBadge published={isPublished(img)} />
-                    </div>
-                  )}
-                  {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
-                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
-                      <FavoriteBadge favorite compact />
-                    </div>
-                  )}
-                  {activeFolderId === null && img.folder_id && !selectMode && (
-                    <div className="absolute bottom-2 left-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground shadow ring-1 ring-border/60 backdrop-blur">
-                      <FolderIcon className="h-3 w-3 shrink-0 text-primary" />
-                      <span className="truncate">
-                        {data?.folders.find((f) => f.id === img.folder_id)?.name ?? "Folder"}
-                      </span>
-                    </div>
-                  )}
-
-                  {selectMode && (
-                    <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
-                      {isSelected ? (
-                        <CheckSquare className="h-4 w-4" />
-                      ) : (
-                        <Square className="h-4 w-4" />
-                      )}
-                    </div>
-                  )}
-                  {!selectMode && (
-                    <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
-                      {isGeo && (
-                        <GeoStatusButton
-                          bucket="frames"
-                          path={img.storage_path}
-                          lat={Number(img.lat)}
-                          lng={Number(img.lng)}
-                        />
-                      )}
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          toggleFavorite(img.id, Boolean((img as { is_favorite?: boolean }).is_favorite));
-                        }}
-                        aria-label={(img as { is_favorite?: boolean }).is_favorite ? "Remove from favorites" : "Add to favorites"}
-                        title={(img as { is_favorite?: boolean }).is_favorite ? "Remove from favorites" : "Add to favorites"}
-                        className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${(img as { is_favorite?: boolean }).is_favorite ? "text-rose-500" : "text-foreground"}`}
-                      >
-                        <Heart className={`h-3.5 w-3.5 ${(img as { is_favorite?: boolean }).is_favorite ? "fill-current" : ""}`} />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          setEditingId(img.id);
-                        }}
-                        aria-label="Edit"
-                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          downloadImage({
-                            id: img.id,
-                            name: img.name,
-                            storage_path: img.storage_path,
-                            lat: img.lat as number | null,
-                            lng: img.lng as number | null,
-                            title: (img as { title: string | null }).title,
-                            description: (img as { description: string | null }).description,
-                          });
-                        }}
-                        aria-label="Download"
-                        title={`Download${img.title ? ` as “${img.title}”` : ""}`}
-                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                      </button>
-                      <button
-                        onClick={(e) => {
-                          e.preventDefault();
-                          e.stopPropagation();
-                          deleteImage(img.id, img.storage_path);
-                        }}
-                        aria-label="Delete"
-                        className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </button>
-                    </div>
-                  )}
-
-                  {(img.title || img.description) && (
-                    <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/85 via-black/70 to-transparent p-3 text-[11px] text-white opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
-                      {img.title && (
-                        <div className="truncate text-xs font-semibold">{img.title}</div>
-                      )}
-                      {img.description && (
-                        <div className="mt-0.5 line-clamp-2 text-[11px] text-white/85">
-                          {img.description}
-                        </div>
-                      )}
-                    </div>
-                  )}
-                </div>
-
-                <div className="p-3">
-                  <div className="truncate text-sm font-medium">{img.title || img.name}</div>
-                  {img.description && (
-                    <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
-                      {img.description}
-                    </div>
-                  )}
-                  <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
-                    {venue && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
-                        <MapPin className="h-3 w-3" /> {venue}
-                      </span>
+          )}
+          <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+            {filtered.map((img) => {
+              const tags = data!.tagMap.get(img.id) ?? [];
+              const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
+              const isSelected = selected.has(img.id);
+              const CardTag: any = selectMode ? "div" : Link;
+              const linkProps = selectMode
+                ? {}
+                : { to: "/library/$imageId", params: { imageId: img.id } };
+              const isGeo = img.lat != null && img.lng != null;
+              const hoverTitle = [img.title, img.description].filter(Boolean).join(" — ");
+              return (
+                <CardTag
+                  key={img.id}
+                  {...linkProps}
+                  onClick={selectMode ? () => toggleSelect(img.id) : undefined}
+                  title={hoverTitle || img.name}
+                  className={`group relative overflow-hidden rounded-xl border bg-card transition ${
+                    isSelected
+                      ? "border-primary ring-2 ring-primary"
+                      : "border-border hover:border-primary/50"
+                  } ${selectMode ? "cursor-pointer" : ""}`}
+                >
+                  <div className="relative aspect-video overflow-hidden">
+                    <SignedImage
+                      bucket="frames"
+                      path={img.storage_path}
+                      alt={img.name}
+                      className="h-full w-full object-cover transition group-hover:scale-105"
+                    />
+                    {!selectMode && (isGeo || isPublished(img)) && (
+                      <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
+                        <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                        <PublishedBadge published={isPublished(img)} />
+                      </div>
                     )}
-                    {(isGeo && !venue) && (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
-                        <MapPin className="h-3 w-3" /> Geotagged
-                      </span>
+                    {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
+                      <div className="absolute right-2 top-2 z-10 pointer-events-none">
+                        <FavoriteBadge favorite compact />
+                      </div>
                     )}
-                    {tags.slice(0, 3).map((t) => (
-                      <span
-                        key={t.slug}
-                        className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
-                      >
-                        <TagIcon className="h-3 w-3" />
-                        {t.label}
-                      </span>
-                    ))}
+                    {activeFolderId === null && img.folder_id && !selectMode && (
+                      <div className="absolute bottom-2 left-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground shadow ring-1 ring-border/60 backdrop-blur">
+                        <FolderIcon className="h-3 w-3 shrink-0 text-primary" />
+                        <span className="truncate">
+                          {data?.folders.find((f) => f.id === img.folder_id)?.name ?? "Folder"}
+                        </span>
+                      </div>
+                    )}
+
+                    {selectMode && (
+                      <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
+                        {isSelected ? (
+                          <CheckSquare className="h-4 w-4" />
+                        ) : (
+                          <Square className="h-4 w-4" />
+                        )}
+                      </div>
+                    )}
+                    {!selectMode && (
+                      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                        {isGeo && (
+                          <GeoStatusButton
+                            bucket="frames"
+                            path={img.storage_path}
+                            lat={Number(img.lat)}
+                            lng={Number(img.lng)}
+                          />
+                        )}
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            toggleFavorite(
+                              img.id,
+                              Boolean((img as { is_favorite?: boolean }).is_favorite),
+                            );
+                          }}
+                          aria-label={
+                            (img as { is_favorite?: boolean }).is_favorite
+                              ? "Remove from favorites"
+                              : "Add to favorites"
+                          }
+                          title={
+                            (img as { is_favorite?: boolean }).is_favorite
+                              ? "Remove from favorites"
+                              : "Add to favorites"
+                          }
+                          className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${(img as { is_favorite?: boolean }).is_favorite ? "text-rose-500" : "text-foreground"}`}
+                        >
+                          <Heart
+                            className={`h-3.5 w-3.5 ${(img as { is_favorite?: boolean }).is_favorite ? "fill-current" : ""}`}
+                          />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            setEditingId(img.id);
+                          }}
+                          aria-label="Edit"
+                          className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                        >
+                          <Pencil className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            downloadImage({
+                              id: img.id,
+                              name: img.name,
+                              storage_path: img.storage_path,
+                              lat: img.lat as number | null,
+                              lng: img.lng as number | null,
+                              title: (img as { title: string | null }).title,
+                              description: (img as { description: string | null }).description,
+                            });
+                          }}
+                          aria-label="Download"
+                          title={`Download${img.title ? ` as “${img.title}”` : ""}`}
+                          className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                        >
+                          <Download className="h-3.5 w-3.5" />
+                        </button>
+                        <button
+                          onClick={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            deleteImage(img.id, img.storage_path);
+                          }}
+                          aria-label="Delete"
+                          className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    )}
+
+                    {(img.title || img.description) && (
+                      <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/85 via-black/70 to-transparent p-3 text-[11px] text-white opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                        {img.title && (
+                          <div className="truncate text-xs font-semibold">{img.title}</div>
+                        )}
+                        {img.description && (
+                          <div className="mt-0.5 line-clamp-2 text-[11px] text-white/85">
+                            {img.description}
+                          </div>
+                        )}
+                      </div>
+                    )}
                   </div>
-                </div>
-              </CardTag>
-            );
-          })}
-        </div>
+
+                  <div className="p-3">
+                    <div className="truncate text-sm font-medium">{img.title || img.name}</div>
+                    {img.description && (
+                      <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                        {img.description}
+                      </div>
+                    )}
+                    <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                      {venue && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                          <MapPin className="h-3 w-3" /> {venue}
+                        </span>
+                      )}
+                      {isGeo && !venue && (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                          <MapPin className="h-3 w-3" /> Geotagged
+                        </span>
+                      )}
+                      {tags.slice(0, 3).map((t) => (
+                        <span
+                          key={t.slug}
+                          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                        >
+                          <TagIcon className="h-3 w-3" />
+                          {t.label}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                </CardTag>
+              );
+            })}
+          </div>
         </>
       )}
-
 
       {bulkPanel && (
         <BulkPanel
@@ -1373,9 +1394,7 @@ function BulkPanel({
     const q = kwFilter.toLowerCase();
     if (!q) return keywords;
     return keywords.filter(
-      (k) =>
-        k.phrase.toLowerCase().includes(q) ||
-        (k.cluster ?? "").toLowerCase().includes(q),
+      (k) => k.phrase.toLowerCase().includes(q) || (k.cluster ?? "").toLowerCase().includes(q),
     );
   }, [keywords, kwFilter]);
 
@@ -1437,10 +1456,7 @@ function BulkPanel({
             {mode === "keywords" ? "Assign keywords" : "Geotag"} ·{" "}
             <span className="text-muted-foreground">{imageIds.length} images</span>
           </h2>
-          <button
-            onClick={onClose}
-            className="rounded p-1 text-muted-foreground hover:bg-accent"
-          >
+          <button onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-accent">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -1455,7 +1471,7 @@ function BulkPanel({
                 onChange={(e) => setKwFilter(e.target.value)}
                 className="w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
-              {(!keywords || keywords.length === 0) ? (
+              {!keywords || keywords.length === 0 ? (
                 <div className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
                   No keywords yet.{" "}
                   <Link to="/keywords" className="text-primary underline">
@@ -1490,9 +1506,7 @@ function BulkPanel({
                         />
                         <span className="flex-1 truncate">{k.phrase}</span>
                         {k.volume != null && (
-                          <span className="text-xs text-muted-foreground">
-                            {k.volume}/mo
-                          </span>
+                          <span className="text-xs text-muted-foreground">{k.volume}/mo</span>
                         )}
                         {picked && (
                           <button
@@ -1527,10 +1541,7 @@ function BulkPanel({
         </div>
 
         <div className="flex justify-end gap-2 border-t border-border px-5 py-3">
-          <button
-            onClick={onClose}
-            className="rounded-md border border-border px-4 py-2 text-sm"
-          >
+          <button onClick={onClose} className="rounded-md border border-border px-4 py-2 text-sm">
             Cancel
           </button>
           <button
@@ -1803,7 +1814,6 @@ function ImageEditModal({
         if (error) throw error;
       }
 
-
       // 3. Tags — diff and apply
       const { data: userData } = await supabase.auth.getUser();
       const uid = userData.user?.id;
@@ -1819,9 +1829,7 @@ function ImageEditModal({
       }
       if (toAdd.length > 0 && uid) {
         const rows = toAdd.map((tag_id) => ({ image_id: imageId, tag_id, owner_id: uid }));
-        const { error } = await supabase
-          .from("image_tags")
-          .insert(rows as never);
+        const { error } = await supabase.from("image_tags").insert(rows as never);
         if (error) throw error;
       }
 
@@ -1911,7 +1919,9 @@ function ImageEditModal({
                 placeholder="Short headline shown on hover"
                 className="mt-1 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
               />
-              <label className="mt-3 block text-xs font-medium text-muted-foreground">Description</label>
+              <label className="mt-3 block text-xs font-medium text-muted-foreground">
+                Description
+              </label>
               <textarea
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
@@ -1964,9 +1974,7 @@ function ImageEditModal({
               {!isFavoritesTab && (
                 <div>
                   <div className="flex items-center justify-between">
-                    <div className="text-xs font-medium text-muted-foreground">
-                      Folder
-                    </div>
+                    <div className="text-xs font-medium text-muted-foreground">Folder</div>
                     {folderId && (
                       <button
                         type="button"
@@ -2014,7 +2022,6 @@ function ImageEditModal({
                   </div>
                 </div>
               )}
-
 
               {/* Custom tag (preset tag grid removed) */}
               <div>
@@ -2100,10 +2107,7 @@ function ImageEditModal({
             )}
           </div>
           <div className="flex gap-2">
-            <button
-              onClick={onClose}
-              className="rounded-md border border-border px-4 py-2 text-sm"
-            >
+            <button onClick={onClose} className="rounded-md border border-border px-4 py-2 text-sm">
               Cancel
             </button>
             <button
@@ -2148,14 +2152,7 @@ function ImageEditModal({
 /* Per-image post composer (embedded in the Edit image modal)                */
 /* -------------------------------------------------------------------------- */
 
-type ComposerCta =
-  | "none"
-  | "book"
-  | "order"
-  | "shop"
-  | "learn_more"
-  | "sign_up"
-  | "call";
+type ComposerCta = "none" | "book" | "order" | "shop" | "learn_more" | "sign_up" | "call";
 
 const COMPOSER_CTA_LABELS: Record<ComposerCta, string> = {
   none: "No button",
@@ -2188,7 +2185,9 @@ function ImagePostComposer({
 
   const [keywordInput, setKeywordInput] = useState("");
   const [keywords, setKeywords] = useState<string[]>([]);
-  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
+  const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">(
+    "gemini",
+  );
   const [templates, setTemplates] = useState<ComposerTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
   const setCaption = onCaptionChange;
@@ -2260,7 +2259,9 @@ function ImagePostComposer({
       return;
     }
     if (ctaMissing) {
-      toast.error(`Add a ${ctaType === "call" ? "phone number" : "link"} for the "${COMPOSER_CTA_LABELS[ctaType]}" button`);
+      toast.error(
+        `Add a ${ctaType === "call" ? "phone number" : "link"} for the "${COMPOSER_CTA_LABELS[ctaType]}" button`,
+      );
       return;
     }
     setScheduling(true);
@@ -2382,7 +2383,11 @@ function ImagePostComposer({
         disabled={generating}
         className="inline-flex items-center gap-2 rounded-md border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
       >
-        {generating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Sparkles className="h-3.5 w-3.5" />}
+        {generating ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <Sparkles className="h-3.5 w-3.5" />
+        )}
         Generate with AI
       </button>
 
@@ -2390,11 +2395,14 @@ function ImagePostComposer({
       <div>
         <div className="mb-1 flex items-center justify-between">
           <label className="block text-xs font-medium text-muted-foreground">
-            Post body <span className="text-[10px] font-normal">(saved as the image description)</span>
+            Post body{" "}
+            <span className="text-[10px] font-normal">(saved as the image description)</span>
           </label>
           <span
             className={`text-[11px] font-mono ${
-              caption.length > POST_BODY_LIMIT ? "font-semibold text-destructive" : "text-muted-foreground"
+              caption.length > POST_BODY_LIMIT
+                ? "font-semibold text-destructive"
+                : "text-muted-foreground"
             }`}
           >
             {caption.length}/{POST_BODY_LIMIT}
@@ -2414,8 +2422,9 @@ function ImagePostComposer({
         />
         {caption.length > POST_BODY_LIMIT && (
           <p className="mt-1 text-[11px] text-destructive">
-            {caption.length - POST_BODY_LIMIT} character{caption.length - POST_BODY_LIMIT === 1 ? "" : "s"} over the
-            limit — trim the post body before scheduling or sending.
+            {caption.length - POST_BODY_LIMIT} character
+            {caption.length - POST_BODY_LIMIT === 1 ? "" : "s"} over the limit — trim the post body
+            before scheduling or sending.
           </p>
         )}
       </div>
@@ -2485,8 +2494,6 @@ function ImagePostComposer({
     </div>
   );
 }
-
-
 
 /* -------------------------------------------------------------------------- */
 /* Videos panel (integrated video library)                                    */
@@ -2558,9 +2565,7 @@ function TrashPanel({
   }
 
   const selectedIds = Array.from(selected);
-  const selectedPaths = items
-    .filter((i) => selected.has(i.id))
-    .map((i) => i.storage_path);
+  const selectedPaths = items.filter((i) => selected.has(i.id)).map((i) => i.storage_path);
 
   if (isLoading) {
     return <div className="mt-10 text-sm text-muted-foreground">Loading…</div>;
@@ -2586,12 +2591,14 @@ function TrashPanel({
     <div className="mt-6">
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card/40 px-3 py-2 text-xs">
         <button
-          onClick={() =>
-            setSelected(allSelected ? new Set() : new Set(allIds))
-          }
+          onClick={() => setSelected(allSelected ? new Set() : new Set(allIds))}
           className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-medium hover:bg-accent"
         >
-          {allSelected ? <Square className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+          {allSelected ? (
+            <Square className="h-3.5 w-3.5" />
+          ) : (
+            <CheckSquare className="h-3.5 w-3.5" />
+          )}
           {allSelected ? "Clear" : `Select all (${items.length})`}
         </button>
         <span className="text-muted-foreground">
@@ -2658,9 +2665,7 @@ function TrashPanel({
               <div className="p-2">
                 <div className="truncate text-xs font-medium">{img.name}</div>
                 <div className="mt-0.5 text-[10px] text-muted-foreground">
-                  {deletedAt
-                    ? `Deleted ${deletedAt.toLocaleString()}`
-                    : "Deleted"}
+                  {deletedAt ? `Deleted ${deletedAt.toLocaleString()}` : "Deleted"}
                 </div>
               </div>
             </button>
@@ -2704,7 +2709,10 @@ function VideosPanel() {
   });
 
   const [regeneratingId, setRegeneratingId] = useState<string | null>(null);
-  const [regenProgress, setRegenProgress] = useState<{ pct: number; message: string }>({ pct: 0, message: "" });
+  const [regenProgress, setRegenProgress] = useState<{ pct: number; message: string }>({
+    pct: 0,
+    message: "",
+  });
   type RegenStatus = {
     status: "queued" | "running" | "completed" | "failed";
     message?: string;
@@ -2763,7 +2771,12 @@ function VideosPanel() {
       });
       if (frames.length === 0) throw new Error("Couldn't extract any frames.");
 
-      setStatus(v.id, { status: "running", pct: 0.42, message: "Removing old frames…", at: Date.now() });
+      setStatus(v.id, {
+        status: "running",
+        pct: 0.42,
+        message: "Removing old frames…",
+        at: Date.now(),
+      });
       setRegenProgress({ pct: 0.42, message: "Removing old frames…" });
       const { data: oldImgs } = await supabase
         .from("images")
@@ -2847,9 +2860,6 @@ function VideosPanel() {
       regenerateMut.mutate(v);
     }
   };
-
-
-
 
   async function createVideoFolder() {
     const name = window.prompt("Folder name")?.trim();
@@ -2967,7 +2977,9 @@ function VideosPanel() {
                   onClick={() => setFolderId(f.id)}
                   className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
                 >
-                  <FolderIcon className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
+                  <FolderIcon
+                    className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
+                  />
                   <span>{f.name}</span>
                   <span
                     className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
@@ -3028,7 +3040,11 @@ function VideosPanel() {
                 }
                 className="inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 font-medium hover:bg-accent"
               >
-                {allSelected ? <Square className="h-3.5 w-3.5" /> : <CheckSquare className="h-3.5 w-3.5" />}
+                {allSelected ? (
+                  <Square className="h-3.5 w-3.5" />
+                ) : (
+                  <CheckSquare className="h-3.5 w-3.5" />
+                )}
                 {allSelected ? "Clear" : `Select all (${visible.length})`}
               </button>
             );
@@ -3060,7 +3076,9 @@ function VideosPanel() {
                 let failed = 0;
                 for (const v of items) {
                   try {
-                    const { error: sErr } = await supabase.storage.from("videos").remove([v.storage_path]);
+                    const { error: sErr } = await supabase.storage
+                      .from("videos")
+                      .remove([v.storage_path]);
                     if (sErr) throw sErr;
                     const { error } = await supabase.from("videos").delete().eq("id", v.id);
                     if (error) throw error;
@@ -3080,12 +3098,13 @@ function VideosPanel() {
               className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
             >
               <Trash2 className="h-3.5 w-3.5" />
-              {bulkDeleting ? "Deleting…" : `Delete selected${selected.size ? ` (${selected.size})` : ""}`}
+              {bulkDeleting
+                ? "Deleting…"
+                : `Delete selected${selected.size ? ` (${selected.size})` : ""}`}
             </button>
           </div>
         </div>
       )}
-
 
       {isLoading ? (
         <div className="text-sm text-muted-foreground">Loading…</div>
@@ -3135,7 +3154,6 @@ function VideosPanel() {
               regenStatus={regenStatus[v.id] ?? null}
             />
           ))}
-
         </div>
       )}
 
@@ -3172,7 +3190,6 @@ function VideoCard({
   anyRegenerating,
   regenProgress,
   regenStatus,
-
 }: {
   video: VideoRow;
   folders: VideoFolderRow[];
@@ -3198,7 +3215,13 @@ function VideoCard({
     <div className="overflow-hidden rounded-xl border border-border bg-card">
       <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
         {url ? (
-          <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+          <video
+            src={url}
+            className="h-full w-full object-cover"
+            muted
+            playsInline
+            preload="metadata"
+          />
         ) : (
           <div className="h-full w-full animate-pulse bg-muted" />
         )}
@@ -3283,7 +3306,9 @@ function VideoCard({
           >
             <option value="">Unfiled</option>
             {folders.map((f) => (
-              <option key={f.id} value={f.id}>{f.name}</option>
+              <option key={f.id} value={f.id}>
+                {f.name}
+              </option>
             ))}
           </select>
           {currentFolder && (
@@ -3328,8 +3353,6 @@ function VideoCard({
             <Trash2 className="h-3.5 w-3.5" />
           </button>
         </div>
-
-
       </div>
     </div>
   );
@@ -3362,7 +3385,6 @@ function VideoPreviewModal({ video, onClose }: { video: VideoRow; onClose: () =>
   );
 }
 
-
 function GeoStatusButton({
   bucket,
   path,
@@ -3382,9 +3404,7 @@ function GeoStatusButton({
     e.stopPropagation();
     setState("checking");
     try {
-      const { data: signed, error } = await supabase.storage
-        .from(bucket)
-        .createSignedUrl(path, 60);
+      const { data: signed, error } = await supabase.storage.from(bucket).createSignedUrl(path, 60);
       if (error || !signed?.signedUrl) throw error ?? new Error("Could not read image");
       const res = await fetch(signed.signedUrl);
       const blob = await res.blob();

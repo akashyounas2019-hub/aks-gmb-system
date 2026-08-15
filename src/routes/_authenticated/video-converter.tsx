@@ -3,8 +3,13 @@ import { useEffect, useRef, useState } from "react";
 import { FileVideo, Download, Loader2, CheckCircle2, AlertCircle, Save } from "lucide-react";
 import { toast } from "sonner";
 import {
-  loadFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
-  validateVideoFileBasic, validateVideoFile,
+  loadFFmpeg,
+  fetchFile,
+  humanSize,
+  downloadBlob,
+  formatDuration,
+  validateVideoFileBasic,
+  validateVideoFile,
 } from "@/lib/ffmpeg-client";
 import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,13 +46,19 @@ function VideoConverterPage() {
 
   // Manage object URLs for source preview and result
   useEffect(() => {
-    if (!file) { setPreviewUrl(null); return; }
+    if (!file) {
+      setPreviewUrl(null);
+      return;
+    }
     const url = URL.createObjectURL(file);
     setPreviewUrl(url);
     return () => URL.revokeObjectURL(url);
   }, [file]);
   useEffect(() => {
-    if (!result) { setResultUrl(null); return; }
+    if (!result) {
+      setResultUrl(null);
+      return;
+    }
     const url = URL.createObjectURL(result.blob);
     setResultUrl(url);
     setComparePct(50);
@@ -58,7 +69,8 @@ function VideoConverterPage() {
 
   // Sync helpers for the two comparison players
   function syncPlay() {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (!b || !a) return;
     a.currentTime = b.currentTime;
     if (!b.paused) a.play().catch(() => {});
@@ -70,7 +82,8 @@ function VideoConverterPage() {
     setIsPlaying(false);
   }
   function syncSeek() {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (b && a) a.currentTime = b.currentTime;
     if (b) setCurTime(b.currentTime);
   }
@@ -81,7 +94,8 @@ function VideoConverterPage() {
     else b.pause();
   }
   function stepFrame(dir: 1 | -1) {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (!b) return;
     b.pause();
     a?.pause();
@@ -93,7 +107,8 @@ function VideoConverterPage() {
     setIsPlaying(false);
   }
   function seekToPct(pct: number) {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (!b || !b.duration) return;
     const t = (pct / 100) * b.duration;
     b.currentTime = t;
@@ -114,7 +129,6 @@ function VideoConverterPage() {
     const pct = Math.max(0, Math.min(100, ((clientX - rect.left) / rect.width) * 100));
     setComparePct(pct);
   }
-
 
   async function saveToLibrary() {
     if (!result) return;
@@ -156,7 +170,8 @@ function VideoConverterPage() {
   }, [busy]);
 
   const elapsedMs = startedAt ? now - startedAt : 0;
-  const etaMs = startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
+  const etaMs =
+    startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
 
   async function convert() {
     if (!file) return;
@@ -196,10 +211,20 @@ function VideoConverterPage() {
       if (!ok) {
         setStatus("Codec not MP4-compatible — re-encoding at visually lossless quality…");
         await ff.exec([
-          "-i", inputName,
-          "-c:v", "libx264", "-preset", "veryfast", "-crf", "18",
-          "-c:a", "aac", "-b:a", "192k",
-          "-movflags", "+faststart",
+          "-i",
+          inputName,
+          "-c:v",
+          "libx264",
+          "-preset",
+          "veryfast",
+          "-crf",
+          "18",
+          "-c:a",
+          "aac",
+          "-b:a",
+          "192k",
+          "-movflags",
+          "+faststart",
           outputName,
         ]);
       }
@@ -229,8 +254,8 @@ function VideoConverterPage() {
         <h1 className="text-3xl">Video Converter</h1>
       </div>
       <p className="mb-6 text-sm text-muted-foreground">
-        Convert any video to MP4 in your browser. Uses lossless stream copy when possible — no quality loss.
-        Files never leave your device.
+        Convert any video to MP4 in your browser. Uses lossless stream copy when possible — no
+        quality loss. Files never leave your device.
       </p>
 
       <div className="rounded-xl border border-border/60 bg-card p-6">
@@ -241,7 +266,9 @@ function VideoConverterPage() {
           <FileVideo className="h-8 w-8 text-muted-foreground" />
           <div className="text-sm">
             {file ? (
-              <><span className="font-medium">{file.name}</span> · {humanSize(file.size)}</>
+              <>
+                <span className="font-medium">{file.name}</span> · {humanSize(file.size)}
+              </>
             ) : (
               <>Click to select a video file (MOV, AVI, MKV, WEBM, FLV, WMV, etc.)</>
             )}
@@ -277,7 +304,11 @@ function VideoConverterPage() {
             disabled={!file || busy}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
           >
-            {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <FileVideo className="h-4 w-4" />}
+            {busy ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <FileVideo className="h-4 w-4" />
+            )}
             Convert to MP4
           </button>
           {busy && (
@@ -290,7 +321,10 @@ function VideoConverterPage() {
                 </span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
-                <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${Math.round(progress * 100)}%` }}
+                />
               </div>
             </div>
           )}
@@ -312,7 +346,11 @@ function VideoConverterPage() {
                   disabled={saving || saved}
                   className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
                 >
-                  {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
                   {saved ? "Saved" : saving ? "Saving…" : "Save to library"}
                 </button>
                 <button
@@ -345,22 +383,39 @@ function VideoConverterPage() {
             <div className="mb-3 flex items-center justify-between gap-3">
               <div className="text-sm">
                 <span className="font-medium">Before / after preview</span>
-                <span className="ml-2 text-xs text-muted-foreground">Drag the divider · step frame-by-frame below</span>
+                <span className="ml-2 text-xs text-muted-foreground">
+                  Drag the divider · step frame-by-frame below
+                </span>
               </div>
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-                <span className="rounded bg-accent/40 px-2 py-0.5">Original {humanSize(file!.size)}</span>
-                <span className="rounded bg-primary/20 px-2 py-0.5 text-foreground">MP4 {humanSize(result.size)}</span>
+                <span className="rounded bg-accent/40 px-2 py-0.5">
+                  Original {humanSize(file!.size)}
+                </span>
+                <span className="rounded bg-primary/20 px-2 py-0.5 text-foreground">
+                  MP4 {humanSize(result.size)}
+                </span>
               </div>
             </div>
 
             <div
               ref={compareBoxRef}
               className="relative select-none overflow-hidden rounded-lg bg-black"
-              onMouseMove={(e) => { if (compareDragRef.current) updateCompareFromEvent(e.clientX); }}
-              onMouseUp={() => { compareDragRef.current = false; }}
-              onMouseLeave={() => { compareDragRef.current = false; }}
-              onTouchMove={(e) => { if (compareDragRef.current && e.touches[0]) updateCompareFromEvent(e.touches[0].clientX); }}
-              onTouchEnd={() => { compareDragRef.current = false; }}
+              onMouseMove={(e) => {
+                if (compareDragRef.current) updateCompareFromEvent(e.clientX);
+              }}
+              onMouseUp={() => {
+                compareDragRef.current = false;
+              }}
+              onMouseLeave={() => {
+                compareDragRef.current = false;
+              }}
+              onTouchMove={(e) => {
+                if (compareDragRef.current && e.touches[0])
+                  updateCompareFromEvent(e.touches[0].clientX);
+              }}
+              onTouchEnd={() => {
+                compareDragRef.current = false;
+              }}
             >
               <video
                 ref={beforeCmpRef}
@@ -370,12 +425,17 @@ function VideoConverterPage() {
                 onPlay={syncPlay}
                 onPause={syncPause}
                 onSeeked={syncSeek}
-                onLoadedMetadata={() => { const b = beforeCmpRef.current; if (b) setCurTime(b.currentTime); }}
+                onLoadedMetadata={() => {
+                  const b = beforeCmpRef.current;
+                  if (b) setCurTime(b.currentTime);
+                }}
                 onTimeUpdate={() => {
-                  const b = beforeCmpRef.current, a = afterCmpRef.current;
+                  const b = beforeCmpRef.current,
+                    a = afterCmpRef.current;
                   if (!b) return;
                   setCurTime(b.currentTime);
-                  if (a && Math.abs(b.currentTime - a.currentTime) > 0.25) a.currentTime = b.currentTime;
+                  if (a && Math.abs(b.currentTime - a.currentTime) > 0.25)
+                    a.currentTime = b.currentTime;
                 }}
                 className="block max-h-[560px] w-full"
               />
@@ -394,55 +454,104 @@ function VideoConverterPage() {
               <div
                 className="absolute inset-y-0 w-0.5 -translate-x-1/2 cursor-ew-resize bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
                 style={{ left: `${comparePct}%` }}
-                onMouseDown={(e) => { compareDragRef.current = true; updateCompareFromEvent(e.clientX); e.preventDefault(); }}
-                onTouchStart={(e) => { compareDragRef.current = true; if (e.touches[0]) updateCompareFromEvent(e.touches[0].clientX); }}
+                onMouseDown={(e) => {
+                  compareDragRef.current = true;
+                  updateCompareFromEvent(e.clientX);
+                  e.preventDefault();
+                }}
+                onTouchStart={(e) => {
+                  compareDragRef.current = true;
+                  if (e.touches[0]) updateCompareFromEvent(e.touches[0].clientX);
+                }}
               >
                 <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
-                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <svg
+                    width="14"
+                    height="14"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
                     <polyline points="15 18 9 12 15 6" />
                     <polyline points="9 18 15 12 9 6" />
                   </svg>
                 </div>
               </div>
-              <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">Before</div>
-              <div className="pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">After</div>
+              <div className="pointer-events-none absolute left-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
+                Before
+              </div>
+              <div className="pointer-events-none absolute right-2 top-2 rounded bg-black/60 px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-white">
+                After
+              </div>
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
               <button
                 type="button"
-                onClick={() => { const b = beforeCmpRef.current; if (b) { b.pause(); b.currentTime = 0; } const a = afterCmpRef.current; if (a) a.currentTime = 0; setCurTime(0); setIsPlaying(false); }}
+                onClick={() => {
+                  const b = beforeCmpRef.current;
+                  if (b) {
+                    b.pause();
+                    b.currentTime = 0;
+                  }
+                  const a = afterCmpRef.current;
+                  if (a) a.currentTime = 0;
+                  setCurTime(0);
+                  setIsPlaying(false);
+                }}
                 className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
                 aria-label="Jump to start"
                 title="Jump to start"
-              >⏮</button>
+              >
+                ⏮
+              </button>
               <button
                 type="button"
                 onClick={() => stepFrame(-1)}
                 className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
                 aria-label="Previous frame"
                 title="Previous frame"
-              >⏪ Frame</button>
+              >
+                ⏪ Frame
+              </button>
               <button
                 type="button"
                 onClick={togglePlay}
                 className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
                 aria-label={isPlaying ? "Pause" : "Play"}
-              >{isPlaying ? "⏸ Pause" : "▶ Play"}</button>
+              >
+                {isPlaying ? "⏸ Pause" : "▶ Play"}
+              </button>
               <button
                 type="button"
                 onClick={() => stepFrame(1)}
                 className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
                 aria-label="Next frame"
                 title="Next frame"
-              >Frame ⏩</button>
+              >
+                Frame ⏩
+              </button>
               <button
                 type="button"
-                onClick={() => { const b = beforeCmpRef.current; if (!b || !b.duration) return; b.pause(); b.currentTime = b.duration; const a = afterCmpRef.current; if (a) a.currentTime = b.duration; setCurTime(b.duration); setIsPlaying(false); }}
+                onClick={() => {
+                  const b = beforeCmpRef.current;
+                  if (!b || !b.duration) return;
+                  b.pause();
+                  b.currentTime = b.duration;
+                  const a = afterCmpRef.current;
+                  if (a) a.currentTime = b.duration;
+                  setCurTime(b.duration);
+                  setIsPlaying(false);
+                }}
                 className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
                 aria-label="Jump to end"
                 title="Jump to end"
-              >⏭</button>
+              >
+                ⏭
+              </button>
 
               <div className="ml-2 font-mono text-xs tabular-nums text-muted-foreground">
                 {fmtTime(curTime)} / {fmtTime(beforeCmpRef.current?.duration ?? 0)}
@@ -467,7 +576,9 @@ function VideoConverterPage() {
               min={0}
               max={100}
               step={0.01}
-              value={beforeCmpRef.current?.duration ? (curTime / beforeCmpRef.current.duration) * 100 : 0}
+              value={
+                beforeCmpRef.current?.duration ? (curTime / beforeCmpRef.current.duration) * 100 : 0
+              }
               onChange={(e) => seekToPct(Number(e.target.value))}
               aria-label="Scrub timeline"
               className="mt-2 w-full"
@@ -492,7 +603,8 @@ function VideoConverterPage() {
         <div className="mt-6 flex gap-2 rounded-md border border-border/60 bg-accent/20 p-3 text-xs text-muted-foreground">
           <AlertCircle className="h-4 w-4 shrink-0 text-primary" />
           <div>
-            Large files may take a while — everything runs locally via WebAssembly. Keep this tab open during conversion.
+            Large files may take a while — everything runs locally via WebAssembly. Keep this tab
+            open during conversion.
           </div>
         </div>
       </div>

@@ -1,13 +1,6 @@
 ﻿import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useState } from "react";
-import {
-  Calendar,
-  Loader2,
-  Pencil,
-  Save,
-  Trash2,
-  X,
-} from "lucide-react";
+import { Calendar, Loader2, Pencil, Save, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
@@ -32,7 +25,11 @@ function SchedulerPage() {
 
       {/* Top tabs */}
       <div className="mt-6 border-b border-border">
-        <nav role="tablist" aria-label="Scheduler sections" className="-mb-px flex flex-wrap gap-1 overflow-x-auto">
+        <nav
+          role="tablist"
+          aria-label="Scheduler sections"
+          className="-mb-px flex flex-wrap gap-1 overflow-x-auto"
+        >
           {[
             { id: "schedule" as const, label: "Post Scheduler", icon: Save },
             { id: "calendar" as const, label: "Calendar", icon: Calendar },
@@ -99,9 +96,7 @@ function PostSchedulerPanel() {
     setError(null);
     const { data, error } = await supabase
       .from("social_posts")
-      .select(
-        "id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags",
-      )
+      .select("id,caption,status,scheduled_at,created_at,location_label,image_ids,title,tags")
       .not("scheduled_at", "is", null)
       .order("scheduled_at", { ascending: true })
       .limit(500);
@@ -118,10 +113,7 @@ function PostSchedulerPanel() {
     if (!deletingPost) return;
     setDeleting(true);
     try {
-      const { error } = await supabase
-        .from("social_posts")
-        .delete()
-        .eq("id", deletingPost.id);
+      const { error } = await supabase.from("social_posts").delete().eq("id", deletingPost.id);
       if (error) throw error;
       toast.success("Scheduled post deleted.");
       setDeletingPost(null);
@@ -136,9 +128,7 @@ function PostSchedulerPanel() {
   const rows = useMemo(() => {
     const now = Date.now();
     return scope === "upcoming"
-      ? posts.filter(
-          (p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now,
-        )
+      ? posts.filter((p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now)
       : posts;
   }, [posts, scope]);
 
@@ -168,9 +158,7 @@ function PostSchedulerPanel() {
         .filter(Boolean)
         .map((t) => `#${t.trim().replace(/\s+/g, "")}`)
         .join(" ");
-      const content = [p.title?.trim(), p.caption?.trim(), tagLine]
-        .filter(Boolean)
-        .join("\n\n");
+      const content = [p.title?.trim(), p.caption?.trim(), tagLine].filter(Boolean).join("\n\n");
       // GHL requires the "link (OG meta URL)" column to be present; use the
       // first image as the link target so the row validates on upload.
       const link = ids[0] ? `${origin}/api/public/img/${ids[0]}.jpg` : "";
@@ -209,7 +197,9 @@ function PostSchedulerPanel() {
                   key={s}
                   onClick={() => setScope(s)}
                   className={`rounded px-2.5 py-1 text-xs font-medium capitalize ${
-                    scope === s ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent"
+                    scope === s
+                      ? "bg-primary text-primary-foreground"
+                      : "text-muted-foreground hover:bg-accent"
                   }`}
                 >
                   {s}
@@ -265,9 +255,7 @@ function PostSchedulerPanel() {
                       {p.image_ids?.length ?? 0}
                     </td>
                     <td className="max-w-[520px] py-2 text-muted-foreground">
-                      {p.title && (
-                        <div className="text-foreground">{p.title}</div>
-                      )}
+                      {p.title && <div className="text-foreground">{p.title}</div>}
                       <span className="line-clamp-2 whitespace-pre-wrap">{p.caption}</span>
                       <div className="mt-1 flex flex-wrap items-center gap-1 text-[11px]">
                         {(p.tags ?? []).slice(0, 6).map((t) => (
@@ -347,7 +335,11 @@ function PostSchedulerPanel() {
                 disabled={deleting}
                 className="inline-flex items-center gap-2 rounded-md bg-destructive px-3 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {deleting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                {deleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
                 Delete
               </button>
             </div>
@@ -409,7 +401,10 @@ function EditScheduledPostModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-lg rounded-xl border border-border bg-background p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -457,7 +452,11 @@ function EditScheduledPostModal({
             disabled={saving}
             className="inline-flex items-center gap-2 rounded-md bg-primary px-3 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
           >
-            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Save className="h-3.5 w-3.5" />}
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
             Save changes
           </button>
         </div>

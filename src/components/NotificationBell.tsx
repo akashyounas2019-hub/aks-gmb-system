@@ -55,7 +55,9 @@ export function NotificationBell() {
   }, [open]);
 
   async function handleMarkOne(id: string) {
-    setAlerts((prev) => prev.map((a) => (a.id === id ? { ...a, readAt: new Date().toISOString() } : a)));
+    setAlerts((prev) =>
+      prev.map((a) => (a.id === id ? { ...a, readAt: new Date().toISOString() } : a)),
+    );
     try {
       await markRead({ data: { id } });
     } catch {
@@ -106,8 +108,8 @@ export function NotificationBell() {
           <div className="max-h-[420px] overflow-y-auto">
             {alerts.length === 0 ? (
               <div className="p-6 text-center text-sm text-muted-foreground">
-                No alerts yet. You'll be notified when a competitor overtakes
-                you for a tracked keyword.
+                No alerts yet. You'll be notified when a competitor overtakes you for a tracked
+                keyword.
               </div>
             ) : (
               alerts.map((a) => {
@@ -123,15 +125,16 @@ export function NotificationBell() {
                 if (a.alertType === "threat") {
                   title = (
                     <>
-                      <span className="font-medium">{a.competitorName}</span> crossed your threat threshold
+                      <span className="font-medium">{a.competitorName}</span> crossed your threat
+                      threshold
                     </>
                   );
                   detail = `Beating you on ${a.rankDelta ?? 0} tracked keywords · ${timeAgo(a.createdAt)}`;
                 } else if (a.alertType === "improvement") {
                   title = (
                     <>
-                      <span className="font-medium">{a.competitorName}</span> jumped {a.rankDelta ?? 0} spots on{" "}
-                      <span className="font-medium">"{a.keyword}"</span>
+                      <span className="font-medium">{a.competitorName}</span> jumped{" "}
+                      {a.rankDelta ?? 0} spots on <span className="font-medium">"{a.keyword}"</span>
                     </>
                   );
                   detail = `Now #${a.competitorRank} · ${timeAgo(a.createdAt)}`;
@@ -151,7 +154,10 @@ export function NotificationBell() {
                       isUnread ? "bg-accent/40" : ""
                     }`}
                   >
-                    <div className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`} style={{ opacity: isUnread ? 1 : 0.4 }} />
+                    <div
+                      className={`mt-0.5 h-2 w-2 shrink-0 rounded-full ${dotColor}`}
+                      style={{ opacity: isUnread ? 1 : 0.4 }}
+                    />
                     <div className="min-w-0 flex-1">
                       <div className="text-sm">{title}</div>
                       <div className="mt-0.5 text-xs text-muted-foreground">{detail}</div>

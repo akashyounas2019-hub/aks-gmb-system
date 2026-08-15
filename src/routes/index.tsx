@@ -31,13 +31,12 @@ function Landing() {
           Local SEO · Rank tracking · Content automation
         </span>
         <h1 className="mt-6 text-5xl leading-tight sm:text-6xl">
-          Pilot your Google Business{" "}
-          <span className="text-gold-gradient">local rankings</span>
+          Pilot your Google Business <span className="text-gold-gradient">local rankings</span>
         </h1>
         <p className="mx-auto mt-6 max-w-2xl text-lg text-muted-foreground">
-          Track keyword rankings across your service area, visualize local visibility
-          on a heat map, and push AI-generated posts and media straight into
-          GoHighLevel — from a single control center.
+          Track keyword rankings across your service area, visualize local visibility on a heat map,
+          and push AI-generated posts and media straight into GoHighLevel — from a single control
+          center.
         </p>
         <div className="mt-8 flex justify-center gap-3">
           <Link
@@ -79,10 +78,7 @@ function Landing() {
               body: "Bulk-attach venues from a curated library of Dubai landmarks.",
             },
           ].map((f) => (
-            <div
-              key={f.title}
-              className="rounded-2xl border border-border bg-card p-6"
-            >
+            <div key={f.title} className="rounded-2xl border border-border bg-card p-6">
               <f.icon className="h-6 w-6 text-primary" />
               <h3 className="mt-4 text-lg font-semibold">{f.title}</h3>
               <p className="mt-2 text-sm text-muted-foreground">{f.body}</p>
@@ -98,8 +94,16 @@ function Landing() {
           <ol className="mt-6 grid gap-6 sm:grid-cols-3">
             {[
               ["1", "Upload", "Drag a video into your browser."],
-              ["2", "Extract", "GMB Rank Pilot runs ffmpeg.wasm locally, scores every frame for sharpness, and keeps the winners."],
-              ["3", "Tag & geotag", "Rename, pick tags (AI-assisted), and attach a Dubai venue with real coordinates."],
+              [
+                "2",
+                "Extract",
+                "GMB Rank Pilot runs ffmpeg.wasm locally, scores every frame for sharpness, and keeps the winners.",
+              ],
+              [
+                "3",
+                "Tag & geotag",
+                "Rename, pick tags (AI-assisted), and attach a Dubai venue with real coordinates.",
+              ],
             ].map(([n, t, d]) => (
               <li key={n}>
                 <div className="text-4xl font-display text-primary">{n}</div>

@@ -19,7 +19,6 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { DashboardCompetitorMap } from "@/components/DashboardCompetitorMap";
 
-
 export const Route = createFileRoute("/_authenticated/dashboard")({
   component: DashboardPage,
 });
@@ -47,8 +46,7 @@ function DashboardPage() {
       } = await supabase.auth.getUser();
       if (user) {
         setDisplayName(
-          (user.user_metadata?.full_name as string) ||
-            (user.email?.split("@")[0] ?? ""),
+          (user.user_metadata?.full_name as string) || (user.email?.split("@")[0] ?? ""),
         );
       }
       const head = (t: string, extra?: (q: unknown) => unknown) => {
@@ -194,8 +192,8 @@ function DashboardPage() {
             </h1>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            A single command center for local SEO — rank tracking, media production,
-            keyword research, competitor intelligence, and publishing.
+            A single command center for local SEO — rank tracking, media production, keyword
+            research, competitor intelligence, and publishing.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
@@ -213,9 +211,6 @@ function DashboardPage() {
           </Link>
         </div>
       </div>
-
-
-
 
       {/* KPI strip */}
       <div className="mt-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">

@@ -41,14 +41,15 @@ const LLM_MODELS: Record<"gemini" | "chatgpt" | "anthropic" | "openrouter", stri
 // Maps the Compose-screen LLM choice to the Settings → Integrations provider
 // whose saved key should be tried first, before falling back to the shared
 // Lovable AI gateway.
-const LLM_TO_DIRECT_PROVIDER: Record<"gemini" | "chatgpt" | "anthropic" | "openrouter", DirectProvider> = {
+const LLM_TO_DIRECT_PROVIDER: Record<
+  "gemini" | "chatgpt" | "anthropic" | "openrouter",
+  DirectProvider
+> = {
   gemini: "gemini",
   chatgpt: "openai",
   anthropic: "anthropic",
   openrouter: "openrouter",
 };
-
-
 
 export const composePost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -138,9 +139,7 @@ Return ONLY the caption text, no preamble.`;
         }),
       });
       if (!res.ok)
-        throw new Error(
-          `AKS Cloud responded ${res.status}: ${(await res.text()).slice(0, 300)}`,
-        );
+        throw new Error(`AKS Cloud responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
       const raw = await res.text();
       let caption = raw;
       try {
@@ -259,7 +258,6 @@ const SendInput = z.object({
   ctaUrl: z.string().max(500).optional(),
 });
 
-
 /**
  * A `social_posts` row as needed to actually dispatch it — shared shape
  * between the "send now" server function and the cron dispatcher, which
@@ -319,8 +317,7 @@ export async function dispatchSocialPost(
       const { data: signed } = await supabase.storage
         .from("frames")
         .createSignedUrl(row.storage_path, 60 * 60 * 24);
-      if (signed?.signedUrl)
-        imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
+      if (signed?.signedUrl) imageUrls.push({ id: row.id, url: signed.signedUrl, name: row.name });
     }
   }
 
@@ -355,10 +352,14 @@ export async function dispatchSocialPost(
     // the shared server env vars — this was previously localStorage-only and
     // never actually reached the server, so a "Test" success there gave no
     // indication of whether sending would really work.
-    const n8nCreds = await getDecryptedIntegration(supabase, post.owner_id, "n8n").catch(() => null);
-    const webhook = n8nCreds?.webhook_url || process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
+    const n8nCreds = await getDecryptedIntegration(supabase, post.owner_id, "n8n").catch(
+      () => null,
+    );
+    const webhook =
+      n8nCreds?.webhook_url || process.env.N8N_WEBHOOK_URL || process.env.GHL_WEBHOOK_URL;
     if (!webhook) {
-      errorText = "No GHL connection and no webhook configured. Add a GHL API key or n8n webhook in Settings → Integrations.";
+      errorText =
+        "No GHL connection and no webhook configured. Add a GHL API key or n8n webhook in Settings → Integrations.";
     } else {
       const payload = {
         source: "gmb-rank-pilot",
@@ -591,9 +592,7 @@ export const retrySocialPost = createServerFn({ method: "POST" })
       .eq("id", post.id);
 
     if (!ok)
-      throw new Error(
-        `Webhook responded ${providerStatus}: ${errorText ?? "unknown error"}`,
-      );
+      throw new Error(`Webhook responded ${providerStatus}: ${errorText ?? "unknown error"}`);
 
     return { ok: true, postId: post.id };
   });

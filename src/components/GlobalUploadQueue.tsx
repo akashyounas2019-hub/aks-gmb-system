@@ -41,9 +41,7 @@ export function GlobalUploadQueue() {
 
   if (queue.length === 0) return null;
 
-  const active = queue.filter(
-    (q) => q.stage !== "done" && q.stage !== "error",
-  );
+  const active = queue.filter((q) => q.stage !== "done" && q.stage !== "error");
   const errored = queue.filter((q) => q.stage === "error");
   const done = queue.filter((q) => q.stage === "done").length;
   const total = queue.length;
@@ -97,9 +95,7 @@ export function GlobalUploadQueue() {
               {queue.map((q) => {
                 const pct = Math.round(q.progress * 100);
                 const isActive =
-                  q.stage === "extracting" ||
-                  q.stage === "uploading" ||
-                  q.stage === "saving";
+                  q.stage === "extracting" || q.stage === "uploading" || q.stage === "saving";
                 return (
                   <li
                     key={q.id}
@@ -108,9 +104,7 @@ export function GlobalUploadQueue() {
                     <div className="flex items-center gap-2">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center justify-between gap-2">
-                          <div className="truncate text-xs font-medium">
-                            {q.file.name}
-                          </div>
+                          <div className="truncate text-xs font-medium">{q.file.name}</div>
                           <div className="shrink-0 font-mono text-[10px] text-muted-foreground">
                             {q.stage === "done"
                               ? "done"
@@ -126,9 +120,7 @@ export function GlobalUploadQueue() {
                           <div className="mt-1 h-1 overflow-hidden rounded-full bg-muted">
                             <div
                               className={`h-full transition-all ${
-                                q.stage === "done"
-                                  ? "bg-emerald-500"
-                                  : "bg-primary"
+                                q.stage === "done" ? "bg-emerald-500" : "bg-primary"
                               }`}
                               style={{ width: `${pct}%` }}
                             />
@@ -144,9 +136,7 @@ export function GlobalUploadQueue() {
                         </button>
                       )}
                       <button
-                        onClick={() =>
-                          isActive ? cancelItem(q.id) : removeItem(q.id)
-                        }
+                        onClick={() => (isActive ? cancelItem(q.id) : removeItem(q.id))}
                         aria-label={isActive ? "Cancel upload" : "Remove from queue"}
                         title={isActive ? "Cancel upload" : "Remove from queue"}
                         className="rounded-md p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"

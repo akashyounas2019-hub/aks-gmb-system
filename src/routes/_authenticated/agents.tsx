@@ -234,15 +234,22 @@ function AgentsPage() {
     navigate({ to: "/agents/$agentId", params: { agentId: id } });
   };
 
-
   const agents: AgentRow[] = data?.agents ?? [];
   const tasks: TaskRow[] = data?.tasks ?? [];
 
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [hoveredId, setHoveredId] = useState<string | null>(null);
   const [addOpen, setAddOpen] = useState(false);
-  const [metricDetail, setMetricDetail] = useState<null | "agents" | "active" | "load" | "success">(null);
-  const [newAgent, setNewAgent] = useState<{ name: string; role: string; parentId: string; scope: string; mainSkill: string }>({
+  const [metricDetail, setMetricDetail] = useState<null | "agents" | "active" | "load" | "success">(
+    null,
+  );
+  const [newAgent, setNewAgent] = useState<{
+    name: string;
+    role: string;
+    parentId: string;
+    scope: string;
+    mainSkill: string;
+  }>({
     name: "",
     role: "writer",
     parentId: "",
@@ -262,7 +269,9 @@ function AgentsPage() {
   // Skill filter / sort state
   const [skillQuery, setSkillQuery] = useState("");
   const [skillFilter, setSkillFilter] = useState<string>("all");
-  const [skillSort, setSkillSort] = useState<"name" | "skill" | "load-desc" | "load-asc" | "success-desc">("name");
+  const [skillSort, setSkillSort] = useState<
+    "name" | "skill" | "load-desc" | "load-asc" | "success-desc"
+  >("name");
 
   const skillOptions = useMemo(() => {
     const set = new Set<string>();
@@ -278,7 +287,10 @@ function AgentsPage() {
     let list = subAgents.filter((a) => {
       const skill = (a.main_skill ?? "").toLowerCase();
       const matchesQuery =
-        !q || skill.includes(q) || a.name.toLowerCase().includes(q) || a.role.toLowerCase().includes(q);
+        !q ||
+        skill.includes(q) ||
+        a.name.toLowerCase().includes(q) ||
+        a.role.toLowerCase().includes(q);
       const matchesFilter = skillFilter === "all" || (a.main_skill ?? "") === skillFilter;
       const matchesUnset = skillFilter !== "__unset__" || !(a.main_skill ?? "").trim();
       return matchesQuery && (skillFilter === "__unset__" ? matchesUnset : matchesFilter);
@@ -305,15 +317,13 @@ function AgentsPage() {
   const pendingApprovals = tasks.filter((t) => t.status === "awaiting_approval");
   const isLeaderSelected = !!selected && selected.parent_id === null;
 
-  const eventsKey = ["task-events", isLeaderSelected ? "team" : selected?.id ?? "team"] as const;
+  const eventsKey = ["task-events", isLeaderSelected ? "team" : (selected?.id ?? "team")] as const;
   const { data: events = [] } = useQuery({
     queryKey: [...eventsKey],
     queryFn: () =>
       fetchEvents({
         data:
-          isLeaderSelected || !selected
-            ? { limit: 100 }
-            : { agent_id: selected.id, limit: 100 },
+          isLeaderSelected || !selected ? { limit: 100 } : { agent_id: selected.id, limit: 100 },
       }),
     enabled: !!selected,
   });
@@ -329,15 +339,15 @@ function AgentsPage() {
     read_at: string | null;
     created_at: string;
   };
-  const notifKey = ["agent-notifications", isLeaderSelected ? "team" : selected?.id ?? "team"] as const;
+  const notifKey = [
+    "agent-notifications",
+    isLeaderSelected ? "team" : (selected?.id ?? "team"),
+  ] as const;
   const { data: notifications = [] } = useQuery<NotifRow[]>({
     queryKey: [...notifKey],
     queryFn: () =>
       fetchNotifications({
-        data:
-          isLeaderSelected || !selected
-            ? { limit: 50 }
-            : { agent_id: selected.id, limit: 50 },
+        data: isLeaderSelected || !selected ? { limit: 50 } : { agent_id: selected.id, limit: 50 },
       }) as Promise<NotifRow[]>,
     enabled: !!selected,
     refetchInterval: 30_000,
@@ -367,7 +377,9 @@ function AgentsPage() {
   const approveMut = useMutation({
     mutationFn: (id: string) => approveTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.success("Major task approved. Leader dispatching to sub-agent.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to approve."),
@@ -375,13 +387,21 @@ function AgentsPage() {
   const rejectMut = useMutation({
     mutationFn: (id: string) => rejectTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.message("Task rejected.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to reject."),
   });
   const createMut = useMutation({
-    mutationFn: (input: { name: string; role: string; parent_id: string; scope?: string; main_skill?: string }) =>
+    mutationFn: (input: {
+      name: string;
+      role: string;
+      parent_id: string;
+      scope?: string;
+      main_skill?: string;
+    }) =>
       createAgent({
         data: {
           name: input.name,
@@ -394,9 +414,17 @@ function AgentsPage() {
         },
       }),
     onSuccess: (row) => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAddOpen(false);
-      setNewAgent({ name: "", role: "writer", parentId: leader?.id ?? "", scope: "", mainSkill: "" });
+      setNewAgent({
+        name: "",
+        role: "writer",
+        parentId: leader?.id ?? "",
+        scope: "",
+        mainSkill: "",
+      });
       toast.success(`${row?.name ?? "Agent"} joined the team.`);
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to spawn agent."),
@@ -410,7 +438,9 @@ function AgentsPage() {
       major: boolean;
     }) => assignTask({ data: input }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       setAssign((p) => ({ ...p, title: "" }));
       toast.success("Task launched. Progress will update in the queue.");
     },
@@ -421,14 +451,18 @@ function AgentsPage() {
       updateTaskProgress({ data: input }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["agents-state"] });
-      qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
     },
-    onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to update progress."),
+    onError: (e: unknown) =>
+      toast.error(e instanceof Error ? e.message : "Failed to update progress."),
   });
   const pauseMut = useMutation({
     mutationFn: (id: string) => pauseTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.message("Task paused.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to pause."),
@@ -436,7 +470,9 @@ function AgentsPage() {
   const resumeMut = useMutation({
     mutationFn: (id: string) => resumeTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.success("Task resumed.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to resume."),
@@ -444,7 +480,9 @@ function AgentsPage() {
   const cancelMut = useMutation({
     mutationFn: (id: string) => cancelTask({ data: { id } }),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["agents-state"] }); qc.invalidateQueries({ queryKey: ["task-events"] }); qc.invalidateQueries({ queryKey: ["agent-notifications"] });
+      qc.invalidateQueries({ queryKey: ["agents-state"] });
+      qc.invalidateQueries({ queryKey: ["task-events"] });
+      qc.invalidateQueries({ queryKey: ["agent-notifications"] });
       toast.message("Task cancelled.");
     },
     onError: (e: unknown) => toast.error(e instanceof Error ? e.message : "Failed to cancel."),
@@ -498,8 +536,8 @@ function AgentsPage() {
               Agents Command Center
             </h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute, and self-improve —
-              major decisions surface here for your approval.
+              A hierarchy of specialized AI agents led by GMB Leader. They plan, execute, and
+              self-improve — major decisions surface here for your approval.
             </p>
           </div>
           <button
@@ -515,12 +553,33 @@ function AgentsPage() {
 
         {/* Prominent metric cards */}
         <section className="mb-8 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          <MetricCard label="Agents" value={teamStats.total} icon={Bot} onClick={() => setMetricDetail("agents")} />
-          <MetricCard label="Active" value={teamStats.active} icon={Activity} onClick={() => setMetricDetail("active")} />
-          <MetricCard label="Avg load" value={`${teamStats.avgLoad}%`} icon={Zap} bar={teamStats.avgLoad} onClick={() => setMetricDetail("load")} />
-          <MetricCard label="Success" value={`${teamStats.success}%`} icon={CheckCircle2} bar={teamStats.success} onClick={() => setMetricDetail("success")} />
+          <MetricCard
+            label="Agents"
+            value={teamStats.total}
+            icon={Bot}
+            onClick={() => setMetricDetail("agents")}
+          />
+          <MetricCard
+            label="Active"
+            value={teamStats.active}
+            icon={Activity}
+            onClick={() => setMetricDetail("active")}
+          />
+          <MetricCard
+            label="Avg load"
+            value={`${teamStats.avgLoad}%`}
+            icon={Zap}
+            bar={teamStats.avgLoad}
+            onClick={() => setMetricDetail("load")}
+          />
+          <MetricCard
+            label="Success"
+            value={`${teamStats.success}%`}
+            icon={CheckCircle2}
+            bar={teamStats.success}
+            onClick={() => setMetricDetail("success")}
+          />
         </section>
-
 
         <section className="mb-4 rounded-2xl border border-border/60 bg-card/60 p-4 backdrop-blur-sm">
           <div className="flex flex-wrap items-center gap-3">
@@ -552,7 +611,9 @@ function AgentsPage() {
                 <SelectContent>
                   <SelectItem value="all">All skills</SelectItem>
                   {skillOptions.map((s) => (
-                    <SelectItem key={s} value={s}>{s}</SelectItem>
+                    <SelectItem key={s} value={s}>
+                      {s}
+                    </SelectItem>
                   ))}
                   <SelectItem value="__unset__">— No skill set</SelectItem>
                 </SelectContent>
@@ -577,11 +638,17 @@ function AgentsPage() {
 
             <div className="ml-auto flex items-center gap-2 text-[11px] text-muted-foreground">
               <span>
-                Showing <span className="font-semibold text-foreground">{filteredSubAgents.length}</span> of {subAgents.length}
+                Showing{" "}
+                <span className="font-semibold text-foreground">{filteredSubAgents.length}</span> of{" "}
+                {subAgents.length}
               </span>
               {filtersActive && (
                 <button
-                  onClick={() => { setSkillQuery(""); setSkillFilter("all"); setSkillSort("name"); }}
+                  onClick={() => {
+                    setSkillQuery("");
+                    setSkillFilter("all");
+                    setSkillSort("name");
+                  }}
                   className="rounded-md border border-border/60 px-2 py-1 text-[11px] hover:border-foreground/30 hover:text-foreground"
                 >
                   Reset
@@ -593,8 +660,15 @@ function AgentsPage() {
           {skillFilter !== "all" && (
             <div className="mt-3 inline-flex items-center gap-1.5 rounded-full border border-cyan-400/40 bg-cyan-500/10 px-2.5 py-1 text-[11px] text-cyan-200">
               <Sparkles className="h-3 w-3" />
-              Filtered by skill: <span className="font-semibold">{skillFilter === "__unset__" ? "No skill set" : skillFilter}</span>
-              <button onClick={() => setSkillFilter("all")} className="ml-1 hover:text-white" aria-label="Clear filter">
+              Filtered by skill:{" "}
+              <span className="font-semibold">
+                {skillFilter === "__unset__" ? "No skill set" : skillFilter}
+              </span>
+              <button
+                onClick={() => setSkillFilter("all")}
+                className="ml-1 hover:text-white"
+                aria-label="Clear filter"
+              >
                 <X className="h-3 w-3" />
               </button>
             </div>
@@ -617,15 +691,23 @@ function AgentsPage() {
             {/* Leader — same size as sub-agents, uniquely styled */}
             <div
               className="grid w-full justify-center"
-              style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
+              style={{
+                gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))`,
+              }}
             >
               <div
                 className="relative col-start-1"
                 style={{ gridColumn: `1 / -1`, display: "flex", justifyContent: "center" }}
               >
                 <div className="relative w-full max-w-[240px]">
-                  <span className={`pointer-events-none absolute inset-0 -m-2 rounded-3xl bg-gradient-to-br from-amber-400/20 via-primary/10 to-transparent blur-2xl transition-opacity ${hoveredId && hoveredId !== leader.id ? "opacity-40" : "opacity-100"}`} aria-hidden />
-                  <span className="pointer-events-none absolute inset-0 -m-0.5 animate-ping rounded-2xl border border-amber-300/30" aria-hidden />
+                  <span
+                    className={`pointer-events-none absolute inset-0 -m-2 rounded-3xl bg-gradient-to-br from-amber-400/20 via-primary/10 to-transparent blur-2xl transition-opacity ${hoveredId && hoveredId !== leader.id ? "opacity-40" : "opacity-100"}`}
+                    aria-hidden
+                  />
+                  <span
+                    className="pointer-events-none absolute inset-0 -m-0.5 animate-ping rounded-2xl border border-amber-300/30"
+                    aria-hidden
+                  />
                   <AgentNode
                     agent={leader}
                     selected={(selected?.id ?? leader.id) === leader.id}
@@ -640,7 +722,11 @@ function AgentsPage() {
 
             {/* Wired connections — curved paths with animated data flow */}
             <div className="relative h-24 w-full">
-              <svg className="absolute inset-0 h-full w-full" viewBox="0 0 100 100" preserveAspectRatio="none">
+              <svg
+                className="absolute inset-0 h-full w-full"
+                viewBox="0 0 100 100"
+                preserveAspectRatio="none"
+              >
                 <defs>
                   <linearGradient id="wire" x1="0" x2="0" y1="0" y2="1">
                     <stop offset="0%" stopColor="#22d3ee" stopOpacity="1" />
@@ -660,7 +746,11 @@ function AgentsPage() {
                   const isActive = isLeaderHover || isThisHover;
                   const isDimmed = !!hoveredId && !isActive;
                   return (
-                    <g key={a.id} style={{ transition: "opacity 200ms" }} opacity={isDimmed ? 0.18 : 1}>
+                    <g
+                      key={a.id}
+                      style={{ transition: "opacity 200ms" }}
+                      opacity={isDimmed ? 0.18 : 1}
+                    >
                       <path
                         d={d}
                         fill="none"
@@ -669,7 +759,12 @@ function AgentsPage() {
                         strokeLinecap="round"
                         vectorEffect="non-scaling-stroke"
                         opacity="0.95"
-                        style={{ filter: isActive ? "drop-shadow(0 0 10px rgba(251, 191, 36, 0.85))" : "drop-shadow(0 0 6px rgba(34, 211, 238, 0.55))", transition: "all 200ms" }}
+                        style={{
+                          filter: isActive
+                            ? "drop-shadow(0 0 10px rgba(251, 191, 36, 0.85))"
+                            : "drop-shadow(0 0 6px rgba(34, 211, 238, 0.55))",
+                          transition: "all 200ms",
+                        }}
                       />
                       <path
                         d={d}
@@ -700,7 +795,9 @@ function AgentsPage() {
             ) : (
               <div
                 className="grid w-full gap-4"
-                style={{ gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))` }}
+                style={{
+                  gridTemplateColumns: `repeat(${Math.max(filteredSubAgents.length, 1)}, minmax(0, 1fr))`,
+                }}
               >
                 {filteredSubAgents.map((a) => {
                   const isLeaderHover = hoveredId === leader.id;
@@ -734,7 +831,8 @@ function AgentsPage() {
               <div>
                 <h2 className="font-display text-lg tracking-tight">Assign a task</h2>
                 <p className="text-xs text-muted-foreground">
-                  Leader delegates to any sub-agent. Major tasks require your approval before running.
+                  Leader delegates to any sub-agent. Major tasks require your approval before
+                  running.
                 </p>
               </div>
             </div>
@@ -763,10 +861,14 @@ function AgentsPage() {
                 value={assign.agent_id || subAgents[0]?.id || ""}
                 onValueChange={(v) => setAssign((p) => ({ ...p, agent_id: v }))}
               >
-                <SelectTrigger><SelectValue placeholder="Select agent" /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select agent" />
+                </SelectTrigger>
                 <SelectContent>
                   {subAgents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -777,9 +879,13 @@ function AgentsPage() {
               </label>
               <Select
                 value={assign.priority}
-                onValueChange={(v) => setAssign((p) => ({ ...p, priority: v as "low" | "normal" | "high" }))}
+                onValueChange={(v) =>
+                  setAssign((p) => ({ ...p, priority: v as "low" | "normal" | "high" }))
+                }
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="low">Low</SelectItem>
                   <SelectItem value="normal">Normal</SelectItem>
@@ -793,7 +899,11 @@ function AgentsPage() {
                 disabled={assignMut.isPending}
                 className="inline-flex h-10 items-center gap-1.5 rounded-lg bg-gradient-to-b from-primary to-primary/80 px-4 text-xs font-semibold text-primary-foreground shadow-[0_6px_20px_-8px_hsl(var(--primary)/0.6)] hover:brightness-110 disabled:opacity-60"
               >
-                {assignMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Send className="h-3.5 w-3.5" />}
+                {assignMut.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Send className="h-3.5 w-3.5" />
+                )}
                 Launch
               </button>
             </div>
@@ -810,7 +920,8 @@ function AgentsPage() {
               <Flag className="h-3 w-3 text-amber-400" /> Major task (requires approval)
             </label>
             <span className="text-[11px] text-muted-foreground/70">
-              {subAgents.length} sub-agent{subAgents.length === 1 ? "" : "s"} available · Leader will queue &amp; monitor
+              {subAgents.length} sub-agent{subAgents.length === 1 ? "" : "s"} available · Leader
+              will queue &amp; monitor
             </span>
           </div>
 
@@ -851,13 +962,19 @@ function AgentsPage() {
                             <div className="text-[11px] text-muted-foreground">
                               {a?.name} · {t.relative_time}
                               {t.priority && t.priority !== "normal" && (
-                                <span className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${t.priority === "high" ? "bg-rose-400/15 text-rose-400" : "bg-muted text-muted-foreground"}`}>
+                                <span
+                                  className={`ml-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${t.priority === "high" ? "bg-rose-400/15 text-rose-400" : "bg-muted text-muted-foreground"}`}
+                                >
                                   {t.priority}
                                 </span>
                               )}
                             </div>
                           </div>
-                          <span className={`shrink-0 text-xs font-semibold tabular-nums ${paused ? "text-amber-400" : "text-primary"}`}>{p}%</span>
+                          <span
+                            className={`shrink-0 text-xs font-semibold tabular-nums ${paused ? "text-amber-400" : "text-primary"}`}
+                          >
+                            {p}%
+                          </span>
                         </div>
                         <div className="mb-1.5 flex items-center justify-between gap-2 text-[10.5px] text-muted-foreground">
                           <span className="inline-flex items-center gap-1">
@@ -924,7 +1041,9 @@ function AgentsPage() {
                           </button>
                           {!paused && (
                             <button
-                              onClick={() => progressMut.mutate({ id: t.id, progress: 100, status: "done" })}
+                              onClick={() =>
+                                progressMut.mutate({ id: t.id, progress: 100, status: "done" })
+                              }
                               disabled={busy}
                               className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[11px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-60"
                             >
@@ -946,12 +1065,16 @@ function AgentsPage() {
             {selected && (
               <>
                 <div className="flex items-start gap-4">
-                  <div className={`relative grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br ${selected.tone} ${selected.glow}`}>
+                  <div
+                    className={`relative grid h-16 w-16 place-items-center rounded-2xl bg-gradient-to-br ${selected.tone} ${selected.glow}`}
+                  >
                     {(() => {
                       const Icon = iconMap[selected.icon_key] ?? Bot;
                       return <Icon className="h-8 w-8 text-white drop-shadow" />;
                     })()}
-                    <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${statusMeta[normalizeStatus(selected.status)].dot}`} />
+                    <span
+                      className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${statusMeta[normalizeStatus(selected.status)].dot}`}
+                    />
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
@@ -974,7 +1097,12 @@ function AgentsPage() {
                 <div className="mt-6 grid grid-cols-3 gap-3">
                   <Metric label="Load" value={`${selected.load}%`} bar={selected.load} />
                   <Metric label="Tasks today" value={selected.tasks_today.toString()} />
-                  <Metric label="Success" value={`${selected.success_rate}%`} bar={selected.success_rate} tone="emerald" />
+                  <Metric
+                    label="Success"
+                    value={`${selected.success_rate}%`}
+                    bar={selected.success_rate}
+                    tone="emerald"
+                  />
                 </div>
 
                 {selected.parent_id === null && (
@@ -983,10 +1111,22 @@ function AgentsPage() {
                       <Sparkles className="h-3.5 w-3.5" /> Leader authority
                     </div>
                     <ul className="space-y-1.5 text-sm text-muted-foreground">
-                      <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> Assign tasks to any sub-agent</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> Spawn new specialist agents</li>
-                      <li className="flex items-center gap-2"><CheckCircle2 className="h-4 w-4 text-emerald-400" /> Autonomous decisions for ranking growth</li>
-                      <li className="flex items-center gap-2"><AlertTriangle className="h-4 w-4 text-amber-400" /> Major tasks require your approval</li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Assign tasks to any
+                        sub-agent
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Spawn new specialist
+                        agents
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle2 className="h-4 w-4 text-emerald-400" /> Autonomous decisions
+                        for ranking growth
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <AlertTriangle className="h-4 w-4 text-amber-400" /> Major tasks require
+                        your approval
+                      </li>
                     </ul>
                   </div>
                 )}
@@ -1051,16 +1191,16 @@ function AgentsPage() {
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-1.5">
                             <span className="text-sm font-medium">{n.title}</span>
-                            {isUnread && (
-                              <span className="h-1.5 w-1.5 rounded-full bg-primary" />
-                            )}
+                            {isUnread && <span className="h-1.5 w-1.5 rounded-full bg-primary" />}
                           </div>
                           <div className="mt-0.5 text-xs text-muted-foreground">{n.message}</div>
                           <div className="mt-1 flex flex-wrap items-center gap-2 text-[10px] uppercase tracking-widest text-muted-foreground/70">
                             <span>→ {target?.name ?? "Agent"}</span>
                             {other && <span>· {other.name}</span>}
                             <span className="ml-auto normal-case tracking-normal">
-                              {ts ? ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : ""}
+                              {ts
+                                ? ts.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                                : ""}
                             </span>
                           </div>
                         </div>
@@ -1081,7 +1221,6 @@ function AgentsPage() {
             </div>
 
             <div className="rounded-2xl border border-amber-400/30 bg-amber-400/5 p-5">
-
               <div className="mb-3 flex items-center justify-between">
                 <h3 className="inline-flex items-center gap-2 font-display text-base tracking-tight">
                   <AlertTriangle className="h-4 w-4 text-amber-400" /> Awaiting approval
@@ -1133,7 +1272,10 @@ function AgentsPage() {
                 {tasks.map((t) => {
                   const a = agents.find((x) => x.id === t.agent_id);
                   return (
-                    <li key={t.id} className="flex items-start gap-2 rounded-md p-2 hover:bg-accent/60">
+                    <li
+                      key={t.id}
+                      className="flex items-start gap-2 rounded-md p-2 hover:bg-accent/60"
+                    >
                       <TaskDot status={t.status} />
                       <div className="min-w-0 flex-1">
                         <div className="truncate text-xs font-medium">{t.title}</div>
@@ -1193,9 +1335,7 @@ function AgentsPage() {
                           {label}
                         </span>
                         {a && (
-                          <span className="text-[11px] text-muted-foreground/90">
-                            {a.name}
-                          </span>
+                          <span className="text-[11px] text-muted-foreground/90">{a.name}</span>
                         )}
                         {typeof ev.progress === "number" && (
                           <span className="rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
@@ -1215,7 +1355,6 @@ function AgentsPage() {
           )}
         </section>
       </div>
-
 
       <MetricDrilldownDialog
         metric={metricDetail}
@@ -1239,7 +1378,9 @@ function AgentsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Agent name</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Agent name
+              </label>
               <input
                 value={newAgent.name}
                 onChange={(e) => setNewAgent((p) => ({ ...p, name: e.target.value }))}
@@ -1248,9 +1389,16 @@ function AgentsPage() {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Specialty</label>
-              <Select value={newAgent.role} onValueChange={(v) => setNewAgent((p) => ({ ...p, role: v }))}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Specialty
+              </label>
+              <Select
+                value={newAgent.role}
+                onValueChange={(v) => setNewAgent((p) => ({ ...p, role: v }))}
+              >
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="writer">Content Writer</SelectItem>
                   <SelectItem value="analyzer">Analyzer</SelectItem>
@@ -1261,15 +1409,21 @@ function AgentsPage() {
               </Select>
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Reports to</label>
+              <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                Reports to
+              </label>
               <Select
                 value={newAgent.parentId || leader.id}
                 onValueChange={(v) => setNewAgent((p) => ({ ...p, parentId: v }))}
               >
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   {agents.map((a) => (
-                    <SelectItem key={a.id} value={a.id}>{a.name}</SelectItem>
+                    <SelectItem key={a.id} value={a.id}>
+                      {a.name}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
@@ -1287,7 +1441,8 @@ function AgentsPage() {
                 className="w-full resize-none rounded-md border border-border bg-background px-3 py-2 text-sm"
               />
               <p className="mt-1 text-[11px] text-muted-foreground">
-                {newAgent.scope.length}/500 — describes what this agent owns and how it should behave.
+                {newAgent.scope.length}/500 — describes what this agent owns and how it should
+                behave.
               </p>
             </div>
             <div>
@@ -1307,7 +1462,10 @@ function AgentsPage() {
             </div>
           </div>
           <DialogFooter>
-            <button onClick={() => setAddOpen(false)} className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent">
+            <button
+              onClick={() => setAddOpen(false)}
+              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            >
               Cancel
             </button>
             <button
@@ -1315,7 +1473,12 @@ function AgentsPage() {
               disabled={createMut.isPending}
               className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-60"
             >
-              {createMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />} Spawn agent
+              {createMut.isPending ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Plus className="h-3.5 w-3.5" />
+              )}{" "}
+              Spawn agent
             </button>
           </DialogFooter>
         </DialogContent>
@@ -1323,247 +1486,285 @@ function AgentsPage() {
 
       <Sheet open={detailsOpen} onOpenChange={setDetailsOpen}>
         <SheetContent side="right" className="w-full overflow-y-auto sm:max-w-lg">
-          {selected && (() => {
-            const Icon = iconMap[selected.icon_key] ?? Bot;
-            const imgSrc = agentImageMap[selected.icon_key];
-            const meta = statusMeta[normalizeStatus(selected.status)];
-            const agentTasks = tasks.filter((t) => t.agent_id === selected.id);
-            const inFlight = agentTasks.filter((t) => t.status === "in_progress" || t.status === "paused");
-            const pending = agentTasks.filter((t) => t.status === "awaiting_approval");
-            const completed = agentTasks.filter((t) => t.status === "done").length;
-            const failed = agentTasks.filter((t) => t.status === "failed").length;
-            const isLeader = selected.parent_id === null;
-            return (
-              <>
-                <SheetHeader className="space-y-3">
-                  <div className="flex items-start gap-4">
-                    <div className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border/70 bg-background/70">
-                      {imgSrc ? (
-                        <img src={imgSrc} alt={`${selected.name} portrait`} className="h-[92%] w-[92%] object-contain" />
-                      ) : (
-                        <Icon className="h-8 w-8 text-foreground/85" />
-                      )}
-                      <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`} />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <SheetTitle className="flex items-center gap-2 font-display text-xl tracking-tight">
-                        <span className="truncate">{selected.name}</span>
-                        {isLeader && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
-                            <Crown className="h-3 w-3" /> Leader
-                          </span>
+          {selected &&
+            (() => {
+              const Icon = iconMap[selected.icon_key] ?? Bot;
+              const imgSrc = agentImageMap[selected.icon_key];
+              const meta = statusMeta[normalizeStatus(selected.status)];
+              const agentTasks = tasks.filter((t) => t.agent_id === selected.id);
+              const inFlight = agentTasks.filter(
+                (t) => t.status === "in_progress" || t.status === "paused",
+              );
+              const pending = agentTasks.filter((t) => t.status === "awaiting_approval");
+              const completed = agentTasks.filter((t) => t.status === "done").length;
+              const failed = agentTasks.filter((t) => t.status === "failed").length;
+              const isLeader = selected.parent_id === null;
+              return (
+                <>
+                  <SheetHeader className="space-y-3">
+                    <div className="flex items-start gap-4">
+                      <div className="relative grid h-16 w-16 shrink-0 place-items-center overflow-hidden rounded-2xl border border-border/70 bg-background/70">
+                        {imgSrc ? (
+                          <img
+                            src={imgSrc}
+                            alt={`${selected.name} portrait`}
+                            className="h-[92%] w-[92%] object-contain"
+                          />
+                        ) : (
+                          <Icon className="h-8 w-8 text-foreground/85" />
                         )}
-                      </SheetTitle>
-                      <SheetDescription className="mt-0.5 text-xs text-muted-foreground">
-                        {selected.role} · {selected.scope}
-                      </SheetDescription>
-                      <div className="mt-2 flex flex-wrap items-center gap-2">
-                        <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
-                          <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
-                          {meta.label}
-                        </span>
-                        <span className="text-[11px] text-muted-foreground">
-                          Last: <span className="text-foreground/90">{selected.last_activity}</span>
-                        </span>
+                        <span
+                          className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`}
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <SheetTitle className="flex items-center gap-2 font-display text-xl tracking-tight">
+                          <span className="truncate">{selected.name}</span>
+                          {isLeader && (
+                            <span className="inline-flex items-center gap-1 rounded-full bg-amber-400/15 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-amber-400">
+                              <Crown className="h-3 w-3" /> Leader
+                            </span>
+                          )}
+                        </SheetTitle>
+                        <SheetDescription className="mt-0.5 text-xs text-muted-foreground">
+                          {selected.role} · {selected.scope}
+                        </SheetDescription>
+                        <div className="mt-2 flex flex-wrap items-center gap-2">
+                          <span
+                            className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
+                            {meta.label}
+                          </span>
+                          <span className="text-[11px] text-muted-foreground">
+                            Last:{" "}
+                            <span className="text-foreground/90">{selected.last_activity}</span>
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </SheetHeader>
+
+                  {/* Metrics */}
+                  <div className="mt-6">
+                    <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Metrics
+                    </h4>
+                    <div className="grid grid-cols-3 gap-2">
+                      <Metric label="Load" value={`${selected.load}%`} bar={selected.load} />
+                      <Metric label="Tasks today" value={selected.tasks_today.toString()} />
+                      <Metric
+                        label="Success"
+                        value={`${selected.success_rate}%`}
+                        bar={selected.success_rate}
+                        tone="emerald"
+                      />
+                    </div>
+                    <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
+                      <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
+                        <div className="text-muted-foreground">In-flight</div>
+                        <div className="font-semibold tabular-nums">{inFlight.length}</div>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
+                        <div className="text-muted-foreground">Completed</div>
+                        <div className="font-semibold tabular-nums text-emerald-400">
+                          {completed}
+                        </div>
+                      </div>
+                      <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
+                        <div className="text-muted-foreground">Failed</div>
+                        <div
+                          className={`font-semibold tabular-nums ${failed ? "text-destructive" : ""}`}
+                        >
+                          {failed}
+                        </div>
                       </div>
                     </div>
                   </div>
-                </SheetHeader>
 
-                {/* Metrics */}
-                <div className="mt-6">
-                  <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Metrics
-                  </h4>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Metric label="Load" value={`${selected.load}%`} bar={selected.load} />
-                    <Metric label="Tasks today" value={selected.tasks_today.toString()} />
-                    <Metric label="Success" value={`${selected.success_rate}%`} bar={selected.success_rate} tone="emerald" />
-                  </div>
-                  <div className="mt-2 grid grid-cols-3 gap-2 text-[11px]">
-                    <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
-                      <div className="text-muted-foreground">In-flight</div>
-                      <div className="font-semibold tabular-nums">{inFlight.length}</div>
+                  {/* Recent activity */}
+                  <div className="mt-6">
+                    <div className="mb-2 flex items-center justify-between">
+                      <h4 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Recent activity
+                      </h4>
+                      <span className="text-[10px] text-muted-foreground">
+                        {events.length} event{events.length === 1 ? "" : "s"}
+                      </span>
                     </div>
-                    <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
-                      <div className="text-muted-foreground">Completed</div>
-                      <div className="font-semibold tabular-nums text-emerald-400">{completed}</div>
-                    </div>
-                    <div className="rounded-lg border border-border/60 bg-card/40 px-2 py-1.5">
-                      <div className="text-muted-foreground">Failed</div>
-                      <div className={`font-semibold tabular-nums ${failed ? "text-destructive" : ""}`}>{failed}</div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Recent activity */}
-                <div className="mt-6">
-                  <div className="mb-2 flex items-center justify-between">
-                    <h4 className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      Recent activity
-                    </h4>
-                    <span className="text-[10px] text-muted-foreground">
-                      {events.length} event{events.length === 1 ? "" : "s"}
-                    </span>
-                  </div>
-                  {events.length === 0 ? (
-                    <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-3 py-4 text-center text-xs text-muted-foreground">
-                      No activity yet.
-                    </p>
-                  ) : (
-                    <ol className="relative max-h-72 space-y-2 overflow-y-auto pl-5">
-                      <span aria-hidden className="absolute left-[7px] top-1 bottom-1 w-px bg-gradient-to-b from-primary/40 via-border to-transparent" />
-                      {events.slice(0, 12).map((ev) => {
-                        const { color, Icon: EvIcon, label } = timelineMeta(ev.event_type);
-                        const ts = ev.created_at ? new Date(ev.created_at) : null;
-                        return (
-                          <li key={ev.id} className="relative">
-                            <span className={`absolute -left-[18px] top-1.5 grid h-3.5 w-3.5 place-items-center rounded-full ring-2 ring-card ${color}`}>
-                              <EvIcon className="h-2 w-2 text-white" />
-                            </span>
-                            <div className="rounded-md border border-border/50 bg-background/40 px-2.5 py-1.5">
-                              <div className="flex items-center gap-2">
-                                <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
-                                  {label}
-                                </span>
-                                {typeof ev.progress === "number" && (
-                                  <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold tabular-nums text-primary">
-                                    {ev.progress}%
+                    {events.length === 0 ? (
+                      <p className="rounded-lg border border-dashed border-border/60 bg-background/40 px-3 py-4 text-center text-xs text-muted-foreground">
+                        No activity yet.
+                      </p>
+                    ) : (
+                      <ol className="relative max-h-72 space-y-2 overflow-y-auto pl-5">
+                        <span
+                          aria-hidden
+                          className="absolute left-[7px] top-1 bottom-1 w-px bg-gradient-to-b from-primary/40 via-border to-transparent"
+                        />
+                        {events.slice(0, 12).map((ev) => {
+                          const { color, Icon: EvIcon, label } = timelineMeta(ev.event_type);
+                          const ts = ev.created_at ? new Date(ev.created_at) : null;
+                          return (
+                            <li key={ev.id} className="relative">
+                              <span
+                                className={`absolute -left-[18px] top-1.5 grid h-3.5 w-3.5 place-items-center rounded-full ring-2 ring-card ${color}`}
+                              >
+                                <EvIcon className="h-2 w-2 text-white" />
+                              </span>
+                              <div className="rounded-md border border-border/50 bg-background/40 px-2.5 py-1.5">
+                                <div className="flex items-center gap-2">
+                                  <span className="text-[9px] font-semibold uppercase tracking-widest text-muted-foreground">
+                                    {label}
                                   </span>
-                                )}
-                                <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/70">
-                                  {ts ? ts.toLocaleString() : ""}
+                                  {typeof ev.progress === "number" && (
+                                    <span className="rounded bg-primary/10 px-1 py-0.5 text-[9px] font-semibold tabular-nums text-primary">
+                                      {ev.progress}%
+                                    </span>
+                                  )}
+                                  <span className="ml-auto text-[9px] tabular-nums text-muted-foreground/70">
+                                    {ts ? ts.toLocaleString() : ""}
+                                  </span>
+                                </div>
+                                <div className="text-xs">{ev.message}</div>
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                    )}
+                  </div>
+
+                  {/* In-flight tasks */}
+                  {inFlight.length > 0 && (
+                    <div className="mt-6">
+                      <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        In-flight tasks
+                      </h4>
+                      <ul className="space-y-2">
+                        {inFlight.map((t) => {
+                          const busy =
+                            pauseMut.isPending || resumeMut.isPending || cancelMut.isPending;
+                          return (
+                            <li
+                              key={t.id}
+                              className="rounded-lg border border-border/60 bg-background/40 p-2.5"
+                            >
+                              <div className="flex items-center gap-2">
+                                <span className="truncate text-xs font-medium">{t.title}</span>
+                                <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
+                                  {t.progress ?? 0}%
                                 </span>
                               </div>
-                              <div className="text-xs">{ev.message}</div>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ol>
-                  )}
-                </div>
-
-                {/* In-flight tasks */}
-                {inFlight.length > 0 && (
-                  <div className="mt-6">
-                    <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      In-flight tasks
-                    </h4>
-                    <ul className="space-y-2">
-                      {inFlight.map((t) => {
-                        const busy = pauseMut.isPending || resumeMut.isPending || cancelMut.isPending;
-                        return (
-                          <li key={t.id} className="rounded-lg border border-border/60 bg-background/40 p-2.5">
-                            <div className="flex items-center gap-2">
-                              <span className="truncate text-xs font-medium">{t.title}</span>
-                              <span className="ml-auto rounded bg-primary/10 px-1.5 py-0.5 text-[10px] font-semibold tabular-nums text-primary">
-                                {t.progress ?? 0}%
-                              </span>
-                            </div>
-                            <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted/60">
-                              <div className="h-full rounded-full bg-primary" style={{ width: `${t.progress ?? 0}%` }} />
-                            </div>
-                            <div className="mt-2 flex gap-1.5">
-                              {t.status === "paused" ? (
+                              <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                                <div
+                                  className="h-full rounded-full bg-primary"
+                                  style={{ width: `${t.progress ?? 0}%` }}
+                                />
+                              </div>
+                              <div className="mt-2 flex gap-1.5">
+                                {t.status === "paused" ? (
+                                  <button
+                                    onClick={() => resumeMut.mutate(t.id)}
+                                    disabled={busy}
+                                    className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                                  >
+                                    Resume
+                                  </button>
+                                ) : (
+                                  <button
+                                    onClick={() => pauseMut.mutate(t.id)}
+                                    disabled={busy}
+                                    className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                                  >
+                                    Pause
+                                  </button>
+                                )}
                                 <button
-                                  onClick={() => resumeMut.mutate(t.id)}
+                                  onClick={() => cancelMut.mutate(t.id)}
                                   disabled={busy}
-                                  className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                                  className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
                                 >
-                                  Resume
+                                  Cancel
                                 </button>
-                              ) : (
                                 <button
-                                  onClick={() => pauseMut.mutate(t.id)}
+                                  onClick={() =>
+                                    progressMut.mutate({ id: t.id, progress: 100, status: "done" })
+                                  }
                                   disabled={busy}
-                                  className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] hover:bg-accent disabled:opacity-50"
+                                  className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
                                 >
-                                  Pause
+                                  Complete
                                 </button>
-                              )}
-                              <button
-                                onClick={() => cancelMut.mutate(t.id)}
-                                disabled={busy}
-                                className="flex-1 rounded-md border border-border px-2 py-1 text-[10px] text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                onClick={() => progressMut.mutate({ id: t.id, progress: 100, status: "done" })}
-                                disabled={busy}
-                                className="flex-1 rounded-md bg-emerald-500/90 px-2 py-1 text-[10px] font-semibold text-white hover:bg-emerald-500 disabled:opacity-50"
-                              >
-                                Complete
-                              </button>
-                            </div>
-                          </li>
-                        );
-                      })}
-                    </ul>
-                  </div>
-                )}
-
-                {pending.length > 0 && (
-                  <div className="mt-6 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 text-xs">
-                    <div className="mb-1 inline-flex items-center gap-1.5 font-semibold text-amber-400">
-                      <AlertTriangle className="h-3.5 w-3.5" /> {pending.length} awaiting your approval
+                              </div>
+                            </li>
+                          );
+                        })}
+                      </ul>
                     </div>
-                    <p className="text-muted-foreground">
-                      Approve or reject from the pending approvals panel.
-                    </p>
-                  </div>
-                )}
+                  )}
 
-                {/* Actions */}
-                <div className="mt-6 border-t border-border/60 pt-4">
-                  <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                    Actions
-                  </h4>
-                  <div className="grid grid-cols-2 gap-2">
-                    {!isLeader && (
+                  {pending.length > 0 && (
+                    <div className="mt-6 rounded-lg border border-amber-400/30 bg-amber-400/5 p-3 text-xs">
+                      <div className="mb-1 inline-flex items-center gap-1.5 font-semibold text-amber-400">
+                        <AlertTriangle className="h-3.5 w-3.5" /> {pending.length} awaiting your
+                        approval
+                      </div>
+                      <p className="text-muted-foreground">
+                        Approve or reject from the pending approvals panel.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Actions */}
+                  <div className="mt-6 border-t border-border/60 pt-4">
+                    <h4 className="mb-2 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                      Actions
+                    </h4>
+                    <div className="grid grid-cols-2 gap-2">
+                      {!isLeader && (
+                        <button
+                          onClick={() => {
+                            setAssign((p) => ({ ...p, agent_id: selected.id }));
+                            setDetailsOpen(false);
+                            toast.message(`Assign panel targeted at ${selected.name}.`);
+                          }}
+                          className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Assign task
+                        </button>
+                      )}
                       <button
                         onClick={() => {
-                          setAssign((p) => ({ ...p, agent_id: selected.id }));
+                          setNewAgent((p) => ({ ...p, parentId: selected.id }));
                           setDetailsOpen(false);
-                          toast.message(`Assign panel targeted at ${selected.name}.`);
+                          setAddOpen(true);
                         }}
-                        className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90"
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
                       >
-                        <Plus className="h-3.5 w-3.5" /> Assign task
+                        <Plus className="h-3.5 w-3.5" /> Spawn sub-agent
                       </button>
-                    )}
-                    <button
-                      onClick={() => {
-                        setNewAgent((p) => ({ ...p, parentId: selected.id }));
-                        setDetailsOpen(false);
-                        setAddOpen(true);
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
-                    >
-                      <Plus className="h-3.5 w-3.5" /> Spawn sub-agent
-                    </button>
-                    <button
-                      onClick={() => {
-                        qc.invalidateQueries({ queryKey: ["agents-state"] });
-                        qc.invalidateQueries({ queryKey: ["task-events"] });
-                        toast.success("Refreshed.");
-                      }}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
-                    >
-                      <Activity className="h-3.5 w-3.5" /> Refresh
-                    </button>
-                    <button
-                      onClick={() => setDetailsOpen(false)}
-                      className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
-                    >
-                      Close
-                    </button>
+                      <button
+                        onClick={() => {
+                          qc.invalidateQueries({ queryKey: ["agents-state"] });
+                          qc.invalidateQueries({ queryKey: ["task-events"] });
+                          toast.success("Refreshed.");
+                        }}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+                      >
+                        <Activity className="h-3.5 w-3.5" /> Refresh
+                      </button>
+                      <button
+                        onClick={() => setDetailsOpen(false)}
+                        className="inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-2 text-xs font-medium hover:bg-accent"
+                      >
+                        Close
+                      </button>
+                    </div>
                   </div>
-                </div>
-              </>
-            );
-          })()}
+                </>
+              );
+            })()}
         </SheetContent>
       </Sheet>
     </div>
@@ -1601,8 +1802,8 @@ function AgentNode({
         isLeader
           ? "border-amber-300/50 bg-gradient-to-br from-amber-500/10 via-card/70 to-card/50 shadow-[0_10px_40px_-12px_rgba(251,191,36,0.35)] hover:border-amber-300/70"
           : selected
-          ? "border-foreground/40 bg-card/60 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
-          : "border-border/60 bg-card/60 hover:border-foreground/25 hover:bg-card"
+            ? "border-foreground/40 bg-card/60 shadow-[0_0_0_1px_hsl(var(--foreground)/0.15),0_20px_50px_-20px_rgba(0,0,0,0.9)]"
+            : "border-border/60 bg-card/60 hover:border-foreground/25 hover:bg-card"
       } ${highlighted ? "ring-2 ring-amber-300/70 shadow-[0_0_28px_-4px_rgba(251,191,36,0.55)] -translate-y-0.5" : ""} ${dimmed ? "opacity-40 saturate-50" : "opacity-100"}`}
     >
       {isLeader && (
@@ -1613,7 +1814,9 @@ function AgentNode({
       <div className="relative mb-3">
         <div
           className={`relative grid h-20 w-20 place-items-center overflow-hidden rounded-2xl border bg-background/70 ${
-            isLeader ? "border-amber-300/60 ring-2 ring-amber-300/25 ring-offset-2 ring-offset-card/60" : "border-border/70"
+            isLeader
+              ? "border-amber-300/60 ring-2 ring-amber-300/25 ring-offset-2 ring-offset-card/60"
+              : "border-border/70"
           }`}
         >
           {imgSrc ? (
@@ -1626,22 +1829,35 @@ function AgentNode({
           ) : (
             <Icon className="h-8 w-8 text-foreground/85" />
           )}
-          <span className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`} />
+          <span
+            className={`absolute -bottom-1 -right-1 h-4 w-4 rounded-full ring-2 ring-card ${meta.dot}`}
+          />
         </div>
       </div>
 
       <div className="flex items-center gap-1.5">
-        <h4 className={`font-display tracking-tight text-sm ${isLeader ? "text-amber-100" : ""}`}>{agent.name}</h4>
+        <h4 className={`font-display tracking-tight text-sm ${isLeader ? "text-amber-100" : ""}`}>
+          {agent.name}
+        </h4>
       </div>
-      <p className={`mt-0.5 text-[11px] uppercase tracking-widest ${isLeader ? "text-amber-300/80" : "text-muted-foreground"}`}>{agent.role}</p>
+      <p
+        className={`mt-0.5 text-[11px] uppercase tracking-widest ${isLeader ? "text-amber-300/80" : "text-muted-foreground"}`}
+      >
+        {agent.role}
+      </p>
       {agent.main_skill && (
-        <p className="mt-1 line-clamp-2 text-center text-[10.5px] italic text-cyan-300/80" title={agent.main_skill}>
+        <p
+          className="mt-1 line-clamp-2 text-center text-[10.5px] italic text-cyan-300/80"
+          title={agent.main_skill}
+        >
           {agent.main_skill}
         </p>
       )}
 
       <div className="mt-3 flex w-full items-center gap-2">
-        <span className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}>
+        <span
+          className={`inline-flex items-center gap-1 rounded-full bg-muted/60 px-2 py-0.5 text-[10px] font-medium ring-1 ${meta.ring}`}
+        >
           <span className={`h-1.5 w-1.5 rounded-full ${meta.dot}`} />
           {meta.label}
         </span>
@@ -1651,20 +1867,36 @@ function AgentNode({
       </div>
 
       <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
-        <div className={`h-full rounded-full ${isLeader ? "bg-gradient-to-r from-amber-400 to-orange-400" : "bg-foreground/70"}`} style={{ width: `${agent.load}%` }} />
+        <div
+          className={`h-full rounded-full ${isLeader ? "bg-gradient-to-r from-amber-400 to-orange-400" : "bg-foreground/70"}`}
+          style={{ width: `${agent.load}%` }}
+        />
       </div>
     </button>
   );
 }
 
-function Metric({ label, value, bar, tone }: { label: string; value: string; bar?: number; tone?: "emerald" }) {
+function Metric({
+  label,
+  value,
+  bar,
+  tone,
+}: {
+  label: string;
+  value: string;
+  bar?: number;
+  tone?: "emerald";
+}) {
   return (
     <div className="rounded-xl border border-border/60 bg-card/60 p-3">
       <div className="text-[10px] uppercase tracking-widest text-muted-foreground">{label}</div>
       <div className="mt-1 font-display text-xl tracking-tight">{value}</div>
       {typeof bar === "number" && (
         <div className="mt-2 h-1 w-full overflow-hidden rounded-full bg-muted/60">
-          <div className={`h-full ${tone === "emerald" ? "bg-emerald-400" : "bg-primary"}`} style={{ width: `${bar}%` }} />
+          <div
+            className={`h-full ${tone === "emerald" ? "bg-emerald-400" : "bg-primary"}`}
+            style={{ width: `${bar}%` }}
+          />
         </div>
       )}
     </div>
@@ -1705,7 +1937,10 @@ function MetricCard({
       </div>
       {typeof bar === "number" && (
         <div className="mt-3 h-1 w-full overflow-hidden rounded-full bg-muted/50">
-          <div className="h-full rounded-full bg-foreground/70" style={{ width: `${Math.max(0, Math.min(100, bar))}%` }} />
+          <div
+            className="h-full rounded-full bg-foreground/70"
+            style={{ width: `${Math.max(0, Math.min(100, bar))}%` }}
+          />
         </div>
       )}
       {clickable && (
@@ -1717,11 +1952,12 @@ function MetricCard({
   );
 }
 
-
 function TaskDot({ status }: { status: string }) {
   if (status === "done") return <CheckCircle2 className="mt-0.5 h-4 w-4 text-emerald-400" />;
-  if (status === "running") return <Activity className="mt-0.5 h-4 w-4 animate-pulse text-sky-400" />;
-  if (status === "awaiting_approval") return <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-400" />;
+  if (status === "running")
+    return <Activity className="mt-0.5 h-4 w-4 animate-pulse text-sky-400" />;
+  if (status === "awaiting_approval")
+    return <AlertTriangle className="mt-0.5 h-4 w-4 text-amber-400" />;
   return <Clock className="mt-0.5 h-4 w-4 text-muted-foreground" />;
 }
 
@@ -1742,7 +1978,10 @@ function MetricDrilldownDialog({
   stats: { total: number; active: number; avgLoad: number; success: number };
   onOpenAgent: (id: string) => void;
 }) {
-  const meta: Record<MetricKey, { title: string; description: string; icon: typeof Bot; value: string }> = {
+  const meta: Record<
+    MetricKey,
+    { title: string; description: string; icon: typeof Bot; value: string }
+  > = {
     agents: {
       title: "Agents",
       description: "Team composition by role and hierarchy.",
@@ -1789,10 +2028,7 @@ function MetricDrilldownDialog({
       .sort((a, b) => b.count - a.count);
   }, [agents]);
 
-  const loadByAgent = useMemo(
-    () => [...agents].sort((a, b) => b.load - a.load),
-    [agents],
-  );
+  const loadByAgent = useMemo(() => [...agents].sort((a, b) => b.load - a.load), [agents]);
 
   const successByAgent = useMemo(
     () => [...agents].sort((a, b) => b.success_rate - a.success_rate),
@@ -1829,7 +2065,9 @@ function MetricDrilldownDialog({
                 <div>
                   <DialogTitle className="flex items-baseline gap-3">
                     <span>{m.title}</span>
-                    <span className="font-display text-2xl tracking-tight text-foreground">{m.value}</span>
+                    <span className="font-display text-2xl tracking-tight text-foreground">
+                      {m.value}
+                    </span>
                   </DialogTitle>
                   <DialogDescription>{m.description}</DialogDescription>
                 </div>
@@ -1846,8 +2084,14 @@ function MetricDrilldownDialog({
                     suffix=""
                   />
                   <div className="grid grid-cols-3 gap-3">
-                    <MiniStat label="Leaders" value={agents.filter((a) => a.parent_id === null).length} />
-                    <MiniStat label="Sub-agents" value={agents.filter((a) => a.parent_id !== null).length} />
+                    <MiniStat
+                      label="Leaders"
+                      value={agents.filter((a) => a.parent_id === null).length}
+                    />
+                    <MiniStat
+                      label="Sub-agents"
+                      value={agents.filter((a) => a.parent_id !== null).length}
+                    />
                     <MiniStat label="Roles" value={roleBreakdown.length} />
                   </div>
                 </div>
@@ -1890,7 +2134,10 @@ function MetricDrilldownDialog({
                   <div className="grid grid-cols-3 gap-3">
                     <MiniStat label="Average" value={`${stats.avgLoad}%`} />
                     <MiniStat label="Peak" value={`${loadByAgent[0]?.load ?? 0}%`} />
-                    <MiniStat label=">80% busy" value={loadByAgent.filter((a) => a.load > 80).length} />
+                    <MiniStat
+                      label=">80% busy"
+                      value={loadByAgent.filter((a) => a.load > 80).length}
+                    />
                   </div>
                 </div>
               )}
@@ -1899,7 +2146,11 @@ function MetricDrilldownDialog({
                 <div className="space-y-6">
                   <BarBreakdown
                     title="Success per agent"
-                    rows={successByAgent.map((a) => ({ label: a.name, value: a.success_rate, agentId: a.id }))}
+                    rows={successByAgent.map((a) => ({
+                      label: a.name,
+                      value: a.success_rate,
+                      agentId: a.id,
+                    }))}
                     max={100}
                     suffix="%"
                     onClickRow={onOpenAgent}
@@ -1965,7 +2216,10 @@ function BarBreakdown({
                   </span>
                 </div>
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted/40">
-                  <div className="h-full rounded-full bg-foreground/70" style={{ width: `${pct}%` }} />
+                  <div
+                    className="h-full rounded-full bg-foreground/70"
+                    style={{ width: `${pct}%` }}
+                  />
                 </div>
               </>
             );
@@ -2043,4 +2297,3 @@ function AgentPickerList({
     </ul>
   );
 }
-

@@ -44,8 +44,8 @@ export const listRankAlerts = createServerFn({ method: "GET" })
     return (rows ?? []).map((r) => {
       const competitor = r.competitors as { name: string } | { name: string }[] | null;
       const name = Array.isArray(competitor)
-        ? competitor[0]?.name ?? "Competitor"
-        : competitor?.name ?? "Competitor";
+        ? (competitor[0]?.name ?? "Competitor")
+        : (competitor?.name ?? "Competitor");
       return {
         id: r.id as string,
         keyword: r.keyword as string,
@@ -64,9 +64,7 @@ export const listRankAlerts = createServerFn({ method: "GET" })
 
 export const markRankAlertRead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((data: { id: string }) =>
-    z.object({ id: z.string().uuid() }).parse(data),
-  )
+  .inputValidator((data: { id: string }) => z.object({ id: z.string().uuid() }).parse(data))
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
     const { error } = await supabase

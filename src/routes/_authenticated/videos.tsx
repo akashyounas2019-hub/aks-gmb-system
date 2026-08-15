@@ -58,9 +58,7 @@ function VideosPage() {
   const deleteMut = useMutation({
     mutationFn: async (v: VideoRow) => {
       // Remove storage object first, then DB row (RLS scopes to owner).
-      const { error: storageErr } = await supabase.storage
-        .from("videos")
-        .remove([v.storage_path]);
+      const { error: storageErr } = await supabase.storage.from("videos").remove([v.storage_path]);
       if (storageErr) throw storageErr;
       const { error } = await supabase.from("videos").delete().eq("id", v.id);
       if (error) throw error;
@@ -74,10 +72,7 @@ function VideosPage() {
 
   const renameMut = useMutation({
     mutationFn: async ({ id, name }: { id: string; name: string }) => {
-      const { error } = await supabase
-        .from("videos")
-        .update({ original_name: name })
-        .eq("id", id);
+      const { error } = await supabase.from("videos").update({ original_name: name }).eq("id", id);
       if (error) throw error;
     },
     onSuccess: () => {
@@ -93,9 +88,7 @@ function VideosPage() {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">Videos</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {data?.length ?? 0} videos uploaded
-          </p>
+          <p className="mt-1 text-sm text-muted-foreground">{data?.length ?? 0} videos uploaded</p>
         </div>
 
         {/* Storage usage */}
@@ -108,16 +101,12 @@ function VideosPage() {
             </span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-muted">
-            <div
-              className="h-full bg-primary transition-all"
-              style={{ width: `${usedPct}%` }}
-            />
+            <div className="h-full bg-primary transition-all" style={{ width: `${usedPct}%` }} />
           </div>
           <p className="mt-2 text-xs text-muted-foreground">
             Stored in Lovable Cloud (Supabase Storage,{" "}
-            <code className="text-foreground">videos</code> bucket) — not on your
-            local device. Free tier: ~1 GB. Upgrade the Cloud plan to raise the
-            limit.
+            <code className="text-foreground">videos</code> bucket) — not on your local device. Free
+            tier: ~1 GB. Upgrade the Cloud plan to raise the limit.
           </p>
         </div>
       </div>
@@ -198,10 +187,7 @@ function VideoCard({
 
   return (
     <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <button
-        onClick={onPreview}
-        className="group relative block aspect-video w-full bg-muted"
-      >
+      <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
         {url ? (
           <video
             src={url}
@@ -222,9 +208,7 @@ function VideoCard({
         <div className="truncate font-medium">{video.original_name}</div>
         <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-xs text-muted-foreground">
           <span>
-            {video.duration_seconds
-              ? `${Number(video.duration_seconds).toFixed(0)}s`
-              : "—"}
+            {video.duration_seconds ? `${Number(video.duration_seconds).toFixed(0)}s` : "—"}
           </span>
           <span>{formatBytes(video.size_bytes)}</span>
           <span className="rounded-full bg-primary/15 px-1.5 text-primary">
@@ -260,13 +244,7 @@ function VideoCard({
   );
 }
 
-function VideoPreviewModal({
-  video,
-  onClose,
-}: {
-  video: VideoRow;
-  onClose: () => void;
-}) {
+function VideoPreviewModal({ video, onClose }: { video: VideoRow; onClose: () => void }) {
   const url = useVideoUrl(video.storage_path);
   return (
     <div
@@ -277,10 +255,7 @@ function VideoPreviewModal({
         className="relative w-full max-w-4xl rounded-xl border border-border bg-card p-4"
         onClick={(e) => e.stopPropagation()}
       >
-        <button
-          onClick={onClose}
-          className="absolute right-2 top-2 rounded-md p-1 hover:bg-accent"
-        >
+        <button onClick={onClose} className="absolute right-2 top-2 rounded-md p-1 hover:bg-accent">
           <X className="h-4 w-4" />
         </button>
         <div className="truncate pr-8 font-medium">{video.original_name}</div>

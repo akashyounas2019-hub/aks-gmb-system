@@ -103,13 +103,13 @@ Goal: decide what to charge and how to present it.
 
 ## Suggested timeline
 
-| Phase | Duration | Deliverable |
-|-------|----------|-------------|
-| Cleanup | 1 week | Stable, de-cluttered app |
-| Stripe billing | 2 weeks | Paid subscription + trial |
-| Pricing & packaging | 1 week | Public pricing + usage limits |
-| Pre-launch hardening | 1 week | Launch-ready private beta |
-| **Total** | **~5 weeks** | **Paid private beta** |
+| Phase                | Duration     | Deliverable                   |
+| -------------------- | ------------ | ----------------------------- |
+| Cleanup              | 1 week       | Stable, de-cluttered app      |
+| Stripe billing       | 2 weeks      | Paid subscription + trial     |
+| Pricing & packaging  | 1 week       | Public pricing + usage limits |
+| Pre-launch hardening | 1 week       | Launch-ready private beta     |
+| **Total**            | **~5 weeks** | **Paid private beta**         |
 
 ## Out of scope for launch
 

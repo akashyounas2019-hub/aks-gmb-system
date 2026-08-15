@@ -46,10 +46,7 @@ import {
   deleteCompetitor,
   refreshCompetitorPlaceId,
 } from "@/lib/competitors.functions";
-import {
-  getCompetitorRanks,
-  getCompetitorRankHistory,
-} from "@/lib/rank-source.functions";
+import { getCompetitorRanks, getCompetitorRankHistory } from "@/lib/rank-source.functions";
 import {
   getAlertSettings,
   updateAlertSettings,
@@ -181,7 +178,6 @@ function CompetitorsPage() {
   const [trackedIsCustom, setTrackedIsCustom] = useState(false);
   const [showKeywordManager, setShowKeywordManager] = useState(false);
 
-
   const [rows, setRows] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
   const [ranksLoading, setRanksLoading] = useState(false);
@@ -249,7 +245,6 @@ function CompetitorsPage() {
       toast.error(e instanceof Error ? e.message : "Save failed");
     }
   }
-
 
   // Fetch live rank matrix whenever the competitor list changes.
   useEffect(() => {
@@ -353,8 +348,7 @@ function CompetitorsPage() {
       totalBehind += s.behind;
       contested += s.coverage;
     }
-    const yourAvg =
-      trackedKeywords.reduce((a, b) => a + b.userRank, 0) / trackedKeywords.length;
+    const yourAvg = trackedKeywords.reduce((a, b) => a + b.userRank, 0) / trackedKeywords.length;
     const compAvg = ranks.length > 0 ? ranks.reduce((a, b) => a + b, 0) / ranks.length : null;
     return {
       total: rows.length,
@@ -428,14 +422,15 @@ function CompetitorsPage() {
 
   /* -------- Insights -------------------------------------------- */
   const insights = useMemo(() => {
-    const out: Array<{ tone: "danger" | "warn" | "good" | "info"; title: string; detail: string }> = [];
+    const out: Array<{ tone: "danger" | "warn" | "good" | "info"; title: string; detail: string }> =
+      [];
     if (rows.length === 0) return out;
 
     // Biggest threat
     const withStats = rows
       .map((c) => ({ c, s: stats[c.id] }))
       .filter((r) => r.s && r.s.avgRank != null);
-    const threat = [...withStats].sort((a, b) => (b.s.beating - a.s.beating))[0];
+    const threat = [...withStats].sort((a, b) => b.s.beating - a.s.beating)[0];
     if (threat && threat.s.beating > 0) {
       out.push({
         tone: "danger",
@@ -455,13 +450,14 @@ function CompetitorsPage() {
     }
 
     // Keyword-level SOS
-    const contested = trackedKeywords.map((k) => {
-      const compRanks = rows
-        .map((c) => rankMatrix[k.keyword]?.[c.id])
-        .filter((r): r is number => typeof r === "number");
-      const betterThanYou = compRanks.filter((r) => r < k.userRank).length;
-      return { k, betterThanYou };
-    })
+    const contested = trackedKeywords
+      .map((k) => {
+        const compRanks = rows
+          .map((c) => rankMatrix[k.keyword]?.[c.id])
+          .filter((r): r is number => typeof r === "number");
+        const betterThanYou = compRanks.filter((r) => r < k.userRank).length;
+        return { k, betterThanYou };
+      })
       .filter((x) => x.betterThanYou >= 2)
       .sort((a, b) => b.betterThanYou - a.betterThanYou);
     if (contested[0]) {
@@ -479,7 +475,8 @@ function CompetitorsPage() {
       out.push({
         tone: "info",
         title: `${missing} competitor${missing === 1 ? " is" : "s are"} missing a Place ID`,
-        detail: "Resolve Place IDs to improve rank-match accuracy — the resolver falls back to name matching without them.",
+        detail:
+          "Resolve Place IDs to improve rank-match accuracy — the resolver falls back to name matching without them.",
       });
     }
 
@@ -533,10 +530,12 @@ function CompetitorsPage() {
     return filteredRows.map((c) => {
       const s = stats[c.id];
       const level = computeThreatLevel(s);
-      const perKeyword = trackedKeywords.map((k) => {
-        const r = rankMatrix[k.keyword]?.[c.id];
-        return r != null ? `${k.keyword}: #${r}` : `${k.keyword}: —`;
-      }).join(" | ");
+      const perKeyword = trackedKeywords
+        .map((k) => {
+          const r = rankMatrix[k.keyword]?.[c.id];
+          return r != null ? `${k.keyword}: #${r}` : `${k.keyword}: —`;
+        })
+        .join(" | ");
       return {
         name: c.name,
         url: c.gbp_url,
@@ -574,10 +573,28 @@ function CompetitorsPage() {
       ...insights.map((i) => [i.title, i.detail]),
       [],
       ["Competitors"],
-      ["Name", "URL", "Threat", "Avg rank", "Beating you", "Behind you", "Coverage", "Notes", "Per-keyword ranks"],
+      [
+        "Name",
+        "URL",
+        "Threat",
+        "Avg rank",
+        "Beating you",
+        "Behind you",
+        "Coverage",
+        "Notes",
+        "Per-keyword ranks",
+      ],
     ];
     const body = data.map((r) => [
-      r.name, r.url, r.threat, r.avgRank, r.beating, r.behind, r.coverage, r.notes, r.perKeyword,
+      r.name,
+      r.url,
+      r.threat,
+      r.avgRank,
+      r.beating,
+      r.behind,
+      r.coverage,
+      r.notes,
+      r.perKeyword,
     ]);
     const csv = [...meta, ...body].map((row) => row.map(esc).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
@@ -660,7 +677,15 @@ function CompetitorsPage() {
     autoTable(doc, {
       startY: y + 8,
       head: [["Name", "Threat", "Avg rank", "Beating", "Behind", "Coverage", "URL"]],
-      body: exportRows.map((r) => [r.name, r.threat, r.avgRank, String(r.beating), String(r.behind), String(r.coverage), r.url]),
+      body: exportRows.map((r) => [
+        r.name,
+        r.threat,
+        r.avgRank,
+        String(r.beating),
+        String(r.behind),
+        String(r.coverage),
+        r.url,
+      ]),
       theme: "striped",
       headStyles: { fillColor: [30, 30, 40] },
       styles: { fontSize: 8, overflow: "linebreak" },
@@ -675,7 +700,13 @@ function CompetitorsPage() {
     doc.text("Rank matrix", marginX, y);
     autoTable(doc, {
       startY: y + 8,
-      head: [["Keyword", "You", ...filteredRows.map((c) => (c.name.length > 14 ? c.name.slice(0, 12) + "…" : c.name))]],
+      head: [
+        [
+          "Keyword",
+          "You",
+          ...filteredRows.map((c) => (c.name.length > 14 ? c.name.slice(0, 12) + "…" : c.name)),
+        ],
+      ],
       body: trackedKeywords.map((k) => [
         k.keyword,
         `#${k.userRank}`,
@@ -714,8 +745,8 @@ function CompetitorsPage() {
             <h1 className="text-3xl">Competitors</h1>
           </div>
           <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Track competing Google Business Profiles, benchmark them against your own rankings,
-            and surface the actions most likely to move the needle.
+            Track competing Google Business Profiles, benchmark them against your own rankings, and
+            surface the actions most likely to move the needle.
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -923,7 +954,8 @@ function CompetitorsPage() {
                 <BarChart3 className="h-4 w-4 text-primary" /> Head-to-head across keywords
               </h2>
               <p className="mt-1 text-xs text-muted-foreground">
-                For each competitor: keywords where they outrank you (red) vs. where you're ahead (green).
+                For each competitor: keywords where they outrank you (red) vs. where you're ahead
+                (green).
               </p>
             </div>
             <div className="flex items-center gap-3 text-[11px] text-muted-foreground">
@@ -939,8 +971,14 @@ function CompetitorsPage() {
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={chartData} barGap={4}>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                <XAxis dataKey="name" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} />
-                <YAxis tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }} allowDecimals={false} />
+                <XAxis
+                  dataKey="name"
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                />
+                <YAxis
+                  tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 11 }}
+                  allowDecimals={false}
+                />
                 <Tooltip
                   contentStyle={{
                     background: "hsl(var(--card))",
@@ -964,8 +1002,10 @@ function CompetitorsPage() {
           <div>
             <h2 className="text-base font-semibold">Competitor roster</h2>
             <p className="mt-1 text-xs text-muted-foreground">
-              Showing {filteredRows.length} of {rows.length} competitor{rows.length === 1 ? "" : "s"}
-              {activeFilterCount > 0 && ` · ${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied`}
+              Showing {filteredRows.length} of {rows.length} competitor
+              {rows.length === 1 ? "" : "s"}
+              {activeFilterCount > 0 &&
+                ` · ${activeFilterCount} filter${activeFilterCount === 1 ? "" : "s"} applied`}
             </p>
           </div>
           {ranksLoading && (
@@ -1015,7 +1055,9 @@ function CompetitorsPage() {
           <div className="rounded-2xl border border-dashed border-border bg-card/50 p-10 text-center">
             <Filter className="mx-auto h-6 w-6 text-muted-foreground" />
             <p className="mt-3 text-sm font-medium">No competitors match your filters</p>
-            <p className="mt-1 text-xs text-muted-foreground">Try loosening the filters or clearing the search.</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Try loosening the filters or clearing the search.
+            </p>
             <button
               onClick={clearFilters}
               className="mt-4 inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-3 py-1.5 text-xs hover:bg-accent"
@@ -1080,11 +1122,7 @@ function KpiCard({
   tone?: "good" | "bad" | "neutral";
 }) {
   const toneCls =
-    tone === "good"
-      ? "text-emerald-400"
-      : tone === "bad"
-        ? "text-red-400"
-        : "text-foreground";
+    tone === "good" ? "text-emerald-400" : tone === "bad" ? "text-red-400" : "text-foreground";
   return (
     <div className="rounded-2xl border border-border bg-card p-5">
       <div className="flex items-center justify-between text-xs uppercase tracking-widest text-muted-foreground">
@@ -1107,9 +1145,18 @@ function InsightCard({
   detail: string;
 }) {
   const cfg = {
-    danger: { cls: "border-red-500/40 bg-red-500/5", icon: <TrendingDown className="h-4 w-4 text-red-400" /> },
-    warn: { cls: "border-amber-500/40 bg-amber-500/5", icon: <Sparkles className="h-4 w-4 text-amber-400" /> },
-    good: { cls: "border-emerald-500/40 bg-emerald-500/5", icon: <Trophy className="h-4 w-4 text-emerald-400" /> },
+    danger: {
+      cls: "border-red-500/40 bg-red-500/5",
+      icon: <TrendingDown className="h-4 w-4 text-red-400" />,
+    },
+    warn: {
+      cls: "border-amber-500/40 bg-amber-500/5",
+      icon: <Sparkles className="h-4 w-4 text-amber-400" />,
+    },
+    good: {
+      cls: "border-emerald-500/40 bg-emerald-500/5",
+      icon: <Trophy className="h-4 w-4 text-emerald-400" />,
+    },
     info: { cls: "border-border bg-card", icon: <Lightbulb className="h-4 w-4 text-primary" /> },
   }[tone];
   return (
@@ -1134,16 +1181,18 @@ function CompetitorCard({
   onRefreshPlace,
 }: {
   competitor: Competitor;
-  stats: {
-    avgRank: number | null;
-    beating: number;
-    behind: number;
-    tied: number;
-    top3: number;
-    coverage: number;
-    winRate: number;
-    trend: Array<{ day: number; rank: number }>;
-  } | undefined;
+  stats:
+    | {
+        avgRank: number | null;
+        beating: number;
+        behind: number;
+        tied: number;
+        top3: number;
+        coverage: number;
+        winRate: number;
+        trend: Array<{ day: number; rank: number }>;
+      }
+    | undefined;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -1188,7 +1237,9 @@ function CompetitorCard({
             </div>
           </div>
           <div className="mt-0.5 flex items-center gap-2">
-            <span className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest ${threatBadge}`}>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] uppercase tracking-widest ${threatBadge}`}
+            >
               {threatLabel}
             </span>
             <a
@@ -1204,9 +1255,7 @@ function CompetitorCard({
         </div>
         <div className={`rounded-lg border px-3 py-1.5 text-center ${rankBg(avg)}`}>
           <div className="text-[9px] uppercase tracking-widest opacity-80">Avg rank</div>
-          <div className="text-lg font-semibold leading-none">
-            {avg != null ? `#${avg}` : "—"}
-          </div>
+          <div className="text-lg font-semibold leading-none">{avg != null ? `#${avg}` : "—"}</div>
         </div>
       </div>
 
@@ -1306,11 +1355,7 @@ function IconBtn({
       ? "border-destructive/40 bg-destructive/10 text-destructive hover:bg-destructive/20"
       : "border-border bg-card hover:bg-accent";
   return (
-    <button
-      onClick={onClick}
-      title={title}
-      className={`rounded-md border p-1.5 transition ${cls}`}
-    >
+    <button onClick={onClick} title={title} className={`rounded-md border p-1.5 transition ${cls}`}>
       {children}
     </button>
   );
@@ -1378,7 +1423,10 @@ function TrackedKeywordManager({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+      onClick={onClose}
+    >
       <div
         className="w-full max-w-3xl rounded-2xl border border-border bg-card p-5 shadow-2xl"
         onClick={(e) => e.stopPropagation()}
@@ -1537,7 +1585,9 @@ function CompetitorDrawer({
   trackedKeywords: TrackedKeyword[];
 }) {
   const [historyKw, setHistoryKw] = useState(trackedKeywords[0]?.keyword ?? "");
-  const [history, setHistory] = useState<Array<{ recordedAt: string; rank: number | null; competitorId: string | null }>>([]);
+  const [history, setHistory] = useState<
+    Array<{ recordedAt: string; rank: number | null; competitorId: string | null }>
+  >([]);
   const [hLoading, setHLoading] = useState(false);
 
   useEffect(() => {
@@ -1562,7 +1612,10 @@ function CompetitorDrawer({
     const mine = history
       .filter((h) => h.competitorId === competitor.id && typeof h.rank === "number")
       .map((h) => ({
-        date: new Date(h.recordedAt).toLocaleDateString(undefined, { month: "short", day: "numeric" }),
+        date: new Date(h.recordedAt).toLocaleDateString(undefined, {
+          month: "short",
+          day: "numeric",
+        }),
         theirs: h.rank as number,
       }));
     return mine;
@@ -1603,8 +1656,16 @@ function CompetitorDrawer({
         <div className="space-y-6 p-6">
           {/* Snapshot */}
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <SnapStat label="Avg rank" value={stats?.avgRank != null ? `#${stats.avgRank}` : "—"} tone="neutral" />
-            <SnapStat label="Coverage" value={`${stats?.coverage ?? 0}/${trackedKeywords.length}`} tone="neutral" />
+            <SnapStat
+              label="Avg rank"
+              value={stats?.avgRank != null ? `#${stats.avgRank}` : "—"}
+              tone="neutral"
+            />
+            <SnapStat
+              label="Coverage"
+              value={`${stats?.coverage ?? 0}/${trackedKeywords.length}`}
+              tone="neutral"
+            />
             <SnapStat label="Beats you" value={stats?.beating ?? 0} tone="bad" />
             <SnapStat label="Top 3" value={stats?.top3 ?? 0} tone="good" />
           </div>
@@ -1630,7 +1691,9 @@ function CompetitorDrawer({
                       <tr key={k.keyword} className="border-t border-border">
                         <td className="px-3 py-2 font-medium">{k.keyword}</td>
                         <td className={`px-3 py-2 ${rankTone(k.userRank)}`}>#{k.userRank}</td>
-                        <td className={`px-3 py-2 ${rankTone(them)}`}>{them != null ? `#${them}` : "—"}</td>
+                        <td className={`px-3 py-2 ${rankTone(them)}`}>
+                          {them != null ? `#${them}` : "—"}
+                        </td>
                         <td className="px-3 py-2">
                           <DeltaChip delta={delta} />
                         </td>
@@ -1672,8 +1735,15 @@ function CompetitorDrawer({
               ) : (
                 <ResponsiveContainer width="100%" height="100%">
                   <LineChart data={historyData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                    <XAxis dataKey="date" tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                      opacity={0.4}
+                    />
+                    <XAxis
+                      dataKey="date"
+                      tick={{ fill: "hsl(var(--muted-foreground))", fontSize: 10 }}
+                    />
                     <YAxis
                       reversed
                       allowDecimals={false}
@@ -1777,13 +1847,15 @@ function AlertSettingsSection() {
   useEffect(() => {
     load()
       .then((s) => setSettings(s))
-      .catch(() => setSettings({
-        threatKeywordThreshold: 2,
-        rankImprovementDelta: 3,
-        overtakeEnabled: true,
-        threatEnabled: true,
-        improvementEnabled: true,
-      }));
+      .catch(() =>
+        setSettings({
+          threatKeywordThreshold: 2,
+          rankImprovementDelta: 3,
+          overtakeEnabled: true,
+          threatEnabled: true,
+          improvementEnabled: true,
+        }),
+      );
   }, [load]);
 
   async function patch(next: Partial<AlertSettings>) {
@@ -1813,7 +1885,8 @@ function AlertSettingsSection() {
         {saving && <span className="text-xs text-muted-foreground">Saving…</span>}
       </div>
       <p className="mb-4 text-xs text-muted-foreground">
-        Fire notifications automatically when a competitor becomes a threat or gains ground on tracked keywords.
+        Fire notifications automatically when a competitor becomes a threat or gains ground on
+        tracked keywords.
       </p>
 
       <div className="grid gap-4 md:grid-cols-3">
@@ -1842,7 +1915,9 @@ function AlertSettingsSection() {
               className="h-4 w-4 accent-primary"
             />
           </label>
-          <p className="mt-2 text-xs text-muted-foreground">Notify me when a competitor beats me on</p>
+          <p className="mt-2 text-xs text-muted-foreground">
+            Notify me when a competitor beats me on
+          </p>
           <div className="mt-2 flex items-center gap-2">
             <input
               type="number"
@@ -1922,7 +1997,11 @@ function FilterBar({
   const threatOptions: Array<{ id: ThreatLevel; label: string; cls: string }> = [
     { id: "high", label: "High threat", cls: "border-red-500/40 bg-red-500/10 text-red-400" },
     { id: "medium", label: "Watch", cls: "border-amber-500/40 bg-amber-500/10 text-amber-400" },
-    { id: "low", label: "Contained", cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400" },
+    {
+      id: "low",
+      label: "Contained",
+      cls: "border-emerald-500/40 bg-emerald-500/10 text-emerald-400",
+    },
     { id: "none", label: "No data", cls: "border-border bg-muted/40 text-muted-foreground" },
   ];
 
@@ -1990,7 +2069,9 @@ function FilterBar({
                 key={opt.id}
                 onClick={() => onToggleThreat(opt.id)}
                 className={`rounded-full border px-2.5 py-1 text-[11px] font-medium transition ${
-                  on ? opt.cls : "border-border bg-background text-muted-foreground hover:text-foreground"
+                  on
+                    ? opt.cls
+                    : "border-border bg-background text-muted-foreground hover:text-foreground"
                 }`}
               >
                 {opt.label}

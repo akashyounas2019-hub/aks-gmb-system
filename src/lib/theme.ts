@@ -7,10 +7,7 @@ export type Theme = "system" | "light" | "dark";
 export const THEME_KEY = "app:theme";
 
 function prefersDark(): boolean {
-  return (
-    typeof window !== "undefined" &&
-    window.matchMedia("(prefers-color-scheme: dark)").matches
-  );
+  return typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches;
 }
 
 export function resolveTheme(t: Theme): "light" | "dark" {

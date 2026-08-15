@@ -63,9 +63,7 @@ export const Route = createFileRoute("/api/public/img/$id")({
 
         const ext = (row.storage_path.split(".").pop() ?? "jpg").toLowerCase();
         const contentType =
-          blob.type && blob.type.startsWith("image/")
-            ? blob.type
-            : (EXT_MIME[ext] ?? "image/jpeg");
+          blob.type && blob.type.startsWith("image/") ? blob.type : (EXT_MIME[ext] ?? "image/jpeg");
 
         return new Response(await blob.arrayBuffer(), {
           status: 200,

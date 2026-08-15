@@ -33,14 +33,19 @@ function ProfileSettings() {
           <div className="text-sm">{email || "—"}</div>
         </div>
         <label className="block">
-          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">Full name</span>
+          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+            Full name
+          </span>
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
         </label>
-        <button onClick={save} className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90">
+        <button
+          onClick={save}
+          className="rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
+        >
           Save changes
         </button>
       </div>

@@ -89,7 +89,10 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
     };
   }, []);
 
-  const setLocation = useCallback((v: PickedLocation | null) => updateSettings({ location: v }), []);
+  const setLocation = useCallback(
+    (v: PickedLocation | null) => updateSettings({ location: v }),
+    [],
+  );
 
   const hasFinished = queue.some((q) => q.stage === "done");
 
@@ -99,8 +102,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         <>
           <h2 className="text-2xl">Upload a video</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Extraction runs entirely in your browser. Nothing leaves your machine until
-            you have the frames you want.
+            Extraction runs entirely in your browser. Nothing leaves your machine until you have the
+            frames you want.
           </p>
         </>
       )}
@@ -128,7 +131,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
           Drop images or videos here, or click to browse
         </div>
         <div className="mt-1 text-sm text-muted-foreground">
-          Images (JPG, PNG, WebP…) upload directly · Videos (MP4, MOV, WebM) extract sharp frames · queue multiple files
+          Images (JPG, PNG, WebP…) upload directly · Videos (MP4, MOV, WebM) extract sharp frames ·
+          queue multiple files
         </div>
         <input
           ref={inputRef}
@@ -156,9 +160,9 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             className="mt-2 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
           <p className="mt-1 text-[11px] text-muted-foreground">
-            Base name for extracted frames from every video in this batch — each frame is saved
-            as "{titleName.trim() || "video filename"} — Frame 1", "— Frame 2", etc. Leave empty
-            to use each video's filename.
+            Base name for extracted frames from every video in this batch — each frame is saved as "
+            {titleName.trim() || "video filename"} — Frame 1", "— Frame 2", etc. Leave empty to use
+            each video's filename.
           </p>
         </label>
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
@@ -232,8 +236,8 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             ))}
           </select>
           <p className="mt-2 text-[11px] text-muted-foreground">
-            Longest edge (in pixels) of each extracted frame — this controls dimensions, not
-            image quality. Larger = more detail but bigger files and slower upload.
+            Longest edge (in pixels) of each extracted frame — this controls dimensions, not image
+            quality. Larger = more detail but bigger files and slower upload.
           </p>
         </label>
       </div>
@@ -284,8 +288,7 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
         <div className="mt-8 rounded-lg border border-border bg-card p-4">
           <div className="mb-3 flex items-center justify-between">
             <div className="text-sm font-medium">
-              Upload queue{" "}
-              <span className="text-muted-foreground">({queue.length})</span>
+              Upload queue <span className="text-muted-foreground">({queue.length})</span>
             </div>
             {hasFinished && (
               <button
@@ -298,7 +301,12 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
           </div>
           <ul className="space-y-2">
             {queue.map((q) => (
-              <QueueRow key={q.id} item={q} onRetry={() => retryItem(q.id)} onRemove={() => removeItem(q.id)} />
+              <QueueRow
+                key={q.id}
+                item={q}
+                onRetry={() => retryItem(q.id)}
+                onRemove={() => removeItem(q.id)}
+              />
             ))}
           </ul>
         </div>
@@ -371,11 +379,8 @@ function QueueRow({
 }
 
 function StatusIcon({ stage }: { stage: QueueStage }) {
-  if (stage === "done")
-    return <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />;
-  if (stage === "error")
-    return <XCircle className="h-5 w-5 shrink-0 text-destructive" />;
-  if (stage === "pending")
-    return <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />;
+  if (stage === "done") return <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />;
+  if (stage === "error") return <XCircle className="h-5 w-5 shrink-0 text-destructive" />;
+  if (stage === "pending") return <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />;
   return <Loader2 className="h-5 w-5 shrink-0 animate-spin text-primary" />;
 }

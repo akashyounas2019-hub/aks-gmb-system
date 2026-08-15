@@ -1,6 +1,24 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
-import { BarChart3, Bot, CheckCircle2, Eye, EyeOff, ExternalLink, KeyRound, Loader2, MapPin, Plug, Radar, Route as RouteIcon, Search, ShieldCheck, Sparkles, Webhook, XCircle } from "lucide-react";
+import {
+  BarChart3,
+  Bot,
+  CheckCircle2,
+  Eye,
+  EyeOff,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  MapPin,
+  Plug,
+  Radar,
+  Route as RouteIcon,
+  Search,
+  ShieldCheck,
+  Sparkles,
+  Webhook,
+  XCircle,
+} from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { toast } from "sonner";
 import {
@@ -52,8 +70,7 @@ export function writeGmbConnection(conn: GmbConn) {
 }
 
 type CredStatus =
-  | { configured: false }
-  | { configured: true; clientIdMasked: string; updatedAt: string };
+  { configured: false } | { configured: true; clientIdMasked: string; updatedAt: string };
 
 function IntegrationsPage() {
   const [gmb, setGmb] = useState<GmbConn>({ connected: false });
@@ -76,7 +93,12 @@ function IntegrationsPage() {
   };
   const [serverConn, setServerConn] = useState<ServerConn>({ connected: false });
   const [accounts, setAccounts] = useState<
-    Array<{ account: string; accountLabel: string; locations: Array<{ name: string; title: string }>; error?: string }>
+    Array<{
+      account: string;
+      accountLabel: string;
+      locations: Array<{ name: string; title: string }>;
+      error?: string;
+    }>
   >([]);
   const [loadingAccounts, setLoadingAccounts] = useState(false);
   const [savingLoc, setSavingLoc] = useState(false);
@@ -116,7 +138,9 @@ function IntegrationsPage() {
 
   useEffect(() => {
     setGmb(readGmbConnection());
-    fetchStatus().then(setCredStatus).catch(() => setCredStatus({ configured: false }));
+    fetchStatus()
+      .then(setCredStatus)
+      .catch(() => setCredStatus({ configured: false }));
     syncConn();
   }, [fetchStatus, syncConn]);
 
@@ -154,7 +178,8 @@ function IntegrationsPage() {
     try {
       const rows = await fetchAccounts();
       setAccounts(rows);
-      if (rows.length === 0) toast.message("No Business Profile accounts found on this Google account.");
+      if (rows.length === 0)
+        toast.message("No Business Profile accounts found on this Google account.");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load accounts");
     } finally {
@@ -174,7 +199,6 @@ function IntegrationsPage() {
       setSavingLoc(false);
     }
   }
-
 
   async function submitCreds(e: React.FormEvent) {
     e.preventDefault();
@@ -238,15 +262,21 @@ function IntegrationsPage() {
                 {serverConn.locationTitle ? (
                   <div>
                     <span className="text-foreground">{serverConn.locationTitle}</span>
-                    <span className="ml-1 font-mono text-[10px] opacity-70">{serverConn.locationName}</span>
+                    <span className="ml-1 font-mono text-[10px] opacity-70">
+                      {serverConn.locationName}
+                    </span>
                   </div>
                 ) : (
                   <div className="text-amber-500">No location selected — pick one below.</div>
                 )}
-                <div>Token expires {serverConn.expiresAt ? new Date(serverConn.expiresAt).toLocaleString() : ""}</div>
+                <div>
+                  Token expires{" "}
+                  {serverConn.expiresAt ? new Date(serverConn.expiresAt).toLocaleString() : ""}
+                </div>
                 {!serverConn.hasRefresh && (
                   <div className="text-amber-500">
-                    No refresh token stored — reconnect to obtain one (Google issues it on first consent).
+                    No refresh token stored — reconnect to obtain one (Google issues it on first
+                    consent).
                   </div>
                 )}
               </div>
@@ -289,8 +319,8 @@ function IntegrationsPage() {
               <div>
                 <div className="text-sm font-medium">Business location</div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Choose which Business Profile location powers analytics. Requires the
-                  Business Profile APIs enabled in your Google Cloud project.
+                  Choose which Business Profile location powers analytics. Requires the Business
+                  Profile APIs enabled in your Google Cloud project.
                 </p>
               </div>
               <button
@@ -309,16 +339,23 @@ function IntegrationsPage() {
                     {a.error ? (
                       <div className="mt-1 text-xs text-destructive">{a.error}</div>
                     ) : a.locations.length === 0 ? (
-                      <div className="mt-1 text-xs text-muted-foreground">No locations on this account.</div>
+                      <div className="mt-1 text-xs text-muted-foreground">
+                        No locations on this account.
+                      </div>
                     ) : (
                       <ul className="mt-2 space-y-1">
                         {a.locations.map((l) => {
                           const active = serverConn.locationName === l.name;
                           return (
-                            <li key={l.name} className="flex items-center justify-between gap-2 text-sm">
+                            <li
+                              key={l.name}
+                              className="flex items-center justify-between gap-2 text-sm"
+                            >
                               <div className="min-w-0">
                                 <div className="truncate">{l.title}</div>
-                                <div className="truncate font-mono text-[10px] text-muted-foreground">{l.name}</div>
+                                <div className="truncate font-mono text-[10px] text-muted-foreground">
+                                  {l.name}
+                                </div>
                               </div>
                               <button
                                 onClick={() => pickLocation(a.account, l)}
@@ -351,8 +388,8 @@ function IntegrationsPage() {
               <div>
                 <div className="text-sm font-medium">Google OAuth credentials</div>
                 <p className="mt-0.5 text-xs text-muted-foreground">
-                  Provide your own OAuth Client ID and Secret from Google Cloud (Business Profile API enabled).
-                  Stored securely per user with row-level security.
+                  Provide your own OAuth Client ID and Secret from Google Cloud (Business Profile
+                  API enabled). Stored securely per user with row-level security.
                 </p>
                 {credStatus?.configured && (
                   <div className="mt-2 inline-flex items-center gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2 py-1 text-xs text-emerald-500">
@@ -383,7 +420,9 @@ function IntegrationsPage() {
           {showCredForm && (
             <form onSubmit={submitCreds} className="mt-4 space-y-3">
               <label className="block">
-                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">Client ID</span>
+                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                  Client ID
+                </span>
                 <input
                   type="text"
                   autoComplete="off"
@@ -396,7 +435,9 @@ function IntegrationsPage() {
                 />
               </label>
               <label className="block">
-                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">Client secret</span>
+                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                  Client secret
+                </span>
                 <div className="relative">
                   <input
                     type={showSecret ? "text" : "password"}
@@ -424,7 +465,11 @@ function IntegrationsPage() {
                   disabled={savingCreds}
                   className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
-                  {savingCreds ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+                  {savingCreds ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="h-4 w-4" />
+                  )}
                   Save securely
                 </button>
                 <button
@@ -444,15 +489,18 @@ function IntegrationsPage() {
                 </a>
               </div>
               <p className="text-[11px] text-muted-foreground">
-                Values are transmitted over HTTPS and stored server-side with RLS scoped to your user.
-                Never shared with other accounts.
+                Values are transmitted over HTTPS and stored server-side with RLS scoped to your
+                user. Never shared with other accounts.
               </p>
             </form>
           )}
         </div>
 
         <div className="mt-4">
-          <Link to="/gmb-analytics" className="inline-flex items-center gap-1 text-sm text-primary hover:underline">
+          <Link
+            to="/gmb-analytics"
+            className="inline-flex items-center gap-1 text-sm text-primary hover:underline"
+          >
             Open GMB Analytics <ExternalLink className="h-3.5 w-3.5" />
           </Link>
         </div>
@@ -465,7 +513,12 @@ function IntegrationsPage() {
         description="Direct API access for contacts, opportunities, and posting. Paste your Private Integration Token."
         icon={<Webhook className="h-6 w-6" />}
         fields={[
-          { key: "api_key", label: "Private Integration Token", secret: true, placeholder: "pit-••••••••••••••••" },
+          {
+            key: "api_key",
+            label: "Private Integration Token",
+            secret: true,
+            placeholder: "pit-••••••••••••••••",
+          },
           { key: "location_id", label: "Location ID", secret: false, placeholder: "ABC123..." },
         ]}
         docsUrl="https://highlevel.stoplight.io/docs/integrations/"
@@ -474,19 +527,12 @@ function IntegrationsPage() {
       {/* n8n */}
       <N8nIntegrationCard />
 
-
-
-
-
-
-
-
       {/* AI providers */}
       <div>
         <h3 className="text-lg font-semibold">AI providers</h3>
         <p className="mt-1 text-sm text-muted-foreground">
-          Connect your own LLM API keys to power AI features with the provider and model of your choice.
-          Keys are encrypted at rest and scoped to your user.
+          Connect your own LLM API keys to power AI features with the provider and model of your
+          choice. Keys are encrypted at rest and scoped to your user.
         </p>
       </div>
 
@@ -518,7 +564,12 @@ function IntegrationsPage() {
         description="Use your own Anthropic API key for Claude models."
         icon={<Bot className="h-6 w-6" />}
         fields={[
-          { key: "api_key", label: "API key", secret: true, placeholder: "sk-ant-••••••••••••••••" },
+          {
+            key: "api_key",
+            label: "API key",
+            secret: true,
+            placeholder: "sk-ant-••••••••••••••••",
+          },
         ]}
         docsUrl="https://console.anthropic.com/settings/keys"
       />
@@ -729,8 +780,8 @@ function N8nIntegrationCard() {
             )}
           </div>
           <p className="mt-1 text-sm text-muted-foreground">
-            Forward app events — new posts, competitor alerts, rank changes, geotag runs — to an
-            n8n workflow via webhook. Paste the URL from your n8n{" "}
+            Forward app events — new posts, competitor alerts, rank changes, geotag runs — to an n8n
+            workflow via webhook. Paste the URL from your n8n{" "}
             <span className="font-mono text-xs">Webhook</span> trigger node.
           </p>
         </div>
@@ -775,94 +826,94 @@ function N8nIntegrationCard() {
 
       {open && (
         <>
-      <div className="mt-5 grid gap-3 md:grid-cols-2">
-        <label className="block md:col-span-2">
-          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
-            Webhook URL
-          </span>
-          <input
-            type="url"
-            spellCheck={false}
-            autoComplete="off"
-            placeholder="https://your-n8n.example.com/webhook/abc123"
-            value={cfg.webhookUrl}
-            onChange={(e) => setCfg({ ...cfg, webhookUrl: e.target.value })}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
-            Auth header name (optional)
-          </span>
-          <input
-            type="text"
-            spellCheck={false}
-            placeholder="X-N8N-Signature"
-            value={cfg.authHeader}
-            onChange={(e) => setCfg({ ...cfg, authHeader: e.target.value })}
-            className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
-          />
-        </label>
-        <label className="block">
-          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
-            Auth token (optional)
-          </span>
-          <div className="relative">
-            <input
-              type={showToken ? "text" : "password"}
-              spellCheck={false}
-              autoComplete="off"
-              placeholder="••••••••••••"
-              value={cfg.authToken}
-              onChange={(e) => setCfg({ ...cfg, authToken: e.target.value })}
-              className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 font-mono text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => setShowToken((v) => !v)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
-              aria-label={showToken ? "Hide" : "Show"}
-            >
-              {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-            </button>
+          <div className="mt-5 grid gap-3 md:grid-cols-2">
+            <label className="block md:col-span-2">
+              <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                Webhook URL
+              </span>
+              <input
+                type="url"
+                spellCheck={false}
+                autoComplete="off"
+                placeholder="https://your-n8n.example.com/webhook/abc123"
+                value={cfg.webhookUrl}
+                onChange={(e) => setCfg({ ...cfg, webhookUrl: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                Auth header name (optional)
+              </span>
+              <input
+                type="text"
+                spellCheck={false}
+                placeholder="X-N8N-Signature"
+                value={cfg.authHeader}
+                onChange={(e) => setCfg({ ...cfg, authHeader: e.target.value })}
+                className="w-full rounded-lg border border-border bg-background px-3 py-2 font-mono text-sm"
+              />
+            </label>
+            <label className="block">
+              <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                Auth token (optional)
+              </span>
+              <div className="relative">
+                <input
+                  type={showToken ? "text" : "password"}
+                  spellCheck={false}
+                  autoComplete="off"
+                  placeholder="••••••••••••"
+                  value={cfg.authToken}
+                  onChange={(e) => setCfg({ ...cfg, authToken: e.target.value })}
+                  className="w-full rounded-lg border border-border bg-background px-3 py-2 pr-10 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowToken((v) => !v)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
+                  aria-label={showToken ? "Hide" : "Show"}
+                >
+                  {showToken ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                </button>
+              </div>
+            </label>
           </div>
-        </label>
-      </div>
 
-      <div className="mt-4 flex flex-wrap items-center gap-2">
-        <button
-          onClick={saveConfig}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-        >
-          {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
-          Save n8n configuration
-        </button>
-        <Link
-          to="/settings/webhooks"
-          className="text-xs text-primary hover:underline"
-        >
-          Manage all webhooks →
-        </Link>
-        <a
-          href="https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/"
-          target="_blank"
-          rel="noreferrer"
-          className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
-        >
-          n8n Webhook docs <ExternalLink className="h-3 w-3" />
-        </a>
-      </div>
-      <p className="mt-2 text-[11px] text-muted-foreground">
-        Encrypted at rest and used server-side when sending posts — this is the same webhook the
-        Post Scheduler and GHL publishing use, not just a local preference.
-      </p>
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <button
+              onClick={saveConfig}
+              disabled={saving}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {saving ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
+              Save n8n configuration
+            </button>
+            <Link to="/settings/webhooks" className="text-xs text-primary hover:underline">
+              Manage all webhooks →
+            </Link>
+            <a
+              href="https://docs.n8n.io/integrations/builtin/core-nodes/n8n-nodes-base.webhook/"
+              target="_blank"
+              rel="noreferrer"
+              className="ml-auto inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              n8n Webhook docs <ExternalLink className="h-3 w-3" />
+            </a>
+          </div>
+          <p className="mt-2 text-[11px] text-muted-foreground">
+            Encrypted at rest and used server-side when sending posts — this is the same webhook the
+            Post Scheduler and GHL publishing use, not just a local preference.
+          </p>
         </>
       )}
     </div>
   );
 }
-
 
 type FieldDef = { key: string; label: string; secret: boolean; placeholder?: string };
 
@@ -877,13 +928,25 @@ type ProviderCardProps = {
   testLabel?: string;
 };
 
-function ProviderCard({ provider, title, description, icon, fields, docsUrl, onTest, testLabel }: ProviderCardProps) {
+function ProviderCard({
+  provider,
+  title,
+  description,
+  icon,
+  fields,
+  docsUrl,
+  onTest,
+  testLabel,
+}: ProviderCardProps) {
   const fetchAll = useServerFn(listIntegrations);
   const save = useServerFn(saveIntegration);
   const remove = useServerFn(deleteIntegration);
   const rules = PROVIDER_RULES[provider];
 
-  const [configured, setConfigured] = useState<null | { masked: Record<string, string>; updatedAt: string }>(null);
+  const [configured, setConfigured] = useState<null | {
+    masked: Record<string, string>;
+    updatedAt: string;
+  }>(null);
   const [open, setOpen] = useState(false);
   const [values, setValues] = useState<Record<string, string>>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -995,7 +1058,10 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
           {configured && (
             <div className="mt-2 space-y-0.5 text-xs text-muted-foreground">
               {Object.entries(configured.masked).map(([k, v]) => (
-                <div key={k}><span className="text-foreground">{k}:</span> <span className="font-mono">{v}</span></div>
+                <div key={k}>
+                  <span className="text-foreground">{k}:</span>{" "}
+                  <span className="font-mono">{v}</span>
+                </div>
               ))}
               <div>Updated {new Date(configured.updatedAt).toLocaleString()}</div>
             </div>
@@ -1042,7 +1108,9 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
             const inputId = `${provider}-${f.key}`;
             return (
               <label key={f.key} htmlFor={inputId} className="block">
-                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">{f.label}</span>
+                <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+                  {f.label}
+                </span>
                 <div className="relative">
                   <input
                     id={inputId}
@@ -1089,7 +1157,11 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
               disabled={busy}
               className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
             >
-              {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <ShieldCheck className="h-4 w-4" />}
+              {busy ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShieldCheck className="h-4 w-4" />
+              )}
               Save securely
             </button>
             <button
@@ -1123,8 +1195,3 @@ function ProviderCard({ provider, title, description, icon, fields, docsUrl, onT
     </div>
   );
 }
-
-
-
-
-

@@ -111,7 +111,10 @@ export async function embedGps(
       [piexif.GPSIFD.GPSDateStamp]: new Date().toISOString().slice(0, 10).replace(/-/g, ":"),
     };
     // Preserve any existing EXIF (camera, dates, etc.) and replace GPS block.
-    let existing: { "0th"?: Record<number, unknown>; Exif?: Record<number, unknown> } & Record<string, unknown> = {};
+    let existing: { "0th"?: Record<number, unknown>; Exif?: Record<number, unknown> } & Record<
+      string,
+      unknown
+    > = {};
     try {
       existing = piexif.load(dataUrl) as typeof existing;
     } catch {
@@ -122,9 +125,7 @@ export async function embedGps(
 
     let title = meta.title?.trim() ?? "";
     const description = meta.description?.trim() ?? "";
-    const keywords = (meta.keywords ?? [])
-      .map((k) => k.trim())
-      .filter((k) => k.length > 0);
+    const keywords = (meta.keywords ?? []).map((k) => k.trim()).filter((k) => k.length > 0);
 
     // Write-side consistency check: refuse to persist a title that equals the
     // description. Description wins because it is what geoimgr/Windows/
@@ -212,11 +213,9 @@ export async function readGps(file: File | Blob): Promise<GpsReadResult> {
     const exif = piexif.load(dataUrl) as { GPS?: Record<number, unknown> };
     const gps = exif.GPS ?? {};
     const lat = gps[piexif.GPSIFD.GPSLatitude] as
-      | [[number, number], [number, number], [number, number]]
-      | undefined;
+      [[number, number], [number, number], [number, number]] | undefined;
     const lng = gps[piexif.GPSIFD.GPSLongitude] as
-      | [[number, number], [number, number], [number, number]]
-      | undefined;
+      [[number, number], [number, number], [number, number]] | undefined;
     const latRef = gps[piexif.GPSIFD.GPSLatitudeRef] as string | undefined;
     const lngRef = gps[piexif.GPSIFD.GPSLongitudeRef] as string | undefined;
     if (!lat || !lng || !latRef || !lngRef) {
@@ -257,13 +256,7 @@ function fromXpBytes(raw: unknown): string {
 }
 
 export type ExifMetaSource =
-  | "XPTitle"
-  | "ImageDescription"
-  | "XPComment"
-  | "XPSubject"
-  | "XPKeywords"
-  | "UserComment"
-  | null;
+  "XPTitle" | "ImageDescription" | "XPComment" | "XPSubject" | "XPKeywords" | "UserComment" | null;
 
 export type ExifMetaResult = {
   title: string;
@@ -313,17 +306,20 @@ function fromUserComment(raw: unknown): string {
     return out.join("").trim();
   }
   if (prefix.startsWith("ASCII")) {
-    return String.fromCharCode(...body).replace(/\0+$/g, "").trim();
+    return String.fromCharCode(...body)
+      .replace(/\0+$/g, "")
+      .trim();
   }
   // Undefined / JIS — best-effort: try ASCII interpretation of printable bytes.
   const ascii = body.filter((b) => b >= 0x20 && b < 0x7f);
-  return ascii.length > body.length / 2
-    ? String.fromCharCode(...ascii).trim()
-    : "";
+  return ascii.length > body.length / 2 ? String.fromCharCode(...ascii).trim() : "";
 }
 
 function splitKeywordString(s: string): string[] {
-  return s.split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean);
+  return s
+    .split(/;\s*|,\s*/)
+    .map((k) => k.trim())
+    .filter(Boolean);
 }
 
 /**
@@ -337,7 +333,14 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     description: "",
     keywords: [],
     sources: { title: null, description: null, keywords: null },
-    raw: { XPTitle: "", ImageDescription: "", XPComment: "", XPSubject: "", XPKeywords: "", UserComment: "" },
+    raw: {
+      XPTitle: "",
+      ImageDescription: "",
+      XPComment: "",
+      XPSubject: "",
+      XPKeywords: "",
+      UserComment: "",
+    },
     warnings: [],
   };
   if (!isJpeg(file)) return empty;
@@ -389,9 +392,7 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
     if (title && description && title === description) {
       title = "";
       titleSource = null;
-      warnings.push(
-        "Title and description held the same value; kept it as description only.",
-      );
+      warnings.push("Title and description held the same value; kept it as description only.");
     }
 
     // Rule 3: never promote XPSubject into title.
@@ -416,9 +417,7 @@ export async function readMeta(file: File | Blob): Promise<ExifMetaResult> {
       if (looksLikeList) {
         keywords = uc;
         keywordsSource = "UserComment";
-        warnings.push(
-          "Keywords recovered from UserComment (no XPKeywords present).",
-        );
+        warnings.push("Keywords recovered from UserComment (no XPKeywords present).");
       }
     }
 

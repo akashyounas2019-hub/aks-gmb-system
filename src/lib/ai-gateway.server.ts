@@ -5,10 +5,7 @@ export interface ChatMessage {
   role: "system" | "user" | "assistant";
   content:
     | string
-    | Array<
-        | { type: "text"; text: string }
-        | { type: "image_url"; image_url: { url: string } }
-      >;
+    | Array<{ type: "text"; text: string } | { type: "image_url"; image_url: { url: string } }>;
 }
 
 export async function callLovableAI(params: {
@@ -26,9 +23,7 @@ export async function callLovableAI(params: {
     body: JSON.stringify({
       model: params.model,
       messages: params.messages,
-      ...(params.responseFormat
-        ? { response_format: { type: params.responseFormat } }
-        : {}),
+      ...(params.responseFormat ? { response_format: { type: params.responseFormat } } : {}),
     }),
   });
   if (!res.ok) {

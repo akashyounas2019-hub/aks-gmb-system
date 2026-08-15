@@ -38,14 +38,8 @@ export async function refreshUserRankGrid(
   if (!kws || kws.length === 0) return { keywords: 0, snapshots: 0 };
 
   // Pick a venue center if the user has one, else default.
-  const { data: venue } = await supabase
-    .from("venues")
-    .select("lat, lng")
-    .limit(1)
-    .maybeSingle();
-  const center = venue
-    ? { lat: Number(venue.lat), lng: Number(venue.lng) }
-    : DEFAULT_CENTER;
+  const { data: venue } = await supabase.from("venues").select("lat, lng").limit(1).maybeSingle();
+  const center = venue ? { lat: Number(venue.lat), lng: Number(venue.lng) } : DEFAULT_CENTER;
 
   const day = Math.floor(Date.now() / 86_400_000);
   const rows: Database["public"]["Tables"]["rank_snapshots"]["Insert"][] = [];

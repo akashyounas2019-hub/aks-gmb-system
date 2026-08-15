@@ -16,7 +16,12 @@ export type VideoGpsResult = {
   reason?: string;
 };
 
-const NOT_FOUND: VideoGpsResult = { hasGps: false, lat: null, lng: null, reason: "No GPS atom found" };
+const NOT_FOUND: VideoGpsResult = {
+  hasGps: false,
+  lat: null,
+  lng: null,
+  reason: "No GPS atom found",
+};
 
 /** Parses an ISO-6709 location string like "+25.2867+055.3873/" or "+25.2867-055.3873+015.000/". */
 function parseIso6709(s: string): { lat: number; lng: number } | null {
@@ -45,12 +50,19 @@ export async function readVideoGps(file: File): Promise<VideoGpsResult> {
     let offset = 0;
     const fileSize = file.size;
 
-    async function readBoxHeader(pos: number): Promise<{ size: number; type: string; headerSize: number } | null> {
+    async function readBoxHeader(
+      pos: number,
+    ): Promise<{ size: number; type: string; headerSize: number } | null> {
       if (pos + 8 > fileSize) return null;
       const buf = await file.slice(pos, pos + 16).arrayBuffer();
       const view = new DataView(buf);
       let size = view.getUint32(0);
-      const type = String.fromCharCode(view.getUint8(4), view.getUint8(5), view.getUint8(6), view.getUint8(7));
+      const type = String.fromCharCode(
+        view.getUint8(4),
+        view.getUint8(5),
+        view.getUint8(6),
+        view.getUint8(7),
+      );
       let headerSize = 8;
       if (size === 1) {
         // 64-bit extended size
@@ -122,6 +134,11 @@ export async function readVideoGps(file: File): Promise<VideoGpsResult> {
     }
     return NOT_FOUND;
   } catch (e) {
-    return { hasGps: false, lat: null, lng: null, reason: e instanceof Error ? e.message : "Read failed" };
+    return {
+      hasGps: false,
+      lat: null,
+      lng: null,
+      reason: e instanceof Error ? e.message : "Read failed",
+    };
   }
 }

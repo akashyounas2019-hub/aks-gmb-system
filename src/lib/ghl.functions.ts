@@ -37,9 +37,7 @@ export const sendImagesToGhl = createServerFn({ method: "POST" })
     if (error) throw error;
     if (!images || images.length === 0) throw new Error("No images found");
 
-    const venueIds = Array.from(
-      new Set(images.map((i) => i.venue_id).filter(Boolean)),
-    ) as string[];
+    const venueIds = Array.from(new Set(images.map((i) => i.venue_id).filter(Boolean))) as string[];
     const venueMap = new Map<string, { name: string; address: string | null }>();
     if (venueIds.length > 0) {
       const { data: venues } = await supabase
@@ -62,7 +60,13 @@ export const sendImagesToGhl = createServerFn({ method: "POST" })
       tagMap.set(row.image_id, arr);
     }
 
-    const results: Array<{ imageId: string; target: "ghl" | "n8n"; ok: boolean; status: number; error?: string }> = [];
+    const results: Array<{
+      imageId: string;
+      target: "ghl" | "n8n";
+      ok: boolean;
+      status: number;
+      error?: string;
+    }> = [];
 
     for (const img of images) {
       const { data: signed } = await supabase.storage

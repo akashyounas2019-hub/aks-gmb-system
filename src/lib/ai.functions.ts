@@ -32,12 +32,8 @@ export const suggestTagsForImage = createServerFn({ method: "POST" })
       .createSignedUrl(img.storage_path, 300);
     if (!signed?.signedUrl) throw new Error("Could not sign image URL");
 
-    const { data: tags } = await supabase
-      .from("tags")
-      .select("slug,label,category");
-    const tagList = (tags ?? [])
-      .map((t) => `${t.slug} (${t.label})`)
-      .join(", ");
+    const { data: tags } = await supabase.from("tags").select("slug,label,category");
+    const tagList = (tags ?? []).map((t) => `${t.slug} (${t.label})`).join(", ");
 
     const content = await callLovableAI({
       apiKey,
@@ -47,7 +43,7 @@ export const suggestTagsForImage = createServerFn({ method: "POST" })
         {
           role: "system",
           content:
-            "You are an image tagger. Pick 3 to 6 tag slugs from the provided list that best describe the image. Reply ONLY with JSON of shape {\"tags\":[\"slug1\",\"slug2\"]}. Slugs must exactly match ones from the list.",
+            'You are an image tagger. Pick 3 to 6 tag slugs from the provided list that best describe the image. Reply ONLY with JSON of shape {"tags":["slug1","slug2"]}. Slugs must exactly match ones from the list.',
         },
         {
           role: "user",

@@ -16,13 +16,55 @@ export type TrackedKeyword = {
  * Once they save any row via the UI, this array is no longer used.
  */
 export const STARTER_TRACKED_KEYWORDS: TrackedKeyword[] = [
-  { keyword: "deep cleaning dubai", city: "Downtown Dubai", userRank: 3, volume: 2900, category: "Residential" },
-  { keyword: "sofa cleaning near me", city: "Al Qusais", userRank: 5, volume: 1600, category: "Residential" },
-  { keyword: "move in cleaning dubai", city: "Dubai Marina", userRank: 12, volume: 720, category: "Residential" },
-  { keyword: "carpet cleaning service", city: "Business Bay", userRank: 8, volume: 990, category: "Specialty" },
-  { keyword: "post construction cleaning", city: "JLT", userRank: 2, volume: 480, category: "Specialty" },
-  { keyword: "villa deep cleaning", city: "Al Barsha", userRank: 14, volume: 590, category: "Residential" },
-  { keyword: "office cleaning dubai", city: "Deira", userRank: 4, volume: 1300, category: "Commercial" },
+  {
+    keyword: "deep cleaning dubai",
+    city: "Downtown Dubai",
+    userRank: 3,
+    volume: 2900,
+    category: "Residential",
+  },
+  {
+    keyword: "sofa cleaning near me",
+    city: "Al Qusais",
+    userRank: 5,
+    volume: 1600,
+    category: "Residential",
+  },
+  {
+    keyword: "move in cleaning dubai",
+    city: "Dubai Marina",
+    userRank: 12,
+    volume: 720,
+    category: "Residential",
+  },
+  {
+    keyword: "carpet cleaning service",
+    city: "Business Bay",
+    userRank: 8,
+    volume: 990,
+    category: "Specialty",
+  },
+  {
+    keyword: "post construction cleaning",
+    city: "JLT",
+    userRank: 2,
+    volume: 480,
+    category: "Specialty",
+  },
+  {
+    keyword: "villa deep cleaning",
+    city: "Al Barsha",
+    userRank: 14,
+    volume: 590,
+    category: "Residential",
+  },
+  {
+    keyword: "office cleaning dubai",
+    city: "Deira",
+    userRank: 4,
+    volume: 1300,
+    category: "Commercial",
+  },
 ];
 
 type Ctx = { supabase: SupabaseClient<Database>; userId: string };
@@ -71,9 +113,7 @@ export const saveTrackedKeywords = createServerFn({ method: "POST" })
       category: r.category,
       sort_index: i,
     }));
-    const { error: insErr } = await supabase
-      .from("tracked_keywords")
-      .insert(insertRows);
+    const { error: insErr } = await supabase.from("tracked_keywords").insert(insertRows);
     if (insErr) throw new Error(insErr.message);
     return { ok: true, count: insertRows.length };
   });

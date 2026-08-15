@@ -118,7 +118,14 @@ const INDUSTRIES = [
   "Other",
 ];
 
-const BUSINESS_TYPES = ["Sole Proprietor", "LLC", "Corporation", "Partnership", "Non-profit", "Other"];
+const BUSINESS_TYPES = [
+  "Sole Proprietor",
+  "LLC",
+  "Corporation",
+  "Partnership",
+  "Non-profit",
+  "Other",
+];
 const EMPLOYEE_RANGES = ["1-10", "11-50", "51-200", "201-500", "500+"];
 const CURRENCIES = ["AED", "USD", "EUR", "GBP", "SAR", "INR", "AUD", "CAD"];
 const TIMEZONES = [
@@ -264,7 +271,10 @@ function GeneralSettings() {
           <span className="text-sm font-semibold">{completeness}%</span>
         </div>
         <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
-          <div className={`h-full ${barColor} transition-all`} style={{ width: `${completeness}%` }} />
+          <div
+            className={`h-full ${barColor} transition-all`}
+            style={{ width: `${completeness}%` }}
+          />
         </div>
         <p className="mt-2 text-xs text-muted-foreground">
           Complete profiles rank higher on Google Business Profile and improve local SEO signals.
@@ -272,28 +282,63 @@ function GeneralSettings() {
       </div>
 
       {/* Business identity */}
-      <Section icon={<Building2 className="h-4 w-4" />} title="Business identity" desc="How your business is named and described.">
+      <Section
+        icon={<Building2 className="h-4 w-4" />}
+        title="Business identity"
+        desc="How your business is named and described."
+      >
         <Grid>
           <Field label="Business name" required error={errors.businessName}>
-            <Input value={form.businessName} onChange={(v) => set("businessName", v)} placeholder="Pearl Home Cleaning" />
+            <Input
+              value={form.businessName}
+              onChange={(v) => set("businessName", v)}
+              placeholder="Pearl Home Cleaning"
+            />
           </Field>
           <Field label="Legal / registered name">
-            <Input value={form.legalName} onChange={(v) => set("legalName", v)} placeholder="Pearl Home Cleaning LLC" />
+            <Input
+              value={form.legalName}
+              onChange={(v) => set("legalName", v)}
+              placeholder="Pearl Home Cleaning LLC"
+            />
           </Field>
           <Field label="Tagline">
-            <Input value={form.tagline} onChange={(v) => set("tagline", v)} placeholder="Dubai's trusted home cleaners" maxLength={140} />
+            <Input
+              value={form.tagline}
+              onChange={(v) => set("tagline", v)}
+              placeholder="Dubai's trusted home cleaners"
+              maxLength={140}
+            />
           </Field>
           <Field label="Industry">
-            <Select value={form.industry} onChange={(v) => set("industry", v)} options={INDUSTRIES} />
+            <Select
+              value={form.industry}
+              onChange={(v) => set("industry", v)}
+              options={INDUSTRIES}
+            />
           </Field>
           <Field label="Business type">
-            <Select value={form.businessType} onChange={(v) => set("businessType", v)} options={BUSINESS_TYPES} />
+            <Select
+              value={form.businessType}
+              onChange={(v) => set("businessType", v)}
+              options={BUSINESS_TYPES}
+            />
           </Field>
           <Field label="Employees">
-            <Select value={form.employeeCount} onChange={(v) => set("employeeCount", v)} options={EMPLOYEE_RANGES} />
+            <Select
+              value={form.employeeCount}
+              onChange={(v) => set("employeeCount", v)}
+              options={EMPLOYEE_RANGES}
+            />
           </Field>
           <Field label="Founded" error={errors.foundedYear}>
-            <Input value={form.foundedYear} onChange={(v) => set("foundedYear", v)} placeholder="2015" inputMode="numeric" maxLength={4} />
+            <Input
+              value={form.foundedYear}
+              onChange={(v) => set("foundedYear", v)}
+              placeholder="2015"
+              inputMode="numeric"
+              maxLength={4}
+            />
           </Field>
         </Grid>
         <Field label="Business description" error={errors.description} full>
@@ -305,17 +350,31 @@ function GeneralSettings() {
             placeholder="Short description used on your Business Profile and public pages."
             className="w-full rounded-lg border border-border bg-background px-3 py-2 text-sm"
           />
-          <div className="mt-1 text-right text-[11px] text-muted-foreground">{form.description.length}/500</div>
+          <div className="mt-1 text-right text-[11px] text-muted-foreground">
+            {form.description.length}/500
+          </div>
         </Field>
       </Section>
 
       {/* Location */}
-      <Section icon={<MapPin className="h-4 w-4" />} title="Location & address" desc="Physical address and default service area.">
+      <Section
+        icon={<MapPin className="h-4 w-4" />}
+        title="Location & address"
+        desc="Physical address and default service area."
+      >
         <Field label="Address line 1" full>
-          <Input value={form.addressLine1} onChange={(v) => set("addressLine1", v)} placeholder="Street address" />
+          <Input
+            value={form.addressLine1}
+            onChange={(v) => set("addressLine1", v)}
+            placeholder="Street address"
+          />
         </Field>
         <Field label="Address line 2" full>
-          <Input value={form.addressLine2} onChange={(v) => set("addressLine2", v)} placeholder="Suite, unit, floor (optional)" />
+          <Input
+            value={form.addressLine2}
+            onChange={(v) => set("addressLine2", v)}
+            placeholder="Suite, unit, floor (optional)"
+          />
         </Field>
         <Grid>
           <Field label="City">
@@ -334,76 +393,161 @@ function GeneralSettings() {
             <Input value={form.defaultCity} onChange={(v) => set("defaultCity", v)} />
           </Field>
           <Field label="Timezone">
-            <Select value={form.timezone} onChange={(v) => set("timezone", v)} options={TIMEZONES} />
+            <Select
+              value={form.timezone}
+              onChange={(v) => set("timezone", v)}
+              options={TIMEZONES}
+            />
           </Field>
         </Grid>
       </Section>
 
       {/* Contact */}
-      <Section icon={<Phone className="h-4 w-4" />} title="Contact channels" desc="How customers and platforms reach you.">
+      <Section
+        icon={<Phone className="h-4 w-4" />}
+        title="Contact channels"
+        desc="How customers and platforms reach you."
+      >
         <Grid>
           <Field label="Contact email" error={errors.email} icon={<Mail className="h-3.5 w-3.5" />}>
-            <Input value={form.email} onChange={(v) => set("email", v)} type="email" placeholder="hello@business.com" />
+            <Input
+              value={form.email}
+              onChange={(v) => set("email", v)}
+              type="email"
+              placeholder="hello@business.com"
+            />
           </Field>
-          <Field label="Primary phone" error={errors.phone} icon={<Phone className="h-3.5 w-3.5" />}>
-            <Input value={form.phone} onChange={(v) => set("phone", v)} placeholder="+971 4 123 4567" />
+          <Field
+            label="Primary phone"
+            error={errors.phone}
+            icon={<Phone className="h-3.5 w-3.5" />}
+          >
+            <Input
+              value={form.phone}
+              onChange={(v) => set("phone", v)}
+              placeholder="+971 4 123 4567"
+            />
           </Field>
           <Field label="Alternate phone" error={errors.altPhone}>
-            <Input value={form.altPhone} onChange={(v) => set("altPhone", v)} placeholder="Optional" />
+            <Input
+              value={form.altPhone}
+              onChange={(v) => set("altPhone", v)}
+              placeholder="Optional"
+            />
           </Field>
           <Field label="Website" error={errors.website} icon={<Globe className="h-3.5 w-3.5" />}>
-            <Input value={form.website} onChange={(v) => set("website", v)} placeholder="https://pearlhomecleaning.com" />
+            <Input
+              value={form.website}
+              onChange={(v) => set("website", v)}
+              placeholder="https://pearlhomecleaning.com"
+            />
           </Field>
           <Field label="Booking URL" error={errors.bookingUrl} full>
-            <Input value={form.bookingUrl} onChange={(v) => set("bookingUrl", v)} placeholder="https://book.example.com" />
+            <Input
+              value={form.bookingUrl}
+              onChange={(v) => set("bookingUrl", v)}
+              placeholder="https://book.example.com"
+            />
           </Field>
         </Grid>
       </Section>
 
       {/* Hours */}
-      <Section icon={<Clock className="h-4 w-4" />} title="Business hours" desc="Displayed on your Business Profile and website.">
+      <Section
+        icon={<Clock className="h-4 w-4" />}
+        title="Business hours"
+        desc="Displayed on your Business Profile and website."
+      >
         <Grid>
           <Field label="Monday – Friday">
-            <Input value={form.hoursMonFri} onChange={(v) => set("hoursMonFri", v)} placeholder="09:00 – 18:00" />
+            <Input
+              value={form.hoursMonFri}
+              onChange={(v) => set("hoursMonFri", v)}
+              placeholder="09:00 – 18:00"
+            />
           </Field>
           <Field label="Saturday">
-            <Input value={form.hoursSat} onChange={(v) => set("hoursSat", v)} placeholder="10:00 – 16:00" />
+            <Input
+              value={form.hoursSat}
+              onChange={(v) => set("hoursSat", v)}
+              placeholder="10:00 – 16:00"
+            />
           </Field>
           <Field label="Sunday">
-            <Input value={form.hoursSun} onChange={(v) => set("hoursSun", v)} placeholder="Closed" />
+            <Input
+              value={form.hoursSun}
+              onChange={(v) => set("hoursSun", v)}
+              placeholder="Closed"
+            />
           </Field>
         </Grid>
       </Section>
 
       {/* Corporate */}
-      <Section icon={<Briefcase className="h-4 w-4" />} title="Corporate details" desc="Tax and registration data used in invoices and legal documents.">
+      <Section
+        icon={<Briefcase className="h-4 w-4" />}
+        title="Corporate details"
+        desc="Tax and registration data used in invoices and legal documents."
+      >
         <Grid>
           <Field label="Tax / VAT ID" icon={<Hash className="h-3.5 w-3.5" />}>
-            <Input value={form.taxId} onChange={(v) => set("taxId", v)} placeholder="TRN / VAT number" />
+            <Input
+              value={form.taxId}
+              onChange={(v) => set("taxId", v)}
+              placeholder="TRN / VAT number"
+            />
           </Field>
           <Field label="Registration number" icon={<Hash className="h-3.5 w-3.5" />}>
-            <Input value={form.registrationNumber} onChange={(v) => set("registrationNumber", v)} placeholder="Trade license #" />
+            <Input
+              value={form.registrationNumber}
+              onChange={(v) => set("registrationNumber", v)}
+              placeholder="Trade license #"
+            />
           </Field>
           <Field label="Default currency" icon={<DollarSign className="h-3.5 w-3.5" />}>
-            <Select value={form.currency} onChange={(v) => set("currency", v)} options={CURRENCIES} />
+            <Select
+              value={form.currency}
+              onChange={(v) => set("currency", v)}
+              options={CURRENCIES}
+            />
           </Field>
         </Grid>
       </Section>
 
       {/* Social */}
-      <Section icon={<Users className="h-4 w-4" />} title="Social profiles" desc="Linked from your Business Profile posts and share cards.">
+      <Section
+        icon={<Users className="h-4 w-4" />}
+        title="Social profiles"
+        desc="Linked from your Business Profile posts and share cards."
+      >
         <Grid>
           <Field label="Instagram" icon={<Instagram className="h-3.5 w-3.5" />}>
-            <Input value={form.instagram} onChange={(v) => set("instagram", v)} placeholder="@handle or URL" />
+            <Input
+              value={form.instagram}
+              onChange={(v) => set("instagram", v)}
+              placeholder="@handle or URL"
+            />
           </Field>
           <Field label="Facebook" icon={<Facebook className="h-3.5 w-3.5" />}>
-            <Input value={form.facebook} onChange={(v) => set("facebook", v)} placeholder="Page URL" />
+            <Input
+              value={form.facebook}
+              onChange={(v) => set("facebook", v)}
+              placeholder="Page URL"
+            />
           </Field>
           <Field label="LinkedIn" icon={<Linkedin className="h-3.5 w-3.5" />}>
-            <Input value={form.linkedin} onChange={(v) => set("linkedin", v)} placeholder="Company page URL" />
+            <Input
+              value={form.linkedin}
+              onChange={(v) => set("linkedin", v)}
+              placeholder="Company page URL"
+            />
           </Field>
           <Field label="X / Twitter" icon={<Twitter className="h-3.5 w-3.5" />}>
-            <Input value={form.twitter} onChange={(v) => set("twitter", v)} placeholder="@handle or URL" />
+            <Input
+              value={form.twitter}
+              onChange={(v) => set("twitter", v)}
+              placeholder="@handle or URL"
+            />
           </Field>
         </Grid>
       </Section>
@@ -412,7 +556,8 @@ function GeneralSettings() {
       <div className="sticky bottom-0 -mx-4 flex items-center justify-end gap-3 border-t border-border bg-background/80 px-4 py-3 backdrop-blur">
         {Object.keys(errors).length > 0 && (
           <span className="text-xs text-destructive">
-            {Object.keys(errors).length} field{Object.keys(errors).length === 1 ? "" : "s"} need attention
+            {Object.keys(errors).length} field{Object.keys(errors).length === 1 ? "" : "s"} need
+            attention
           </span>
         )}
         <button

@@ -29,7 +29,9 @@ function SecuritySettings() {
       </div>
       <div className="rounded-2xl border border-border bg-card p-5 space-y-4">
         <label className="block">
-          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">New password</span>
+          <span className="mb-1 block text-xs uppercase tracking-widest text-muted-foreground">
+            New password
+          </span>
           <input
             type="password"
             autoComplete="new-password"

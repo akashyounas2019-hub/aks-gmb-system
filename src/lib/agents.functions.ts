@@ -179,15 +179,49 @@ const DEFAULT_AGENTS = [
 ];
 
 const DEFAULT_TASKS = [
-  { agent_slug: "writer", title: "Draft this week's promo post", status: "running", major: false, relative_time: "2m ago" },
-  { agent_slug: "analyzer", title: "Investigate impression drop", status: "done", major: false, relative_time: "8m ago" },
-  { agent_slug: "ranker", title: "Expand grid to 7×7 near HQ", status: "awaiting_approval", major: true, relative_time: "12m ago" },
-  { agent_slug: "auditor", title: "Review NAP consistency", status: "queued", major: false, relative_time: "20m ago" },
-  { agent_slug: "writer", title: "Reply to 3 new Q&A", status: "done", major: false, relative_time: "34m ago" },
+  {
+    agent_slug: "writer",
+    title: "Draft this week's promo post",
+    status: "running",
+    major: false,
+    relative_time: "2m ago",
+  },
+  {
+    agent_slug: "analyzer",
+    title: "Investigate impression drop",
+    status: "done",
+    major: false,
+    relative_time: "8m ago",
+  },
+  {
+    agent_slug: "ranker",
+    title: "Expand grid to 7×7 near HQ",
+    status: "awaiting_approval",
+    major: true,
+    relative_time: "12m ago",
+  },
+  {
+    agent_slug: "auditor",
+    title: "Review NAP consistency",
+    status: "queued",
+    major: false,
+    relative_time: "20m ago",
+  },
+  {
+    agent_slug: "writer",
+    title: "Reply to 3 new Q&A",
+    status: "done",
+    major: false,
+    relative_time: "34m ago",
+  },
 ];
 
 async function ensureSeed(supabase: any, userId: string) {
-  const { data: existing } = await supabase.from("agents").select("id").eq("user_id", userId).limit(1);
+  const { data: existing } = await supabase
+    .from("agents")
+    .select("id")
+    .eq("user_id", userId)
+    .limit(1);
   if (existing && existing.length > 0) return;
 
   const slugToId: Record<string, string> = {};
@@ -262,8 +296,16 @@ export const getAgentsState = createServerFn({ method: "GET" })
     const { supabase, userId } = context;
     await ensureSeed(supabase, userId);
     const [{ data: agents, error: aErr }, { data: tasks, error: tErr }] = await Promise.all([
-      supabase.from("agents").select("*").eq("user_id", userId).order("sort_order", { ascending: true }),
-      supabase.from("agent_tasks").select("*").eq("user_id", userId).order("created_at", { ascending: false }),
+      supabase
+        .from("agents")
+        .select("*")
+        .eq("user_id", userId)
+        .order("sort_order", { ascending: true }),
+      supabase
+        .from("agent_tasks")
+        .select("*")
+        .eq("user_id", userId)
+        .order("created_at", { ascending: false }),
     ]);
     if (aErr) throw aErr;
     if (tErr) throw tErr;
@@ -346,7 +388,12 @@ export const updateAgent = createServerFn({ method: "POST" })
       patch.main_skill = v === null ? null : v.trim() || null;
     }
     if (Object.keys(patch).length === 0) {
-      const { data: row } = await supabase.from("agents").select("*").eq("id", data.id).eq("user_id", userId).single();
+      const { data: row } = await supabase
+        .from("agents")
+        .select("*")
+        .eq("id", data.id)
+        .eq("user_id", userId)
+        .single();
       return row;
     }
     const { data: row, error } = await supabase
@@ -367,7 +414,13 @@ export const approveTask = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
     const { data: task, error } = await supabase
       .from("agent_tasks")
-      .update({ status: "running", started_at: new Date().toISOString(), paused_at: null, eta_at: null, eta_confidence: "low" })
+      .update({
+        status: "running",
+        started_at: new Date().toISOString(),
+        paused_at: null,
+        eta_at: null,
+        eta_confidence: "low",
+      })
       .eq("id", data.id)
       .eq("user_id", userId)
       .select("agent_id, title")
@@ -540,9 +593,7 @@ export const assignTask = createServerFn({ method: "POST" })
       agent_id: data.agent_id,
       task_id: task.id,
       event_type: data.major ? "awaiting_approval" : "assigned",
-      message: data.major
-        ? `Awaiting approval: ${data.title}`
-        : `Assigned: ${data.title}`,
+      message: data.major ? `Awaiting approval: ${data.title}` : `Assigned: ${data.title}`,
       progress: task.progress ?? 0,
       metadata: { priority: data.priority, major: data.major },
     });
@@ -638,11 +689,7 @@ export const updateTaskProgress = createServerFn({ method: "POST" })
       const { eta_at, eta_confidence } = computeEta(effectiveStartedAt, nextProgress);
       patch.eta_at = eta_at;
       patch.eta_confidence = eta_confidence;
-    } else if (
-      nextStatus === "done" ||
-      nextStatus === "cancelled" ||
-      nextStatus === "paused"
-    ) {
+    } else if (nextStatus === "done" || nextStatus === "cancelled" || nextStatus === "paused") {
       // Keep eta stable while paused? Simpler: clear on non-running terminal transitions.
       if (nextStatus !== "paused") {
         patch.eta_at = null;
@@ -744,7 +791,8 @@ export const resumeTask = createServerFn({ method: "POST" })
     let newStarted: string | null = prev?.started_at ?? null;
     if (prev?.started_at && prev?.paused_at) {
       const shift = now - new Date(prev.paused_at).getTime();
-      if (shift > 0) newStarted = new Date(new Date(prev.started_at).getTime() + shift).toISOString();
+      if (shift > 0)
+        newStarted = new Date(new Date(prev.started_at).getTime() + shift).toISOString();
     } else if (!newStarted) {
       newStarted = new Date(now).toISOString();
     }
@@ -860,8 +908,6 @@ export const getTaskEvents = createServerFn({ method: "GET" })
     if (error) throw error;
     return rows ?? [];
   });
-
-
 
 export const listAgentNotifications = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])

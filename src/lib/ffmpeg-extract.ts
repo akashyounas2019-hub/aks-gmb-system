@@ -77,11 +77,7 @@ function sharpnessScore(imageData: ImageData): number {
     for (let x = 1; x < width - 1; x++) {
       const idx = y * width + x;
       const v =
-        4 * gray[idx] -
-        gray[idx - 1] -
-        gray[idx + 1] -
-        gray[idx - width] -
-        gray[idx + width];
+        4 * gray[idx] - gray[idx - 1] - gray[idx + 1] - gray[idx - width] - gray[idx + width];
       sum += v;
       sumSq += v * v;
       n++;
@@ -234,7 +230,6 @@ export async function extractSharpFrames(
       }
     }
   }
-
 
   const winners = Array.from(picked.values()).sort((a, b) => a.t - b.t);
 

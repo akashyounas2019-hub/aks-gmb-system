@@ -59,8 +59,7 @@ export const Route = createFileRoute("/_authenticated/automation")({
       { title: "Automation — Workflows & Rules" },
       {
         name: "description",
-        content:
-          "Real scheduled workflows for rank refresh, auto-publish, auto-tag and alerts.",
+        content: "Real scheduled workflows for rank refresh, auto-publish, auto-tag and alerts.",
       },
     ],
   }),
@@ -298,8 +297,12 @@ function AutomationPage() {
 
   // Quick-add from preset grid (uses preset defaults).
   const quickAdd = (preset: PresetId) =>
-    createMut.mutate({ preset, name: PRESETS[preset].label, cron: PRESETS[preset].cron, config: {} });
-
+    createMut.mutate({
+      preset,
+      name: PRESETS[preset].label,
+      cron: PRESETS[preset].cron,
+      config: {},
+    });
 
   const toggleMut = useMutation({
     mutationFn: (p: { id: string; enabled: boolean }) =>
@@ -349,30 +352,29 @@ function AutomationPage() {
   const [editing, setEditing] = useState<{ id: string; name: string; cron: string } | null>(null);
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
 
-
   return (
     <div className="flex min-h-[calc(100vh-4rem)] w-full flex-col">
-
-
-
       <div className="relative mx-auto max-w-[1500px] p-6">
         <header className="mb-8 flex flex-wrap items-end justify-between gap-4">
           <div>
             <div className="mb-1 inline-flex items-center gap-2 rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[11px] font-semibold uppercase tracking-widest text-primary">
               <Zap className="h-3 w-3" /> Automation
             </div>
-            <h1 className="font-display text-4xl leading-tight tracking-tight">
-              Workflows
-            </h1>
+            <h1 className="font-display text-4xl leading-tight tracking-tight">Workflows</h1>
             <p className="mt-1.5 max-w-2xl text-sm text-muted-foreground">
-              Automate prompt generation, content writing, post scheduling, image geo-tagging and system audits.
-              Every workflow runs on its own schedule; use “Run now” to trigger immediately.
+              Automate prompt generation, content writing, post scheduling, image geo-tagging and
+              system audits. Every workflow runs on its own schedule; use “Run now” to trigger
+              immediately.
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
             <StatChip label="Workflows" value={stats.total} />
             <StatChip label="Active" value={stats.active} tone="primary" />
-            <StatChip label="Errors" value={stats.errors} tone={stats.errors ? "danger" : undefined} />
+            <StatChip
+              label="Errors"
+              value={stats.errors}
+              tone={stats.errors ? "danger" : undefined}
+            />
             <button
               onClick={() => {
                 setAddPreset("");
@@ -391,7 +393,8 @@ function AutomationPage() {
             <div>
               <h2 className="font-display text-lg tracking-tight">Add a workflow</h2>
               <p className="text-xs text-muted-foreground">
-                Quick-add a preset with its defaults, or open “Add New Workflow” for full scheduling options.
+                Quick-add a preset with its defaults, or open “Add New Workflow” for full scheduling
+                options.
               </p>
             </div>
             <span className="rounded-full bg-muted/60 px-2 py-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
@@ -452,7 +455,9 @@ function AutomationPage() {
             <div>
               <h2 className="font-display text-lg tracking-tight">Your automations</h2>
               <p className="text-xs text-muted-foreground">
-                {items.length ? `${items.length} configured workflow${items.length === 1 ? "" : "s"}` : "None configured yet"}
+                {items.length
+                  ? `${items.length} configured workflow${items.length === 1 ? "" : "s"}`
+                  : "None configured yet"}
               </p>
             </div>
           </div>
@@ -599,103 +604,117 @@ function AutomationPage() {
           )}
         </section>
 
+        <AddWorkflowDialog
+          open={addOpen}
+          onOpenChange={setAddOpen}
+          initialPreset={addPreset}
+          submitting={createMut.isPending}
+          onSubmit={(payload) => createMut.mutate(payload, { onSuccess: () => setAddOpen(false) })}
+        />
 
-      <AddWorkflowDialog
-        open={addOpen}
-        onOpenChange={setAddOpen}
-        initialPreset={addPreset}
-        submitting={createMut.isPending}
-        onSubmit={(payload) =>
-          createMut.mutate(payload, { onSuccess: () => setAddOpen(false) })
-        }
-      />
-
-      <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Edit automation</DialogTitle>
-            <DialogDescription>Rename this workflow or change its cron schedule.</DialogDescription>
-          </DialogHeader>
-          {editing && (
-            <div className="space-y-4 py-2">
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Name</label>
-                <input
-                  value={editing.name}
-                  onChange={(e) => setEditing({ ...editing, name: e.target.value })}
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-                />
+        <Dialog open={!!editing} onOpenChange={(o) => !o && setEditing(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Edit automation</DialogTitle>
+              <DialogDescription>
+                Rename this workflow or change its cron schedule.
+              </DialogDescription>
+            </DialogHeader>
+            {editing && (
+              <div className="space-y-4 py-2">
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Name
+                  </label>
+                  <input
+                    value={editing.name}
+                    onChange={(e) => setEditing({ ...editing, name: e.target.value })}
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="mb-1.5 block text-xs font-medium text-muted-foreground">
+                    Cron schedule
+                  </label>
+                  <input
+                    value={editing.cron}
+                    onChange={(e) => setEditing({ ...editing, cron: e.target.value })}
+                    placeholder="0 */6 * * *"
+                    className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
+                  />
+                  <p className="mt-1 text-[11px] text-muted-foreground">
+                    Standard 5-field cron. Examples: <code>*/15 * * * *</code>,{" "}
+                    <code>0 9 * * 1</code>.
+                  </p>
+                </div>
               </div>
-              <div>
-                <label className="mb-1.5 block text-xs font-medium text-muted-foreground">Cron schedule</label>
-                <input
-                  value={editing.cron}
-                  onChange={(e) => setEditing({ ...editing, cron: e.target.value })}
-                  placeholder="0 */6 * * *"
-                  className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
-                />
-                <p className="mt-1 text-[11px] text-muted-foreground">
-                  Standard 5-field cron. Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>.
-                </p>
-              </div>
-            </div>
-          )}
-          <DialogFooter>
-            <button
-              onClick={() => setEditing(null)}
-              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={!editing?.name.trim() || !editing?.cron.trim() || editMut.isPending}
-              onClick={() => {
-                if (!editing) return;
-                editMut.mutate(
-                  { id: editing.id, name: editing.name.trim(), cron: editing.cron.trim() },
-                  { onSuccess: () => setEditing(null) },
-                );
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
-            >
-              {editMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Pencil className="h-3.5 w-3.5" />}
-              Save changes
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+            )}
+            <DialogFooter>
+              <button
+                onClick={() => setEditing(null)}
+                className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={!editing?.name.trim() || !editing?.cron.trim() || editMut.isPending}
+                onClick={() => {
+                  if (!editing) return;
+                  editMut.mutate(
+                    { id: editing.id, name: editing.name.trim(), cron: editing.cron.trim() },
+                    { onSuccess: () => setEditing(null) },
+                  );
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {editMut.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Pencil className="h-3.5 w-3.5" />
+                )}
+                Save changes
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
 
-      <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Delete automation?</DialogTitle>
-            <DialogDescription>
-              This permanently removes <span className="font-medium text-foreground">{confirmDelete?.name}</span> and stops its schedule. This cannot be undone.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button
-              onClick={() => setConfirmDelete(null)}
-              className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
-            >
-              Cancel
-            </button>
-            <button
-              disabled={deleteMut.isPending}
-              onClick={() => {
-                if (!confirmDelete) return;
-                deleteMut.mutate(confirmDelete.id, {
-                  onSuccess: () => setConfirmDelete(null),
-                });
-              }}
-              className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
-            >
-              {deleteMut.isPending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
-              Delete
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+        <Dialog open={!!confirmDelete} onOpenChange={(o) => !o && setConfirmDelete(null)}>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Delete automation?</DialogTitle>
+              <DialogDescription>
+                This permanently removes{" "}
+                <span className="font-medium text-foreground">{confirmDelete?.name}</span> and stops
+                its schedule. This cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <button
+                onClick={() => setConfirmDelete(null)}
+                className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+              >
+                Cancel
+              </button>
+              <button
+                disabled={deleteMut.isPending}
+                onClick={() => {
+                  if (!confirmDelete) return;
+                  deleteMut.mutate(confirmDelete.id, {
+                    onSuccess: () => setConfirmDelete(null),
+                  });
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-semibold text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {deleteMut.isPending ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Delete
+              </button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
       </div>
     </div>
   );
@@ -821,7 +840,9 @@ function AddWorkflowDialog({
                       : "border-border/60 hover:border-primary/40 hover:bg-accent/40"
                   }`}
                 >
-                  <span className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${meta.tone}`}>
+                  <span
+                    className={`grid h-10 w-10 shrink-0 place-items-center rounded-lg ${meta.tone}`}
+                  >
                     <Icon className="h-5 w-5" />
                   </span>
                   <div className="min-w-0">
@@ -881,24 +902,32 @@ function AddWorkflowDialog({
                 {(frequency === "daily" || frequency === "weekly") && (
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <label className="mb-1 block text-[11px] text-muted-foreground">Hour (0–23)</label>
+                      <label className="mb-1 block text-[11px] text-muted-foreground">
+                        Hour (0–23)
+                      </label>
                       <input
                         type="number"
                         min={0}
                         max={23}
                         value={hour}
-                        onChange={(e) => setHour(Math.max(0, Math.min(23, Number(e.target.value) || 0)))}
+                        onChange={(e) =>
+                          setHour(Math.max(0, Math.min(23, Number(e.target.value) || 0)))
+                        }
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                       />
                     </div>
                     <div>
-                      <label className="mb-1 block text-[11px] text-muted-foreground">Minute (0–59)</label>
+                      <label className="mb-1 block text-[11px] text-muted-foreground">
+                        Minute (0–59)
+                      </label>
                       <input
                         type="number"
                         min={0}
                         max={59}
                         value={minute}
-                        onChange={(e) => setMinute(Math.max(0, Math.min(59, Number(e.target.value) || 0)))}
+                        onChange={(e) =>
+                          setMinute(Math.max(0, Math.min(59, Number(e.target.value) || 0)))
+                        }
                         className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
                       />
                     </div>
@@ -907,7 +936,9 @@ function AddWorkflowDialog({
 
                 {frequency === "weekly" && (
                   <div>
-                    <label className="mb-1 block text-[11px] text-muted-foreground">Day of week</label>
+                    <label className="mb-1 block text-[11px] text-muted-foreground">
+                      Day of week
+                    </label>
                     <div className="flex flex-wrap gap-1.5">
                       {WEEKDAYS.map((d, i) => (
                         <button
@@ -956,7 +987,8 @@ function AddWorkflowDialog({
                       className="w-full rounded-md border border-border bg-background px-3 py-2 font-mono text-sm"
                     />
                     <p className="mt-1 text-[11px] text-muted-foreground">
-                      Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>, <code>0 */6 * * *</code>
+                      Examples: <code>*/15 * * * *</code>, <code>0 9 * * 1</code>,{" "}
+                      <code>0 */6 * * *</code>
                     </p>
                   </div>
                 )}
@@ -1018,7 +1050,11 @@ function AddWorkflowDialog({
                 }}
                 className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
               >
-                {submitting ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Plus className="h-3.5 w-3.5" />}
+                {submitting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Plus className="h-3.5 w-3.5" />
+                )}
                 Create workflow
               </button>
             )}

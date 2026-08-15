@@ -112,15 +112,13 @@ function BusinessProfilePage() {
         if (cancelled) return;
         setGeocoding(false);
         setGeoError(
-          e.message ||
-            "Could not locate your business address. Check the address and try again.",
+          e.message || "Could not locate your business address. Check the address and try again.",
         );
       });
     return () => {
       cancelled = true;
     };
   }, [fullAddress, geocode, geocodeAttempt]);
-
 
   // Render map once coords resolve.
   useEffect(() => {
@@ -210,14 +208,12 @@ function BusinessProfilePage() {
     );
   }
 
-
   return (
     <div className="space-y-6">
       <div>
         <h2 className="text-xl font-semibold">Business Profile</h2>
         <p className="mt-1 text-sm text-muted-foreground">
-          Auto-generated from your General settings. Update it there and it will
-          refresh here.
+          Auto-generated from your General settings. Update it there and it will refresh here.
         </p>
       </div>
 
@@ -235,14 +231,15 @@ function BusinessProfilePage() {
               <InfoRow label="Legal name" value={general.legalName} />
               <InfoRow label="Industry" value={general.industry} />
               <InfoRow label="Business type" value={general.businessType} />
-              <InfoRow label="Website" value={general.website} icon={<Globe className="h-3.5 w-3.5" />} />
+              <InfoRow
+                label="Website"
+                value={general.website}
+                icon={<Globe className="h-3.5 w-3.5" />}
+              />
             </div>
           </ProfileCard>
 
-          <ProfileCard
-            icon={<MapPin className="h-5 w-5 text-primary" />}
-            title="Location"
-          >
+          <ProfileCard icon={<MapPin className="h-5 w-5 text-primary" />} title="Location">
             <p className="text-sm">
               {fullAddress || (
                 <span className="text-muted-foreground">
@@ -257,13 +254,18 @@ function BusinessProfilePage() {
             )}
           </ProfileCard>
 
-          <ProfileCard
-            icon={<Phone className="h-5 w-5 text-primary" />}
-            title="Contact"
-          >
+          <ProfileCard icon={<Phone className="h-5 w-5 text-primary" />} title="Contact">
             <div className="grid gap-2 text-sm sm:grid-cols-2">
-              <InfoRow label="Phone" value={general.phone} icon={<Phone className="h-3.5 w-3.5" />} />
-              <InfoRow label="Email" value={general.email} icon={<Mail className="h-3.5 w-3.5" />} />
+              <InfoRow
+                label="Phone"
+                value={general.phone}
+                icon={<Phone className="h-3.5 w-3.5" />}
+              />
+              <InfoRow
+                label="Email"
+                value={general.email}
+                icon={<Mail className="h-3.5 w-3.5" />}
+              />
             </div>
           </ProfileCard>
         </div>
@@ -343,10 +345,7 @@ function BusinessProfilePage() {
                         ) : (
                           <ul className="space-y-1">
                             {tierCities.map((c) => (
-                              <li
-                                key={c.name}
-                                className="flex items-center justify-between gap-2"
-                              >
+                              <li key={c.name} className="flex items-center justify-between gap-2">
                                 <span className="truncate">{c.name}</span>
                                 <span className="shrink-0 text-[10px] text-muted-foreground">
                                   {c.distanceKm.toFixed(1)} km
@@ -362,8 +361,8 @@ function BusinessProfilePage() {
               })}
             </ul>
             <p className="mt-3 text-[11px] text-muted-foreground">
-              20 km total service area, split into 8 concentric tiers of 2.5 km. Click a
-              level to see its cities.
+              20 km total service area, split into 8 concentric tiers of 2.5 km. Click a level to
+              see its cities.
             </p>
           </div>
         </div>
@@ -415,4 +414,3 @@ function InfoRow({
     </div>
   );
 }
-

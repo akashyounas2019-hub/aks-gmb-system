@@ -2,15 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
 import { useCallback, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
-import {
-  UploadCloud,
-  Scissors,
-  ImageIcon,
-  MapPin,
-  Send,
-  Check,
-  Loader2,
-} from "lucide-react";
+import { UploadCloud, Scissors, ImageIcon, MapPin, Send, Check, Loader2 } from "lucide-react";
 
 import { supabase } from "@/integrations/supabase/client";
 import { extractSharpFrames, type ExtractedFrame } from "@/lib/ffmpeg-extract";
@@ -62,8 +54,8 @@ function StepBar({ step }: { step: Step }) {
                 active
                   ? "border-primary bg-primary text-primary-foreground"
                   : done
-                  ? "border-primary/40 bg-primary/10 text-primary"
-                  : "border-border bg-card text-muted-foreground"
+                    ? "border-primary/40 bg-primary/10 text-primary"
+                    : "border-border bg-card text-muted-foreground"
               }`}
             >
               {done ? <Check className="h-4 w-4" /> : <s.icon className="h-4 w-4" />}
@@ -440,7 +432,11 @@ export function WizardPage() {
               disabled={extracting}
               className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
             >
-              {extracting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
+              {extracting ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Scissors className="h-4 w-4" />
+              )}
               Extract frames
             </button>
           </div>
@@ -456,17 +452,13 @@ export function WizardPage() {
             </div>
             <div className="flex gap-2">
               <button
-                onClick={() =>
-                  setPending((prev) => prev.map((p) => ({ ...p, selected: true })))
-                }
+                onClick={() => setPending((prev) => prev.map((p) => ({ ...p, selected: true })))}
                 className="rounded-md border border-border px-3 py-1.5 text-xs"
               >
                 Select all
               </button>
               <button
-                onClick={() =>
-                  setPending((prev) => prev.map((p) => ({ ...p, selected: false })))
-                }
+                onClick={() => setPending((prev) => prev.map((p) => ({ ...p, selected: false })))}
                 className="rounded-md border border-border px-3 py-1.5 text-xs"
               >
                 Deselect all
@@ -625,8 +617,8 @@ export function WizardPage() {
         <div className="rounded-2xl border border-border bg-card p-6">
           <h2 className="text-xl">Send to GoHighLevel</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Each image is sent as JSON to your configured GHL inbound webhook, with a 24-hour
-            signed URL to the JPEG plus location + tags.
+            Each image is sent as JSON to your configured GHL inbound webhook, with a 24-hour signed
+            URL to the JPEG plus location + tags.
           </p>
 
           <div className="mt-4 grid grid-cols-3 gap-2 sm:grid-cols-6">
@@ -688,7 +680,11 @@ export function WizardPage() {
                 disabled={sending}
                 className="inline-flex items-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground disabled:opacity-50"
               >
-                {sending ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {sending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
                 {sending ? "Sending…" : `Send ${saved.length} to GHL`}
               </button>
             </div>

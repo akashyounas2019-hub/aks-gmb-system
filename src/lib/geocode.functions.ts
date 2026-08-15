@@ -7,9 +7,7 @@ import { z } from "zod";
  * must run server-side using the server-side connector key.
  */
 export const geocodeAddress = createServerFn({ method: "GET" })
-  .inputValidator((data) =>
-    z.object({ address: z.string().min(3).max(500) }).parse(data),
-  )
+  .inputValidator((data) => z.object({ address: z.string().min(3).max(500) }).parse(data))
   .handler(async ({ data }) => {
     const lovableKey = process.env.LOVABLE_API_KEY;
     const gmKey = process.env.GOOGLE_MAPS_API_KEY;

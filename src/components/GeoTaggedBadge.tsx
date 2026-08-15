@@ -18,8 +18,7 @@ export function GeoTaggedBadge({
   title?: string;
 }) {
   if (lat == null || lng == null) return null;
-  const label =
-    title ?? `Geotagged · ${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
+  const label = title ?? `Geotagged · ${Number(lat).toFixed(4)}, ${Number(lng).toFixed(4)}`;
   if (compact) {
     return (
       <span

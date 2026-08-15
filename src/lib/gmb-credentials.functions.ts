@@ -24,7 +24,8 @@ export const saveGmbCredentials = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((data: { clientId: string; clientSecret: string }) => {
     if (!data.clientId || data.clientId.length < 10) throw new Error("Invalid client ID");
-    if (!data.clientSecret || data.clientSecret.length < 8) throw new Error("Invalid client secret");
+    if (!data.clientSecret || data.clientSecret.length < 8)
+      throw new Error("Invalid client secret");
     return data;
   })
   .handler(async ({ data, context }) => {

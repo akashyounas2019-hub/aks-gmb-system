@@ -18,10 +18,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
-import {
-  listSocialPosts,
-  retrySocialPost,
-} from "@/lib/post-generator.functions";
+import { listSocialPosts, retrySocialPost } from "@/lib/post-generator.functions";
 
 // The standalone Calendar page moved into the Scheduler screen as a tab —
 // redirect old links/bookmarks there instead of maintaining two calendars.
@@ -217,7 +214,8 @@ export function CalendarPage({
       if (next.has(b)) next.delete(b);
       else next.add(b);
       // never leave empty — reset to all
-      if (next.size === 0) return new Set(["published", "scheduled", "draft", "failed", "sending"] as Bucket[]);
+      if (next.size === 0)
+        return new Set(["published", "scheduled", "draft", "failed", "sending"] as Bucket[]);
       return next;
     });
   }
@@ -287,11 +285,7 @@ export function CalendarPage({
           tone="bad"
           icon={<AlertCircle className="h-4 w-4" />}
         />
-        <StatCard
-          label="Total"
-          value={posts.length}
-          icon={<CalendarIcon className="h-4 w-4" />}
-        />
+        <StatCard label="Total" value={posts.length} icon={<CalendarIcon className="h-4 w-4" />} />
       </div>
 
       {/* Filter legend */}
@@ -591,7 +585,6 @@ function MonthView({
         </div>
       </div>
 
-
       {/* Day detail */}
       <aside className="rounded-2xl border border-border bg-card p-4">
         <div className="mb-3 flex items-center justify-between">
@@ -607,9 +600,7 @@ function MonthView({
               })}
             </div>
           </div>
-          <span className="rounded-full bg-muted px-2 py-0.5 text-xs">
-            {selectedPosts.length}
-          </span>
+          <span className="rounded-full bg-muted px-2 py-0.5 text-xs">{selectedPosts.length}</span>
         </div>
 
         {selectedPosts.length === 0 ? (
@@ -726,9 +717,7 @@ function PostRow({
   const firstImageId = post.image_ids?.[0] ?? null;
 
   return (
-    <div
-      className={`rounded-xl border border-border bg-background p-3 ${compact ? "" : "md:p-4"}`}
-    >
+    <div className={`rounded-xl border border-border bg-background p-3 ${compact ? "" : "md:p-4"}`}>
       <div className="flex items-start gap-3">
         {firstImageId && (
           <img
@@ -741,7 +730,9 @@ function PostRow({
         <span className={`mt-1 h-2 w-2 shrink-0 rounded-full ${meta.dot}`} />
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
-            <span className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${meta.chip}`}>
+            <span
+              className={`inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest ${meta.chip}`}
+            >
               {meta.label}
             </span>
             <span>
@@ -753,7 +744,9 @@ function PostRow({
             {post.location_label && <span>· {post.location_label}</span>}
             {post.image_ids?.length ? <span>· {post.image_ids.length} image(s)</span> : null}
           </div>
-          <p className={`mt-1.5 whitespace-pre-wrap text-sm ${compact ? "line-clamp-2" : "line-clamp-3"}`}>
+          <p
+            className={`mt-1.5 whitespace-pre-wrap text-sm ${compact ? "line-clamp-2" : "line-clamp-3"}`}
+          >
             {post.caption}
           </p>
           {post.error && (
@@ -769,7 +762,11 @@ function PostRow({
             disabled={retrying}
             className="inline-flex shrink-0 items-center gap-1 rounded-md border border-border px-2.5 py-1.5 text-xs hover:border-primary/50 disabled:opacity-40"
           >
-            {retrying ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
+            {retrying ? (
+              <Loader2 className="h-3 w-3 animate-spin" />
+            ) : (
+              <RefreshCw className="h-3 w-3" />
+            )}
             {post.status === "failed" ? "Retry" : "Re-queue"}
           </button>
         )}

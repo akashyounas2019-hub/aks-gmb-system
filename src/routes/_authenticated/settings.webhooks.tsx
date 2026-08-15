@@ -47,10 +47,18 @@ type WebhookEvent =
 
 const EVENT_OPTIONS: { id: WebhookEvent; label: string; description: string }[] = [
   { id: "post.published", label: "post.published", description: "A GMB post was published." },
-  { id: "post.scheduled", label: "post.scheduled", description: "A post was queued in the calendar." },
+  {
+    id: "post.scheduled",
+    label: "post.scheduled",
+    description: "A post was queued in the calendar.",
+  },
   { id: "image.uploaded", label: "image.uploaded", description: "A new image was uploaded." },
   { id: "image.tagged", label: "image.tagged", description: "An image received GPS coordinates." },
-  { id: "competitor.threat", label: "competitor.threat", description: "A competitor crossed the threat threshold." },
+  {
+    id: "competitor.threat",
+    label: "competitor.threat",
+    description: "A competitor crossed the threat threshold.",
+  },
   { id: "rank.changed", label: "rank.changed", description: "A tracked keyword rank moved." },
   { id: "keyword.added", label: "keyword.added", description: "New keyword added to the library." },
   { id: "video.processed", label: "video.processed", description: "Video processing finished." },
@@ -188,7 +196,9 @@ function WebhooksPage() {
           enabled: row.enabled,
         },
       });
-      setWebhooks((prev) => prev.map((w) => (w.id === row.id ? fromDb(saved as unknown as DbWebhook) : w)));
+      setWebhooks((prev) =>
+        prev.map((w) => (w.id === row.id ? fromDb(saved as unknown as DbWebhook) : w)),
+      );
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Could not save webhook");
     }
@@ -267,9 +277,7 @@ function WebhooksPage() {
       });
       setPipelines((prev) =>
         prev.map((p) =>
-          p.id === pipe.id
-            ? { ...p, lastRunAt: new Date().toISOString(), runs: p.runs + 1 }
-            : p,
+          p.id === pipe.id ? { ...p, lastRunAt: new Date().toISOString(), runs: p.runs + 1 } : p,
         ),
       );
       if (res.ok) toast.success(`Ran ${pipe.name}`);
@@ -309,15 +317,19 @@ function WebhooksPage() {
         <div>
           <h2 className="text-xl font-semibold">Webhooks & Automation Pipelines</h2>
           <p className="mt-1 text-sm text-muted-foreground">
-            Configure outbound webhooks for app events and manage n8n workflow pipelines that
-            react to them.
+            Configure outbound webhooks for app events and manage n8n workflow pipelines that react
+            to them.
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
           <StatChip label="Webhooks" value={stats.hooks} />
           <StatChip label="Active" value={stats.active} tone="primary" />
           <StatChip label="Pipelines" value={stats.pipelines} tone="success" />
-          <StatChip label="Failures" value={stats.failures} tone={stats.failures ? "danger" : undefined} />
+          <StatChip
+            label="Failures"
+            value={stats.failures}
+            tone={stats.failures ? "danger" : undefined}
+          />
         </div>
       </header>
 
@@ -394,7 +406,9 @@ function WebhooksPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
-                      <div className="truncate text-sm font-medium">{w.name || "Untitled webhook"}</div>
+                      <div className="truncate text-sm font-medium">
+                        {w.name || "Untitled webhook"}
+                      </div>
                       {w.enabled ? (
                         <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-[10px] font-medium text-emerald-500">
                           Active
@@ -410,7 +424,9 @@ function WebhooksPage() {
                     </div>
                     <div className="mt-1 flex flex-wrap gap-1">
                       {w.events.length === 0 && (
-                        <span className="text-[10px] text-muted-foreground">No events selected</span>
+                        <span className="text-[10px] text-muted-foreground">
+                          No events selected
+                        </span>
                       )}
                       {w.events.map((e) => (
                         <span
@@ -449,7 +465,11 @@ function WebhooksPage() {
                       className="rounded-md border border-border p-1.5 text-muted-foreground hover:bg-accent"
                       title="Copy URL"
                     >
-                      {copied === w.id ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
+                      {copied === w.id ? (
+                        <Check className="h-3.5 w-3.5" />
+                      ) : (
+                        <Copy className="h-3.5 w-3.5" />
+                      )}
                     </button>
                     <button
                       onClick={() => sendTest(w)}
@@ -465,9 +485,7 @@ function WebhooksPage() {
                       Edit
                     </button>
                     <button
-                      onClick={() =>
-                        upsertWebhook({ ...w, enabled: !w.enabled })
-                      }
+                      onClick={() => upsertWebhook({ ...w, enabled: !w.enabled })}
                       className={`inline-flex items-center gap-1 rounded-md px-2 py-1 text-xs ${
                         w.enabled
                           ? "bg-emerald-500/15 text-emerald-500 hover:bg-emerald-500/25"
@@ -765,9 +783,7 @@ function WebhookModal({
                   key={e.id}
                   onClick={() => toggleEvent(e.id)}
                   className={`flex items-start gap-2 rounded-md border p-2 text-left text-xs transition ${
-                    on
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:bg-accent"
+                    on ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
                   }`}
                 >
                   <span
@@ -851,7 +867,10 @@ function PipelineModal({
   const canSave = draft.name.trim() && /^https?:\/\//i.test(draft.webhookUrl);
 
   const triggerOptions = useMemo(
-    () => [{ id: "manual" as const, label: "Manual only" }, ...EVENT_OPTIONS.map((e) => ({ id: e.id, label: e.label }))],
+    () => [
+      { id: "manual" as const, label: "Manual only" },
+      ...EVENT_OPTIONS.map((e) => ({ id: e.id, label: e.label })),
+    ],
     [],
   );
 
@@ -947,10 +966,7 @@ function ModalShell({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <h3 className="font-display text-lg">{title}</h3>
-          <button
-            onClick={onClose}
-            className="text-xs text-muted-foreground hover:text-foreground"
-          >
+          <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
             Close
           </button>
         </div>

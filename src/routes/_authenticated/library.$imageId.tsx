@@ -99,10 +99,7 @@ function ImageDetail() {
   }
 
   async function saveDescription(next: string) {
-    const { error } = await supabase
-      .from("images")
-      .update({ description: next })
-      .eq("id", imageId);
+    const { error } = await supabase.from("images").update({ description: next }).eq("id", imageId);
     if (error) toast.error(error.message);
     else qc.invalidateQueries({ queryKey: ["library"] });
   }
@@ -231,12 +228,9 @@ function ImageDetail() {
           )}
         </div>
 
-
         <div className="space-y-6">
           <section>
-            <label className="text-xs uppercase tracking-widest text-muted-foreground">
-              Title
-            </label>
+            <label className="text-xs uppercase tracking-widest text-muted-foreground">Title</label>
             <input
               defaultValue={defaultTitle}
               placeholder={image.name ?? "Untitled"}
@@ -447,10 +441,7 @@ function ImageDetail() {
           >
             <X className="h-5 w-5" />
           </button>
-          <div
-            className="max-h-full max-w-full overflow-auto"
-            onClick={(e) => e.stopPropagation()}
-          >
+          <div className="max-h-full max-w-full overflow-auto" onClick={(e) => e.stopPropagation()}>
             <SignedImage
               bucket="frames"
               path={image.storage_path}

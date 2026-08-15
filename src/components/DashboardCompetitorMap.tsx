@@ -39,8 +39,7 @@ export function DashboardCompetitorMap() {
   const fetchCompetitors = useServerFn(listCompetitors);
   const geocode = useServerFn(geocodeAddress);
   const [general, setGeneral] = useState<General | null>(null);
-  const [businessCoords, setBusinessCoords] =
-    useState<{ lat: number; lng: number } | null>(null);
+  const [businessCoords, setBusinessCoords] = useState<{ lat: number; lng: number } | null>(null);
   const [competitors, setCompetitors] = useState<Competitor[]>([]);
   const [located, setLocated] = useState<Located[]>([]);
   const [status, setStatus] = useState<
@@ -95,13 +94,10 @@ export function DashboardCompetitorMap() {
     (async () => {
       try {
         let geocodeErrorMsg: string | null = null;
-        const res = await geocode({ data: { address: fullAddress } }).catch(
-          (e: unknown) => {
-            geocodeErrorMsg =
-              e instanceof Error ? e.message : "Geocoding request failed";
-            return null;
-          },
-        );
+        const res = await geocode({ data: { address: fullAddress } }).catch((e: unknown) => {
+          geocodeErrorMsg = e instanceof Error ? e.message : "Geocoding request failed";
+          return null;
+        });
         if (cancelled) return;
 
         const google = await loadGoogleMaps();
@@ -113,9 +109,7 @@ export function DashboardCompetitorMap() {
         const withPlace = competitors.filter(
           (c) => c.place_id && /^ChIJ[A-Za-z0-9_-]{20,}$/.test(c.place_id),
         );
-        const placesLib = (await google.maps.importLibrary(
-          "places",
-        )) as google.maps.PlacesLibrary;
+        const placesLib = (await google.maps.importLibrary("places")) as google.maps.PlacesLibrary;
         const resolved: Located[] = [];
         await Promise.all(
           withPlace.map(async (c) => {
@@ -156,14 +150,11 @@ export function DashboardCompetitorMap() {
           // Fall back to centering on competitors so the map still renders.
           setBusinessCoords({ lat: resolved[0].lat, lng: resolved[0].lng });
           setError(
-            geocodeErrorMsg ??
-              "Could not locate your business address — showing competitors only.",
+            geocodeErrorMsg ?? "Could not locate your business address — showing competitors only.",
           );
           setStatus("partial");
         } else {
-          setError(
-            geocodeErrorMsg ?? "Could not resolve your business address.",
-          );
+          setError(geocodeErrorMsg ?? "Could not resolve your business address.");
           setStatus("error");
         }
       } catch (e) {
@@ -253,19 +244,14 @@ export function DashboardCompetitorMap() {
           <MapPin className="h-4 w-4 text-primary" />
           <h3 className="text-sm font-semibold">Local competitive map</h3>
         </div>
-        <Link
-          to="/competitors"
-          className="text-xs text-primary hover:underline"
-        >
+        <Link to="/competitors" className="text-xs text-primary hover:underline">
           Manage competitors
         </Link>
       </div>
 
       {status === "partial" && (
         <div className="mb-2 flex items-start justify-between gap-3 rounded-md border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300">
-          <span>
-            {error ?? "Could not locate your business."} Showing competitor pins only.
-          </span>
+          <span>{error ?? "Could not locate your business."} Showing competitor pins only.</span>
           <button
             type="button"
             onClick={() => setGeocodeAttempt((n) => n + 1)}
@@ -323,10 +309,7 @@ export function DashboardCompetitorMap() {
   );
 }
 
-function distanceKm(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
+function distanceKm(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371;
   const toRad = (v: number) => (v * Math.PI) / 180;
   const dLat = toRad(b.lat - a.lat);
@@ -348,9 +331,7 @@ function CompetitorSidebar({
 }) {
   const [maxDistance, setMaxDistance] = useState<number>(20);
   const [minRating, setMinRating] = useState<number>(0);
-  const [sortBy, setSortBy] = useState<"distance" | "rating" | "reviews" | "name">(
-    "distance",
-  );
+  const [sortBy, setSortBy] = useState<"distance" | "rating" | "reviews" | "name">("distance");
 
   // Enrich located competitors with computed distance for filter/sort.
   const enriched = located.map((l) => ({
@@ -359,9 +340,7 @@ function CompetitorSidebar({
   }));
 
   const filteredLocated = enriched
-    .filter((l) =>
-      l.distance == null ? true : l.distance <= maxDistance,
-    )
+    .filter((l) => (l.distance == null ? true : l.distance <= maxDistance))
     .filter((l) => (l.rating ?? 0) >= minRating);
 
   const sortedLocated = [...filteredLocated].sort((a, b) => {
@@ -427,9 +406,7 @@ function CompetitorSidebar({
           />
         </div>
         <div>
-          <label className="mb-1 block text-[11px] text-muted-foreground">
-            Sort by
-          </label>
+          <label className="mb-1 block text-[11px] text-muted-foreground">Sort by</label>
           <select
             value={sortBy}
             onChange={(e) =>
@@ -456,10 +433,7 @@ function CompetitorSidebar({
       ) : (
         <ul className="space-y-2">
           {sortedLocated.map((c) => (
-            <li
-              key={c.id}
-              className="rounded-md border border-border bg-background p-3 text-xs"
-            >
+            <li key={c.id} className="rounded-md border border-border bg-background p-3 text-xs">
               <div className="flex items-start justify-between gap-2">
                 <span className="font-medium">{c.name}</span>
                 {c.gbp_url && (
@@ -474,28 +448,20 @@ function CompetitorSidebar({
                   </a>
                 )}
               </div>
-              {c.address && (
-                <div className="mt-1 text-muted-foreground">{c.address}</div>
-              )}
+              {c.address && <div className="mt-1 text-muted-foreground">{c.address}</div>}
               <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-0.5">
                 {c.rating != null && (
                   <span className="inline-flex items-center gap-1 text-amber-500">
                     <Star className="h-3 w-3 fill-amber-500" />
                     {c.rating.toFixed(1)}
-                    <span className="text-muted-foreground">
-                      ({c.ratingCount ?? 0})
-                    </span>
+                    <span className="text-muted-foreground">({c.ratingCount ?? 0})</span>
                   </span>
                 )}
                 {c.distance != null && (
-                  <span className="text-muted-foreground">
-                    {c.distance.toFixed(1)} km
-                  </span>
+                  <span className="text-muted-foreground">{c.distance.toFixed(1)} km</span>
                 )}
               </div>
-              {c.notes && (
-                <p className="mt-1 text-muted-foreground">{c.notes}</p>
-              )}
+              {c.notes && <p className="mt-1 text-muted-foreground">{c.notes}</p>}
             </li>
           ))}
           {unlocated.map((c) => (
@@ -518,9 +484,7 @@ function CompetitorSidebar({
                 )}
               </div>
               <div className="mt-1 text-muted-foreground">Not on map</div>
-              {c.notes && (
-                <p className="mt-1 text-muted-foreground">{c.notes}</p>
-              )}
+              {c.notes && <p className="mt-1 text-muted-foreground">{c.notes}</p>}
             </li>
           ))}
         </ul>

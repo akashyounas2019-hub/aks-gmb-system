@@ -1,13 +1,30 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Scissors, Download, Loader2, CheckCircle2, Crop as CropIcon, Save, AlertTriangle,
-  Library, Music, Wand2, X, Film,
+  Scissors,
+  Download,
+  Loader2,
+  CheckCircle2,
+  Crop as CropIcon,
+  Save,
+  AlertTriangle,
+  Library,
+  Music,
+  Wand2,
+  X,
+  Film,
 } from "lucide-react";
 import { toast } from "sonner";
 import {
-  loadFFmpeg, getFFmpeg, fetchFile, humanSize, downloadBlob, formatDuration,
-  validateVideoFileBasic, validateVideoFile, MAX_VIDEO_DURATION_SECONDS,
+  loadFFmpeg,
+  getFFmpeg,
+  fetchFile,
+  humanSize,
+  downloadBlob,
+  formatDuration,
+  validateVideoFileBasic,
+  validateVideoFile,
+  MAX_VIDEO_DURATION_SECONDS,
 } from "@/lib/ffmpeg-client";
 import { uploadBlobWithProgress, getCurrentUserId } from "@/lib/storage-upload";
 import { supabase } from "@/integrations/supabase/client";
@@ -200,19 +217,31 @@ function VideoCompressPage() {
 
     // Trim / duration checks
     if (fullDur > 0) {
-      if (trimDur < 0.2) errors.push("Trim range is under 0.2s — output would be empty or invalid.");
-      else if (trimDur < 1) warnings.push(`Trim range is very short (${trimDur.toFixed(2)}s); some players may not play it.`);
-      if (trim.start < 0 || trim.end > fullDur + 0.05) errors.push("Trim range is outside the video's duration.");
+      if (trimDur < 0.2)
+        errors.push("Trim range is under 0.2s — output would be empty or invalid.");
+      else if (trimDur < 1)
+        warnings.push(
+          `Trim range is very short (${trimDur.toFixed(2)}s); some players may not play it.`,
+        );
+      if (trim.start < 0 || trim.end > fullDur + 0.05)
+        errors.push("Trim range is outside the video's duration.");
       if (trim.start >= trim.end) errors.push("Trim start is at or after trim end.");
       if (fullDur > MAX_VIDEO_DURATION_SECONDS) {
-        errors.push(`Source exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`);
+        errors.push(
+          `Source exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`,
+        );
       }
     }
 
     // Crop checks
     if (crop) {
       if (crop.w < 2 || crop.h < 2) errors.push("Crop region has zero (or near-zero) area.");
-      if (crop.x < 0 || crop.y < 0 || crop.x + crop.w > dims.w + 0.5 || crop.y + crop.h > dims.h + 0.5) {
+      if (
+        crop.x < 0 ||
+        crop.y < 0 ||
+        crop.x + crop.w > dims.w + 0.5 ||
+        crop.y + crop.h > dims.h + 0.5
+      ) {
         errors.push("Crop region extends outside the video frame.");
       }
     }
@@ -220,24 +249,29 @@ function VideoCompressPage() {
     // Output resolution checks (after scale + even rounding)
     if (estimate) {
       if (estimate.outW < 16 || estimate.outH < 16) {
-        errors.push(`Output resolution ${estimate.outW}×${estimate.outH} is too small — increase scale or crop size.`);
+        errors.push(
+          `Output resolution ${estimate.outW}×${estimate.outH} is too small — increase scale or crop size.`,
+        );
       } else if (estimate.outW < 64 || estimate.outH < 64) {
         warnings.push(`Output resolution ${estimate.outW}×${estimate.outH} is very small.`);
       }
       if (estimate.procSec > 180) {
-        warnings.push(`Processing may take ~${formatProcTime(estimate.procSec)} — consider lowering scale or trimming further.`);
+        warnings.push(
+          `Processing may take ~${formatProcTime(estimate.procSec)} — consider lowering scale or trimming further.`,
+        );
       }
     }
 
     if (customAudioFile) {
-      warnings.push("The new audio track will replace the original; the video is cut to match the shorter of the two.");
+      warnings.push(
+        "The new audio track will replace the original; the video is cut to match the shorter of the two.",
+      );
     }
 
     return { errors, warnings };
   }, [file, dims, duration, trim.start, trim.end, crop, estimate, customAudioFile]);
 
   const hasBlockingIssues = preflight.errors.length > 0;
-
 
   useEffect(() => {
     if (!result) {
@@ -252,7 +286,8 @@ function VideoCompressPage() {
 
   // Keep the two comparison players in sync while scrubbing/playing.
   function syncPlay() {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (!b || !a) return;
     a.currentTime = b.currentTime;
     if (!b.paused) a.play().catch(() => {});
@@ -264,7 +299,8 @@ function VideoCompressPage() {
     setIsPlaying(false);
   }
   function syncSeek() {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (b && a) a.currentTime = b.currentTime;
     if (b) setCurTime(b.currentTime);
   }
@@ -276,7 +312,8 @@ function VideoCompressPage() {
     else b.pause();
   }
   function stepFrame(dir: 1 | -1) {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (!b) return;
     b.pause();
     a?.pause();
@@ -288,7 +325,8 @@ function VideoCompressPage() {
     setIsPlaying(false);
   }
   function seekToPct(pct: number) {
-    const b = beforeCmpRef.current, a = afterCmpRef.current;
+    const b = beforeCmpRef.current,
+      a = afterCmpRef.current;
     if (!b || !b.duration) return;
     const t = (pct / 100) * b.duration;
     b.currentTime = t;
@@ -318,7 +356,8 @@ function VideoCompressPage() {
   }, [busy]);
 
   const elapsedMs = startedAt ? now - startedAt : 0;
-  const etaMs = startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
+  const etaMs =
+    startedAt && progress > 0.02 ? Math.max(0, (elapsedMs / progress) * (1 - progress)) : null;
 
   useEffect(() => {
     if (!file) {
@@ -392,7 +431,9 @@ function VideoCompressPage() {
     // Enforce duration limit here — dims/duration are already loaded via <video> metadata.
     const video = videoRef.current;
     if (video && Number.isFinite(video.duration) && video.duration > MAX_VIDEO_DURATION_SECONDS) {
-      toast.error(`Video exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`);
+      toast.error(
+        `Video exceeds the ${formatDuration(MAX_VIDEO_DURATION_SECONDS * 1000)} in-browser limit.`,
+      );
       return;
     }
     // Re-check basic constraints defensively.
@@ -473,21 +514,13 @@ function VideoCompressPage() {
       if (audioFilters && !dropOriginalAudio) {
         args.push("-af", audioFilters);
       }
-      args.push(
-        "-c:v", "libx264",
-        "-preset", "veryfast",
-        "-crf", String(quality),
-      );
+      args.push("-c:v", "libx264", "-preset", "veryfast", "-crf", String(quality));
       if (dropOriginalAudio && !audioName) {
         args.push("-an");
       } else {
         args.push("-c:a", "aac", "-b:a", "128k");
       }
-      args.push(
-        "-movflags", "+faststart",
-        "-pix_fmt", "yuv420p",
-        outputName,
-      );
+      args.push("-movflags", "+faststart", "-pix_fmt", "yuv420p", outputName);
 
       const statusParts = [trimActive && "trim", "crop"];
       if (denoiseEnabled && !dropOriginalAudio) statusParts.push("denoise");
@@ -505,23 +538,44 @@ function VideoCompressPage() {
       setResult({ blob, name: outName, size: blob.size });
       setStatus("Done");
       // Best-effort cleanup of in-memory FS.
-      try { await ff.deleteFile(inputName); } catch { /* ignore */ }
-      try { await ff.deleteFile(outputName); } catch { /* ignore */ }
+      try {
+        await ff.deleteFile(inputName);
+      } catch {
+        /* ignore */
+      }
+      try {
+        await ff.deleteFile(outputName);
+      } catch {
+        /* ignore */
+      }
       if (audioName) {
-        try { await ff.deleteFile(audioName); } catch { /* ignore */ }
+        try {
+          await ff.deleteFile(audioName);
+        } catch {
+          /* ignore */
+        }
       }
       toast.success(`Reduced from ${humanSize(file.size)} to ${humanSize(blob.size)}`);
     } catch (err) {
-      console.error("[compress] ffmpeg failed", err, "\nlast ffmpeg logs:\n" + logs.slice(-25).join("\n"));
-      const ffErr = logs.slice().reverse().find((l) =>
-        /error|invalid|failed|no such|unsupported|does not contain/i.test(l),
+      console.error(
+        "[compress] ffmpeg failed",
+        err,
+        "\nlast ffmpeg logs:\n" + logs.slice(-25).join("\n"),
       );
+      const ffErr = logs
+        .slice()
+        .reverse()
+        .find((l) => /error|invalid|failed|no such|unsupported|does not contain/i.test(l));
       const baseMsg = err instanceof Error && err.message ? err.message : "Processing failed";
       toast.error(ffErr ? `${baseMsg}: ${ffErr}` : baseMsg);
       setStatus("Failed");
     } finally {
       if (logHandler) {
-        try { getFFmpeg().off("log", logHandler); } catch { /* ignore */ }
+        try {
+          getFFmpeg().off("log", logHandler);
+        } catch {
+          /* ignore */
+        }
       }
       setBusy(false);
     }
@@ -534,7 +588,8 @@ function VideoCompressPage() {
         <h1 className="text-3xl">Compress & Crop</h1>
       </div>
       <p className="mb-6 text-sm text-muted-foreground">
-        Reduce file size and crop your video. Drag on the preview to draw a crop region. Runs entirely in your browser.
+        Reduce file size and crop your video. Drag on the preview to draw a crop region. Runs
+        entirely in your browser.
       </p>
 
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
@@ -606,12 +661,21 @@ function VideoCompressPage() {
           />
           {file && (
             <div className="mt-3 flex flex-wrap items-center justify-between gap-2 text-xs text-muted-foreground">
-              <span>{file.name} · {humanSize(file.size)}{dims ? ` · ${dims.w}×${dims.h}` : ""}</span>
+              <span>
+                {file.name} · {humanSize(file.size)}
+                {dims ? ` · ${dims.w}×${dims.h}` : ""}
+              </span>
               <div className="flex items-center gap-2">
-                <button onClick={openLibraryPicker} className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent">
+                <button
+                  onClick={openLibraryPicker}
+                  className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent"
+                >
                   <Library className="h-3 w-3" /> Select from library
                 </button>
-                <button onClick={resetCrop} className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent">
+                <button
+                  onClick={resetCrop}
+                  className="inline-flex items-center gap-1 rounded-md border border-border/70 px-2 py-1 hover:bg-accent"
+                >
                   <CropIcon className="h-3 w-3" /> Reset crop
                 </button>
               </div>
@@ -623,18 +687,26 @@ function VideoCompressPage() {
           <div>
             <label className="text-sm font-medium">Quality (CRF {quality})</label>
             <input
-              type="range" min={18} max={40} value={quality}
+              type="range"
+              min={18}
+              max={40}
+              value={quality}
               onChange={(e) => setQuality(Number(e.target.value))}
               className="mt-2 w-full"
             />
             <div className="flex justify-between text-[10px] text-muted-foreground">
-              <span>Best (18)</span><span>Smallest (40)</span>
+              <span>Best (18)</span>
+              <span>Smallest (40)</span>
             </div>
           </div>
           <div>
             <label className="text-sm font-medium">Resolution scale ({scale}%)</label>
             <input
-              type="range" min={25} max={100} step={5} value={scale}
+              type="range"
+              min={25}
+              max={100}
+              step={5}
+              value={scale}
               onChange={(e) => setScale(Number(e.target.value))}
               className="mt-2 w-full"
             />
@@ -645,11 +717,15 @@ function VideoCompressPage() {
                 <span className="font-medium">Trim</span>
                 <span className="tabular-nums text-xs text-muted-foreground">
                   {formatDuration(trim.start * 1000)} → {formatDuration(trim.end * 1000)}
-                  <span className="ml-1">({formatDuration(Math.max(0, trim.end - trim.start) * 1000)})</span>
+                  <span className="ml-1">
+                    ({formatDuration(Math.max(0, trim.end - trim.start) * 1000)})
+                  </span>
                 </span>
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">Start</label>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  Start
+                </label>
                 <input
                   type="range"
                   min={0}
@@ -664,7 +740,9 @@ function VideoCompressPage() {
                 />
               </div>
               <div>
-                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">End</label>
+                <label className="text-[10px] uppercase tracking-wide text-muted-foreground">
+                  End
+                </label>
                 <input
                   type="range"
                   min={0}
@@ -708,14 +786,20 @@ function VideoCompressPage() {
                   <span className="tabular-nums">{denoiseStrength}</span>
                 </div>
                 <input
-                  type="range" min={0.5} max={40} step={0.5} value={denoiseStrength}
+                  type="range"
+                  min={0.5}
+                  max={40}
+                  step={0.5}
+                  value={denoiseStrength}
                   onChange={(e) => setDenoiseStrength(Number(e.target.value))}
                   className="mt-1 w-full"
                 />
               </div>
             )}
             {(removeOriginalAudio || customAudioFile) && (
-              <p className="text-[10px] text-muted-foreground">Not applicable — original audio is being removed/replaced.</p>
+              <p className="text-[10px] text-muted-foreground">
+                Not applicable — original audio is being removed/replaced.
+              </p>
             )}
             <p className="text-[10px] text-muted-foreground">
               Free FFT-based denoise (afftdn), runs entirely in your browser.
@@ -745,7 +829,9 @@ function VideoCompressPage() {
               </label>
             ) : (
               <div className="flex items-center justify-between gap-2 rounded-md border border-border/60 bg-background/60 px-2 py-1.5 text-xs">
-                <span className="truncate">{customAudioFile.name} · {humanSize(customAudioFile.size)}</span>
+                <span className="truncate">
+                  {customAudioFile.name} · {humanSize(customAudioFile.size)}
+                </span>
                 <button
                   type="button"
                   onClick={() => setCustomAudioFile(null)}
@@ -777,7 +863,8 @@ function VideoCompressPage() {
             />
             {customAudioFile && (
               <p className="text-[10px] text-muted-foreground">
-                Original audio will be replaced by this track. Output length matches whichever is shorter.
+                Original audio will be replaced by this track. Output length matches whichever is
+                shorter.
               </p>
             )}
           </div>
@@ -811,7 +898,8 @@ function VideoCompressPage() {
                 <span className="text-[10px]">from {humanSize(file!.size)}</span>
               </div>
               <div className="mt-1 text-[10px] text-muted-foreground">
-                {estimate.outW}×{estimate.outH} · {formatDuration(estimate.durSec * 1000)} · CRF {quality}
+                {estimate.outW}×{estimate.outH} · {formatDuration(estimate.durSec * 1000)} · CRF{" "}
+                {quality}
                 <span className="ml-1 opacity-70">(rough estimate, actual varies with motion)</span>
               </div>
               <div className="mt-1 flex items-center justify-between border-t border-border/40 pt-1 text-[10px] text-muted-foreground tabular-nums">
@@ -840,7 +928,9 @@ function VideoCompressPage() {
               </div>
               <ul className="mt-1 space-y-0.5 pl-5 text-muted-foreground [list-style:disc]">
                 {preflight.errors.map((m, i) => (
-                  <li key={`e${i}`} className="text-foreground/90">{m}</li>
+                  <li key={`e${i}`} className="text-foreground/90">
+                    {m}
+                  </li>
                 ))}
                 {preflight.warnings.map((m, i) => (
                   <li key={`w${i}`}>{m}</li>
@@ -851,9 +941,10 @@ function VideoCompressPage() {
           <button
             onClick={run}
             disabled={!file || busy || hasBlockingIssues}
-            title={hasBlockingIssues ? "Resolve the highlighted issues to enable compression" : undefined}
+            title={
+              hasBlockingIssues ? "Resolve the highlighted issues to enable compression" : undefined
+            }
             className="inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
-          
           >
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Scissors className="h-4 w-4" />}
             Compress & crop
@@ -865,7 +956,10 @@ function VideoCompressPage() {
                 <span className="tabular-nums">{Math.round(progress * 100)}%</span>
               </div>
               <div className="h-1.5 w-full overflow-hidden rounded-full bg-accent/40">
-                <div className="h-full bg-primary transition-all" style={{ width: `${Math.round(progress * 100)}%` }} />
+                <div
+                  className="h-full bg-primary transition-all"
+                  style={{ width: `${Math.round(progress * 100)}%` }}
+                />
               </div>
               <div className="mt-1 flex justify-between tabular-nums">
                 <span>{formatDuration(elapsedMs)} elapsed</span>
@@ -889,7 +983,11 @@ function VideoCompressPage() {
                 disabled={saving || saved}
                 className="mt-2 inline-flex w-full items-center justify-center gap-2 rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground shadow-sm disabled:opacity-50"
               >
-                {saving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                {saving ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="h-4 w-4" />
+                )}
                 {saved ? "Saved" : saving ? "Saving…" : "Save to library"}
               </button>
               <button
@@ -927,19 +1025,34 @@ function VideoCompressPage() {
               </span>
             </div>
             <div className="flex items-center gap-2 text-[10px] uppercase tracking-wide text-muted-foreground">
-              <span className="rounded bg-accent/40 px-2 py-0.5">Original {humanSize(file!.size)}</span>
-              <span className="rounded bg-primary/20 px-2 py-0.5 text-foreground">Compressed {humanSize(result.size)}</span>
+              <span className="rounded bg-accent/40 px-2 py-0.5">
+                Original {humanSize(file!.size)}
+              </span>
+              <span className="rounded bg-primary/20 px-2 py-0.5 text-foreground">
+                Compressed {humanSize(result.size)}
+              </span>
             </div>
           </div>
 
           <div
             ref={compareBoxRef}
             className="relative select-none overflow-hidden rounded-lg bg-black"
-            onMouseMove={(e) => { if (compareDragRef.current) updateCompareFromEvent(e.clientX); }}
-            onMouseUp={() => { compareDragRef.current = false; }}
-            onMouseLeave={() => { compareDragRef.current = false; }}
-            onTouchMove={(e) => { if (compareDragRef.current && e.touches[0]) updateCompareFromEvent(e.touches[0].clientX); }}
-            onTouchEnd={() => { compareDragRef.current = false; }}
+            onMouseMove={(e) => {
+              if (compareDragRef.current) updateCompareFromEvent(e.clientX);
+            }}
+            onMouseUp={() => {
+              compareDragRef.current = false;
+            }}
+            onMouseLeave={() => {
+              compareDragRef.current = false;
+            }}
+            onTouchMove={(e) => {
+              if (compareDragRef.current && e.touches[0])
+                updateCompareFromEvent(e.touches[0].clientX);
+            }}
+            onTouchEnd={() => {
+              compareDragRef.current = false;
+            }}
           >
             <video
               ref={beforeCmpRef}
@@ -954,10 +1067,12 @@ function VideoCompressPage() {
                 if (b) setCurTime(b.currentTime);
               }}
               onTimeUpdate={() => {
-                const b = beforeCmpRef.current, a = afterCmpRef.current;
+                const b = beforeCmpRef.current,
+                  a = afterCmpRef.current;
                 if (!b) return;
                 setCurTime(b.currentTime);
-                if (a && Math.abs(b.currentTime - a.currentTime) > 0.25) a.currentTime = b.currentTime;
+                if (a && Math.abs(b.currentTime - a.currentTime) > 0.25)
+                  a.currentTime = b.currentTime;
               }}
               className="block max-h-[560px] w-full"
             />
@@ -976,11 +1091,27 @@ function VideoCompressPage() {
             <div
               className="absolute inset-y-0 w-0.5 -translate-x-1/2 cursor-ew-resize bg-primary shadow-[0_0_0_1px_rgba(0,0,0,0.4)]"
               style={{ left: `${comparePct}%` }}
-              onMouseDown={(e) => { compareDragRef.current = true; updateCompareFromEvent(e.clientX); e.preventDefault(); }}
-              onTouchStart={(e) => { compareDragRef.current = true; if (e.touches[0]) updateCompareFromEvent(e.touches[0].clientX); }}
+              onMouseDown={(e) => {
+                compareDragRef.current = true;
+                updateCompareFromEvent(e.clientX);
+                e.preventDefault();
+              }}
+              onTouchStart={(e) => {
+                compareDragRef.current = true;
+                if (e.touches[0]) updateCompareFromEvent(e.touches[0].clientX);
+              }}
             >
               <div className="absolute top-1/2 left-1/2 flex h-8 w-8 -translate-x-1/2 -translate-y-1/2 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-md">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.5"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
                   <polyline points="15 18 9 12 15 6" />
                   <polyline points="9 18 15 12 9 6" />
                 </svg>
@@ -998,38 +1129,67 @@ function VideoCompressPage() {
           <div className="mt-3 flex flex-wrap items-center gap-2">
             <button
               type="button"
-              onClick={() => { const b = beforeCmpRef.current; if (b) { b.pause(); b.currentTime = 0; } const a = afterCmpRef.current; if (a) a.currentTime = 0; setCurTime(0); setIsPlaying(false); }}
+              onClick={() => {
+                const b = beforeCmpRef.current;
+                if (b) {
+                  b.pause();
+                  b.currentTime = 0;
+                }
+                const a = afterCmpRef.current;
+                if (a) a.currentTime = 0;
+                setCurTime(0);
+                setIsPlaying(false);
+              }}
               className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
               aria-label="Jump to start"
               title="Jump to start"
-            >⏮</button>
+            >
+              ⏮
+            </button>
             <button
               type="button"
               onClick={() => stepFrame(-1)}
               className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
               aria-label="Previous frame"
               title="Previous frame"
-            >⏪ Frame</button>
+            >
+              ⏪ Frame
+            </button>
             <button
               type="button"
               onClick={togglePlay}
               className="rounded-md bg-primary px-3 py-1 text-xs font-medium text-primary-foreground hover:opacity-90"
               aria-label={isPlaying ? "Pause" : "Play"}
-            >{isPlaying ? "⏸ Pause" : "▶ Play"}</button>
+            >
+              {isPlaying ? "⏸ Pause" : "▶ Play"}
+            </button>
             <button
               type="button"
               onClick={() => stepFrame(1)}
               className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
               aria-label="Next frame"
               title="Next frame"
-            >Frame ⏩</button>
+            >
+              Frame ⏩
+            </button>
             <button
               type="button"
-              onClick={() => { const b = beforeCmpRef.current; if (!b || !b.duration) return; b.pause(); b.currentTime = b.duration; const a = afterCmpRef.current; if (a) a.currentTime = b.duration; setCurTime(b.duration); setIsPlaying(false); }}
+              onClick={() => {
+                const b = beforeCmpRef.current;
+                if (!b || !b.duration) return;
+                b.pause();
+                b.currentTime = b.duration;
+                const a = afterCmpRef.current;
+                if (a) a.currentTime = b.duration;
+                setCurTime(b.duration);
+                setIsPlaying(false);
+              }}
               className="rounded-md border border-border/60 bg-background px-2 py-1 text-xs hover:bg-accent"
               aria-label="Jump to end"
               title="Jump to end"
-            >⏭</button>
+            >
+              ⏭
+            </button>
 
             <div className="ml-2 font-mono text-xs tabular-nums text-muted-foreground">
               {fmtTime(curTime)} / {fmtTime(beforeCmpRef.current?.duration ?? 0)}
@@ -1055,7 +1215,9 @@ function VideoCompressPage() {
             min={0}
             max={100}
             step={0.01}
-            value={beforeCmpRef.current?.duration ? (curTime / beforeCmpRef.current.duration) * 100 : 0}
+            value={
+              beforeCmpRef.current?.duration ? (curTime / beforeCmpRef.current.duration) * 100 : 0
+            }
             onChange={(e) => seekToPct(Number(e.target.value))}
             aria-label="Scrub timeline"
             className="mt-2 w-full"
@@ -1064,16 +1226,16 @@ function VideoCompressPage() {
           <div className="mt-3 border-t border-border/40 pt-3">
             <div className="mb-1 text-xs text-muted-foreground">Before / after divider</div>
 
-          <input
-            type="range"
-            min={0}
-            max={100}
-            step={0.5}
-            value={comparePct}
-            onChange={(e) => setComparePct(Number(e.target.value))}
-            aria-label="Before/after divider position"
-            className="mt-3 w-full"
-          />
+            <input
+              type="range"
+              min={0}
+              max={100}
+              step={0.5}
+              value={comparePct}
+              onChange={(e) => setComparePct(Number(e.target.value))}
+              aria-label="Before/after divider position"
+              className="mt-3 w-full"
+            />
           </div>
         </div>
       )}
@@ -1130,7 +1292,10 @@ function LibraryPickerModal({
   }, [onClose]);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/70 p-4"
+      onClick={onClose}
+    >
       <div
         className="flex max-h-[80vh] w-full max-w-3xl flex-col rounded-xl border border-border bg-card p-5"
         onClick={(e) => e.stopPropagation()}
@@ -1191,7 +1356,13 @@ function LibraryVideoCard({
     >
       <div className="relative aspect-video bg-black">
         {url ? (
-          <video src={url} className="h-full w-full object-cover" muted playsInline preload="metadata" />
+          <video
+            src={url}
+            className="h-full w-full object-cover"
+            muted
+            playsInline
+            preload="metadata"
+          />
         ) : (
           <div className="h-full w-full animate-pulse bg-muted" />
         )}
@@ -1204,7 +1375,9 @@ function LibraryVideoCard({
       <div className="p-2">
         <div className="truncate text-xs font-medium">{video.original_name}</div>
         <div className="mt-0.5 flex items-center gap-2 text-[10px] text-muted-foreground">
-          {video.duration_seconds ? <span>{formatDuration(video.duration_seconds * 1000)}</span> : null}
+          {video.duration_seconds ? (
+            <span>{formatDuration(video.duration_seconds * 1000)}</span>
+          ) : null}
           {video.size_bytes ? <span>{humanSize(video.size_bytes)}</span> : null}
         </div>
       </div>

@@ -45,12 +45,17 @@ async function callOpenAiCompatible(
       })),
     }),
   });
-  if (!res.ok) throw new Error(`${baseUrl} responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok)
+    throw new Error(`${baseUrl} responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const json = (await res.json()) as { choices?: { message?: { content?: string } }[] };
   return json.choices?.[0]?.message?.content ?? "";
 }
 
-async function callGemini(apiKey: string, model: string, messages: DirectChatMessage[]): Promise<string> {
+async function callGemini(
+  apiKey: string,
+  model: string,
+  messages: DirectChatMessage[],
+): Promise<string> {
   const system = messages.find((m) => m.role === "system")?.text;
   const user = messages.find((m) => m.role === "user");
   if (!user) throw new Error("No user message to send to Gemini");
@@ -77,14 +82,19 @@ async function callGemini(apiKey: string, model: string, messages: DirectChatMes
       }),
     },
   );
-  if (!res.ok) throw new Error(`Gemini responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok)
+    throw new Error(`Gemini responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const json = (await res.json()) as {
     candidates?: { content?: { parts?: { text?: string }[] } }[];
   };
   return json.candidates?.[0]?.content?.parts?.map((p) => p.text ?? "").join("") ?? "";
 }
 
-async function callAnthropic(apiKey: string, model: string, messages: DirectChatMessage[]): Promise<string> {
+async function callAnthropic(
+  apiKey: string,
+  model: string,
+  messages: DirectChatMessage[],
+): Promise<string> {
   const system = messages.find((m) => m.role === "system")?.text;
   const user = messages.find((m) => m.role === "user");
   if (!user) throw new Error("No user message to send to Claude");
@@ -118,9 +128,13 @@ async function callAnthropic(apiKey: string, model: string, messages: DirectChat
       messages: [{ role: "user", content }],
     }),
   });
-  if (!res.ok) throw new Error(`Claude responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
+  if (!res.ok)
+    throw new Error(`Claude responded ${res.status}: ${(await res.text()).slice(0, 300)}`);
   const json = (await res.json()) as { content?: { type: string; text?: string }[] };
-  return (json.content ?? []).filter((b) => b.type === "text").map((b) => b.text ?? "").join("");
+  return (json.content ?? [])
+    .filter((b) => b.type === "text")
+    .map((b) => b.text ?? "")
+    .join("");
 }
 
 /**

@@ -150,18 +150,32 @@
     font-feature-settings: "ss01", "ss02";
   }
 
-  h1 { letter-spacing: -0.035em; }
-  h2 { letter-spacing: -0.025em; }
+  h1 {
+    letter-spacing: -0.035em;
+  }
+  h2 {
+    letter-spacing: -0.025em;
+  }
 
-  a, button {
-    transition: color 150ms ease, background-color 150ms ease,
-                border-color 150ms ease, opacity 150ms ease,
-                transform 150ms ease, box-shadow 200ms ease;
+  a,
+  button {
+    transition:
+      color 150ms ease,
+      background-color 150ms ease,
+      border-color 150ms ease,
+      opacity 150ms ease,
+      transform 150ms ease,
+      box-shadow 200ms ease;
   }
 
   /* Refined scrollbars */
-  ::-webkit-scrollbar { width: 10px; height: 10px; }
-  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
   ::-webkit-scrollbar-thumb {
     background: color-mix(in oklab, var(--color-foreground) 12%, transparent);
     border-radius: 999px;
@@ -186,7 +200,6 @@
     color: var(--color-foreground);
   }
 }
-
 
 @utility bg-hero-gradient {
   background:

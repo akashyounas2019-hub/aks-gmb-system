@@ -27,9 +27,12 @@ function BackupsPage() {
   const [status, setStatus] = useState<Status>("idle");
   const [progress, setProgress] = useState({ done: 0, total: 0 });
   const [log, setLog] = useState<LogItem[]>([]);
-  const [summary, setSummary] = useState<{ ok: number; fail: number; downloadUrl?: string; filename?: string } | null>(
-    null,
-  );
+  const [summary, setSummary] = useState<{
+    ok: number;
+    fail: number;
+    downloadUrl?: string;
+    filename?: string;
+  } | null>(null);
 
   async function runBackup() {
     setStatus("running");
@@ -57,15 +60,15 @@ function BackupsPage() {
       push({ id: stepIds.listImg, label: "List images", state: "pending" });
       const { data: images, error: imgErr } = await supabase
         .from("images")
-        .select("id,name,title,description,storage_path,folder_id,venue_id,video_id,lat,lng,width,height,posted_at,created_at,deleted_at")
+        .select(
+          "id,name,title,description,storage_path,folder_id,venue_id,video_id,lat,lng,width,height,posted_at,created_at,deleted_at",
+        )
         .is("deleted_at", null);
       if (imgErr) throw imgErr;
       patch(stepIds.listImg, "ok", `${images?.length ?? 0} files`);
 
       push({ id: stepIds.listVid, label: "List videos", state: "pending" });
-      const { data: videos, error: vidErr } = await supabase
-        .from("videos")
-        .select("*");
+      const { data: videos, error: vidErr } = await supabase.from("videos").select("*");
       if (vidErr) throw vidErr;
       patch(stepIds.listVid, "ok", `${videos?.length ?? 0} files`);
 
@@ -100,10 +103,16 @@ function BackupsPage() {
           signedVideos.push({ ...row, backup_url: null, backup_error: "missing storage_path" });
           fail++;
         } else {
-          const { data, error } = await supabase.storage.from("videos").createSignedUrl(path, EXPIRES);
+          const { data, error } = await supabase.storage
+            .from("videos")
+            .createSignedUrl(path, EXPIRES);
           if (error || !data?.signedUrl) {
             fail++;
-            signedVideos.push({ ...row, backup_url: null, backup_error: error?.message ?? "no url" });
+            signedVideos.push({
+              ...row,
+              backup_url: null,
+              backup_error: error?.message ?? "no url",
+            });
           } else {
             ok++;
             signedVideos.push({ ...row, backup_url: data.signedUrl });
@@ -153,7 +162,10 @@ function BackupsPage() {
         if (last && last.state === "pending") {
           return [...prev.slice(0, -1), { ...last, state: "fail", detail: msg }];
         }
-        return [...prev, { id: crypto.randomUUID(), label: "Backup failed", state: "fail", detail: msg }];
+        return [
+          ...prev,
+          { id: crypto.randomUUID(), label: "Backup failed", state: "fail", detail: msg },
+        ];
       });
     }
   }

@@ -96,18 +96,18 @@ const AREA_SEED_CENTERS: Record<string, { lat: number; lng: number }> = {
   "Al Wasl": { lat: 25.1963, lng: 55.2534 },
   Akoya: { lat: 24.9297, lng: 55.2611 },
   "Arabian Ranches": { lat: 25.0432, lng: 55.2703 },
-  Arjaan: { lat: 25.0995, lng: 55.1740 },
-  Boulevard: { lat: 25.1930, lng: 55.2760 },
+  Arjaan: { lat: 25.0995, lng: 55.174 },
+  Boulevard: { lat: 25.193, lng: 55.276 },
   "Burj Khalifa": { lat: 25.1972, lng: 55.2744 },
   "Business Bay": { lat: 25.1867, lng: 55.2704 },
-  DIFC: { lat: 25.2110, lng: 55.2796 },
-  "Discovery Gardens": { lat: 25.0430, lng: 55.1385 },
+  DIFC: { lat: 25.211, lng: 55.2796 },
+  "Discovery Gardens": { lat: 25.043, lng: 55.1385 },
   "Dubai Downtown": { lat: 25.1934, lng: 55.2751 },
   "Dubai Falcon City": { lat: 25.1183, lng: 55.3216 },
   "Dubai Festival City": { lat: 25.2216, lng: 55.3536 },
-  "Dubai Health Care City": { lat: 25.2320, lng: 55.3234 },
-  "Dubai Investment Park": { lat: 24.9857, lng: 55.1770 },
-  "Dubai Land": { lat: 25.1000, lng: 55.3200 },
+  "Dubai Health Care City": { lat: 25.232, lng: 55.3234 },
+  "Dubai Investment Park": { lat: 24.9857, lng: 55.177 },
+  "Dubai Land": { lat: 25.1, lng: 55.32 },
   "Dubai Marina": { lat: 25.0805, lng: 55.1403 },
   "Emirates Hills": { lat: 25.0682, lng: 55.1657 },
   IMPZ: { lat: 25.0299, lng: 55.2088 },
@@ -118,37 +118,33 @@ const AREA_SEED_CENTERS: Record<string, { lat: number; lng: number }> = {
   Jumeirah: { lat: 25.2048, lng: 55.2708 },
   "Jumeirah Beach Residence": { lat: 25.0784, lng: 55.1336 },
   "Jumeirah Park": { lat: 25.0447, lng: 55.1583 },
-  "Layan Community": { lat: 25.0640, lng: 55.3170 },
+  "Layan Community": { lat: 25.064, lng: 55.317 },
   Meadows: { lat: 25.0575, lng: 55.1745 },
   Meydan: { lat: 25.1571, lng: 55.3006 },
   Mirdiff: { lat: 25.2168, lng: 55.4183 },
-  "Mirdiff Hills": { lat: 25.2110, lng: 55.4231 },
+  "Mirdiff Hills": { lat: 25.211, lng: 55.4231 },
   "Motor City": { lat: 25.0475, lng: 55.2385 },
   Mudon: { lat: 25.0027, lng: 55.2646 },
-  "Nad Al Hammar": { lat: 25.2166, lng: 55.3670 },
-  "Nad Al Sheba": { lat: 25.1567, lng: 55.3200 },
-  "Palm Jumeirah": { lat: 25.1124, lng: 55.1390 },
-  Rashidiya: { lat: 25.2400, lng: 55.3897 },
-  "Sheikh Zayed Road": { lat: 25.2110, lng: 55.2740 },
+  "Nad Al Hammar": { lat: 25.2166, lng: 55.367 },
+  "Nad Al Sheba": { lat: 25.1567, lng: 55.32 },
+  "Palm Jumeirah": { lat: 25.1124, lng: 55.139 },
+  Rashidiya: { lat: 25.24, lng: 55.3897 },
+  "Sheikh Zayed Road": { lat: 25.211, lng: 55.274 },
   "Sport City": { lat: 25.0388, lng: 55.2226 },
   "Studio City": { lat: 25.0342, lng: 55.2418 },
   "Umm Suqeim": { lat: 25.1413, lng: 55.1994 },
   "Uptown Mirdiff": { lat: 25.2247, lng: 55.4149 },
-  Deira: { lat: 25.2701, lng: 55.3160 },
+  Deira: { lat: 25.2701, lng: 55.316 },
 };
 
 const AREAS = Object.keys(AREA_SEED_CENTERS).sort();
-
 
 /**
  * Looks up real places from Google Places (Text Search) for a given property
  * type within a city/area — replaces the old hardcoded, made-up location
  * list. Returns actual addresses and coordinates.
  */
-async function searchPlaces(
-  type: PlaceType | "All",
-  areaOrQuery: string,
-): Promise<Place[]> {
+async function searchPlaces(type: PlaceType | "All", areaOrQuery: string): Promise<Place[]> {
   const google = (window as any).google;
   if (!google?.maps?.importLibrary) throw new Error("Google Maps not loaded");
   const { Place: GPlace } = (await google.maps.importLibrary("places")) as any;
@@ -165,21 +161,23 @@ async function searchPlaces(
           locationBias: { lat: 25.2048, lng: 55.2708, radius: 60000 },
           maxResultCount: 12,
         });
-        return (found ?? []).map((p: any): Place | null => {
-          const loc = p.location;
-          const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
-          const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
-          if (typeof lat !== "number" || typeof lng !== "number") return null;
-          return {
-            id: p.id,
-            name: p.displayName?.text ?? p.displayName ?? "Unnamed place",
-            area: city,
-            type: t,
-            lat,
-            lng,
-            address: p.formattedAddress ?? undefined,
-          };
-        }).filter((p: Place | null): p is Place => p !== null);
+        return (found ?? [])
+          .map((p: any): Place | null => {
+            const loc = p.location;
+            const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
+            const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
+            if (typeof lat !== "number" || typeof lng !== "number") return null;
+            return {
+              id: p.id,
+              name: p.displayName?.text ?? p.displayName ?? "Unnamed place",
+              area: city,
+              type: t,
+              lat,
+              lng,
+              address: p.formattedAddress ?? undefined,
+            };
+          })
+          .filter((p: Place | null): p is Place => p !== null);
       } catch {
         return [];
       }
@@ -192,10 +190,7 @@ async function searchPlaces(
 /** De-duplicate a keyword list (case-insensitive) and optionally seed it with
  *  the current location label so venue-scoped auto-tags survive alongside
  *  user-provided keywords. */
-function mergeKeywordSet(
-  existing: string[] | undefined,
-  locationLabel?: string | null,
-): string[] {
+function mergeKeywordSet(existing: string[] | undefined, locationLabel?: string | null): string[] {
   const seen = new Set<string>();
   const out: string[] = [];
   const push = (raw: string) => {
@@ -213,13 +208,13 @@ function mergeKeywordSet(
 
 /** Best-effort city/area name from a location label like "Villa X, Dubai Marina". */
 function cityFromLabel(label: string): string {
-  const parts = label.split(",").map((p) => p.trim()).filter(Boolean);
+  const parts = label
+    .split(",")
+    .map((p) => p.trim())
+    .filter(Boolean);
   if (parts.length === 0) return label;
   return parts[parts.length - 1];
 }
-
-
-
 
 /* -------------------------------------------------------------------------- */
 /* Types                                                                      */
@@ -302,9 +297,12 @@ function GeotaggingPage() {
   const [savingBulk, setSavingBulk] = useState(false);
 
   // Pinned coordinate (auto-applied to newly uploaded images)
-  const [pinnedCoord, setPinnedCoord] = useState<
-    { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null
-  >(null);
+  const [pinnedCoord, setPinnedCoord] = useState<{
+    lat: number;
+    lng: number;
+    label: string;
+    kind: "home" | "office" | "custom";
+  } | null>(null);
 
   // Dedicated Home/Office quick pickers
   const homePlaces = useMemo(() => places.filter((p) => p.type === "home"), [places]);
@@ -330,9 +328,15 @@ function GeotaggingPage() {
       const city = placeSearch.trim() || (areaFilter !== "All" ? areaFilter : "Dubai");
       const found = await searchPlaces(typeFilter, city);
       setPlaces(found);
-      setHomePickId((cur) => (found.some((p) => p.id === cur) ? cur : found.find((p) => p.type === "home")?.id ?? ""));
-      setOfficePickId((cur) => (found.some((p) => p.id === cur) ? cur : found.find((p) => p.type === "office")?.id ?? ""));
-      setActivePlace((cur) => (cur && found.some((p) => p.id === cur.id) ? cur : found[0] ?? null));
+      setHomePickId((cur) =>
+        found.some((p) => p.id === cur) ? cur : (found.find((p) => p.type === "home")?.id ?? ""),
+      );
+      setOfficePickId((cur) =>
+        found.some((p) => p.id === cur) ? cur : (found.find((p) => p.type === "office")?.id ?? ""),
+      );
+      setActivePlace((cur) =>
+        cur && found.some((p) => p.id === cur.id) ? cur : (found[0] ?? null),
+      );
     } catch (e) {
       setPlacesError(e instanceof Error ? e.message : "Couldn't reach Google Places.");
       setPlaces([]);
@@ -357,8 +361,6 @@ function GeotaggingPage() {
       setRefreshing(false);
     });
   }, [runSearch]);
-
-
 
   // Cloud library (existing user images)
   const [library, setLibrary] = useState<LibraryImage[]>([]);
@@ -415,8 +417,8 @@ function GeotaggingPage() {
             type: mime,
             lastModified: Date.now(),
           });
-          const lat = row.lat != null ? Number(row.lat) : pinnedCoord?.lat ?? null;
-          const lng = row.lng != null ? Number(row.lng) : pinnedCoord?.lng ?? null;
+          const lat = row.lat != null ? Number(row.lat) : (pinnedCoord?.lat ?? null);
+          const lng = row.lng != null ? Number(row.lng) : (pinnedCoord?.lng ?? null);
           built.push({
             id: crypto.randomUUID(),
             file,
@@ -426,7 +428,7 @@ function GeotaggingPage() {
             locationLabel:
               row.lat != null && row.lng != null
                 ? `Existing tag ${Number(row.lat).toFixed(4)}, ${Number(row.lng).toFixed(4)}`
-                : pinnedCoord?.label ?? null,
+                : (pinnedCoord?.label ?? null),
             title: row.title ?? row.name ?? file.name,
             description: row.description ?? "",
             keywords: [],
@@ -441,7 +443,9 @@ function GeotaggingPage() {
           });
         }
         setImages((prev) => [...prev, ...built]);
-        toast.success(`Imported ${built.length} image${built.length === 1 ? "" : "s"} from library.`);
+        toast.success(
+          `Imported ${built.length} image${built.length === 1 ? "" : "s"} from library.`,
+        );
       } catch (e) {
         toast.error(e instanceof Error ? e.message : "Library import failed.");
       } finally {
@@ -471,11 +475,11 @@ function GeotaggingPage() {
       setImages((prev) => [
         ...prev,
         ...enriched.map(({ file: f, meta, gps }) => {
-          const lat = gps.hasGps && gps.lat != null ? gps.lat : pinnedCoord?.lat ?? null;
-          const lng = gps.hasGps && gps.lng != null ? gps.lng : pinnedCoord?.lng ?? null;
+          const lat = gps.hasGps && gps.lat != null ? gps.lat : (pinnedCoord?.lat ?? null);
+          const lng = gps.hasGps && gps.lng != null ? gps.lng : (pinnedCoord?.lng ?? null);
           const locationLabel = gps.hasGps
             ? `Existing tag ${gps.lat!.toFixed(4)}, ${gps.lng!.toFixed(4)}`
-            : pinnedCoord?.label ?? null;
+            : (pinnedCoord?.label ?? null);
           const hasExistingMeta = Boolean(meta.title || meta.description);
           return {
             id: crypto.randomUUID(),
@@ -547,22 +551,21 @@ function GeotaggingPage() {
     return places.filter((p) => {
       if (areaFilter !== "All" && p.area !== areaFilter) return false;
       if (typeFilter !== "All" && p.type !== typeFilter) return false;
-      if (
-        q &&
-        !`${p.name} ${p.area} ${p.address ?? ""}`.toLowerCase().includes(q)
-      )
-        return false;
+      if (q && !`${p.name} ${p.area} ${p.address ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
   }, [places, areaFilter, typeFilter, placeSearch]);
-
 
   /* ----------------------------- apply coords ---------------------------- */
 
   const activeCoord = customLocation
     ? { lat: customLocation.lat, lng: customLocation.lng, label: customLocation.label }
     : activePlace
-      ? { lat: activePlace.lat, lng: activePlace.lng, label: `${activePlace.name}, ${activePlace.area}` }
+      ? {
+          lat: activePlace.lat,
+          lng: activePlace.lng,
+          label: `${activePlace.name}, ${activePlace.area}`,
+        }
       : null;
 
   const applyToTargets = (targetIds: string[]) => {
@@ -606,7 +609,8 @@ function GeotaggingPage() {
       seen.add(k);
       out.push({ key, label, lat, lng });
     };
-    if (customLocation) push("custom", customLocation.label, customLocation.lat, customLocation.lng);
+    if (customLocation)
+      push("custom", customLocation.label, customLocation.lat, customLocation.lng);
     if (pinnedCoord) push("pinned", pinnedCoord.label, pinnedCoord.lat, pinnedCoord.lng);
     filteredPlaces.forEach((p) => push(p.id, `${p.name}, ${p.area}`, p.lat, p.lng));
     return out;
@@ -631,7 +635,6 @@ function GeotaggingPage() {
     );
   };
 
-
   const updateImageMeta = (
     id: string,
     patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
@@ -644,9 +647,7 @@ function GeotaggingPage() {
     patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
   ) => {
     if (ids.length === 0) return;
-    setImages((prev) =>
-      prev.map((img) => (ids.includes(img.id) ? { ...img, ...patch } : img)),
-    );
+    setImages((prev) => prev.map((img) => (ids.includes(img.id) ? { ...img, ...patch } : img)));
   };
 
   const copyCoord = async () => {
@@ -679,9 +680,7 @@ function GeotaggingPage() {
     let fail = 0;
 
     for (const img of readyToSave) {
-      setImages((prev) =>
-        prev.map((x) => (x.id === img.id ? { ...x, status: "saving" } : x)),
-      );
+      setImages((prev) => prev.map((x) => (x.id === img.id ? { ...x, status: "saving" } : x)));
       try {
         // Embed GPS EXIF into the JPEG bytes so third-party viewers (Photos,
         // Windows Explorer, Lightroom, etc.) recognise the coordinates.
@@ -733,16 +732,12 @@ function GeotaggingPage() {
         }
 
         ok++;
-        setImages((prev) =>
-          prev.map((x) => (x.id === img.id ? { ...x, status: "saved" } : x)),
-        );
+        setImages((prev) => prev.map((x) => (x.id === img.id ? { ...x, status: "saved" } : x)));
       } catch (e) {
         fail++;
         setImages((prev) =>
           prev.map((x) =>
-            x.id === img.id
-              ? { ...x, status: "error", error: (e as Error).message }
-              : x,
+            x.id === img.id ? { ...x, status: "error", error: (e as Error).message } : x,
           ),
         );
       }
@@ -773,7 +768,11 @@ function GeotaggingPage() {
       // Prefer the user-supplied title (e.g. "Exterior Window Cleaning") over the
       // raw uploaded filename (e.g. "003(1).jpg") when we build the "Save As" name.
       const rawBase = img.title?.trim() || img.file.name.replace(/\.[^.]+$/, "");
-      const base = rawBase.replace(/[^\p{L}\p{N}\s._-]/gu, "").trim().replace(/\s+/g, "-") || "image";
+      const base =
+        rawBase
+          .replace(/[^\p{L}\p{N}\s._-]/gu, "")
+          .trim()
+          .replace(/\s+/g, "-") || "image";
       // Derive extension from the actual MIME type of the tagged blob so
       // non-JPEG originals (PNG/WebP/HEIC) still download with a viewer-
       // friendly extension. Falling back to the filename left files with
@@ -797,7 +796,6 @@ function GeotaggingPage() {
       toast.error(e instanceof Error ? e.message : "Download failed.");
     }
   };
-
 
   /* --------------------------------- UI --------------------------------- */
 
@@ -826,11 +824,11 @@ function GeotaggingPage() {
     if (step === 1 && images.length === 0) return toast.error("Upload at least one image.");
     if (step === 2 && !activeCoord) return toast.error("Pick a location first.");
     if (step === 3 && stats.tagged === 0) return toast.error("Tag at least one image.");
-    if (step < 4) setStep(((step + 1) as 1 | 2 | 3 | 4));
+    if (step < 4) setStep((step + 1) as 1 | 2 | 3 | 4);
   };
 
   const gotoBack = () => {
-    if (step > 1) setStep(((step - 1) as 1 | 2 | 3 | 4));
+    if (step > 1) setStep((step - 1) as 1 | 2 | 3 | 4);
   };
 
   return (
@@ -851,7 +849,9 @@ function GeotaggingPage() {
         <button
           onClick={() => setTab("wizard")}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-            tab === "wizard" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            tab === "wizard"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           Geotagging wizard
@@ -859,7 +859,9 @@ function GeotaggingPage() {
         <button
           onClick={() => setTab("verify")}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
-            tab === "verify" ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground"
+            tab === "verify"
+              ? "bg-primary text-primary-foreground"
+              : "text-muted-foreground hover:text-foreground"
           }`}
         >
           GeoTag Imager
@@ -868,228 +870,227 @@ function GeotaggingPage() {
 
       {tab === "verify" ? (
         <GeoTagImager library={library} libraryLoading={libraryLoading} onRefresh={reloadLibrary} />
-
       ) : (
-      <>
-      {/* Progress bar */}
-      <ol className="mb-8 grid grid-cols-4 gap-2">
-        {steps.map((s) => {
-          const done = step > s.n;
-          const active = step === s.n;
-          return (
-            <li key={s.n}>
-              <button
-                onClick={() => {
-                  // allow backwards nav freely; forward only if valid
-                  if (s.n <= step) setStep(s.n);
-                }}
-                className="w-full text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <div
-                    className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs font-semibold transition ${
-                      done
-                        ? "border-primary bg-primary text-primary-foreground"
-                        : active
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border bg-card text-muted-foreground"
-                    }`}
+        <>
+          {/* Progress bar */}
+          <ol className="mb-8 grid grid-cols-4 gap-2">
+            {steps.map((s) => {
+              const done = step > s.n;
+              const active = step === s.n;
+              return (
+                <li key={s.n}>
+                  <button
+                    onClick={() => {
+                      // allow backwards nav freely; forward only if valid
+                      if (s.n <= step) setStep(s.n);
+                    }}
+                    className="w-full text-left"
                   >
-                    {done ? <CircleCheck className="h-4 w-4" /> : s.n}
-                  </div>
-                  <div className="min-w-0">
-                    <div
-                      className={`truncate text-xs font-medium ${
-                        active ? "text-foreground" : "text-muted-foreground"
-                      }`}
-                    >
-                      Step {s.n}
+                    <div className="flex items-center gap-2">
+                      <div
+                        className={`grid h-7 w-7 shrink-0 place-items-center rounded-full border text-xs font-semibold transition ${
+                          done
+                            ? "border-primary bg-primary text-primary-foreground"
+                            : active
+                              ? "border-primary bg-primary/15 text-primary"
+                              : "border-border bg-card text-muted-foreground"
+                        }`}
+                      >
+                        {done ? <CircleCheck className="h-4 w-4" /> : s.n}
+                      </div>
+                      <div className="min-w-0">
+                        <div
+                          className={`truncate text-xs font-medium ${
+                            active ? "text-foreground" : "text-muted-foreground"
+                          }`}
+                        >
+                          Step {s.n}
+                        </div>
+                        <div className="truncate text-[11px] text-muted-foreground/80">
+                          {s.title}
+                        </div>
+                      </div>
                     </div>
-                    <div className="truncate text-[11px] text-muted-foreground/80">{s.title}</div>
-                  </div>
-                </div>
-                <div
-                  className={`mt-2 h-1 rounded-full transition ${
-                    done || active ? "bg-primary" : "bg-muted"
-                  }`}
-                />
-              </button>
-            </li>
-          );
-        })}
-      </ol>
+                    <div
+                      className={`mt-2 h-1 rounded-full transition ${
+                        done || active ? "bg-primary" : "bg-muted"
+                      }`}
+                    />
+                  </button>
+                </li>
+              );
+            })}
+          </ol>
 
-      {/* Persistent lightweight status strip */}
-      <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-        <StatChip label="Uploaded" value={stats.total} />
-        <StatChip label="Tagged" value={stats.tagged} tone="primary" />
-        <StatChip label="Saved" value={stats.saved} tone="success" />
-        {activeCoord && (
-          <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
-            <Crosshair className="h-3.5 w-3.5 text-primary" />
-            <span className="truncate max-w-[220px]" title={activeCoord.label}>
-              {activeCoord.label}
-            </span>
-            <span className="font-mono text-muted-foreground/80">
-              {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
-            </span>
-          </div>
-        )}
-      </div>
-
-      {/* Step body */}
-      <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
-        {step === 1 && (
-          <StepUpload
-            images={images}
-            dragOver={dragOver}
-            setDragOver={setDragOver}
-            inputRef={inputRef}
-            addFiles={addFiles}
-            removeImage={removeImage}
-            library={library}
-            libraryLoading={libraryLoading}
-            reloadLibrary={reloadLibrary}
-            openLibrary={() => setLibraryOpen(true)}
-            alreadyImportedIds={alreadyImportedIds}
-            addFromLibrary={addFromLibrary}
-            importingFromLibrary={importingFromLibrary}
-          />
-        )}
-
-        {step === 2 && (
-          <StepLocation
-            openSection={openSection}
-            setOpenSection={setOpenSection}
-            pinnedCoord={pinnedCoord}
-            setPinnedCoord={setPinnedCoord}
-            homePlaces={homePlaces}
-            officePlaces={officePlaces}
-            homePickId={homePickId}
-            setHomePickId={setHomePickId}
-            officePickId={officePickId}
-            setOfficePickId={setOfficePickId}
-            setActivePlace={setActivePlace}
-            setCustomLocation={setCustomLocation}
-            filteredPlaces={filteredPlaces}
-            placesLoading={placesLoading}
-            placesError={placesError}
-            activePlace={activePlace}
-            customLocation={customLocation}
-            areaFilter={areaFilter}
-            setAreaFilter={setAreaFilter}
-            typeFilter={typeFilter}
-            setTypeFilter={setTypeFilter}
-            placeSearch={placeSearch}
-            setPlaceSearch={setPlaceSearch}
-            expandedCoords={expandedCoords}
-            activeCoord={activeCoord}
-            copyCoord={copyCoord}
-            copied={copied}
-            onRefresh={refreshLocations}
-            refreshing={refreshing}
-            refreshKey={refreshKey}
-            cityOptions={cityOptions}
-            images={images}
-            coordOptions={coordOptions}
-            assignCoordToImage={assignCoordToImage}
-
-          />
-
-        )}
-
-        {step === 3 && (
-          <StepAssign
-            images={images}
-            selected={selected}
-            toggleSelect={toggleSelect}
-            selectAll={selectAll}
-            clearSelection={clearSelection}
-            activeCoord={activeCoord}
-            applyToTargets={applyToTargets}
-            applyToSelected={applyToSelected}
-            removeImage={removeImage}
-            inputRef={inputRef}
-            addFiles={addFiles}
-            openLibrary={() => setLibraryOpen(true)}
-            downloadProcessed={downloadProcessed}
-            updateImageMeta={updateImageMeta}
-            applyMetaToTargets={applyMetaToTargets}
-          />
-        )}
-
-        {step === 4 && (
-          <StepSave
-            stats={stats}
-            readyToSave={readyToSave}
-            savingBulk={savingBulk}
-            saveAll={saveAll}
-            images={images}
-            downloadProcessed={downloadProcessed}
-          />
-        )}
-      </section>
-
-      {/* Validation notice */}
-      {step < 4 && !canNext && (
-        <div className="mt-6 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
-          <span aria-hidden>⚠</span>
-          <span>
-            {step === 1
-              ? "Upload at least one image to continue."
-              : step === 2
-                ? "Choose a location (Quick pick, Library, or Map) to continue."
-                : "Tag at least one image to continue."}
-          </span>
-        </div>
-      )}
-
-      {/* Wizard nav */}
-      <div className="mt-6 flex items-center justify-between gap-3">
-        <button
-          onClick={gotoBack}
-          disabled={step === 1}
-          className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-40"
-        >
-          <ChevronLeft className="h-4 w-4" /> Back
-        </button>
-        <div className="text-xs text-muted-foreground">
-          Step {step} of 4 · {steps[step - 1].hint}
-        </div>
-        {step < 4 ? (
-          <button
-            onClick={gotoNext}
-            disabled={!canNext}
-            aria-disabled={!canNext}
-            title={
-              !canNext
-                ? step === 1
-                  ? "Upload at least one image"
-                  : step === 2
-                    ? "Choose a location first"
-                    : "Tag at least one image"
-                : undefined
-            }
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            Continue <ChevronRight className="h-4 w-4" />
-          </button>
-        ) : (
-          <button
-            onClick={saveAll}
-            disabled={savingBulk || readyToSave.length === 0}
-            className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-          >
-            {savingBulk ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <UploadCloud className="h-4 w-4" />
+          {/* Persistent lightweight status strip */}
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+            <StatChip label="Uploaded" value={stats.total} />
+            <StatChip label="Tagged" value={stats.tagged} tone="primary" />
+            <StatChip label="Saved" value={stats.saved} tone="success" />
+            {activeCoord && (
+              <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
+                <Crosshair className="h-3.5 w-3.5 text-primary" />
+                <span className="truncate max-w-[220px]" title={activeCoord.label}>
+                  {activeCoord.label}
+                </span>
+                <span className="font-mono text-muted-foreground/80">
+                  {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
+                </span>
+              </div>
             )}
-            Save {readyToSave.length > 0 ? readyToSave.length : ""} to cloud
-          </button>
-        )}
-      </div>
-      </>
+          </div>
+
+          {/* Step body */}
+          <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
+            {step === 1 && (
+              <StepUpload
+                images={images}
+                dragOver={dragOver}
+                setDragOver={setDragOver}
+                inputRef={inputRef}
+                addFiles={addFiles}
+                removeImage={removeImage}
+                library={library}
+                libraryLoading={libraryLoading}
+                reloadLibrary={reloadLibrary}
+                openLibrary={() => setLibraryOpen(true)}
+                alreadyImportedIds={alreadyImportedIds}
+                addFromLibrary={addFromLibrary}
+                importingFromLibrary={importingFromLibrary}
+              />
+            )}
+
+            {step === 2 && (
+              <StepLocation
+                openSection={openSection}
+                setOpenSection={setOpenSection}
+                pinnedCoord={pinnedCoord}
+                setPinnedCoord={setPinnedCoord}
+                homePlaces={homePlaces}
+                officePlaces={officePlaces}
+                homePickId={homePickId}
+                setHomePickId={setHomePickId}
+                officePickId={officePickId}
+                setOfficePickId={setOfficePickId}
+                setActivePlace={setActivePlace}
+                setCustomLocation={setCustomLocation}
+                filteredPlaces={filteredPlaces}
+                placesLoading={placesLoading}
+                placesError={placesError}
+                activePlace={activePlace}
+                customLocation={customLocation}
+                areaFilter={areaFilter}
+                setAreaFilter={setAreaFilter}
+                typeFilter={typeFilter}
+                setTypeFilter={setTypeFilter}
+                placeSearch={placeSearch}
+                setPlaceSearch={setPlaceSearch}
+                expandedCoords={expandedCoords}
+                activeCoord={activeCoord}
+                copyCoord={copyCoord}
+                copied={copied}
+                onRefresh={refreshLocations}
+                refreshing={refreshing}
+                refreshKey={refreshKey}
+                cityOptions={cityOptions}
+                images={images}
+                coordOptions={coordOptions}
+                assignCoordToImage={assignCoordToImage}
+              />
+            )}
+
+            {step === 3 && (
+              <StepAssign
+                images={images}
+                selected={selected}
+                toggleSelect={toggleSelect}
+                selectAll={selectAll}
+                clearSelection={clearSelection}
+                activeCoord={activeCoord}
+                applyToTargets={applyToTargets}
+                applyToSelected={applyToSelected}
+                removeImage={removeImage}
+                inputRef={inputRef}
+                addFiles={addFiles}
+                openLibrary={() => setLibraryOpen(true)}
+                downloadProcessed={downloadProcessed}
+                updateImageMeta={updateImageMeta}
+                applyMetaToTargets={applyMetaToTargets}
+              />
+            )}
+
+            {step === 4 && (
+              <StepSave
+                stats={stats}
+                readyToSave={readyToSave}
+                savingBulk={savingBulk}
+                saveAll={saveAll}
+                images={images}
+                downloadProcessed={downloadProcessed}
+              />
+            )}
+          </section>
+
+          {/* Validation notice */}
+          {step < 4 && !canNext && (
+            <div className="mt-6 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+              <span aria-hidden>⚠</span>
+              <span>
+                {step === 1
+                  ? "Upload at least one image to continue."
+                  : step === 2
+                    ? "Choose a location (Quick pick, Library, or Map) to continue."
+                    : "Tag at least one image to continue."}
+              </span>
+            </div>
+          )}
+
+          {/* Wizard nav */}
+          <div className="mt-6 flex items-center justify-between gap-3">
+            <button
+              onClick={gotoBack}
+              disabled={step === 1}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-4 py-2 text-sm hover:bg-accent disabled:opacity-40"
+            >
+              <ChevronLeft className="h-4 w-4" /> Back
+            </button>
+            <div className="text-xs text-muted-foreground">
+              Step {step} of 4 · {steps[step - 1].hint}
+            </div>
+            {step < 4 ? (
+              <button
+                onClick={gotoNext}
+                disabled={!canNext}
+                aria-disabled={!canNext}
+                title={
+                  !canNext
+                    ? step === 1
+                      ? "Upload at least one image"
+                      : step === 2
+                        ? "Choose a location first"
+                        : "Tag at least one image"
+                    : undefined
+                }
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+              >
+                Continue <ChevronRight className="h-4 w-4" />
+              </button>
+            ) : (
+              <button
+                onClick={saveAll}
+                disabled={savingBulk || readyToSave.length === 0}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
+              >
+                {savingBulk ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <UploadCloud className="h-4 w-4" />
+                )}
+                Save {readyToSave.length > 0 ? readyToSave.length : ""} to cloud
+              </button>
+            )}
+          </div>
+        </>
       )}
 
       {/* Library gallery modal */}
@@ -1106,7 +1107,8 @@ function GeotaggingPage() {
               <div>
                 <div className="text-sm font-medium">Favourite images waiting to be geo-tagged</div>
                 <div className="text-xs text-muted-foreground">
-                  {library.length} available · {alreadyImportedIds.size} already added · tagged images are hidden
+                  {library.length} available · {alreadyImportedIds.size} already added · tagged
+                  images are hidden
                 </div>
               </div>
               <div className="flex items-center gap-2">
@@ -1210,9 +1212,7 @@ function Collapsible({
         />
         <div className="min-w-0 flex-1">
           <div className="truncate text-sm font-medium">{title}</div>
-          {subtitle && (
-            <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>
-          )}
+          {subtitle && <div className="truncate text-[11px] text-muted-foreground">{subtitle}</div>}
         </div>
         {badge}
       </button>
@@ -1261,8 +1261,8 @@ function StepUpload({
       <div>
         <h2 className="text-lg font-medium">Upload your images</h2>
         <p className="text-sm text-muted-foreground">
-          Drop a batch of photos below, or pick from your existing library. You can add
-          more or remove any at later steps.
+          Drop a batch of photos below, or pick from your existing library. You can add more or
+          remove any at later steps.
         </p>
       </div>
 
@@ -1300,9 +1300,7 @@ function StepUpload({
         <div className="mb-3 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Library className="h-4 w-4 text-primary" /> Pick from your library
-            <span className="text-xs text-muted-foreground">
-              ({library.length} available)
-            </span>
+            <span className="text-xs text-muted-foreground">({library.length} available)</span>
             {importingFromLibrary && (
               <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />
             )}
@@ -1351,7 +1349,10 @@ function StepUpload({
       {images.length > 0 && (
         <div className="grid grid-cols-3 gap-2 md:grid-cols-5 lg:grid-cols-6">
           {images.map((img) => (
-            <div key={img.id} className="group relative overflow-hidden rounded-lg border border-border">
+            <div
+              key={img.id}
+              className="group relative overflow-hidden rounded-lg border border-border"
+            >
               <img
                 src={img.previewUrl}
                 alt={img.file.name}
@@ -1436,7 +1437,12 @@ function LibraryThumb({
 function StepLocation(props: {
   openSection: "quick" | "library" | "map";
   setOpenSection: (s: "quick" | "library" | "map") => void;
-  pinnedCoord: { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null;
+  pinnedCoord: {
+    lat: number;
+    lng: number;
+    label: string;
+    kind: "home" | "office" | "custom";
+  } | null;
   setPinnedCoord: (
     p: { lat: number; lng: number; label: string; kind: "home" | "office" | "custom" } | null,
   ) => void;
@@ -1473,7 +1479,6 @@ function StepLocation(props: {
     id: string,
     coord: { lat: number; lng: number; label: string } | null,
   ) => void;
-
 }) {
   const {
     openSection,
@@ -1512,7 +1517,6 @@ function StepLocation(props: {
     assignCoordToImage,
   } = props;
 
-
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
@@ -1532,7 +1536,6 @@ function StepLocation(props: {
           Refresh
         </button>
       </div>
-
 
       {/* Selected coordinate summary */}
       <div className="flex flex-wrap items-center gap-3 rounded-lg border border-primary/40 bg-primary/5 p-3">
@@ -1586,11 +1589,11 @@ function StepLocation(props: {
             {images.map((img) => {
               const currentKey =
                 img.lat !== null && img.lng !== null
-                  ? coordOptions.find(
+                  ? (coordOptions.find(
                       (o) =>
                         o.lat.toFixed(6) === img.lat!.toFixed(6) &&
                         o.lng.toFixed(6) === img.lng!.toFixed(6),
-                    )?.key ?? "__current"
+                    )?.key ?? "__current")
                   : "";
               return (
                 <div
@@ -1648,11 +1651,6 @@ function StepLocation(props: {
           </div>
         </div>
       )}
-
-
-
-
-
 
       {/* Collapsible: library */}
       <Collapsible
@@ -1731,12 +1729,12 @@ function StepLocation(props: {
                     setCustomLocation(null);
                   }}
                   className={`flex items-start gap-3 rounded-lg border p-3 text-left transition ${
-                    active
-                      ? "border-primary bg-primary/10"
-                      : "border-border hover:bg-accent"
+                    active ? "border-primary bg-primary/10" : "border-border hover:bg-accent"
                   }`}
                 >
-                  <span className={`mt-0.5 grid h-9 w-9 place-items-center rounded-md ${meta.tone}`}>
+                  <span
+                    className={`mt-0.5 grid h-9 w-9 place-items-center rounded-md ${meta.tone}`}
+                  >
                     <Icon className="h-4 w-4" />
                   </span>
                   <span className="min-w-0 flex-1">
@@ -1776,7 +1774,6 @@ function StepLocation(props: {
           cityOptions={cityOptions}
           refreshKey={refreshKey}
         />
-
       </Collapsible>
     </div>
   );
@@ -1816,10 +1813,7 @@ function StepAssign({
   addFiles: (f: FileList | File[]) => void;
   openLibrary: () => void;
   downloadProcessed: (img: LocalImage) => Promise<void>;
-  updateImageMeta: (
-    id: string,
-    patch: Partial<Pick<LocalImage, "title" | "description">>,
-  ) => void;
+  updateImageMeta: (id: string, patch: Partial<Pick<LocalImage, "title" | "description">>) => void;
   applyMetaToTargets: (
     ids: string[],
     patch: Partial<Pick<LocalImage, "title" | "description">>,
@@ -1833,13 +1827,10 @@ function StepAssign({
   // carries embedded metadata, so users don't have to retype what's in the file.
   useEffect(() => {
     if (prefilledRef.current) return;
-    const withMeta = images.find(
-      (i) => i.hasExistingMeta && (i.title || i.description),
-    );
+    const withMeta = images.find((i) => i.hasExistingMeta && (i.title || i.description));
     if (!withMeta) return;
     if (!batchTitle && withMeta.title) setBatchTitle(withMeta.title);
-    if (!batchDescription && withMeta.description)
-      setBatchDescription(withMeta.description);
+    if (!batchDescription && withMeta.description) setBatchDescription(withMeta.description);
     prefilledRef.current = true;
   }, [images, batchTitle, batchDescription]);
 
@@ -1857,9 +1848,7 @@ function StepAssign({
       return;
     }
     applyMetaToTargets(ids, patch);
-    toast.success(
-      `Applied details to ${ids.length} image${ids.length === 1 ? "" : "s"}.`,
-    );
+    toast.success(`Applied details to ${ids.length} image${ids.length === 1 ? "" : "s"}.`);
   };
   return (
     <div className="space-y-4">
@@ -1903,7 +1892,9 @@ function StepAssign({
             disabled={images.length === 0}
             className="rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent disabled:opacity-40"
           >
-            {selected.size === images.length && images.length > 0 ? "Clear selection" : "Select all"}
+            {selected.size === images.length && images.length > 0
+              ? "Clear selection"
+              : "Select all"}
           </button>
           <button
             onClick={applyToSelected}
@@ -1979,16 +1970,24 @@ function StepAssign({
                       Geotagged
                     </span>
                   )}
-                  {isSelected && <span className="absolute inset-0 ring-2 ring-inset ring-primary" />}
+                  {isSelected && (
+                    <span className="absolute inset-0 ring-2 ring-inset ring-primary" />
+                  )}
                 </button>
                 <div className="space-y-1 p-2.5">
                   <div className="truncate text-xs font-medium" title={img.file.name}>
                     {img.file.name}
                   </div>
-                  <div className="truncate text-[11px] font-medium text-foreground" title={img.locationLabel ?? ""}>
+                  <div
+                    className="truncate text-[11px] font-medium text-foreground"
+                    title={img.locationLabel ?? ""}
+                  >
                     {img.locationLabel ? cityFromLabel(img.locationLabel) : "Not tagged"}
                   </div>
-                  <div className="truncate text-[10px] text-muted-foreground" title={img.locationLabel ?? ""}>
+                  <div
+                    className="truncate text-[10px] text-muted-foreground"
+                    title={img.locationLabel ?? ""}
+                  >
                     {img.locationLabel ?? "No location assigned"}
                   </div>
                   <div className="truncate rounded bg-muted/60 px-1.5 py-0.5 font-mono text-[10px] text-foreground">
@@ -1997,11 +1996,7 @@ function StepAssign({
                       : "—"}
                   </div>
 
-                  <MetaFields
-                    img={img}
-                    updateImageMeta={updateImageMeta}
-                  />
-
+                  <MetaFields img={img} updateImageMeta={updateImageMeta} />
 
                   <div className="flex items-center gap-1.5 pt-1">
                     <button
@@ -2139,7 +2134,6 @@ function StepSave({
           ))}
         </div>
       </div>
-
     </div>
   );
 }
@@ -2167,7 +2161,6 @@ function SummaryCard({
   );
 }
 
-
 /* -------------------------------------------------------------------------- */
 /* Small UI bits                                                              */
 /* -------------------------------------------------------------------------- */
@@ -2189,7 +2182,9 @@ function StatChip({
         : "bg-muted text-foreground";
   return (
     <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-      <span className={`grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-xs font-semibold ${toneCls}`}>
+      <span
+        className={`grid h-6 min-w-6 place-items-center rounded-md px-1.5 text-xs font-semibold ${toneCls}`}
+      >
         {value}
       </span>
       <span className="text-xs text-muted-foreground">{label}</span>
@@ -2231,14 +2226,7 @@ async function reverseGeocodeCity(lat: number, lng: number): Promise<string | nu
     const data = (await res.json()) as { address?: Record<string, string> };
     const a = data.address ?? {};
     const city =
-      a.city ??
-      a.town ??
-      a.village ??
-      a.municipality ??
-      a.suburb ??
-      a.county ??
-      a.state ??
-      null;
+      a.city ?? a.town ?? a.village ?? a.municipality ?? a.suburb ?? a.county ?? a.state ?? null;
     cityCache.set(key, city);
     return city;
   } catch {
@@ -2247,7 +2235,15 @@ async function reverseGeocodeCity(lat: number, lng: number): Promise<string | nu
   }
 }
 
-function MetaCell({ label, value, mono = false }: { label: string; value: string; mono?: boolean }) {
+function MetaCell({
+  label,
+  value,
+  mono = false,
+}: {
+  label: string;
+  value: string;
+  mono?: boolean;
+}) {
   return (
     <div className="flex flex-col">
       <dt className="text-[10px] uppercase tracking-wide text-muted-foreground">{label}</dt>
@@ -2255,7 +2251,6 @@ function MetaCell({ label, value, mono = false }: { label: string; value: string
     </div>
   );
 }
-
 
 function GeoTagImager({
   library,
@@ -2277,7 +2272,11 @@ function GeoTagImager({
   const addFiles = useCallback(
     async (
       files: FileList | File[],
-      metaByIndex?: Array<{ title?: string | null; description?: string | null; displayName?: string }>,
+      metaByIndex?: Array<{
+        title?: string | null;
+        description?: string | null;
+        displayName?: string;
+      }>,
     ) => {
       const list = Array.from(files).filter((f) => f.type.startsWith("image/"));
       if (list.length === 0) {
@@ -2300,15 +2299,15 @@ function GeoTagImager({
         const result = await readGps(row.file);
         setRows((prev) =>
           prev.map((r) =>
-            r.id === row.id
-              ? { ...r, result, loading: false, cityLoading: result.hasGps }
-              : r,
+            r.id === row.id ? { ...r, result, loading: false, cityLoading: result.hasGps } : r,
           ),
         );
         if (result.hasGps && result.lat != null && result.lng != null) {
           const city = await reverseGeocodeCity(result.lat, result.lng);
           setRows((prev) =>
-            prev.map((r) => (r.id === row.id ? { ...r, nearestCity: city, cityLoading: false } : r)),
+            prev.map((r) =>
+              r.id === row.id ? { ...r, nearestCity: city, cityLoading: false } : r,
+            ),
           );
         }
       }
@@ -2330,7 +2329,11 @@ function GeoTagImager({
     setImporting(true);
     try {
       const files: File[] = [];
-      const metas: Array<{ title?: string | null; description?: string | null; displayName?: string }> = [];
+      const metas: Array<{
+        title?: string | null;
+        description?: string | null;
+        displayName?: string;
+      }> = [];
       for (const row of picks) {
         const { data: signed } = await supabase.storage
           .from("frames")
@@ -2356,8 +2359,6 @@ function GeoTagImager({
     }
   }, [library, libSelected, addFiles]);
 
-
-
   const tagged = rows.filter((r) => r.result?.hasGps).length;
   const untagged = rows.filter((r) => r.result && !r.result.hasGps).length;
 
@@ -2368,9 +2369,9 @@ function GeoTagImager({
           <div>
             <h2 className="text-lg font-medium">Verify GeoTag status</h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Drop any image to read its embedded GPS EXIF — the same metadata that Photos,
-              Windows Explorer, Lightroom, and other third-party viewers rely on. This is a
-              local check; no files leave your browser.
+              Drop any image to read its embedded GPS EXIF — the same metadata that Photos, Windows
+              Explorer, Lightroom, and other third-party viewers rely on. This is a local check; no
+              files leave your browser.
             </p>
           </div>
           {rows.length > 0 && (
@@ -2433,7 +2434,6 @@ function GeoTagImager({
           </span>
         </div>
 
-
         {rows.length > 0 && (
           <div className="mt-4 flex flex-wrap gap-2">
             <StatChip label="Checked" value={rows.length} />
@@ -2484,14 +2484,10 @@ function GeoTagImager({
                 </div>
 
                 {r.description && (
-                  <div className="line-clamp-2 text-xs text-muted-foreground">
-                    {r.description}
-                  </div>
+                  <div className="line-clamp-2 text-xs text-muted-foreground">{r.description}</div>
                 )}
 
-                {r.loading && (
-                  <div className="text-xs text-muted-foreground">Reading EXIF…</div>
-                )}
+                {r.loading && <div className="text-xs text-muted-foreground">Reading EXIF…</div>}
 
                 {r.result?.hasGps && (
                   <dl className="mt-1 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] sm:grid-cols-3">
@@ -2499,11 +2495,7 @@ function GeoTagImager({
                     <MetaCell label="Longitude" value={r.result.lng!.toFixed(6)} mono />
                     <MetaCell
                       label="Nearest city"
-                      value={
-                        r.cityLoading
-                          ? "Resolving…"
-                          : r.nearestCity ?? "Unknown"
-                      }
+                      value={r.cityLoading ? "Resolving…" : (r.nearestCity ?? "Unknown")}
                     />
                   </dl>
                 )}
@@ -2528,7 +2520,6 @@ function GeoTagImager({
                 )}
               </div>
             </li>
-
           ))}
         </ul>
       )}
@@ -2602,7 +2593,9 @@ function GeoTagImager({
                             });
                           }}
                           className={`group relative overflow-hidden rounded-lg border text-left transition ${
-                            picked ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/60"
+                            picked
+                              ? "border-primary ring-2 ring-primary"
+                              : "border-border hover:border-primary/60"
                           }`}
                         >
                           <div className="relative aspect-square w-full bg-muted">
@@ -2612,15 +2605,13 @@ function GeoTagImager({
                               alt={row.name}
                               className="h-full w-full object-cover"
                             />
-                            {((row.lat != null && row.lng != null) ||
-                              row.posted_at != null) && (
+                            {((row.lat != null && row.lng != null) || row.posted_at != null) && (
                               <div className="absolute left-1.5 top-1.5 flex items-center gap-1">
                                 <GeoTaggedBadge lat={row.lat} lng={row.lng} compact />
                                 <PublishedBadge published={row.posted_at != null} compact />
                               </div>
                             )}
                           </div>
-
 
                           <div className="truncate p-1.5 text-[10px] text-muted-foreground">
                             {row.name}
@@ -2662,7 +2653,9 @@ function GeoTagImager({
                       <Loader2 className="h-3.5 w-3.5 animate-spin" /> Importing…
                     </>
                   ) : (
-                    <>Verify {libSelected.size} image{libSelected.size === 1 ? "" : "s"}</>
+                    <>
+                      Verify {libSelected.size} image{libSelected.size === 1 ? "" : "s"}
+                    </>
                   )}
                 </button>
               </div>
@@ -2671,7 +2664,6 @@ function GeoTagImager({
         </div>
       )}
     </div>
-
   );
 }
 
@@ -2742,7 +2734,10 @@ function MetaFields({
         .map((tag) => ({
           tag,
           keywords: raw[tag]
-            ? raw[tag].split(/;\s*|,\s*/).map((k) => k.trim()).filter(Boolean)
+            ? raw[tag]
+                .split(/;\s*|,\s*/)
+                .map((k) => k.trim())
+                .filter(Boolean)
             : [],
         }))
         .filter(({ keywords }) => keywords.length > 0)
@@ -2819,9 +2814,7 @@ function MetaFields({
       {(img.title || img.description || img.keywords.length > 0) && img.hasExistingMeta && (
         <button
           type="button"
-          onClick={() =>
-            updateImageMeta(img.id, { title: "", description: "", keywords: [] })
-          }
+          onClick={() => updateImageMeta(img.id, { title: "", description: "", keywords: [] })}
           className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
         >
           Clear all detected fields

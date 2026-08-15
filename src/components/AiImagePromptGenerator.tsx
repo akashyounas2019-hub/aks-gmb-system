@@ -26,13 +26,7 @@ import { toast } from "sonner";
 /* Types                                                                      */
 /* -------------------------------------------------------------------------- */
 
-type FilterId =
-  | "style"
-  | "lighting"
-  | "mood"
-  | "camera"
-  | "aspect"
-  | "palette";
+type FilterId = "style" | "lighting" | "mood" | "camera" | "aspect" | "palette";
 
 type FilterDef = {
   id: FilterId;
@@ -74,14 +68,7 @@ const FILTERS: FilterDef[] = [
   {
     id: "mood",
     label: "Mood",
-    options: [
-      "Uplifting",
-      "Trustworthy",
-      "Energetic",
-      "Calm & premium",
-      "Playful",
-      "Bold",
-    ],
+    options: ["Uplifting", "Trustworthy", "Energetic", "Calm & premium", "Playful", "Bold"],
   },
   {
     id: "aspect",
@@ -91,13 +78,7 @@ const FILTERS: FilterDef[] = [
   {
     id: "palette",
     label: "Palette",
-    options: [
-      "Warm neutrals",
-      "Cool blues",
-      "Monochrome",
-      "Sunset gradient",
-      "Brand navy + gold",
-    ],
+    options: ["Warm neutrals", "Cool blues", "Monochrome", "Sunset gradient", "Brand navy + gold"],
   },
 ];
 
@@ -209,19 +190,13 @@ export function AiImagePromptGenerator() {
 
   // Builder state
   const [subject, setSubject] = useState("");
-  const [selections, setSelections] = useState<Partial<Record<FilterId, string>>>(
-    {},
-  );
+  const [selections, setSelections] = useState<Partial<Record<FilterId, string>>>({});
   const [activeTemplateId, setActiveTemplateId] = useState<string | null>(null);
   const [customBody, setCustomBody] = useState<string>("");
   const [activeFolder, setActiveFolder] = useState<string>("All");
-  const [openFolders, setOpenFolders] = useState<Set<string>>(
-    () => new Set(DEFAULT_FOLDERS),
-  );
+  const [openFolders, setOpenFolders] = useState<Set<string>>(() => new Set(DEFAULT_FOLDERS));
   const [search, setSearch] = useState("");
-  const [filterView, setFilterView] = useState<"all" | "pinned" | "favorites">(
-    "all",
-  );
+  const [filterView, setFilterView] = useState<"all" | "pinned" | "favorites">("all");
   const [variations, setVariations] = useState<string[]>([]);
   const [variationCount, setVariationCount] = useState<number>(4);
   const [editingTemplate, setEditingTemplate] = useState<Template | null>(null);
@@ -234,8 +209,7 @@ export function AiImagePromptGenerator() {
   const bodyToUse = activeTemplate?.body ?? customBody;
 
   const generated = useMemo(
-    () =>
-      bodyToUse ? fillTemplate(bodyToUse, subject, selections) : "",
+    () => (bodyToUse ? fillTemplate(bodyToUse, subject, selections) : ""),
     [bodyToUse, subject, selections],
   );
 
@@ -268,12 +242,8 @@ export function AiImagePromptGenerator() {
       return;
     }
     setFolders((prev) => prev.map((f) => (f === oldName ? next : f)));
-    setTemplates((prev) =>
-      prev.map((t) => (t.folder === oldName ? { ...t, folder: next } : t)),
-    );
-    setPrompts((prev) =>
-      prev.map((p) => (p.folder === oldName ? { ...p, folder: next } : p)),
-    );
+    setTemplates((prev) => prev.map((t) => (t.folder === oldName ? { ...t, folder: next } : t)));
+    setPrompts((prev) => prev.map((p) => (p.folder === oldName ? { ...p, folder: next } : p)));
     setOpenFolders((prev) => {
       const s = new Set(prev);
       if (s.has(oldName)) {
@@ -325,9 +295,7 @@ export function AiImagePromptGenerator() {
       return;
     }
     setTemplates((prev) =>
-      prev.map((t) =>
-        t.id === editingTemplate.id ? { ...t, name, body, folder } : t,
-      ),
+      prev.map((t) => (t.id === editingTemplate.id ? { ...t, name, body, folder } : t)),
     );
     setEditingTemplate(null);
     toast.success("Template updated");
@@ -343,7 +311,6 @@ export function AiImagePromptGenerator() {
     if (editingTemplate?.id === id) setEditingTemplate(null);
     toast.success("Template deleted");
   }
-
 
   function pickFilter(id: FilterId, option: string) {
     setSelections((prev) => ({
@@ -379,9 +346,7 @@ export function AiImagePromptGenerator() {
     const count = Math.max(1, variationCount || 4);
 
     // Deduplicate filter list (defensive against duplicate FILTERS entries)
-    const uniqueFilters = FILTERS.filter(
-      (f, i, arr) => arr.findIndex((x) => x.id === f.id) === i,
-    );
+    const uniqueFilters = FILTERS.filter((f, i, arr) => arr.findIndex((x) => x.id === f.id) === i);
 
     // Independently shuffle each unlocked filter's options so each variation
     // pulls a distinct option per filter until the pool is exhausted, then
@@ -457,7 +422,7 @@ export function AiImagePromptGenerator() {
     const folder =
       activeFolder !== "All"
         ? activeFolder
-        : activeTemplate?.folder ?? folders[0] ?? "Inspiration";
+        : (activeTemplate?.folder ?? folders[0] ?? "Inspiration");
     const tpl: Template = {
       id: crypto.randomUUID(),
       name,
@@ -472,7 +437,7 @@ export function AiImagePromptGenerator() {
     const folder =
       activeFolder !== "All"
         ? activeFolder
-        : activeTemplate?.folder ?? folders[0] ?? "Inspiration";
+        : (activeTemplate?.folder ?? folders[0] ?? "Inspiration");
     const title =
       (subject.trim() && `${subject.trim()} — variation`) ||
       activeTemplate?.name ||
@@ -490,18 +455,16 @@ export function AiImagePromptGenerator() {
     toast.success("Variation saved");
   }
 
-
   function savePrompt() {
     if (!generated.trim()) {
       toast.error("Nothing to save yet");
       return;
     }
     const folder =
-      activeFolder !== "All" ? activeFolder : activeTemplate?.folder ?? folders[0] ?? "Inspiration";
-    const title =
-      subject.trim() ||
-      activeTemplate?.name ||
-      generated.slice(0, 48);
+      activeFolder !== "All"
+        ? activeFolder
+        : (activeTemplate?.folder ?? folders[0] ?? "Inspiration");
+    const title = subject.trim() || activeTemplate?.name || generated.slice(0, 48);
     const item: SavedPrompt = {
       id: crypto.randomUUID(),
       title,
@@ -516,14 +479,10 @@ export function AiImagePromptGenerator() {
   }
 
   function togglePin(id: string) {
-    setPrompts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned } : p)),
-    );
+    setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, pinned: !p.pinned } : p)));
   }
   function toggleFav(id: string) {
-    setPrompts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)),
-    );
+    setPrompts((prev) => prev.map((p) => (p.id === id ? { ...p, favorite: !p.favorite } : p)));
   }
   function removePrompt(id: string) {
     setPrompts((prev) => prev.filter((p) => p.id !== id));
@@ -539,14 +498,7 @@ export function AiImagePromptGenerator() {
       const s = String(v ?? "");
       return /[",\n\r]/.test(s) ? `"${s.replaceAll('"', '""')}"` : s;
     };
-    const header = [
-      "title",
-      "body",
-      "folder",
-      "pinned",
-      "favorite",
-      "createdAt",
-    ];
+    const header = ["title", "body", "folder", "pinned", "favorite", "createdAt"];
     const lines = [header.join(",")];
     for (const p of rows) {
       lines.push(
@@ -574,7 +526,6 @@ export function AiImagePromptGenerator() {
     toast.success(`Exported ${rows.length} prompt${rows.length === 1 ? "" : "s"}`);
   }
 
-
   function saveAsTemplate() {
     const body = bodyToUse || generated;
     if (!body.trim()) {
@@ -583,7 +534,7 @@ export function AiImagePromptGenerator() {
     }
     const name = window.prompt("Template name")?.trim();
     if (!name) return;
-    const folder = activeFolder !== "All" ? activeFolder : folders[0] ?? "Inspiration";
+    const folder = activeFolder !== "All" ? activeFolder : (folders[0] ?? "Inspiration");
     const tpl: Template = {
       id: crypto.randomUUID(),
       name,
@@ -603,9 +554,7 @@ export function AiImagePromptGenerator() {
     if (search.trim()) {
       const q = search.trim().toLowerCase();
       list = list.filter(
-        (p) =>
-          p.title.toLowerCase().includes(q) ||
-          p.body.toLowerCase().includes(q),
+        (p) => p.title.toLowerCase().includes(q) || p.body.toLowerCase().includes(q),
       );
     }
     // Pinned first, then most recent
@@ -630,404 +579,390 @@ export function AiImagePromptGenerator() {
   return (
     <div className="flex flex-col gap-6">
       <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
-      {/* ------------------------------------------------------------------ */}
-      {/* Left: Folders / template tree                                       */}
-      {/* ------------------------------------------------------------------ */}
-      <aside className="rounded-2xl border border-border bg-card p-3">
-        <div className="mb-2 flex items-center justify-between px-1">
-          <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-            Folders
+        {/* ------------------------------------------------------------------ */}
+        {/* Left: Folders / template tree                                       */}
+        {/* ------------------------------------------------------------------ */}
+        <aside className="rounded-2xl border border-border bg-card p-3">
+          <div className="mb-2 flex items-center justify-between px-1">
+            <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+              Folders
+            </div>
+            <button
+              onClick={addFolder}
+              className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+              title="New folder"
+              aria-label="New folder"
+            >
+              <FolderPlus className="h-4 w-4" />
+            </button>
           </div>
+
           <button
-            onClick={addFolder}
-            className="rounded-md p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-            title="New folder"
-            aria-label="New folder"
+            onClick={() => setActiveFolder("All")}
+            className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
+              activeFolder === "All" ? "bg-primary/15 text-primary" : "hover:bg-accent"
+            }`}
           >
-            <FolderPlus className="h-4 w-4" />
+            <Folder className="h-4 w-4" /> All
+            <span className="ml-auto text-[10px] text-muted-foreground">{prompts.length}</span>
           </button>
-        </div>
 
-        <button
-          onClick={() => setActiveFolder("All")}
-          className={`mb-1 flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm ${
-            activeFolder === "All"
-              ? "bg-primary/15 text-primary"
-              : "hover:bg-accent"
-          }`}
-        >
-          <Folder className="h-4 w-4" /> All
-          <span className="ml-auto text-[10px] text-muted-foreground">
-            {prompts.length}
-          </span>
-        </button>
-
-        <div className="space-y-0.5">
-          {folders.map((f) => {
-            const isOpen = openFolders.has(f);
-            const items = templatesByFolder.get(f) ?? [];
-            const promptCount = prompts.filter((p) => p.folder === f).length;
-            return (
-              <div key={f} className="group/folder">
-                <div
-                  className={`flex items-center gap-1 rounded-md px-1 py-1 text-sm ${
-                    activeFolder === f ? "bg-primary/15 text-primary" : ""
-                  }`}
-                >
-                  <button
-                    onClick={() => toggleFolderOpen(f)}
-                    className="rounded p-0.5 text-muted-foreground hover:text-foreground"
-                    aria-label={isOpen ? "Collapse" : "Expand"}
+          <div className="space-y-0.5">
+            {folders.map((f) => {
+              const isOpen = openFolders.has(f);
+              const items = templatesByFolder.get(f) ?? [];
+              const promptCount = prompts.filter((p) => p.folder === f).length;
+              return (
+                <div key={f} className="group/folder">
+                  <div
+                    className={`flex items-center gap-1 rounded-md px-1 py-1 text-sm ${
+                      activeFolder === f ? "bg-primary/15 text-primary" : ""
+                    }`}
                   >
-                    {isOpen ? (
-                      <ChevronDown className="h-3.5 w-3.5" />
-                    ) : (
-                      <ChevronRight className="h-3.5 w-3.5" />
-                    )}
-                  </button>
-                  <button
-                    onClick={() => setActiveFolder(f)}
-                    className="flex min-w-0 flex-1 items-center gap-2 text-left"
-                  >
-                    <Folder className="h-4 w-4 shrink-0" />
-                    <span className="truncate">{f}</span>
-                    <span className="ml-auto text-[10px] text-muted-foreground">
-                      {promptCount}
-                    </span>
-                  </button>
-                  <div className="ml-1 flex items-center opacity-0 transition group-hover/folder:opacity-100 focus-within:opacity-100">
                     <button
-                      onClick={() => renameFolder(f)}
-                      className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                      title="Rename folder"
-                      aria-label={`Rename folder ${f}`}
+                      onClick={() => toggleFolderOpen(f)}
+                      className="rounded p-0.5 text-muted-foreground hover:text-foreground"
+                      aria-label={isOpen ? "Collapse" : "Expand"}
                     >
-                      <Pencil className="h-3 w-3" />
+                      {isOpen ? (
+                        <ChevronDown className="h-3.5 w-3.5" />
+                      ) : (
+                        <ChevronRight className="h-3.5 w-3.5" />
+                      )}
                     </button>
                     <button
-                      onClick={() => deleteFolder(f)}
-                      className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                      title="Delete folder"
-                      aria-label={`Delete folder ${f}`}
+                      onClick={() => setActiveFolder(f)}
+                      className="flex min-w-0 flex-1 items-center gap-2 text-left"
                     >
-                      <Trash2 className="h-3 w-3" />
+                      <Folder className="h-4 w-4 shrink-0" />
+                      <span className="truncate">{f}</span>
+                      <span className="ml-auto text-[10px] text-muted-foreground">
+                        {promptCount}
+                      </span>
                     </button>
-                  </div>
-                </div>
-                {isOpen && (
-                  <ul className="ml-6 mt-0.5 space-y-0.5 border-l border-border pl-2">
-                    {items.length === 0 ? (
-                      <li className="py-1 text-[11px] text-muted-foreground">
-                        No templates
-                      </li>
-                    ) : (
-                      items.map((tpl) => (
-                        <li
-                          key={tpl.id}
-                          className="group/tpl flex items-center gap-0.5"
-                        >
-                          <button
-                            onClick={() => {
-                              setActiveTemplateId(tpl.id);
-                              setActiveFolder(tpl.folder);
-                            }}
-                            className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition ${
-                              activeTemplateId === tpl.id
-                                ? "bg-primary/10 text-primary"
-                                : "text-muted-foreground hover:bg-accent hover:text-foreground"
-                            }`}
-                          >
-                            <Sparkles className="h-3 w-3 shrink-0" />
-                            <span className="truncate">{tpl.name}</span>
-                          </button>
-                          <div className="flex items-center opacity-0 transition group-hover/tpl:opacity-100 focus-within:opacity-100">
-                            <button
-                              onClick={() => openTemplateEditor(tpl)}
-                              className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                              title="Edit template"
-                              aria-label={`Edit template ${tpl.name}`}
-                            >
-                              <Pencil className="h-3 w-3" />
-                            </button>
-                            <button
-                              onClick={() => deleteTemplate(tpl.id)}
-                              className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                              title="Delete template"
-                              aria-label={`Delete template ${tpl.name}`}
-                            >
-                              <Trash2 className="h-3 w-3" />
-                            </button>
-                          </div>
-                        </li>
-                      ))
-                    )}
-                  </ul>
-                )}
-              </div>
-
-            );
-          })}
-        </div>
-      </aside>
-
-      {/* ------------------------------------------------------------------ */}
-      {/* Center: builder                                                     */}
-      {/* ------------------------------------------------------------------ */}
-      <section className="rounded-2xl border border-border bg-card p-5">
-        <div className="mb-4 flex items-center gap-2">
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
-            <Wand2 className="h-4 w-4" />
-          </div>
-          <div>
-            <h2 className="text-lg font-semibold">AI Image Prompt Generator</h2>
-            <p className="text-xs text-muted-foreground">
-              Compose reusable image prompts with templates, filters, and folders.
-            </p>
-          </div>
-        </div>
-
-        {/* Subject */}
-        <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
-          Subject
-        </label>
-        <input
-          value={subject}
-          onChange={(e) => setSubject(e.target.value)}
-          placeholder="e.g. a spotless kitchen after professional cleaning"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-        />
-
-        {/* Template selector */}
-        <div className="mt-4 flex items-center justify-between">
-          <label className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Template
-          </label>
-          {activeTemplate && (
-            <button
-              onClick={() => setActiveTemplateId(null)}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Clear template
-            </button>
-          )}
-        </div>
-        <div className="mt-1 flex flex-wrap gap-1.5">
-          {templates.slice(0, 8).map((tpl) => {
-            const on = activeTemplateId === tpl.id;
-            return (
-              <button
-                key={tpl.id}
-                onClick={() => setActiveTemplateId(on ? null : tpl.id)}
-                className={`rounded-full border px-3 py-1 text-xs transition ${
-                  on
-                    ? "border-primary bg-primary/15 text-primary"
-                    : "border-border text-muted-foreground hover:border-primary/40"
-                }`}
-                title={tpl.body}
-              >
-                {tpl.name}
-              </button>
-            );
-          })}
-        </div>
-
-        {!activeTemplate && (
-          <div className="mt-3">
-            <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Custom body
-              <span className="ml-1 normal-case text-muted-foreground/70">
-                (use {"{subject}"}, {"{style}"}, {"{lighting}"}, {"{mood}"}, {"{camera}"}, {"{aspect}"}, {"{palette}"})
-              </span>
-            </label>
-            <textarea
-              value={customBody}
-              onChange={(e) => setCustomBody(e.target.value)}
-              rows={3}
-              placeholder="A {style} shot of {subject}, {lighting}, {mood}."
-              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-            />
-          </div>
-        )}
-
-        {/* Filters */}
-        <div className="mt-5 flex items-center justify-between">
-          <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-            Dynamic filters
-          </div>
-          {Object.values(selections).some(Boolean) && (
-            <button
-              onClick={clearFilters}
-              className="text-[11px] text-muted-foreground hover:text-foreground"
-            >
-              Clear filters
-            </button>
-          )}
-        </div>
-
-        <div className="mt-2 space-y-2">
-          {FILTERS.map((f) => (
-            <div key={f.id} className="rounded-lg border border-border bg-background/40 p-2">
-              <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
-                {f.label}
-              </div>
-              <div className="flex flex-wrap gap-1.5">
-                {f.options.map((opt) => {
-                  const on = selections[f.id] === opt;
-                  return (
-                    <button
-                      key={opt}
-                      onClick={() => pickFilter(f.id, opt)}
-                      className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
-                        on
-                          ? "border-primary bg-primary/15 text-primary"
-                          : "border-border text-muted-foreground hover:border-primary/40"
-                      }`}
-                    >
-                      {opt}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-          ))}
-        </div>
-
-        {/* Output */}
-        <div className="mt-5">
-          <div className="mb-1 flex items-center justify-between">
-            <label className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
-              Generated prompt
-            </label>
-            <span className="text-[11px] text-muted-foreground">
-              {generated.length} chars
-            </span>
-          </div>
-          <textarea
-            ref={outputRef}
-            value={generated}
-            readOnly
-            rows={5}
-            placeholder="Pick a template or write a custom body, add filters, and your prompt appears here."
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none"
-          />
-          <div className="mt-2 flex flex-wrap gap-2">
-            <button
-              onClick={copyGenerated}
-              disabled={!generated}
-              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
-            >
-              <Copy className="h-3.5 w-3.5" /> Copy
-            </button>
-            <button
-              onClick={savePrompt}
-              disabled={!generated}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
-            >
-              <Save className="h-3.5 w-3.5" /> Save to folder
-            </button>
-            <button
-              onClick={saveAsTemplate}
-              disabled={!bodyToUse}
-              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
-            >
-              <Sparkles className="h-3.5 w-3.5" /> Save as template
-            </button>
-          </div>
-        </div>
-
-        {/* Variations */}
-        <div className="mt-5 rounded-xl border border-border bg-background/40 p-3">
-          <div className="flex flex-wrap items-center justify-between gap-2">
-            <div>
-              <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-                Generate variations
-              </div>
-              <p className="text-[11px] text-muted-foreground">
-                Uses the current template & locked filters. Unlocked filters rotate for variety.
-              </p>
-            </div>
-            <div className="flex items-center gap-2">
-              <label className="text-[11px] text-muted-foreground">Count</label>
-              <select
-                value={variationCount}
-                onChange={(e) => setVariationCount(Number(e.target.value))}
-                className="rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
-              >
-                {[3, 4, 5].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
-              <button
-                onClick={generateVariations}
-                disabled={!bodyToUse}
-                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-              >
-                <Shuffle className="h-3.5 w-3.5" /> Generate
-              </button>
-            </div>
-          </div>
-
-          {variations.length > 0 && (
-            <ul className="mt-3 space-y-2">
-              {variations.map((v, i) => (
-                <li
-                  key={i}
-                  className="rounded-lg border border-border bg-card p-2 text-xs"
-                >
-                  <div className="mb-1 flex items-center justify-between">
-                    <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                      Variation {i + 1}
-                    </span>
-                    <div className="flex items-center gap-1">
+                    <div className="ml-1 flex items-center opacity-0 transition group-hover/folder:opacity-100 focus-within:opacity-100">
                       <button
-                        onClick={() => copyText(v)}
-                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        title="Copy"
-                        aria-label="Copy variation"
+                        onClick={() => renameFolder(f)}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                        title="Rename folder"
+                        aria-label={`Rename folder ${f}`}
                       >
-                        <Copy className="h-3 w-3" />
+                        <Pencil className="h-3 w-3" />
                       </button>
                       <button
-                        onClick={() => saveVariation(v)}
-                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        title="Save to folder"
-                        aria-label="Save variation"
+                        onClick={() => deleteFolder(f)}
+                        className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                        title="Delete folder"
+                        aria-label={`Delete folder ${f}`}
                       >
-                        <Save className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => saveVariationAsTemplate(v)}
-                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        title="Save as template"
-                        aria-label="Save variation as template"
-                      >
-                        <Sparkles className="h-3 w-3" />
-                      </button>
-                      <button
-                        onClick={() => {
-                          setCustomBody(v);
-                          setActiveTemplateId(null);
-                          toast.success("Loaded into builder");
-                        }}
-                        className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        title="Load into builder"
-                        aria-label="Load variation"
-                      >
-                        <Plus className="h-3 w-3" />
+                        <Trash2 className="h-3 w-3" />
                       </button>
                     </div>
                   </div>
-                  <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground/90">
-                    {v}
-                  </p>
-                </li>
-              ))}
-            </ul>
+                  {isOpen && (
+                    <ul className="ml-6 mt-0.5 space-y-0.5 border-l border-border pl-2">
+                      {items.length === 0 ? (
+                        <li className="py-1 text-[11px] text-muted-foreground">No templates</li>
+                      ) : (
+                        items.map((tpl) => (
+                          <li key={tpl.id} className="group/tpl flex items-center gap-0.5">
+                            <button
+                              onClick={() => {
+                                setActiveTemplateId(tpl.id);
+                                setActiveFolder(tpl.folder);
+                              }}
+                              className={`flex min-w-0 flex-1 items-center gap-1.5 rounded px-2 py-1 text-left text-xs transition ${
+                                activeTemplateId === tpl.id
+                                  ? "bg-primary/10 text-primary"
+                                  : "text-muted-foreground hover:bg-accent hover:text-foreground"
+                              }`}
+                            >
+                              <Sparkles className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{tpl.name}</span>
+                            </button>
+                            <div className="flex items-center opacity-0 transition group-hover/tpl:opacity-100 focus-within:opacity-100">
+                              <button
+                                onClick={() => openTemplateEditor(tpl)}
+                                className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                                title="Edit template"
+                                aria-label={`Edit template ${tpl.name}`}
+                              >
+                                <Pencil className="h-3 w-3" />
+                              </button>
+                              <button
+                                onClick={() => deleteTemplate(tpl.id)}
+                                className="rounded p-0.5 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                                title="Delete template"
+                                aria-label={`Delete template ${tpl.name}`}
+                              >
+                                <Trash2 className="h-3 w-3" />
+                              </button>
+                            </div>
+                          </li>
+                        ))
+                      )}
+                    </ul>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </aside>
+
+        {/* ------------------------------------------------------------------ */}
+        {/* Center: builder                                                     */}
+        {/* ------------------------------------------------------------------ */}
+        <section className="rounded-2xl border border-border bg-card p-5">
+          <div className="mb-4 flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary/15 text-primary">
+              <Wand2 className="h-4 w-4" />
+            </div>
+            <div>
+              <h2 className="text-lg font-semibold">AI Image Prompt Generator</h2>
+              <p className="text-xs text-muted-foreground">
+                Compose reusable image prompts with templates, filters, and folders.
+              </p>
+            </div>
+          </div>
+
+          {/* Subject */}
+          <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+            Subject
+          </label>
+          <input
+            value={subject}
+            onChange={(e) => setSubject(e.target.value)}
+            placeholder="e.g. a spotless kitchen after professional cleaning"
+            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+          />
+
+          {/* Template selector */}
+          <div className="mt-4 flex items-center justify-between">
+            <label className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Template
+            </label>
+            {activeTemplate && (
+              <button
+                onClick={() => setActiveTemplateId(null)}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Clear template
+              </button>
+            )}
+          </div>
+          <div className="mt-1 flex flex-wrap gap-1.5">
+            {templates.slice(0, 8).map((tpl) => {
+              const on = activeTemplateId === tpl.id;
+              return (
+                <button
+                  key={tpl.id}
+                  onClick={() => setActiveTemplateId(on ? null : tpl.id)}
+                  className={`rounded-full border px-3 py-1 text-xs transition ${
+                    on
+                      ? "border-primary bg-primary/15 text-primary"
+                      : "border-border text-muted-foreground hover:border-primary/40"
+                  }`}
+                  title={tpl.body}
+                >
+                  {tpl.name}
+                </button>
+              );
+            })}
+          </div>
+
+          {!activeTemplate && (
+            <div className="mt-3">
+              <label className="mb-1 block text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Custom body
+                <span className="ml-1 normal-case text-muted-foreground/70">
+                  (use {"{subject}"}, {"{style}"}, {"{lighting}"}, {"{mood}"}, {"{camera}"},{" "}
+                  {"{aspect}"}, {"{palette}"})
+                </span>
+              </label>
+              <textarea
+                value={customBody}
+                onChange={(e) => setCustomBody(e.target.value)}
+                rows={3}
+                placeholder="A {style} shot of {subject}, {lighting}, {mood}."
+                className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+              />
+            </div>
           )}
-        </div>
-      </section>
+
+          {/* Filters */}
+          <div className="mt-5 flex items-center justify-between">
+            <div className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+              Dynamic filters
+            </div>
+            {Object.values(selections).some(Boolean) && (
+              <button
+                onClick={clearFilters}
+                className="text-[11px] text-muted-foreground hover:text-foreground"
+              >
+                Clear filters
+              </button>
+            )}
+          </div>
+
+          <div className="mt-2 space-y-2">
+            {FILTERS.map((f) => (
+              <div key={f.id} className="rounded-lg border border-border bg-background/40 p-2">
+                <div className="mb-1.5 text-[11px] font-semibold uppercase tracking-widest text-muted-foreground">
+                  {f.label}
+                </div>
+                <div className="flex flex-wrap gap-1.5">
+                  {f.options.map((opt) => {
+                    const on = selections[f.id] === opt;
+                    return (
+                      <button
+                        key={opt}
+                        onClick={() => pickFilter(f.id, opt)}
+                        className={`rounded-full border px-2.5 py-0.5 text-[11px] transition ${
+                          on
+                            ? "border-primary bg-primary/15 text-primary"
+                            : "border-border text-muted-foreground hover:border-primary/40"
+                        }`}
+                      >
+                        {opt}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ))}
+          </div>
+
+          {/* Output */}
+          <div className="mt-5">
+            <div className="mb-1 flex items-center justify-between">
+              <label className="text-xs font-medium uppercase tracking-widest text-muted-foreground">
+                Generated prompt
+              </label>
+              <span className="text-[11px] text-muted-foreground">{generated.length} chars</span>
+            </div>
+            <textarea
+              ref={outputRef}
+              value={generated}
+              readOnly
+              rows={5}
+              placeholder="Pick a template or write a custom body, add filters, and your prompt appears here."
+              className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none"
+            />
+            <div className="mt-2 flex flex-wrap gap-2">
+              <button
+                onClick={copyGenerated}
+                disabled={!generated}
+                className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              >
+                <Copy className="h-3.5 w-3.5" /> Copy
+              </button>
+              <button
+                onClick={savePrompt}
+                disabled={!generated}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                <Save className="h-3.5 w-3.5" /> Save to folder
+              </button>
+              <button
+                onClick={saveAsTemplate}
+                disabled={!bodyToUse}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                <Sparkles className="h-3.5 w-3.5" /> Save as template
+              </button>
+            </div>
+          </div>
+
+          {/* Variations */}
+          <div className="mt-5 rounded-xl border border-border bg-background/40 p-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
+                  Generate variations
+                </div>
+                <p className="text-[11px] text-muted-foreground">
+                  Uses the current template & locked filters. Unlocked filters rotate for variety.
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <label className="text-[11px] text-muted-foreground">Count</label>
+                <select
+                  value={variationCount}
+                  onChange={(e) => setVariationCount(Number(e.target.value))}
+                  className="rounded-md border border-border bg-background px-2 py-1 text-xs outline-none focus:border-primary"
+                >
+                  {[3, 4, 5].map((n) => (
+                    <option key={n} value={n}>
+                      {n}
+                    </option>
+                  ))}
+                </select>
+                <button
+                  onClick={generateVariations}
+                  disabled={!bodyToUse}
+                  className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  <Shuffle className="h-3.5 w-3.5" /> Generate
+                </button>
+              </div>
+            </div>
+
+            {variations.length > 0 && (
+              <ul className="mt-3 space-y-2">
+                {variations.map((v, i) => (
+                  <li key={i} className="rounded-lg border border-border bg-card p-2 text-xs">
+                    <div className="mb-1 flex items-center justify-between">
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                        Variation {i + 1}
+                      </span>
+                      <div className="flex items-center gap-1">
+                        <button
+                          onClick={() => copyText(v)}
+                          className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Copy"
+                          aria-label="Copy variation"
+                        >
+                          <Copy className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => saveVariation(v)}
+                          className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Save to folder"
+                          aria-label="Save variation"
+                        >
+                          <Save className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => saveVariationAsTemplate(v)}
+                          className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Save as template"
+                          aria-label="Save variation as template"
+                        >
+                          <Sparkles className="h-3 w-3" />
+                        </button>
+                        <button
+                          onClick={() => {
+                            setCustomBody(v);
+                            setActiveTemplateId(null);
+                            toast.success("Loaded into builder");
+                          }}
+                          className="inline-flex items-center gap-1 rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                          title="Load into builder"
+                          aria-label="Load variation"
+                        >
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </div>
+                    </div>
+                    <p className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground/90">
+                      {v}
+                    </p>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </section>
       </div>
 
       {/* ------------------------------------------------------------------ */}
@@ -1053,7 +988,6 @@ export function AiImagePromptGenerator() {
             </span>
           </div>
         </div>
-
 
         <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
           <div className="flex flex-1 items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1">
@@ -1082,7 +1016,6 @@ export function AiImagePromptGenerator() {
           </div>
         </div>
 
-
         {visiblePrompts.length === 0 ? (
           <div className="rounded-lg border border-dashed border-border p-4 text-center text-[11px] text-muted-foreground">
             {prompts.length === 0
@@ -1095,17 +1028,13 @@ export function AiImagePromptGenerator() {
               <li
                 key={p.id}
                 className={`rounded-lg border p-2 text-xs ${
-                  p.pinned
-                    ? "border-primary/40 bg-primary/5"
-                    : "border-border bg-background"
+                  p.pinned ? "border-primary/40 bg-primary/5" : "border-border bg-background"
                 }`}
               >
                 <div className="flex items-start gap-1.5">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-1">
-                      {p.pinned && (
-                        <Pin className="h-3 w-3 shrink-0 text-primary" />
-                      )}
+                      {p.pinned && <Pin className="h-3 w-3 shrink-0 text-primary" />}
                       {p.favorite && (
                         <Star className="h-3 w-3 shrink-0 fill-amber-400 text-amber-400" />
                       )}
@@ -1146,11 +1075,7 @@ export function AiImagePromptGenerator() {
                       title={p.pinned ? "Unpin" : "Pin"}
                       aria-label={p.pinned ? "Unpin" : "Pin"}
                     >
-                      {p.pinned ? (
-                        <PinOff className="h-3 w-3" />
-                      ) : (
-                        <Pin className="h-3 w-3" />
-                      )}
+                      {p.pinned ? <PinOff className="h-3 w-3" /> : <Pin className="h-3 w-3" />}
                     </button>
                     <button
                       onClick={() => toggleFav(p.id)}
@@ -1158,24 +1083,20 @@ export function AiImagePromptGenerator() {
                       title={p.favorite ? "Unfavorite" : "Favorite"}
                       aria-label={p.favorite ? "Unfavorite" : "Favorite"}
                     >
-                      {p.favorite ? (
-                        <StarOff className="h-3 w-3" />
-                      ) : (
-                        <Star className="h-3 w-3" />
-                      )}
+                      {p.favorite ? <StarOff className="h-3 w-3" /> : <Star className="h-3 w-3" />}
                     </button>
-                  <button
-                    onClick={() => {
-                      setCustomBody(p.body);
-                      setActiveTemplateId(null);
-                      toast.success("Loaded into builder");
-                    }}
-                    className="ml-auto rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                    title="Load into builder"
-                    aria-label="Load into builder"
-                  >
-                    <Plus className="h-3 w-3" />
-                  </button>
+                    <button
+                      onClick={() => {
+                        setCustomBody(p.body);
+                        setActiveTemplateId(null);
+                        toast.success("Loaded into builder");
+                      }}
+                      className="ml-auto rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title="Load into builder"
+                      aria-label="Load into builder"
+                    >
+                      <Plus className="h-3 w-3" />
+                    </button>
                     <button
                       onClick={() => removePrompt(p.id)}
                       className="rounded p-1 text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
@@ -1192,7 +1113,6 @@ export function AiImagePromptGenerator() {
         )}
       </aside>
 
-
       {editingTemplate && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
@@ -1206,7 +1126,8 @@ export function AiImagePromptGenerator() {
               <div>
                 <h3 className="text-sm font-semibold">Edit template</h3>
                 <p className="text-[11px] text-muted-foreground">
-                  Use {"{subject}"}, {"{style}"}, {"{mood}"}, {"{aspect}"}, {"{palette}"} as placeholders.
+                  Use {"{subject}"}, {"{style}"}, {"{mood}"}, {"{aspect}"}, {"{palette}"} as
+                  placeholders.
                 </p>
               </div>
               <button

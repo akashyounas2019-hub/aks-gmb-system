@@ -25,10 +25,13 @@ async function fetchSerpApi(
   if (location) u.searchParams.set("location", location);
   u.searchParams.set("hl", "en");
   u.searchParams.set("api_key", cfg.api_key);
-  const r = await fetch(u).then((res) => res.json() as Promise<{
-    local_results?: Array<{ position?: number; place_id?: string; title?: string }>;
-    error?: string;
-  }>);
+  const r = await fetch(u).then(
+    (res) =>
+      res.json() as Promise<{
+        local_results?: Array<{ position?: number; place_id?: string; title?: string }>;
+        error?: string;
+      }>,
+  );
   if (r.error) throw new Error(`SerpApi: ${r.error}`);
   return (r.local_results ?? []).map((row, i) => ({
     rank: row.position ?? i + 1,
@@ -50,28 +53,28 @@ async function fetchDataForSeo(
       location_name: location || "United States",
     },
   ];
-  const r = await fetch(
-    "https://api.dataforseo.com/v3/serp/google/local_finder/live/advanced",
-    {
-      method: "POST",
-      headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    },
-  ).then((res) => res.json() as Promise<{
-    status_code?: number;
-    status_message?: string;
-    tasks?: Array<{
-      status_code?: number;
-      status_message?: string;
-      result?: Array<{
-        items?: Array<{
-          rank_absolute?: number;
-          place_id?: string;
-          title?: string;
+  const r = await fetch("https://api.dataforseo.com/v3/serp/google/local_finder/live/advanced", {
+    method: "POST",
+    headers: { Authorization: `Basic ${auth}`, "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  }).then(
+    (res) =>
+      res.json() as Promise<{
+        status_code?: number;
+        status_message?: string;
+        tasks?: Array<{
+          status_code?: number;
+          status_message?: string;
+          result?: Array<{
+            items?: Array<{
+              rank_absolute?: number;
+              place_id?: string;
+              title?: string;
+            }>;
+          }>;
         }>;
-      }>;
-    }>;
-  }>);
+      }>,
+  );
   if (r.status_code && r.status_code >= 40000) {
     throw new Error(`DataForSEO: ${r.status_message ?? "request failed"}`);
   }
@@ -242,7 +245,11 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
         places =
           source === "serpapi"
             ? await fetchSerpApi(kw.keyword, location, cfg as { api_key: string })
-            : await fetchDataForSeo(kw.keyword, location, cfg as { login: string; password: string });
+            : await fetchDataForSeo(
+                kw.keyword,
+                location,
+                cfg as { login: string; password: string },
+              );
       } catch (err) {
         if (!firstError) firstError = err instanceof Error ? err.message : String(err);
         results[kw.keyword] = Object.fromEntries(data.competitors.map((c) => [c.id, null]));
@@ -308,7 +315,11 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
         }
 
         // 2) Improvement — competitor moved up by >= delta positions.
-        if (prefs.improvement_enabled && previous != null && previous - r >= prefs.rank_improvement_delta) {
+        if (
+          prefs.improvement_enabled &&
+          previous != null &&
+          previous - r >= prefs.rank_improvement_delta
+        ) {
           if (!(await hasRecentAlert(c.id, kw.keyword, "improvement"))) {
             await supabase.from("rank_alerts").insert({
               user_id: userId,
@@ -352,14 +363,13 @@ export const getCompetitorRanks = createServerFn({ method: "POST" })
 
 export const getCompetitorRankHistory = createServerFn({ method: "GET" })
   .middleware([requireSupabaseAuth])
-  .inputValidator(
-    (data: { keyword: string; days?: number }) =>
-      z
-        .object({
-          keyword: z.string().trim().min(1).max(200),
-          days: z.number().int().min(1).max(365).optional(),
-        })
-        .parse(data),
+  .inputValidator((data: { keyword: string; days?: number }) =>
+    z
+      .object({
+        keyword: z.string().trim().min(1).max(200),
+        days: z.number().int().min(1).max(365).optional(),
+      })
+      .parse(data),
   )
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
@@ -383,4 +393,3 @@ export const getCompetitorRankHistory = createServerFn({ method: "GET" })
       source: r.source as string,
     }));
   });
-

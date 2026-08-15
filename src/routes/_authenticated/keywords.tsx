@@ -73,7 +73,9 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-
 const BULK_KEYWORD_ACTION_CHUNK_SIZE = 50;
 
 function normalizeKeywordIds(ids: string[]): string[] {
-  return Array.from(new Set(ids.filter((id): id is string => typeof id === "string" && UUID_RE.test(id))));
+  return Array.from(
+    new Set(ids.filter((id): id is string => typeof id === "string" && UUID_RE.test(id))),
+  );
 }
 
 function chunkArray<T>(items: T[], size: number): T[][] {
@@ -227,11 +229,7 @@ function KeywordsPage() {
   const load = useCallback(async () => {
     setLoading(true);
     const [{ data: kws }, { data: fs }] = await Promise.all([
-      supabase
-        .from("keywords")
-        .select("*")
-        .order("created_at", { ascending: false })
-        .limit(2000),
+      supabase.from("keywords").select("*").order("created_at", { ascending: false }).limit(2000),
       supabase
         // eslint-disable-next-line @typescript-eslint/no-explicit-any
         .from("keyword_folders" as any)
@@ -239,7 +237,7 @@ function KeywordsPage() {
         .order("position", { ascending: true }),
     ]);
     setRows((kws ?? []) as Keyword[]);
-    setFolders(((fs ?? []) as unknown) as KFolder[]);
+    setFolders((fs ?? []) as unknown as KFolder[]);
     setLoading(false);
   }, []);
 
@@ -295,7 +293,7 @@ function KeywordsPage() {
   }, [rows, folders, descendantIds]);
 
   const currentFolder =
-    scope !== "all" && scope !== "unfiled" ? folderById.get(scope) ?? null : null;
+    scope !== "all" && scope !== "unfiled" ? (folderById.get(scope) ?? null) : null;
 
   const scopedRows = useMemo(() => {
     if (activeTab === "tracked") return rows.filter((r) => r.tracked);
@@ -368,8 +366,7 @@ function KeywordsPage() {
     return Array.from(s).sort();
   }, [rows]);
 
-  const scopeFolderIdForNew: string | null =
-    scope !== "all" && scope !== "unfiled" ? scope : null;
+  const scopeFolderIdForNew: string | null = scope !== "all" && scope !== "unfiled" ? scope : null;
 
   // ---------- Folder ops ----------
   async function createFolder(input: {
@@ -440,7 +437,8 @@ function KeywordsPage() {
   async function moveKeywords(ids: string[], targetFolderId: string | null) {
     const keywordIds = normalizeKeywordIds(ids);
     if (!keywordIds.length) return toast.error("No valid keywords selected");
-    if (targetFolderId && !UUID_RE.test(targetFolderId)) return toast.error("Invalid folder selected");
+    if (targetFolderId && !UUID_RE.test(targetFolderId))
+      return toast.error("Invalid folder selected");
 
     const chunks = chunkArray(keywordIds, BULK_KEYWORD_ACTION_CHUNK_SIZE);
     const toastId =
@@ -466,10 +464,9 @@ function KeywordsPage() {
       }
     }
 
-    const message =
-      `Moved ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"} to ${
-        targetFolderId ? folderById.get(targetFolderId)?.name ?? "folder" : "Unfiled"
-      }`;
+    const message = `Moved ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"} to ${
+      targetFolderId ? (folderById.get(targetFolderId)?.name ?? "folder") : "Unfiled"
+    }`;
     if (toastId) toast.success(message, { id: toastId });
     else toast.success(message);
     setSelection(new Set());
@@ -479,7 +476,12 @@ function KeywordsPage() {
   async function deleteKeywords(ids: string[]) {
     const keywordIds = normalizeKeywordIds(ids);
     if (!keywordIds.length) return toast.error("No valid keywords selected");
-    if (!confirm(`Delete ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"}?`)) return;
+    if (
+      !confirm(
+        `Delete ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"}?`,
+      )
+    )
+      return;
 
     const chunks = chunkArray(keywordIds, BULK_KEYWORD_ACTION_CHUNK_SIZE);
     const toastId =
@@ -502,8 +504,12 @@ function KeywordsPage() {
     }
 
     const removedIds = new Set(keywordIds);
-    if (toastId) toast.success(`Deleted ${keywordIds.length.toLocaleString()} keywords`, { id: toastId });
-    else toast.success(`Deleted ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"}`);
+    if (toastId)
+      toast.success(`Deleted ${keywordIds.length.toLocaleString()} keywords`, { id: toastId });
+    else
+      toast.success(
+        `Deleted ${keywordIds.length.toLocaleString()} keyword${keywordIds.length === 1 ? "" : "s"}`,
+      );
     setRows((r) => r.filter((k) => !removedIds.has(k.id)));
     setSelection(new Set());
   }
@@ -525,8 +531,7 @@ function KeywordsPage() {
     if (rowsCsv.length < 2) return toast.error("File appears empty");
     const headers = rowsCsv[0];
     const iPhrase = pickIndex(headers, ["keyword", "phrase", "query"]);
-    if (iPhrase < 0)
-      return toast.error('No "Keyword" column found. Use "Generic import" instead.');
+    if (iPhrase < 0) return toast.error('No "Keyword" column found. Use "Generic import" instead.');
     const iVol = pickIndex(headers, ["search volume", "volume"]);
     const iKD = pickIndex(headers, ["keyword difficulty", "difficulty", "kd", "kd%"]);
     const iCPC = pickIndex(headers, ["cpc", "cpc (usd)"]);
@@ -585,9 +590,7 @@ function KeywordsPage() {
         const dataRows = (hasHeader ? nonEmpty.slice(1) : nonEmpty).map((r) =>
           r.map((v) => String(v ?? "")),
         );
-        const iPhrase = hasHeader
-          ? pickIndex(headers, ["keyword", "phrase", "query", "term"])
-          : 0;
+        const iPhrase = hasHeader ? pickIndex(headers, ["keyword", "phrase", "query", "term"]) : 0;
         const pIdx = iPhrase >= 0 ? iPhrase : 0;
         const iVol = hasHeader ? pickIndex(headers, ["search volume", "volume"]) : -1;
         const iCluster = hasHeader
@@ -616,14 +619,11 @@ function KeywordsPage() {
         for (const item of arr) {
           if (typeof item === "string") phrases.push({ phrase: item.trim() });
           else if (item && typeof item === "object") {
-            const p = String(
-              item.keyword ?? item.phrase ?? item.term ?? item.query ?? "",
-            ).trim();
+            const p = String(item.keyword ?? item.phrase ?? item.term ?? item.query ?? "").trim();
             if (p)
               phrases.push({
                 phrase: p,
-                volume:
-                  toNum(String(item.volume ?? item.search_volume ?? "")) ?? null,
+                volume: toNum(String(item.volume ?? item.search_volume ?? "")) ?? null,
                 cluster: (item.cluster ?? item.topic ?? item.group ?? null) || null,
               });
           }
@@ -647,9 +647,7 @@ function KeywordsPage() {
         dataRows = parsed;
         headers = headers.map((_, i) => `col_${i}`);
       }
-      const iPhrase = hasHeader
-        ? pickIndex(headers, ["keyword", "phrase", "query", "term"])
-        : 0;
+      const iPhrase = hasHeader ? pickIndex(headers, ["keyword", "phrase", "query", "term"]) : 0;
       const pIdx = iPhrase >= 0 ? iPhrase : 0;
       const iVol = hasHeader ? pickIndex(headers, ["search volume", "volume"]) : -1;
       const iCluster = hasHeader
@@ -700,10 +698,7 @@ function KeywordsPage() {
     const chunk = 200;
     for (let i = 0; i < payload.length; i += chunk) {
       const slice = payload.slice(i, i + chunk);
-      const { data, error } = await supabase
-        .from("keywords")
-        .insert(slice)
-        .select("id, phrase");
+      const { data, error } = await supabase.from("keywords").insert(slice).select("id, phrase");
       if (error) {
         toast.error(error.message);
         return { ids, phrases };
@@ -728,7 +723,7 @@ function KeywordsPage() {
     const folderName =
       scope === "unfiled" || scope === "all"
         ? "Unfiled"
-        : folderById.get(scope)?.name ?? "Unfiled";
+        : (folderById.get(scope)?.name ?? "Unfiled");
     const recId = crypto.randomUUID();
     setImports((prev) =>
       [
@@ -753,11 +748,9 @@ function KeywordsPage() {
     if (!rec.keywordIds.length) return;
     await moveKeywords(rec.keywordIds, targetFolderId);
     const targetName = targetFolderId
-      ? folderById.get(targetFolderId)?.name ?? "folder"
+      ? (folderById.get(targetFolderId)?.name ?? "folder")
       : "Unfiled";
-    setImports((prev) =>
-      prev.map((r) => (r.id === rec.id ? { ...r, folderName: targetName } : r)),
-    );
+    setImports((prev) => prev.map((r) => (r.id === rec.id ? { ...r, folderName: targetName } : r)));
   }
 
   function renameImport(id: string, newName: string) {
@@ -775,9 +768,7 @@ function KeywordsPage() {
       .in("id", ids);
     if (error) return toast.error(error.message);
     toast.success(
-      tracked
-        ? `Added ${ids.length} to Tracked`
-        : `Removed ${ids.length} from Tracked`,
+      tracked ? `Added ${ids.length} to Tracked` : `Removed ${ids.length} from Tracked`,
     );
     setSelection(new Set());
     await load();
@@ -814,7 +805,7 @@ function KeywordsPage() {
       r.cpc ?? "",
       r.intent ?? "",
       r.cluster ?? "",
-      r.folder_id ? folderById.get(r.folder_id)?.name ?? "" : "",
+      r.folder_id ? (folderById.get(r.folder_id)?.name ?? "") : "",
       r.source ?? "",
     ]);
     const csv = [header, ...body].map((row) => row.map(esc).join(",")).join("\n");
@@ -856,8 +847,7 @@ function KeywordsPage() {
   }
 
   // ---------- Rendering ----------
-  const allChecked =
-    filtered.length > 0 && filtered.every((r) => selection.has(r.id));
+  const allChecked = filtered.length > 0 && filtered.every((r) => selection.has(r.id));
 
   function toggleAll() {
     if (allChecked) setSelection(new Set());
@@ -883,13 +873,11 @@ function KeywordsPage() {
           </div>
         </div>
         <nav role="tablist" className="mt-4 flex gap-1">
-          {(
-            [
-              { id: "research" as const, label: "Keyword Research", icon: Search },
-              { id: "library" as const, label: "Library", icon: FolderOpen },
-              { id: "tracked" as const, label: "Tracked Keywords", icon: Target },
-            ]
-          ).map((t) => {
+          {[
+            { id: "research" as const, label: "Keyword Research", icon: Search },
+            { id: "library" as const, label: "Library", icon: FolderOpen },
+            { id: "tracked" as const, label: "Tracked Keywords", icon: Target },
+          ].map((t) => {
             const active = activeTab === t.id;
             const Icon = t.icon;
             return (
@@ -936,9 +924,7 @@ function KeywordsPage() {
                   />
                 </div>
                 <button
-                  onClick={() =>
-                    researchQuery.trim() && openSemrushResearch(researchQuery.trim())
-                  }
+                  onClick={() => researchQuery.trim() && openSemrushResearch(researchQuery.trim())}
                   disabled={!researchQuery.trim()}
                   className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
                 >
@@ -1058,8 +1044,8 @@ function KeywordsPage() {
             )}
 
             <div className="rounded-lg border border-dashed border-border bg-background/30 p-4 text-sm text-muted-foreground">
-              Everything you save here shows up under the <strong>Library</strong> tab, where you can
-              organize keywords into folders and clusters.
+              Everything you save here shows up under the <strong>Library</strong> tab, where you
+              can organize keywords into folders and clusters.
             </div>
           </div>
         </div>
@@ -1069,633 +1055,630 @@ function KeywordsPage() {
         <div className="flex flex-1 flex-col">
           {/* Horizontal Library toolbar — replaces the old vertical sidebar */}
           {activeTab === "library" && (
-          <div className="border-b border-border bg-card/40">
-            <div className="flex flex-wrap items-center gap-3 px-6 py-3 md:px-10">
-              <div className="flex shrink-0 items-center gap-2">
-                <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Layers className="h-4 w-4" />
-                </div>
-                <div className="leading-tight">
-                  <div className="text-sm font-semibold">Library</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    {folders.length} folder{folders.length === 1 ? "" : "s"} ·{" "}
-                    {rows.length} keywords
+            <div className="border-b border-border bg-card/40">
+              <div className="flex flex-wrap items-center gap-3 px-6 py-3 md:px-10">
+                <div className="flex shrink-0 items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <Layers className="h-4 w-4" />
+                  </div>
+                  <div className="leading-tight">
+                    <div className="text-sm font-semibold">Library</div>
+                    <div className="text-[11px] text-muted-foreground">
+                      {folders.length} folder{folders.length === 1 ? "" : "s"} · {rows.length}{" "}
+                      keywords
+                    </div>
                   </div>
                 </div>
+
+                <div className="mx-1 hidden h-8 w-px bg-border sm:block" />
+
+                <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
+                  <ToolbarChip
+                    icon={<Layers className="h-3.5 w-3.5" />}
+                    label="All keywords"
+                    count={rows.length}
+                    active={scope === "all"}
+                    onClick={() => setScope("all")}
+                  />
+                  <ToolbarChip
+                    icon={<Inbox className="h-3.5 w-3.5" />}
+                    label="Unfiled"
+                    count={rows.filter((r) => !r.folder_id).length}
+                    active={scope === "unfiled"}
+                    onClick={() => setScope("unfiled")}
+                  />
+
+                  {folders.length > 0 && (
+                    <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
+                  )}
+
+                  {flattenFolders(folderChildren.get(null) ?? [], folderChildren).map(
+                    ({ folder, depth }) => (
+                      <FolderToolbarChip
+                        key={folder.id}
+                        folder={folder}
+                        depth={depth}
+                        count={countByFolder.totals.get(folder.id) ?? 0}
+                        active={scope === folder.id}
+                        onClick={() => setScope(folder.id)}
+                        onEdit={() =>
+                          setFolderModal({
+                            mode: "edit",
+                            parentId: folder.parent_id,
+                            folder,
+                          })
+                        }
+                        onDelete={() => deleteFolder(folder.id)}
+                        onAddChild={() => setFolderModal({ mode: "create", parentId: folder.id })}
+                      />
+                    ),
+                  )}
+
+                  {folders.length === 0 && (
+                    <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-[11px] text-muted-foreground">
+                      <Folder className="h-3 w-3" />
+                      No folders yet
+                    </span>
+                  )}
+                </div>
+
+                {/* Duplicate "New folder" removed — the header action button below is the single source of truth. */}
               </div>
-
-              <div className="mx-1 hidden h-8 w-px bg-border sm:block" />
-
-              <div className="flex min-w-0 flex-1 items-center gap-2 overflow-x-auto pb-1">
-                <ToolbarChip
-                  icon={<Layers className="h-3.5 w-3.5" />}
-                  label="All keywords"
-                  count={rows.length}
-                  active={scope === "all"}
-                  onClick={() => setScope("all")}
-                />
-                <ToolbarChip
-                  icon={<Inbox className="h-3.5 w-3.5" />}
-                  label="Unfiled"
-                  count={rows.filter((r) => !r.folder_id).length}
-                  active={scope === "unfiled"}
-                  onClick={() => setScope("unfiled")}
-                />
-
-                {folders.length > 0 && (
-                  <div className="mx-1 hidden h-6 w-px bg-border sm:block" />
-                )}
-
-                {flattenFolders(folderChildren.get(null) ?? [], folderChildren).map(
-                  ({ folder, depth }) => (
-                    <FolderToolbarChip
-                      key={folder.id}
-                      folder={folder}
-                      depth={depth}
-                      count={countByFolder.totals.get(folder.id) ?? 0}
-                      active={scope === folder.id}
-                      onClick={() => setScope(folder.id)}
-                      onEdit={() =>
-                        setFolderModal({
-                          mode: "edit",
-                          parentId: folder.parent_id,
-                          folder,
-                        })
-                      }
-                      onDelete={() => deleteFolder(folder.id)}
-                      onAddChild={() =>
-                        setFolderModal({ mode: "create", parentId: folder.id })
-                      }
-                    />
-                  ),
-                )}
-
-                {folders.length === 0 && (
-                  <span className="inline-flex items-center gap-1.5 rounded-full border border-dashed border-border px-3 py-1 text-[11px] text-muted-foreground">
-                    <Folder className="h-3 w-3" />
-                    No folders yet
-                  </span>
-                )}
-              </div>
-
-              {/* Duplicate "New folder" removed — the header action button below is the single source of truth. */}
             </div>
-          </div>
           )}
 
           {/* ---------- Main panel ---------- */}
           <div className="min-w-0 flex-1 px-6 py-6 md:px-10 md:py-10">
-        {/* Breadcrumb + header */}
-        <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <button onClick={() => setScope("all")} className="hover:text-foreground">
-                Keywords
-              </button>
-              {scope === "unfiled" && (
-                <>
-                  <ChevronRight className="h-3 w-3" />
-                  <span className="text-foreground">Unfiled</span>
-                </>
-              )}
-              {currentFolder &&
-                buildBreadcrumb(currentFolder, folderById).map((f) => (
-                  <span key={f.id} className="flex items-center gap-2">
-                    <ChevronRight className="h-3 w-3" />
-                    <button
-                      onClick={() => setScope(f.id)}
-                      className={
-                        f.id === currentFolder.id
-                          ? "text-foreground"
-                          : "hover:text-foreground"
-                      }
-                    >
-                      {f.name}
-                    </button>
-                  </span>
-                ))}
-            </div>
-            <div className="mt-1 flex items-center gap-3">
-              <div className="flex items-center gap-2">
-                {currentFolder ? (
-                  <span
-                    className="inline-block h-3 w-3 rounded-full"
-                    style={{ background: currentFolder.color ?? "#64748b" }}
-                  />
-                ) : (
-                  <Target className="h-5 w-5 text-primary" />
-                )}
-                <h1 className="text-3xl">
-                  {activeTab === "tracked"
-                    ? "Tracked keywords"
-                    : scope === "all"
-                    ? "All keywords"
-                    : scope === "unfiled"
-                      ? "Unfiled"
-                      : currentFolder?.name ?? "Keywords"}
-                </h1>
-              </div>
-              {currentFolder && (
-                <button
-                  onClick={() =>
-                    setFolderModal({
-                      mode: "edit",
-                      parentId: currentFolder.parent_id,
-                      folder: currentFolder,
-                    })
-                  }
-                  className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  title="Edit folder"
-                >
-                  <Pencil className="h-3.5 w-3.5" />
-                </button>
-              )}
-            </div>
-            {currentFolder?.description ? (
-              <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-                {currentFolder.description}
-              </p>
-            ) : null}
-          </div>
-
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={semrushRef}
-              type="file"
-              accept=".csv,.tsv,text/csv"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) importSemrush(f);
-                e.currentTarget.value = "";
-              }}
-            />
-            <input
-              ref={genericRef}
-              type="file"
-              accept=".csv,.tsv,.txt,.json,.xlsx,.xls,text/*,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
-              className="hidden"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                if (f) importGeneric(f);
-                e.currentTarget.value = "";
-              }}
-            />
-            <button
-              onClick={() =>
-                setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })
-              }
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:border-primary/50"
-            >
-              <FolderPlus className="h-4 w-4" /> New folder
-            </button>
-            <button
-              onClick={() => setManualOpen(true)}
-              className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
-            >
-              <Plus className="h-4 w-4" /> Add keywords
-            </button>
-            <DropdownMenu>
-              <DropdownMenuTrigger asChild>
-                <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:border-primary/50">
-                  <Upload className="h-4 w-4" /> Import
-                </button>
-              </DropdownMenuTrigger>
-              <DropdownMenuContent align="end">
-                <DropdownMenuLabel className="text-xs">
-                  Import into {currentFolder ? `"${currentFolder.name}"` : "Unfiled"}
-                </DropdownMenuLabel>
-                <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={() => semrushRef.current?.click()}>
-                  <Upload className="mr-2 h-4 w-4" /> Semrush CSV
-                </DropdownMenuItem>
-                <DropdownMenuItem onClick={() => genericRef.current?.click()}>
-                  <FileUp className="mr-2 h-4 w-4" /> CSV / TSV / TXT / JSON / XLSX
-                </DropdownMenuItem>
-              </DropdownMenuContent>
-            </DropdownMenu>
-            <button
-              onClick={exportCsv}
-              className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:border-primary/50"
-            >
-              <Download className="h-4 w-4" /> Export
-            </button>
-          </div>
-        </div>
-
-        {/* Import sets — allow moving a whole import set to a folder */}
-        {activeTab === "library" && imports.length > 0 && (
-          <div className="mb-5 rounded-xl border border-border bg-card">
-            <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
-              <div className="flex items-center gap-2">
-                <FileUp className="h-4 w-4 text-primary" />
-                <h3 className="text-sm font-semibold">Import sets</h3>
-                <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
-                  {imports.length}
-                </span>
-              </div>
-              <span className="text-[11px] text-muted-foreground">
-                Rename a set or move all of its keywords into a folder.
-              </span>
-            </div>
-            <ul className="divide-y divide-border/60">
-              {imports.map((imp) => (
-                <ImportRow
-                  key={imp.id}
-                  imp={imp}
-                  folders={folders}
-                  folderById={folderById}
-                  expanded={expandedImports.has(imp.id)}
-                  onToggleExpanded={() =>
-                    setExpandedImports((prev) => {
-                      const n = new Set(prev);
-                      if (n.has(imp.id)) n.delete(imp.id);
-                      else n.add(imp.id);
-                      return n;
-                    })
-                  }
-                  editing={editingImportId === imp.id}
-                  onStartEdit={() => setEditingImportId(imp.id)}
-                  onStopEdit={() => setEditingImportId(null)}
-                  onRename={(name: string) => renameImport(imp.id, name)}
-                  onMove={(fid: string | null) => moveImportSet(imp, fid)}
-                />
-              ))}
-            </ul>
-          </div>
-        )}
-
-        {/* KPI strip */}
-        <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-          <Kpi
-            icon={<ListChecks className="h-4 w-4" />}
-            label="Keywords"
-            value={stats.totalKw.toLocaleString()}
-          />
-          <Kpi
-            icon={<Target className="h-4 w-4" />}
-            label="Total volume"
-            value={stats.totalVol.toLocaleString()}
-          />
-          <Kpi
-            icon={<Gauge className="h-4 w-4" />}
-            label="Avg difficulty"
-            value={stats.avgKD != null ? `${stats.avgKD.toFixed(0)}` : "—"}
-          />
-          <Kpi
-            icon={<DollarSign className="h-4 w-4" />}
-            label="Avg CPC"
-            value={stats.avgCPC != null ? `$${stats.avgCPC.toFixed(2)}` : "—"}
-          />
-          <Kpi
-            icon={<Tag className="h-4 w-4" />}
-            label="Clusters"
-            value={stats.clusters.toString()}
-          />
-        </div>
-
-        {/* Filter bar */}
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
-            <Search className="h-4 w-4 text-muted-foreground" />
-            <input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search phrase or cluster"
-              className="flex-1 bg-transparent text-sm outline-none"
-            />
-          </div>
-          <select
-            value={intentFilter}
-            onChange={(e) => setIntentFilter(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
-            title="Search intent"
-          >
-            <option value="all">All intents</option>
-            {availableIntents.map((i) => (
-              <option key={i} value={i}>
-                {i}
-              </option>
-            ))}
-          </select>
-          <select
-            value={clusterFilter}
-            onChange={(e) => setClusterFilter(e.target.value)}
-            className="rounded-lg border border-border bg-card px-3 py-2 text-sm max-w-[180px]"
-            title="Cluster / topic"
-          >
-            <option value="all">All clusters</option>
-            {availableClusters.map((c) => (
-              <option key={c} value={c}>
-                {c}
-              </option>
-            ))}
-          </select>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Search volume range">
-            <Target className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={minVolume}
-              onChange={(e) => setMinVolume(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Min vol"
-              className="w-20 bg-transparent px-1 text-sm outline-none"
-            />
-            <span className="text-muted-foreground">–</span>
-            <input
-              value={maxVolume}
-              onChange={(e) => setMaxVolume(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Max"
-              className="w-20 bg-transparent px-1 text-sm outline-none"
-            />
-          </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Max keyword difficulty (0-100)">
-            <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={maxKD}
-              onChange={(e) => setMaxKD(e.target.value.replace(/[^0-9]/g, ""))}
-              placeholder="Max KD"
-              className="w-16 bg-transparent px-1 text-sm outline-none"
-            />
-          </div>
-          <div className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm" title="Max cost per click ($)">
-            <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
-            <input
-              value={maxCPC}
-              onChange={(e) => setMaxCPC(e.target.value.replace(/[^0-9.]/g, ""))}
-              placeholder="Max CPC"
-              className="w-16 bg-transparent px-1 text-sm outline-none"
-            />
-          </div>
-          {(search || intentFilter !== "all" || clusterFilter !== "all" || minVolume || maxVolume || maxKD || maxCPC) && (
-            <button
-              onClick={() => {
-                setSearch("");
-                setIntentFilter("all");
-                setClusterFilter("all");
-                setMinVolume("");
-                setMaxVolume("");
-                setMaxKD("");
-                setMaxCPC("");
-              }}
-              className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:border-primary/50"
-            >
-              Clear
-            </button>
-          )}
-        </div>
-
-
-        {/* Bulk action bar */}
-        {selection.size > 0 && (
-          <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
-            <span>
-              <strong>{selection.size}</strong> selected
-            </span>
-            <div className="flex items-center gap-2">
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <button className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50">
-                    <Move className="h-3.5 w-3.5" /> Move to folder
+            {/* Breadcrumb + header */}
+            <div className="mb-4 flex flex-wrap items-start justify-between gap-4">
+              <div>
+                <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                  <button onClick={() => setScope("all")} className="hover:text-foreground">
+                    Keywords
                   </button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
-                  <DropdownMenuItem onClick={() => moveKeywords(Array.from(selection), null)}>
-                    <Inbox className="mr-2 h-4 w-4" /> Unfiled
-                  </DropdownMenuItem>
-                  <DropdownMenuSeparator />
-                  {folders.length === 0 ? (
-                    <DropdownMenuLabel className="text-xs text-muted-foreground">
-                      No folders yet
-                    </DropdownMenuLabel>
-                  ) : (
-                    folders.map((f) => (
-                      <DropdownMenuItem
-                        key={f.id}
-                        onClick={() => moveKeywords(Array.from(selection), f.id)}
-                      >
-                        <span
-                          className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
-                          style={{ background: f.color ?? "#64748b" }}
-                        />
-                        {folderPath(f, folderById)}
-                      </DropdownMenuItem>
-                    ))
+                  {scope === "unfiled" && (
+                    <>
+                      <ChevronRight className="h-3 w-3" />
+                      <span className="text-foreground">Unfiled</span>
+                    </>
                   )}
-                </DropdownMenuContent>
-              </DropdownMenu>
-              <button
-                onClick={enrichSelection}
-                disabled={enriching}
-                className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50 disabled:opacity-50"
-              >
-                <Sparkles className="h-3.5 w-3.5" />
-                {enriching ? "Normalizing…" : "Normalize"}
-              </button>
-              {activeTab === "tracked" ? (
-                <button
-                  onClick={() => setTracked(Array.from(selection), false)}
-                  className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50"
-                >
-                  <Target className="h-3.5 w-3.5" /> Untrack
-                </button>
-              ) : (
-                <button
-                  onClick={() => setTracked(Array.from(selection), true)}
-                  className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15"
-                >
-                  <Target className="h-3.5 w-3.5" /> Track
-                </button>
-              )}
-              <button
-                onClick={() => deleteKeywords(Array.from(selection))}
-                className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
-              >
-                <Trash2 className="h-3.5 w-3.5" /> Delete
-              </button>
-              <button
-                onClick={() => setSelection(new Set())}
-                className="rounded-md p-1 text-muted-foreground hover:bg-accent"
-              >
-                <X className="h-4 w-4" />
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Table */}
-        <div className="overflow-hidden rounded-lg border border-border">
-          <table className="w-full text-sm">
-            <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
-              <tr>
-                <th className="w-8 px-3 py-2">
-                  <input
-                    type="checkbox"
-                    checked={allChecked}
-                    onChange={toggleAll}
-                    aria-label="Select all"
-                  />
-                </th>
-                <th className="px-3 py-2">Phrase</th>
-                <th className="px-3 py-2">Volume</th>
-                <th className="px-3 py-2">KD</th>
-                <th className="px-3 py-2">CPC</th>
-                <th className="px-3 py-2">Intent</th>
-                <th className="px-3 py-2">Cluster</th>
-                <th className="px-3 py-2">Folder</th>
-                <th className="px-3 py-2">Source</th>
-                <th className="w-10" />
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
-                    Loading…
-                  </td>
-                </tr>
-              ) : filtered.length === 0 ? (
-                <tr>
-                  <td colSpan={10} className="px-3 py-10 text-center text-muted-foreground">
-                    <FolderOpen className="mx-auto h-6 w-6 text-muted-foreground" />
-                    <p className="mt-2 text-sm">
-                      No keywords in{" "}
-                      <strong>
-                        {scope === "all"
-                          ? "your library"
+                  {currentFolder &&
+                    buildBreadcrumb(currentFolder, folderById).map((f) => (
+                      <span key={f.id} className="flex items-center gap-2">
+                        <ChevronRight className="h-3 w-3" />
+                        <button
+                          onClick={() => setScope(f.id)}
+                          className={
+                            f.id === currentFolder.id ? "text-foreground" : "hover:text-foreground"
+                          }
+                        >
+                          {f.name}
+                        </button>
+                      </span>
+                    ))}
+                </div>
+                <div className="mt-1 flex items-center gap-3">
+                  <div className="flex items-center gap-2">
+                    {currentFolder ? (
+                      <span
+                        className="inline-block h-3 w-3 rounded-full"
+                        style={{ background: currentFolder.color ?? "#64748b" }}
+                      />
+                    ) : (
+                      <Target className="h-5 w-5 text-primary" />
+                    )}
+                    <h1 className="text-3xl">
+                      {activeTab === "tracked"
+                        ? "Tracked keywords"
+                        : scope === "all"
+                          ? "All keywords"
                           : scope === "unfiled"
                             ? "Unfiled"
-                            : currentFolder?.name}
-                      </strong>
-                      .
-                    </p>
-                    <p className="mt-1 text-xs">
-                      Add manually, import a file, or move keywords in from another folder.
-                    </p>
-                  </td>
-                </tr>
-              ) : (
-                filtered.map((k) => {
-                  const folder = k.folder_id ? folderById.get(k.folder_id) : null;
-                  const checked = selection.has(k.id);
-                  return (
-                    <tr
-                      key={k.id}
-                      className={`border-t border-border ${checked ? "bg-primary/5" : ""}`}
+                            : (currentFolder?.name ?? "Keywords")}
+                    </h1>
+                  </div>
+                  {currentFolder && (
+                    <button
+                      onClick={() =>
+                        setFolderModal({
+                          mode: "edit",
+                          parentId: currentFolder.parent_id,
+                          folder: currentFolder,
+                        })
+                      }
+                      className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      title="Edit folder"
                     >
-                      <td className="px-3 py-2">
-                        <input
-                          type="checkbox"
-                          checked={checked}
-                          onChange={(e) => {
-                            setSelection((prev) => {
-                              const next = new Set(prev);
-                              if (e.target.checked) next.add(k.id);
-                              else next.delete(k.id);
-                              return next;
-                            });
-                          }}
-                        />
-                      </td>
-                      <td className="px-3 py-2 font-medium">{k.phrase}</td>
-                      <td className="px-3 py-2 font-mono">
-                        {k.volume?.toLocaleString() ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 font-mono">
-                        {k.keyword_difficulty ?? "—"}
-                      </td>
-                      <td className="px-3 py-2 font-mono">
-                        {k.cpc != null ? `$${k.cpc}` : "—"}
-                      </td>
-                      <td className="px-3 py-2">{k.intent ?? "—"}</td>
-                      <td className="px-3 py-2">{k.cluster ?? "—"}</td>
-                      <td className="px-3 py-2">
-                        {folder ? (
-                          <button
-                            onClick={() => setScope(folder.id)}
-                            className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs hover:border-primary/50"
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                  )}
+                </div>
+                {currentFolder?.description ? (
+                  <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+                    {currentFolder.description}
+                  </p>
+                ) : null}
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <input
+                  ref={semrushRef}
+                  type="file"
+                  accept=".csv,.tsv,text/csv"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importSemrush(f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <input
+                  ref={genericRef}
+                  type="file"
+                  accept=".csv,.tsv,.txt,.json,.xlsx,.xls,text/*,application/json,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel"
+                  className="hidden"
+                  onChange={(e) => {
+                    const f = e.target.files?.[0];
+                    if (f) importGeneric(f);
+                    e.currentTarget.value = "";
+                  }}
+                />
+                <button
+                  onClick={() => setFolderModal({ mode: "create", parentId: scopeFolderIdForNew })}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:border-primary/50"
+                >
+                  <FolderPlus className="h-4 w-4" /> New folder
+                </button>
+                <button
+                  onClick={() => setManualOpen(true)}
+                  className="flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm text-primary-foreground hover:opacity-90"
+                >
+                  <Plus className="h-4 w-4" /> Add keywords
+                </button>
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <button className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:border-primary/50">
+                      <Upload className="h-4 w-4" /> Import
+                    </button>
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end">
+                    <DropdownMenuLabel className="text-xs">
+                      Import into {currentFolder ? `"${currentFolder.name}"` : "Unfiled"}
+                    </DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    <DropdownMenuItem onClick={() => semrushRef.current?.click()}>
+                      <Upload className="mr-2 h-4 w-4" /> Semrush CSV
+                    </DropdownMenuItem>
+                    <DropdownMenuItem onClick={() => genericRef.current?.click()}>
+                      <FileUp className="mr-2 h-4 w-4" /> CSV / TSV / TXT / JSON / XLSX
+                    </DropdownMenuItem>
+                  </DropdownMenuContent>
+                </DropdownMenu>
+                <button
+                  onClick={exportCsv}
+                  className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:border-primary/50"
+                >
+                  <Download className="h-4 w-4" /> Export
+                </button>
+              </div>
+            </div>
+
+            {/* Import sets — allow moving a whole import set to a folder */}
+            {activeTab === "library" && imports.length > 0 && (
+              <div className="mb-5 rounded-xl border border-border bg-card">
+                <div className="flex items-center justify-between border-b border-border/60 px-4 py-2.5">
+                  <div className="flex items-center gap-2">
+                    <FileUp className="h-4 w-4 text-primary" />
+                    <h3 className="text-sm font-semibold">Import sets</h3>
+                    <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium text-muted-foreground">
+                      {imports.length}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-muted-foreground">
+                    Rename a set or move all of its keywords into a folder.
+                  </span>
+                </div>
+                <ul className="divide-y divide-border/60">
+                  {imports.map((imp) => (
+                    <ImportRow
+                      key={imp.id}
+                      imp={imp}
+                      folders={folders}
+                      folderById={folderById}
+                      expanded={expandedImports.has(imp.id)}
+                      onToggleExpanded={() =>
+                        setExpandedImports((prev) => {
+                          const n = new Set(prev);
+                          if (n.has(imp.id)) n.delete(imp.id);
+                          else n.add(imp.id);
+                          return n;
+                        })
+                      }
+                      editing={editingImportId === imp.id}
+                      onStartEdit={() => setEditingImportId(imp.id)}
+                      onStopEdit={() => setEditingImportId(null)}
+                      onRename={(name: string) => renameImport(imp.id, name)}
+                      onMove={(fid: string | null) => moveImportSet(imp, fid)}
+                    />
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* KPI strip */}
+            <div className="mb-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+              <Kpi
+                icon={<ListChecks className="h-4 w-4" />}
+                label="Keywords"
+                value={stats.totalKw.toLocaleString()}
+              />
+              <Kpi
+                icon={<Target className="h-4 w-4" />}
+                label="Total volume"
+                value={stats.totalVol.toLocaleString()}
+              />
+              <Kpi
+                icon={<Gauge className="h-4 w-4" />}
+                label="Avg difficulty"
+                value={stats.avgKD != null ? `${stats.avgKD.toFixed(0)}` : "—"}
+              />
+              <Kpi
+                icon={<DollarSign className="h-4 w-4" />}
+                label="Avg CPC"
+                value={stats.avgCPC != null ? `$${stats.avgCPC.toFixed(2)}` : "—"}
+              />
+              <Kpi
+                icon={<Tag className="h-4 w-4" />}
+                label="Clusters"
+                value={stats.clusters.toString()}
+              />
+            </div>
+
+            {/* Filter bar */}
+            <div className="mb-3 flex flex-wrap items-center gap-2">
+              <div className="flex flex-1 min-w-[240px] items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
+                <Search className="h-4 w-4 text-muted-foreground" />
+                <input
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder="Search phrase or cluster"
+                  className="flex-1 bg-transparent text-sm outline-none"
+                />
+              </div>
+              <select
+                value={intentFilter}
+                onChange={(e) => setIntentFilter(e.target.value)}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm"
+                title="Search intent"
+              >
+                <option value="all">All intents</option>
+                {availableIntents.map((i) => (
+                  <option key={i} value={i}>
+                    {i}
+                  </option>
+                ))}
+              </select>
+              <select
+                value={clusterFilter}
+                onChange={(e) => setClusterFilter(e.target.value)}
+                className="rounded-lg border border-border bg-card px-3 py-2 text-sm max-w-[180px]"
+                title="Cluster / topic"
+              >
+                <option value="all">All clusters</option>
+                {availableClusters.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+              <div
+                className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm"
+                title="Search volume range"
+              >
+                <Target className="h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  value={minVolume}
+                  onChange={(e) => setMinVolume(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="Min vol"
+                  className="w-20 bg-transparent px-1 text-sm outline-none"
+                />
+                <span className="text-muted-foreground">–</span>
+                <input
+                  value={maxVolume}
+                  onChange={(e) => setMaxVolume(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="Max"
+                  className="w-20 bg-transparent px-1 text-sm outline-none"
+                />
+              </div>
+              <div
+                className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm"
+                title="Max keyword difficulty (0-100)"
+              >
+                <Gauge className="h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  value={maxKD}
+                  onChange={(e) => setMaxKD(e.target.value.replace(/[^0-9]/g, ""))}
+                  placeholder="Max KD"
+                  className="w-16 bg-transparent px-1 text-sm outline-none"
+                />
+              </div>
+              <div
+                className="flex items-center gap-1 rounded-lg border border-border bg-card px-2 py-1 text-sm"
+                title="Max cost per click ($)"
+              >
+                <DollarSign className="h-3.5 w-3.5 text-muted-foreground" />
+                <input
+                  value={maxCPC}
+                  onChange={(e) => setMaxCPC(e.target.value.replace(/[^0-9.]/g, ""))}
+                  placeholder="Max CPC"
+                  className="w-16 bg-transparent px-1 text-sm outline-none"
+                />
+              </div>
+              {(search ||
+                intentFilter !== "all" ||
+                clusterFilter !== "all" ||
+                minVolume ||
+                maxVolume ||
+                maxKD ||
+                maxCPC) && (
+                <button
+                  onClick={() => {
+                    setSearch("");
+                    setIntentFilter("all");
+                    setClusterFilter("all");
+                    setMinVolume("");
+                    setMaxVolume("");
+                    setMaxKD("");
+                    setMaxCPC("");
+                  }}
+                  className="rounded-lg border border-border bg-card px-3 py-2 text-xs text-muted-foreground hover:border-primary/50"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+
+            {/* Bulk action bar */}
+            {selection.size > 0 && (
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-primary/30 bg-primary/5 px-3 py-2 text-sm">
+                <span>
+                  <strong>{selection.size}</strong> selected
+                </span>
+                <div className="flex items-center gap-2">
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <button className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50">
+                        <Move className="h-3.5 w-3.5" /> Move to folder
+                      </button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+                      <DropdownMenuItem onClick={() => moveKeywords(Array.from(selection), null)}>
+                        <Inbox className="mr-2 h-4 w-4" /> Unfiled
+                      </DropdownMenuItem>
+                      <DropdownMenuSeparator />
+                      {folders.length === 0 ? (
+                        <DropdownMenuLabel className="text-xs text-muted-foreground">
+                          No folders yet
+                        </DropdownMenuLabel>
+                      ) : (
+                        folders.map((f) => (
+                          <DropdownMenuItem
+                            key={f.id}
+                            onClick={() => moveKeywords(Array.from(selection), f.id)}
                           >
                             <span
-                              className="h-2 w-2 rounded-full"
-                              style={{ background: folder.color ?? "#64748b" }}
+                              className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                              style={{ background: f.color ?? "#64748b" }}
                             />
-                            {folder.name}
-                          </button>
-                        ) : (
-                          <span className="text-xs text-muted-foreground">Unfiled</span>
-                        )}
-                      </td>
-                      <td className="px-3 py-2 text-xs text-muted-foreground">
-                        {k.source}
-                      </td>
-                      <td className="px-3 py-2 text-right">
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <button
-                              className="rounded p-1 text-muted-foreground hover:bg-accent"
-                              aria-label="Row actions"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                            </button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent
-                            align="end"
-                            className="max-h-72 overflow-y-auto"
-                          >
-                            <DropdownMenuItem onClick={() => openSemrushResearch(k.phrase)}>
-                              <Sparkles className="mr-2 h-4 w-4" /> Research on Semrush
-                            </DropdownMenuItem>
-                            <DropdownMenuSeparator />
-                            <DropdownMenuLabel className="text-xs">
-                              Move to
-                            </DropdownMenuLabel>
-                            <DropdownMenuItem onClick={() => moveKeywords([k.id], null)}>
-                              <Inbox className="mr-2 h-4 w-4" /> Unfiled
-                            </DropdownMenuItem>
-                            {folders.map((f) => (
-                              <DropdownMenuItem
-                                key={f.id}
-                                onClick={() => moveKeywords([k.id], f.id)}
-                              >
-                                <span
-                                  className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
-                                  style={{ background: f.color ?? "#64748b" }}
-                                />
-                                {folderPath(f, folderById)}
-                              </DropdownMenuItem>
-                            ))}
-                            <DropdownMenuSeparator />
-                            <DropdownMenuItem
-                              onClick={() => removeOne(k.id)}
-                              className="text-destructive focus:text-destructive"
-                            >
-                              <Trash2 className="mr-2 h-4 w-4" /> Delete
-                            </DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            {folderPath(f, folderById)}
+                          </DropdownMenuItem>
+                        ))
+                      )}
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                  <button
+                    onClick={enrichSelection}
+                    disabled={enriching}
+                    className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50 disabled:opacity-50"
+                  >
+                    <Sparkles className="h-3.5 w-3.5" />
+                    {enriching ? "Normalizing…" : "Normalize"}
+                  </button>
+                  {activeTab === "tracked" ? (
+                    <button
+                      onClick={() => setTracked(Array.from(selection), false)}
+                      className="flex items-center gap-2 rounded-md border border-border bg-card px-3 py-1.5 text-xs hover:border-primary/50"
+                    >
+                      <Target className="h-3.5 w-3.5" /> Untrack
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setTracked(Array.from(selection), true)}
+                      className="flex items-center gap-2 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs text-primary hover:bg-primary/15"
+                    >
+                      <Target className="h-3.5 w-3.5" /> Track
+                    </button>
+                  )}
+                  <button
+                    onClick={() => deleteKeywords(Array.from(selection))}
+                    className="flex items-center gap-2 rounded-md border border-destructive/30 bg-destructive/10 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/20"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete
+                  </button>
+                  <button
+                    onClick={() => setSelection(new Set())}
+                    className="rounded-md p-1 text-muted-foreground hover:bg-accent"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Table */}
+            <div className="overflow-hidden rounded-lg border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted/50 text-left text-xs uppercase text-muted-foreground">
+                  <tr>
+                    <th className="w-8 px-3 py-2">
+                      <input
+                        type="checkbox"
+                        checked={allChecked}
+                        onChange={toggleAll}
+                        aria-label="Select all"
+                      />
+                    </th>
+                    <th className="px-3 py-2">Phrase</th>
+                    <th className="px-3 py-2">Volume</th>
+                    <th className="px-3 py-2">KD</th>
+                    <th className="px-3 py-2">CPC</th>
+                    <th className="px-3 py-2">Intent</th>
+                    <th className="px-3 py-2">Cluster</th>
+                    <th className="px-3 py-2">Folder</th>
+                    <th className="px-3 py-2">Source</th>
+                    <th className="w-10" />
+                  </tr>
+                </thead>
+                <tbody>
+                  {loading ? (
+                    <tr>
+                      <td colSpan={10} className="px-3 py-6 text-center text-muted-foreground">
+                        Loading…
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
+                  ) : filtered.length === 0 ? (
+                    <tr>
+                      <td colSpan={10} className="px-3 py-10 text-center text-muted-foreground">
+                        <FolderOpen className="mx-auto h-6 w-6 text-muted-foreground" />
+                        <p className="mt-2 text-sm">
+                          No keywords in{" "}
+                          <strong>
+                            {scope === "all"
+                              ? "your library"
+                              : scope === "unfiled"
+                                ? "Unfiled"
+                                : currentFolder?.name}
+                          </strong>
+                          .
+                        </p>
+                        <p className="mt-1 text-xs">
+                          Add manually, import a file, or move keywords in from another folder.
+                        </p>
+                      </td>
+                    </tr>
+                  ) : (
+                    filtered.map((k) => {
+                      const folder = k.folder_id ? folderById.get(k.folder_id) : null;
+                      const checked = selection.has(k.id);
+                      return (
+                        <tr
+                          key={k.id}
+                          className={`border-t border-border ${checked ? "bg-primary/5" : ""}`}
+                        >
+                          <td className="px-3 py-2">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={(e) => {
+                                setSelection((prev) => {
+                                  const next = new Set(prev);
+                                  if (e.target.checked) next.add(k.id);
+                                  else next.delete(k.id);
+                                  return next;
+                                });
+                              }}
+                            />
+                          </td>
+                          <td className="px-3 py-2 font-medium">{k.phrase}</td>
+                          <td className="px-3 py-2 font-mono">
+                            {k.volume?.toLocaleString() ?? "—"}
+                          </td>
+                          <td className="px-3 py-2 font-mono">{k.keyword_difficulty ?? "—"}</td>
+                          <td className="px-3 py-2 font-mono">
+                            {k.cpc != null ? `$${k.cpc}` : "—"}
+                          </td>
+                          <td className="px-3 py-2">{k.intent ?? "—"}</td>
+                          <td className="px-3 py-2">{k.cluster ?? "—"}</td>
+                          <td className="px-3 py-2">
+                            {folder ? (
+                              <button
+                                onClick={() => setScope(folder.id)}
+                                className="inline-flex items-center gap-1.5 rounded-full border border-border bg-background px-2 py-0.5 text-xs hover:border-primary/50"
+                              >
+                                <span
+                                  className="h-2 w-2 rounded-full"
+                                  style={{ background: folder.color ?? "#64748b" }}
+                                />
+                                {folder.name}
+                              </button>
+                            ) : (
+                              <span className="text-xs text-muted-foreground">Unfiled</span>
+                            )}
+                          </td>
+                          <td className="px-3 py-2 text-xs text-muted-foreground">{k.source}</td>
+                          <td className="px-3 py-2 text-right">
+                            <DropdownMenu>
+                              <DropdownMenuTrigger asChild>
+                                <button
+                                  className="rounded p-1 text-muted-foreground hover:bg-accent"
+                                  aria-label="Row actions"
+                                >
+                                  <MoreHorizontal className="h-4 w-4" />
+                                </button>
+                              </DropdownMenuTrigger>
+                              <DropdownMenuContent align="end" className="max-h-72 overflow-y-auto">
+                                <DropdownMenuItem onClick={() => openSemrushResearch(k.phrase)}>
+                                  <Sparkles className="mr-2 h-4 w-4" /> Research on Semrush
+                                </DropdownMenuItem>
+                                <DropdownMenuSeparator />
+                                <DropdownMenuLabel className="text-xs">Move to</DropdownMenuLabel>
+                                <DropdownMenuItem onClick={() => moveKeywords([k.id], null)}>
+                                  <Inbox className="mr-2 h-4 w-4" /> Unfiled
+                                </DropdownMenuItem>
+                                {folders.map((f) => (
+                                  <DropdownMenuItem
+                                    key={f.id}
+                                    onClick={() => moveKeywords([k.id], f.id)}
+                                  >
+                                    <span
+                                      className="mr-2 inline-block h-2.5 w-2.5 rounded-full"
+                                      style={{ background: f.color ?? "#64748b" }}
+                                    />
+                                    {folderPath(f, folderById)}
+                                  </DropdownMenuItem>
+                                ))}
+                                <DropdownMenuSeparator />
+                                <DropdownMenuItem
+                                  onClick={() => removeOne(k.id)}
+                                  className="text-destructive focus:text-destructive"
+                                >
+                                  <Trash2 className="mr-2 h-4 w-4" /> Delete
+                                </DropdownMenuItem>
+                              </DropdownMenuContent>
+                            </DropdownMenu>
+                          </td>
+                        </tr>
+                      );
+                    })
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-        {!loading && filtered.length > 0 && (
-          <p className="mt-3 text-xs text-muted-foreground">
-            Showing {filtered.length} of {scopedRows.length}
-            {scope !== "all" && ` in this folder`}.
-          </p>
-        )}
-      </div>
+            {!loading && filtered.length > 0 && (
+              <p className="mt-3 text-xs text-muted-foreground">
+                Showing {filtered.length} of {scopedRows.length}
+                {scope !== "all" && ` in this folder`}.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
       {manualOpen && (
         <ManualAddModal
           folderId={scopeFolderIdForNew}
-          folderName={
-            currentFolder?.name ?? (scope === "unfiled" ? "Unfiled" : "your library")
-          }
+          folderName={currentFolder?.name ?? (scope === "unfiled" ? "Unfiled" : "your library")}
           onClose={() => setManualOpen(false)}
           onAdded={load}
         />
@@ -1733,15 +1716,7 @@ function KeywordsPage() {
 
 // ---------------- Subcomponents ----------------
 
-function Kpi({
-  icon,
-  label,
-  value,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  value: string;
-}) {
+function Kpi({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
     <div className="rounded-lg border border-border bg-card p-3">
       <div className="flex items-center gap-2 text-xs text-muted-foreground">
@@ -1865,18 +1840,12 @@ function FolderToolbarChip({
         className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
         title={folder.name}
       >
-        {depth > 0 && (
-          <span className="text-muted-foreground">
-            {"› ".repeat(depth).trim()}
-          </span>
-        )}
+        {depth > 0 && <span className="text-muted-foreground">{"› ".repeat(depth).trim()}</span>}
         <span
           className="inline-block h-2.5 w-2.5 shrink-0 rounded-full"
           style={{ background: folder.color ?? "#64748b" }}
         />
-        <Folder
-          className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
-        />
+        <Folder className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`} />
         <span className="max-w-[10rem] truncate">{folder.name}</span>
         <span
           className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
@@ -1903,10 +1872,7 @@ function FolderToolbarChip({
             <Pencil className="mr-2 h-4 w-4" /> Rename / edit
           </DropdownMenuItem>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={onDelete}
-            className="text-destructive focus:text-destructive"
-          >
+          <DropdownMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
             <Trash2 className="mr-2 h-4 w-4" /> Delete
           </DropdownMenuItem>
         </DropdownMenuContent>
@@ -1914,7 +1880,6 @@ function FolderToolbarChip({
     </div>
   );
 }
-
 
 function FolderNode({
   folder,
@@ -2114,11 +2079,7 @@ function ManualAddModal({
               Saved to <strong>{folderName}</strong> · one per line or comma-separated.
             </p>
           </div>
-          <button
-            onClick={onClose}
-            className="rounded p-1 hover:bg-accent"
-            aria-label="Close"
-          >
+          <button onClick={onClose} className="rounded p-1 hover:bg-accent" aria-label="Close">
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -2135,9 +2096,7 @@ function ManualAddModal({
           />
         </label>
         <label className="mt-3 block text-sm">
-          <span className="text-xs text-muted-foreground">
-            Cluster / topic (optional)
-          </span>
+          <span className="text-xs text-muted-foreground">Cluster / topic (optional)</span>
           <input
             value={cluster}
             onChange={(e) => setCluster(e.target.value)}
@@ -2222,7 +2181,9 @@ function FolderModal({
             </h2>
             <p className="text-xs text-muted-foreground">
               {parent ? (
-                <>Inside <strong>{parent.name}</strong></>
+                <>
+                  Inside <strong>{parent.name}</strong>
+                </>
               ) : (
                 "At the top level"
               )}
@@ -2348,11 +2309,7 @@ function ImportRow({
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary hover:bg-primary/20"
           aria-label={expanded ? "Hide keywords" : "Show keywords"}
         >
-          {expanded ? (
-            <ChevronDown className="h-4 w-4" />
-          ) : (
-            <ChevronRight className="h-4 w-4" />
-          )}
+          {expanded ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
         <div className="min-w-0">
           {editing ? (

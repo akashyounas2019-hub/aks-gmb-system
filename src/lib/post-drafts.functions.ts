@@ -136,7 +136,10 @@ export const saveFolders = createServerFn({ method: "POST" })
       .select("general")
       .eq("owner_id", context.userId)
       .maybeSingle();
-    const general = { ...((existing?.general ?? {}) as Record<string, unknown>), postFolders: data.folders };
+    const general = {
+      ...((existing?.general ?? {}) as Record<string, unknown>),
+      postFolders: data.folders,
+    };
     const { error } = await context.supabase
       .from("user_preferences")
       .upsert({ owner_id: context.userId, general }, { onConflict: "owner_id" });

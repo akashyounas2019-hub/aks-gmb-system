@@ -41,15 +41,49 @@ const DEFAULTS: Prefs = {
   custom: [],
 };
 
-const TRIGGER_OPTIONS: { value: TriggerType; label: string; description: string; needsThreshold?: boolean; needsKeyword?: boolean }[] = [
-  { value: "post_success", label: "Post published", description: "When a scheduled post succeeds." },
+const TRIGGER_OPTIONS: {
+  value: TriggerType;
+  label: string;
+  description: string;
+  needsThreshold?: boolean;
+  needsKeyword?: boolean;
+}[] = [
+  {
+    value: "post_success",
+    label: "Post published",
+    description: "When a scheduled post succeeds.",
+  },
   { value: "post_failure", label: "Post failed", description: "When a scheduled post fails." },
-  { value: "rank_drop", label: "Ranking drop", description: "When rank drops by N spots.", needsThreshold: true },
-  { value: "rank_gain", label: "Ranking gain", description: "When rank improves by N spots.", needsThreshold: true },
-  { value: "competitor_overtake", label: "Competitor overtakes you", description: "When a competitor passes you on a tracked keyword." },
-  { value: "keyword_threshold", label: "Keyword falls below rank", description: "Alert when a specific keyword drops out of top N.", needsThreshold: true, needsKeyword: true },
+  {
+    value: "rank_drop",
+    label: "Ranking drop",
+    description: "When rank drops by N spots.",
+    needsThreshold: true,
+  },
+  {
+    value: "rank_gain",
+    label: "Ranking gain",
+    description: "When rank improves by N spots.",
+    needsThreshold: true,
+  },
+  {
+    value: "competitor_overtake",
+    label: "Competitor overtakes you",
+    description: "When a competitor passes you on a tracked keyword.",
+  },
+  {
+    value: "keyword_threshold",
+    label: "Keyword falls below rank",
+    description: "Alert when a specific keyword drops out of top N.",
+    needsThreshold: true,
+    needsKeyword: true,
+  },
   { value: "weekly_digest", label: "Weekly digest", description: "Summary email each Monday." },
-  { value: "custom", label: "Custom / manual", description: "A free-form notification you'll trigger yourself." },
+  {
+    value: "custom",
+    label: "Custom / manual",
+    description: "A free-form notification you'll trigger yourself.",
+  },
 ];
 
 const CHANNEL_META: { value: Channel; label: string; icon: typeof Mail }[] = [
@@ -133,7 +167,11 @@ function NotificationsSettings() {
 
   const rows: [keyof BuiltIn, string, string][] = [
     ["emailPostResults", "Post results", "Email me when a scheduled post succeeds or fails."],
-    ["emailRankAlerts", "Ranking alerts", "Email me when a tracked keyword drops out of the top 3."],
+    [
+      "emailRankAlerts",
+      "Ranking alerts",
+      "Email me when a tracked keyword drops out of the top 3.",
+    ],
     ["weeklyDigest", "Weekly digest", "Every Monday, get a summary of last week's performance."],
   ];
 
@@ -141,14 +179,19 @@ function NotificationsSettings() {
     <div className="space-y-8">
       <div>
         <h2 className="text-xl font-semibold">Notifications</h2>
-        <p className="mt-1 text-sm text-muted-foreground">Choose what we alert you about and how.</p>
+        <p className="mt-1 text-sm text-muted-foreground">
+          Choose what we alert you about and how.
+        </p>
       </div>
 
       <section>
         <h3 className="mb-3 text-sm font-medium text-muted-foreground">Built-in alerts</h3>
         <div className="rounded-2xl border border-border bg-card">
           {rows.map(([k, title, desc], i) => (
-            <div key={k} className={`flex items-center justify-between gap-4 p-4 ${i > 0 ? "border-t border-border" : ""}`}>
+            <div
+              key={k}
+              className={`flex items-center justify-between gap-4 p-4 ${i > 0 ? "border-t border-border" : ""}`}
+            >
               <div>
                 <div className="text-sm font-medium">{title}</div>
                 <div className="text-xs text-muted-foreground">{desc}</div>
@@ -158,7 +201,9 @@ function NotificationsSettings() {
                 className={`h-6 w-11 rounded-full transition ${prefs[k] ? "bg-primary" : "bg-muted"}`}
                 aria-pressed={prefs[k]}
               >
-                <span className={`block h-5 w-5 rounded-full bg-white shadow transition ${prefs[k] ? "translate-x-5" : "translate-x-0.5"}`} />
+                <span
+                  className={`block h-5 w-5 rounded-full bg-white shadow transition ${prefs[k] ? "translate-x-5" : "translate-x-0.5"}`}
+                />
               </button>
             </div>
           ))}
@@ -169,7 +214,9 @@ function NotificationsSettings() {
         <div className="mb-3 flex items-center justify-between">
           <div>
             <h3 className="text-sm font-medium text-muted-foreground">Custom notifications</h3>
-            <p className="text-xs text-muted-foreground">Tailor alerts to specific keywords, thresholds, or channels.</p>
+            <p className="text-xs text-muted-foreground">
+              Tailor alerts to specific keywords, thresholds, or channels.
+            </p>
           </div>
           <button
             onClick={addNotification}
@@ -185,7 +232,9 @@ function NotificationsSettings() {
           <div className="rounded-2xl border border-dashed border-border bg-card/40 p-8 text-center">
             <Bell className="mx-auto h-6 w-6 text-muted-foreground" />
             <p className="mt-2 text-sm text-muted-foreground">No custom notifications yet.</p>
-            <p className="text-xs text-muted-foreground">Click <span className="font-medium">Add new notification</span> to create your first.</p>
+            <p className="text-xs text-muted-foreground">
+              Click <span className="font-medium">Add new notification</span> to create your first.
+            </p>
           </div>
         ) : (
           <div className="space-y-3">
@@ -201,7 +250,9 @@ function NotificationsSettings() {
                       aria-pressed={n.enabled}
                       title={n.enabled ? "Enabled" : "Disabled"}
                     >
-                      <span className={`block h-5 w-5 rounded-full bg-white shadow transition ${n.enabled ? "translate-x-5" : "translate-x-0.5"}`} />
+                      <span
+                        className={`block h-5 w-5 rounded-full bg-white shadow transition ${n.enabled ? "translate-x-5" : "translate-x-0.5"}`}
+                      />
                     </button>
 
                     <div className="min-w-0 flex-1">
@@ -221,7 +272,9 @@ function NotificationsSettings() {
                           {n.name || "Untitled notification"}
                         </button>
                       )}
-                      <div className="mt-0.5 text-xs text-muted-foreground">{trigger.description}</div>
+                      <div className="mt-0.5 text-xs text-muted-foreground">
+                        {trigger.description}
+                      </div>
                     </div>
 
                     <button
@@ -238,18 +291,24 @@ function NotificationsSettings() {
                       <span className="mb-1 block text-muted-foreground">Trigger</span>
                       <select
                         value={n.trigger}
-                        onChange={(e) => updateItem(n.id, { trigger: e.target.value as TriggerType })}
+                        onChange={(e) =>
+                          updateItem(n.id, { trigger: e.target.value as TriggerType })
+                        }
                         className="w-full rounded-md border border-border bg-background px-2 py-1.5 text-sm"
                       >
                         {TRIGGER_OPTIONS.map((t) => (
-                          <option key={t.value} value={t.value}>{t.label}</option>
+                          <option key={t.value} value={t.value}>
+                            {t.label}
+                          </option>
                         ))}
                       </select>
                     </label>
 
                     {trigger.needsThreshold && (
                       <label className="text-xs">
-                        <span className="mb-1 block text-muted-foreground">Threshold (positions)</span>
+                        <span className="mb-1 block text-muted-foreground">
+                          Threshold (positions)
+                        </span>
                         <input
                           type="number"
                           min={1}

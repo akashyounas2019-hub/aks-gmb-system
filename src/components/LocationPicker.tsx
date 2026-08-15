@@ -29,11 +29,9 @@ type HistoryRow = {
 };
 
 const MAPS_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
-  | string
-  | undefined;
+  string | undefined;
 const CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as
-  | string
-  | undefined;
+  string | undefined;
 
 let mapsPromise: Promise<void> | null = null;
 function loadMaps(): Promise<void> {
@@ -68,9 +66,7 @@ export function LocationPicker({
   refreshKey?: number;
 }) {
   const [query, setQuery] = useState("");
-  const [suggestions, setSuggestions] = useState<
-    { text: string; placeId: string }[]
-  >([]);
+  const [suggestions, setSuggestions] = useState<{ text: string; placeId: string }[]>([]);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -92,7 +88,6 @@ export function LocationPicker({
   const mapRef = useRef<HTMLDivElement>(null);
   const sessionTokenRef = useRef<any>(null);
 
-
   // Real nearby-places lookup around a city's centroid — replaces the old
   // fabricated "point 1..5" coordinates that were never real addresses.
   // When `type` is set, biases the search toward that property category
@@ -105,22 +100,15 @@ export function LocationPicker({
     setCityPlacesLoading(true);
     setCityPlaces([]);
     try {
-      const { Place } = (await (window as any).google.maps.importLibrary(
-        "places",
-      )) as any;
-      const hasCoords =
-        typeof city.lat === "number" && typeof city.lng === "number";
+      const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
+      const hasCoords = typeof city.lat === "number" && typeof city.lng === "number";
       let found: any[];
       if (type || !hasCoords) {
-        const term = type
-          ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term
-          : "places";
+        const term = type ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term : "places";
         const res = await Place.searchByText({
           textQuery: `${term} in ${city.name}`,
           fields: ["displayName", "formattedAddress", "location", "id"],
-          ...(hasCoords
-            ? { locationBias: { lat: city.lat!, lng: city.lng!, radius: 5000 } }
-            : {}),
+          ...(hasCoords ? { locationBias: { lat: city.lat!, lng: city.lng!, radius: 5000 } } : {}),
           maxResultCount: 20,
         });
         found = res.places ?? [];
@@ -143,13 +131,18 @@ export function LocationPicker({
           if (typeof lat !== "number" || typeof lng !== "number") return null;
           return {
             placeId: p.id as string,
-            label: (p.displayName?.text ?? p.formattedAddress ?? p.displayName ?? "Unnamed place") as string,
+            label: (p.displayName?.text ??
+              p.formattedAddress ??
+              p.displayName ??
+              "Unnamed place") as string,
             lat,
             lng,
           };
         })
         .filter(
-          (p: { placeId: string; label: string; lat: number; lng: number } | null): p is {
+          (
+            p: { placeId: string; label: string; lat: number; lng: number } | null,
+          ): p is {
             placeId: string;
             label: string;
             lat: number;
@@ -164,7 +157,6 @@ export function LocationPicker({
     }
   }
 
-
   // Re-run the nearby/type search for the currently expanded city when the
   // parent asks for a refresh (e.g. the page's "Refresh coordinates" button).
   useEffect(() => {
@@ -172,7 +164,6 @@ export function LocationPicker({
     loadCityPlaces(searchArea, cityPlaceType);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
-
 
   // Render the map widget with a pin per result once a place type has been
   // picked and results have loaded.
@@ -244,7 +235,6 @@ export function LocationPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cityPlaceType, cityPlaces]);
 
-
   async function copyCoords(placeId: string, lat: number, lng: number) {
     try {
       await navigator.clipboard.writeText(`${lat.toFixed(6)}, ${lng.toFixed(6)}`);
@@ -256,7 +246,9 @@ export function LocationPicker({
   }
 
   useEffect(() => {
-    loadMaps().then(() => setReady(true)).catch((e) => setError(e.message));
+    loadMaps()
+      .then(() => setReady(true))
+      .catch((e) => setError(e.message));
     supabase
       .from("location_history")
       .select("id,label,lat,lng,place_id,used_count")
@@ -273,18 +265,18 @@ export function LocationPicker({
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const { AutocompleteSessionToken, AutocompleteSuggestion } =
-          (await (window as any).google.maps.importLibrary("places")) as any;
+        const { AutocompleteSessionToken, AutocompleteSuggestion } = (await (
+          window as any
+        ).google.maps.importLibrary("places")) as any;
         if (!sessionTokenRef.current) {
           sessionTokenRef.current = new AutocompleteSessionToken();
         }
-        const { suggestions: raw } =
-          await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-            input: query,
-            sessionToken: sessionTokenRef.current,
-            // bias towards UAE — most users are Dubai
-            includedRegionCodes: ["ae"],
-          });
+        const { suggestions: raw } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
+          input: query,
+          sessionToken: sessionTokenRef.current,
+          // bias towards UAE — most users are Dubai
+          includedRegionCodes: ["ae"],
+        });
         if (cancelled) return;
         const list = (raw ?? [])
           .map((s: any) => s.placePrediction)
@@ -319,22 +311,15 @@ export function LocationPicker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [query, ready]);
 
-
-
   async function selectSuggestion(placeId: string, fallbackText: string) {
     try {
-      const { Place } = (await (window as any).google.maps.importLibrary(
-        "places",
-      )) as any;
+      const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
       const place = new Place({ id: placeId });
       await place.fetchFields({
         fields: ["displayName", "formattedAddress", "location"],
       });
       const label =
-        place.formattedAddress ||
-        place.displayName?.text ||
-        place.displayName ||
-        fallbackText;
+        place.formattedAddress || place.displayName?.text || place.displayName || fallbackText;
       const loc = place.location;
       const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
       const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
@@ -370,9 +355,7 @@ export function LocationPicker({
     const { data: userData } = await supabase.auth.getUser();
     const uid = userData.user?.id;
     if (!uid) return;
-    const existing = history.find(
-      (h) => h.place_id === loc.place_id || h.label === loc.label,
-    );
+    const existing = history.find((h) => h.place_id === loc.place_id || h.label === loc.label);
     if (existing) {
       await supabase
         .from("location_history")
@@ -417,16 +400,13 @@ export function LocationPicker({
         </div>
       )}
       <div className="relative">
-
         <div className="flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2">
           <MapPin className="h-4 w-4 text-muted-foreground" />
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder={
-              ready
-                ? "Search a location, e.g. Al Qusais, Dubai"
-                : "Loading Google Maps…"
+              ready ? "Search a location, e.g. Al Qusais, Dubai" : "Loading Google Maps…"
             }
             className="flex-1 bg-transparent text-sm outline-none placeholder:text-muted-foreground"
           />
@@ -498,8 +478,7 @@ export function LocationPicker({
           </button>
         </div>
         <div className="mt-1 text-[11px] text-muted-foreground">
-          Tip: paste a "25.276987, 55.296249" pair into the latitude field —
-          decimal degrees only.
+          Tip: paste a "25.276987, 55.296249" pair into the latitude field — decimal degrees only.
         </div>
       </div>
 
@@ -521,8 +500,7 @@ export function LocationPicker({
                   type="button"
                   onClick={() => {
                     setCityPlaceType(t.key);
-                    const city =
-                      cityOptions?.find((c) => c.name === expandedCity) ??
+                    const city = cityOptions?.find((c) => c.name === expandedCity) ??
                       searchArea ?? { name: query.trim() || "Dubai" };
                     setSearchArea(city);
                     loadCityPlaces(city, t.key);
@@ -619,8 +597,8 @@ export function LocationPicker({
           ) : (
             <div className="space-y-2">
               <div className="text-[11px] text-muted-foreground">
-                {cityPlaces.length} results · click a pin or the map to use that
-                location · right-click anywhere to copy its coordinates.
+                {cityPlaces.length} results · click a pin or the map to use that location ·
+                right-click anywhere to copy its coordinates.
               </div>
               <div
                 ref={mapRef}
@@ -667,7 +645,6 @@ export function LocationPicker({
         </div>
       )}
 
-
       {history.length > 0 && !compact && (
         <div>
           <div className="mb-1 flex items-center gap-1 text-xs text-muted-foreground">
@@ -696,7 +673,6 @@ export function LocationPicker({
     </div>
   );
 }
-
 
 function escapeHtml(s: string): string {
   return s

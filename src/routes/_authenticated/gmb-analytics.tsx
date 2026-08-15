@@ -51,7 +51,6 @@ type KeywordRow = {
   city: string;
 };
 
-
 // Business center = Dubai Downtown-ish
 const BUSINESS = { lat: 25.2048, lng: 55.2708, name: "Pearl Home Cleaning" };
 const GRID_SIZE = 7;
@@ -65,13 +64,8 @@ function seededRandom(seed: number) {
   };
 }
 
-function buildGrid(
-  keyword: string,
-  weekOffset = 0,
-): { lat: number; lng: number; rank: number }[] {
-  const seed =
-    keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0) +
-    weekOffset * 137;
+function buildGrid(keyword: string, weekOffset = 0): { lat: number; lng: number; rank: number }[] {
+  const seed = keyword.split("").reduce((a, c) => a + c.charCodeAt(0), 0) + weekOffset * 137;
   const rand = seededRandom(seed);
   const drift = weekOffset === 0 ? 0 : -0.6; // this week trends slightly better than last
   const cells: { lat: number; lng: number; rank: number }[] = [];
@@ -80,10 +74,7 @@ function buildGrid(
       const dx = c - (GRID_SIZE - 1) / 2;
       const dy = r - (GRID_SIZE - 1) / 2;
       const dist = Math.sqrt(dx * dx + dy * dy);
-      const rank = Math.max(
-        1,
-        Math.min(20, Math.round(dist * 2.4 + rand() * 4 + drift)),
-      );
+      const rank = Math.max(1, Math.min(20, Math.round(dist * 2.4 + rand() * 4 + drift)));
       cells.push({
         lat: BUSINESS.lat + dy * GRID_STEP_DEG,
         lng: BUSINESS.lng + dx * GRID_STEP_DEG,
@@ -122,8 +113,8 @@ function TrendCell({ current, previous }: { current: number; previous: number })
 }
 
 /* ---------- Google Maps loader (shared with LocationPicker) --------- */
-const MAPS_KEY = import.meta.env
-  .VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as string | undefined;
+const MAPS_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
+  string | undefined;
 
 let mapsPromise: Promise<void> | null = null;
 function loadMaps(): Promise<void> {
@@ -186,7 +177,6 @@ function HeatMap({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-
 
   useEffect(() => {
     if (!ready || !mapRef.current) return;
@@ -296,7 +286,9 @@ function GmbAnalyticsPage() {
   const [showAllKeywords, setShowAllKeywords] = useState(false);
   const [gmb, setGmb] = useState(() => readGmbConnection());
   const [connectBusy, setConnectBusy] = useState(false);
-  const [competitors, setCompetitors] = useState<Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>>([]);
+  const [competitors, setCompetitors] = useState<
+    Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>
+  >([]);
   const fetchCompetitors = useServerFn(listCompetitors);
   const fetchCompetitorRanks = useServerFn(getCompetitorRanks);
   const fetchMetrics = useServerFn(getGmbMetrics);
@@ -306,8 +298,12 @@ function GmbAnalyticsPage() {
 
   // Real rank data (falls back to MOCK when the user has no keywords yet).
   const [realKeywords, setRealKeywords] = useState<KeywordRow[] | null>(null);
-  const [realCurrentGrid, setRealCurrentGrid] = useState<{ lat: number; lng: number; rank: number }[] | null>(null);
-  const [realPreviousGrid, setRealPreviousGrid] = useState<{ lat: number; lng: number; rank: number }[] | null>(null);
+  const [realCurrentGrid, setRealCurrentGrid] = useState<
+    { lat: number; lng: number; rank: number }[] | null
+  >(null);
+  const [realPreviousGrid, setRealPreviousGrid] = useState<
+    { lat: number; lng: number; rank: number }[] | null
+  >(null);
   const [realCenter, setRealCenter] = useState<{ lat: number; lng: number } | null>(null);
   const [refreshingGrid, setRefreshingGrid] = useState(false);
 
@@ -320,14 +316,20 @@ function GmbAnalyticsPage() {
   const navigate = useNavigate();
 
   // Live competitor rank lookup state.
-  const [rankSource, setRankSource] = useState<"serpapi" | "dataforseo" | "local_falcon" | null>(null);
+  const [rankSource, setRankSource] = useState<"serpapi" | "dataforseo" | "local_falcon" | null>(
+    null,
+  );
   const [rankData, setRankData] = useState<Record<string, Record<string, number | null>>>({});
   const [rankErr, setRankErr] = useState<string | null>(null);
   const [rankLoading, setRankLoading] = useState(false);
 
   useEffect(() => {
     fetchCompetitors()
-      .then((rows) => setCompetitors(rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>))
+      .then((rows) =>
+        setCompetitors(
+          rows as Array<{ id: string; name: string; gbp_url: string; place_id: string | null }>,
+        ),
+      )
       .catch(() => setCompetitors([]));
   }, [fetchCompetitors]);
 
@@ -398,7 +400,6 @@ function GmbAnalyticsPage() {
     }
   }
 
-
   useEffect(() => {
     if (competitors.length === 0) {
       setRankData({});
@@ -461,7 +462,8 @@ function GmbAnalyticsPage() {
         const m = await fetchMetrics();
         if (!cancelled) setMetrics(m);
       } catch (e) {
-        if (!cancelled) setMetricsErr(e instanceof Error ? e.message : "Failed to load GMB metrics");
+        if (!cancelled)
+          setMetricsErr(e instanceof Error ? e.message : "Failed to load GMB metrics");
       } finally {
         if (!cancelled) setLoadingMetrics(false);
       }
@@ -499,7 +501,6 @@ function GmbAnalyticsPage() {
   const keywordRows: KeywordRow[] = realKeywords ?? [];
   const usingRealData = realKeywords !== null && realKeywords.length > 0;
 
-
   const summary = useMemo(() => {
     const improved = keywordRows.filter((k) => k.previous > k.current).length;
     const declined = keywordRows.filter((k) => k.previous < k.current).length;
@@ -516,7 +517,8 @@ function GmbAnalyticsPage() {
     [keyword, realCurrentGrid],
   );
   const previousGrid = useMemo(
-    () => (realPreviousGrid && realPreviousGrid.length > 0 ? realPreviousGrid : buildGrid(keyword, 1)),
+    () =>
+      realPreviousGrid && realPreviousGrid.length > 0 ? realPreviousGrid : buildGrid(keyword, 1),
     [keyword, realPreviousGrid],
   );
   const gridStats = useMemo(() => {
@@ -525,7 +527,8 @@ function GmbAnalyticsPage() {
     const top3 = ranks.filter((r) => r <= 3).length;
     const prevTop3 = prevRanks.filter((r) => r <= 3).length;
     const avg = ranks.length > 0 ? ranks.reduce((a, b) => a + b, 0) / ranks.length : 0;
-    const prevAvg = prevRanks.length > 0 ? prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length : 0;
+    const prevAvg =
+      prevRanks.length > 0 ? prevRanks.reduce((a, b) => a + b, 0) / prevRanks.length : 0;
     const share = ranks.length > 0 ? Math.round((top3 / ranks.length) * 100) : 0;
     return {
       top3,
@@ -571,24 +574,17 @@ function GmbAnalyticsPage() {
   }
 
   const filteredKw = search.trim()
-    ? keywordRows.filter((k) =>
-        k.keyword.toLowerCase().includes(search.trim().toLowerCase()),
-      )
+    ? keywordRows.filter((k) => k.keyword.toLowerCase().includes(search.trim().toLowerCase()))
     : keywordRows;
 
-
   return (
-    <div
-      className="w-full py-6 pl-6 md:py-10 md:pl-10"
-      style={{ paddingRight: 50 }}
-    >
+    <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
       {/* Header */}
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div>
           <h1 className="text-3xl">GMB Analytics</h1>
           <p className="mt-1 text-sm text-muted-foreground">
-            Live rank tracking + geo-grid visibility for your Google Business
-            Profile.
+            Live rank tracking + geo-grid visibility for your Google Business Profile.
           </p>
         </div>
         {gmb.connected ? (
@@ -605,7 +601,9 @@ function GmbAnalyticsPage() {
       {/* GMB Connector */}
       <div className="mt-6 rounded-2xl border border-border bg-card p-5">
         <div className="flex flex-wrap items-center gap-4">
-          <div className={`flex h-12 w-12 items-center justify-center rounded-xl ${gmb.connected ? "bg-emerald-500/15 text-emerald-500" : "bg-primary/15 text-primary"}`}>
+          <div
+            className={`flex h-12 w-12 items-center justify-center rounded-xl ${gmb.connected ? "bg-emerald-500/15 text-emerald-500" : "bg-primary/15 text-primary"}`}
+          >
             {gmb.connected ? <CheckCircle2 className="h-6 w-6" /> : <Plug className="h-6 w-6" />}
           </div>
           <div className="flex-1 min-w-[220px]">
@@ -664,9 +662,8 @@ function GmbAnalyticsPage() {
         </div>
         {!gmb.connected && (
           <div className="mt-3 text-xs text-muted-foreground">
-            Connect a Google Cloud OAuth client with the Business Profile API for
-            official GMB insights. Rank tracking below uses your own snapshots
-            from the Keywords page.
+            Connect a Google Cloud OAuth client with the Business Profile API for official GMB
+            insights. Rank tracking below uses your own snapshots from the Keywords page.
           </div>
         )}
       </div>
@@ -674,9 +671,12 @@ function GmbAnalyticsPage() {
       {needsLocation && (
         <div className="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 p-4 text-sm text-amber-100">
           <div>
-            <div className="font-medium text-amber-200">Google is connected — pick a business location to load live data</div>
+            <div className="font-medium text-amber-200">
+              Google is connected — pick a business location to load live data
+            </div>
             <div className="mt-0.5 text-xs text-amber-200/80">
-              OAuth succeeded, but no Business Profile location is selected yet. Pick one to start pulling live GMB insights.
+              OAuth succeeded, but no Business Profile location is selected yet. Pick one to start
+              pulling live GMB insights.
             </div>
           </div>
           <Link
@@ -698,9 +698,7 @@ function GmbAnalyticsPage() {
             <div className="text-sm text-muted-foreground">
               {metrics ? "Live · Business Profile Performance API" : "Connected profile (sample)"}
             </div>
-            <div className="text-lg font-semibold">
-              {metrics?.locationTitle ?? BUSINESS.name}
-            </div>
+            <div className="text-lg font-semibold">{metrics?.locationTitle ?? BUSINESS.name}</div>
             <div className="text-xs text-muted-foreground">
               {metrics
                 ? `Last 30 days · ${metrics.range.start} → ${metrics.range.end}`
@@ -740,10 +738,20 @@ function GmbAnalyticsPage() {
             </>
           ) : (
             <>
-              <MiniStat icon={<Star className="h-4 w-4" />} label="Rating" value="4.9" tone="good" />
+              <MiniStat
+                icon={<Star className="h-4 w-4" />}
+                label="Rating"
+                value="4.9"
+                tone="good"
+              />
               <MiniStat icon={<Eye className="h-4 w-4" />} label="Views (30d)" value="12,480" />
               <MiniStat icon={<Phone className="h-4 w-4" />} label="Calls (30d)" value="386" />
-              <MiniStat icon={<TrendingUp className="h-4 w-4" />} label="Trend" value="+18%" tone="good" />
+              <MiniStat
+                icon={<TrendingUp className="h-4 w-4" />}
+                label="Trend"
+                value="+18%"
+                tone="good"
+              />
             </>
           )}
         </div>
@@ -759,10 +767,7 @@ function GmbAnalyticsPage() {
         <StatCard label="Tracked keywords" value={keywordRows.length} />
         <StatCard label="Average rank" value={summary.avg} />
         <StatCard label="In top 3" value={summary.top3} tone="good" />
-        <StatCard
-          label="Improved / Declined"
-          value={`${summary.improved} / ${summary.declined}`}
-        />
+        <StatCard label="Improved / Declined" value={`${summary.improved} / ${summary.declined}`} />
       </div>
 
       {/* Heat map + keyword filter */}
@@ -801,7 +806,11 @@ function GmbAnalyticsPage() {
               className="inline-flex items-center gap-2 rounded-lg border border-border bg-card px-3 py-2 text-sm hover:bg-accent disabled:opacity-50"
               title="Recompute geo-grid ranks for all tracked keywords"
             >
-              {refreshingGrid ? <Loader2 className="h-4 w-4 animate-spin" /> : <Sparkles className="h-4 w-4" />}
+              {refreshingGrid ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Sparkles className="h-4 w-4" />
+              )}
               Refresh grid
             </button>
             <div className="flex gap-3 text-xs">
@@ -838,10 +847,9 @@ function GmbAnalyticsPage() {
               <div className="mb-1 flex items-center gap-1 font-medium text-foreground">
                 <Info className="h-3.5 w-3.5 text-primary" /> How to read this
               </div>
-              Each circle is a ranking probe at that lat/lng for the selected
-              keyword. Green = top 3, amber = 4–10, red = off page 1. The blue
-              dot is your business location. Deltas compare this week's grid to
-              last week's snapshot.
+              Each circle is a ranking probe at that lat/lng for the selected keyword. Green = top
+              3, amber = 4–10, red = off page 1. The blue dot is your business location. Deltas
+              compare this week's grid to last week's snapshot.
             </div>
           </div>
         </div>
@@ -852,12 +860,10 @@ function GmbAnalyticsPage() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <h2 className="flex items-center gap-2 text-lg font-semibold">
-              <Lightbulb className="h-5 w-5 text-primary" /> AI Change
-              Suggestions
+              <Lightbulb className="h-5 w-5 text-primary" /> AI Change Suggestions
             </h2>
             <p className="mt-1 text-sm text-muted-foreground">
-              Prioritized actions based on your rankings and recent post
-              activity.
+              Prioritized actions based on your rankings and recent post activity.
             </p>
           </div>
           <button
@@ -881,10 +887,7 @@ function GmbAnalyticsPage() {
               </div>
             ) : (
               suggestions.map((s, i) => (
-                <div
-                  key={i}
-                  className="rounded-xl border border-border bg-card p-4"
-                >
+                <div key={i} className="rounded-xl border border-border bg-card p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="font-medium">{s.title}</div>
                     <PriorityBadge priority={s.priority} />
@@ -895,12 +898,10 @@ function GmbAnalyticsPage() {
                     </div>
                   )}
                   <div className="mt-2 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">Why:</span>{" "}
-                    {s.why}
+                    <span className="font-medium text-foreground">Why:</span> {s.why}
                   </div>
                   <div className="mt-1 text-xs text-muted-foreground">
-                    <span className="font-medium text-foreground">How:</span>{" "}
-                    {s.how}
+                    <span className="font-medium text-foreground">How:</span> {s.how}
                   </div>
                 </div>
               ))
@@ -937,48 +938,49 @@ function GmbAnalyticsPage() {
               </tr>
             </thead>
             <tbody>
-              {(showAllKeywords || search.trim() ? filteredKw : filteredKw.slice(0, 10)).map((k) => (
-                <tr
-                  key={k.keyword}
-                  className={`border-t border-border transition ${
-                    k.keyword === keyword ? "bg-primary/5" : ""
-                  }`}
-                >
-                  <td className="px-4 py-3 font-medium">{k.keyword}</td>
-                  <td className="px-4 py-3 text-muted-foreground">{k.city}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {k.volume.toLocaleString()}
-                  </td>
-                  <td className="px-4 py-3">
-                    <span
-                      className="rounded-full px-2 py-0.5 text-xs font-semibold"
-                      style={{
-                        backgroundColor: `${rankColor(k.current)}22`,
-                        color: rankColor(k.current),
-                      }}
-                    >
-                      #{k.current}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <TrendCell current={k.current} previous={k.previous} />
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      onClick={() => setKeyword(k.keyword)}
-                      className="text-xs text-primary hover:underline"
-                    >
-                      View heat map →
-                    </button>
-                  </td>
-                </tr>
-              ))}
+              {(showAllKeywords || search.trim() ? filteredKw : filteredKw.slice(0, 10)).map(
+                (k) => (
+                  <tr
+                    key={k.keyword}
+                    className={`border-t border-border transition ${
+                      k.keyword === keyword ? "bg-primary/5" : ""
+                    }`}
+                  >
+                    <td className="px-4 py-3 font-medium">{k.keyword}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{k.city}</td>
+                    <td className="px-4 py-3 text-muted-foreground">{k.volume.toLocaleString()}</td>
+                    <td className="px-4 py-3">
+                      <span
+                        className="rounded-full px-2 py-0.5 text-xs font-semibold"
+                        style={{
+                          backgroundColor: `${rankColor(k.current)}22`,
+                          color: rankColor(k.current),
+                        }}
+                      >
+                        #{k.current}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <TrendCell current={k.current} previous={k.previous} />
+                    </td>
+                    <td className="px-4 py-3 text-right">
+                      <button
+                        onClick={() => setKeyword(k.keyword)}
+                        className="text-xs text-primary hover:underline"
+                      >
+                        View heat map →
+                      </button>
+                    </td>
+                  </tr>
+                ),
+              )}
             </tbody>
           </table>
           {!search.trim() && filteredKw.length > 10 && (
             <div className="flex items-center justify-between border-t border-border bg-card/40 px-4 py-3 text-xs text-muted-foreground">
               <span>
-                Showing {showAllKeywords ? filteredKw.length : Math.min(10, filteredKw.length)} of {filteredKw.length} keywords
+                Showing {showAllKeywords ? filteredKw.length : Math.min(10, filteredKw.length)} of{" "}
+                {filteredKw.length} keywords
               </span>
               <button
                 onClick={() => setShowAllKeywords((v) => !v)}
@@ -990,7 +992,6 @@ function GmbAnalyticsPage() {
           )}
         </div>
       </section>
-
 
       {/* Competitor rank comparison */}
       <section className="mt-10">
@@ -1025,7 +1026,9 @@ function GmbAnalyticsPage() {
                   <th className="px-4 py-3">You</th>
                   {competitors.map((c) => (
                     <th key={c.id} className="px-4 py-3">
-                      <div className="max-w-[140px] truncate" title={c.name}>{c.name}</div>
+                      <div className="max-w-[140px] truncate" title={c.name}>
+                        {c.name}
+                      </div>
                     </th>
                   ))}
                 </tr>
@@ -1058,11 +1061,7 @@ function GmbAnalyticsPage() {
                                       : "text-muted-foreground"
                                 }`}
                               >
-                                {delta! > 0
-                                  ? `+${delta}`
-                                  : delta === 0
-                                    ? "="
-                                    : delta}
+                                {delta! > 0 ? `+${delta}` : delta === 0 ? "=" : delta}
                               </span>
                             </div>
                           )}
@@ -1085,9 +1084,7 @@ function GmbAnalyticsPage() {
                         : "Local Falcon"}
                   </span>
                   . Positive delta means the competitor ranks worse than you.
-                  {rankErr && (
-                    <span className="ml-2 text-destructive">• {rankErr}</span>
-                  )}
+                  {rankErr && <span className="ml-2 text-destructive">• {rankErr}</span>}
                 </>
               ) : (
                 <>
@@ -1109,14 +1106,12 @@ function GmbAnalyticsPage() {
         />
       )}
 
-
-
       <div className="mt-6 flex items-start gap-2 rounded-lg border border-border bg-card/50 p-4 text-sm text-muted-foreground">
         <Info className="mt-0.5 h-4 w-4 shrink-0 text-primary" />
         <div>
-          Rank data shown is sample. Connect Google Business Profile + a rank
-          source (Local Falcon, DataForSEO, or SerpApi) to stream live grid
-          rankings, review velocity, and profile insights into this dashboard.
+          Rank data shown is sample. Connect Google Business Profile + a rank source (Local Falcon,
+          DataForSEO, or SerpApi) to stream live grid rankings, review velocity, and profile
+          insights into this dashboard.
         </div>
       </div>
     </div>
@@ -1142,12 +1137,8 @@ function StatCard({
   const positive = deltaInvert ? (delta ?? 0) > 0 : (delta ?? 0) > 0;
   return (
     <div className="rounded-xl border border-border bg-card p-4">
-      <div className="text-xs uppercase tracking-widest text-muted-foreground">
-        {label}
-      </div>
-      <div
-        className={`mt-2 text-2xl font-semibold ${tone === "good" ? "text-emerald-500" : ""}`}
-      >
+      <div className="text-xs uppercase tracking-widest text-muted-foreground">{label}</div>
+      <div className={`mt-2 text-2xl font-semibold ${tone === "good" ? "text-emerald-500" : ""}`}>
         {value}
       </div>
       {showDelta && (
@@ -1156,11 +1147,7 @@ function StatCard({
             positive ? "text-emerald-500" : "text-red-500"
           }`}
         >
-          {positive ? (
-            <ArrowUpRight className="h-3 w-3" />
-          ) : (
-            <ArrowDownRight className="h-3 w-3" />
-          )}
+          {positive ? <ArrowUpRight className="h-3 w-3" /> : <ArrowDownRight className="h-3 w-3" />}
           {delta! > 0 ? "+" : ""}
           {delta}
           {deltaLabel ? ` ${deltaLabel}` : ""}
@@ -1170,11 +1157,7 @@ function StatCard({
   );
 }
 
-function PriorityBadge({
-  priority,
-}: {
-  priority: "high" | "medium" | "low";
-}) {
+function PriorityBadge({ priority }: { priority: "high" | "medium" | "low" }) {
   const map = {
     high: "bg-red-500/15 text-red-500 border-red-500/30",
     medium: "bg-amber-500/15 text-amber-500 border-amber-500/30",
@@ -1220,15 +1203,11 @@ function MiniStat({
 function LegendSwatch({ color, label }: { color: string; label: string }) {
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span
-        className="inline-block h-3 w-3 rounded-sm"
-        style={{ backgroundColor: color }}
-      />
+      <span className="inline-block h-3 w-3 rounded-sm" style={{ backgroundColor: color }} />
       <span className="text-muted-foreground">{label}</span>
     </span>
   );
 }
-
 
 function RankPill({ rank }: { rank: number }) {
   return (
@@ -1241,10 +1220,17 @@ function RankPill({ rank }: { rank: number }) {
   );
 }
 
-
 type CompetitorLite = { id: string; name: string; gbp_url: string; place_id: string | null };
 
-const HISTORY_COLORS = ["#3b82f6", "#f97316", "#a855f7", "#ec4899", "#14b8a6", "#eab308", "#f43f5e"];
+const HISTORY_COLORS = [
+  "#3b82f6",
+  "#f97316",
+  "#a855f7",
+  "#ec4899",
+  "#14b8a6",
+  "#eab308",
+  "#f43f5e",
+];
 
 function CompetitorRankHistory({
   keywords,
@@ -1351,14 +1337,11 @@ function CompetitorRankHistory({
           </div>
         ) : !hasData ? (
           <div className="flex h-72 items-center justify-center text-center text-sm text-muted-foreground">
-            No history yet. Once a rank source is connected, snapshots are
-            recorded each time the dashboard loads competitor ranks.
+            No history yet. Once a rank source is connected, snapshots are recorded each time the
+            dashboard loads competitor ranks.
           </div>
         ) : (
-          <RankHistoryChart
-            data={chartData}
-            competitors={competitors}
-          />
+          <RankHistoryChart data={chartData} competitors={competitors} />
         )}
 
         {hasData && (
@@ -1386,9 +1369,7 @@ function CompetitorRankHistory({
                   <span className="max-w-[140px] truncate text-muted-foreground" title={c.name}>
                     {c.name}
                   </span>
-                  {latest != null && (
-                    <span className="font-medium text-foreground">#{latest}</span>
-                  )}
+                  {latest != null && <span className="font-medium text-foreground">#{latest}</span>}
                   {delta != null && (
                     <span
                       className={
@@ -1419,7 +1400,6 @@ function RankHistoryChart({
   data: Array<Record<string, string | number | null>>;
   competitors: CompetitorLite[];
 }) {
-
   return (
     <div className="h-72 w-full">
       <ResponsiveContainer width="100%" height="100%">
@@ -1473,4 +1453,3 @@ function RankHistoryChart({
     </div>
   );
 }
-
