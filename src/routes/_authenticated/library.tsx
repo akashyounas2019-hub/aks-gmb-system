@@ -2187,7 +2187,7 @@ function ImagePostComposer({
   const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
   const [templates, setTemplates] = useState<ComposerTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
-  const [caption, setCaption] = useState("");
+  const setCaption = onCaptionChange;
   const [generating, setGenerating] = useState(false);
   const [ctaType, setCtaType] = useState<ComposerCta>("none");
   const [ctaUrl, setCtaUrl] = useState("");
