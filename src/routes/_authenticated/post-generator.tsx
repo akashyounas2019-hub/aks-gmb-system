@@ -114,7 +114,6 @@ export function PostGeneratorPage({
   const [images, setImages] = useState<ImageRow[]>([]);
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [galleryOpen, setGalleryOpen] = useState(false);
-  const [showPosted, setShowPosted] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
   const [servingAreas, setServingAreas] = useState<string[]>(() => pickServingAreas());
@@ -397,6 +396,9 @@ export function PostGeneratorPage({
     const { data } = await supabase
       .from("images")
       .select("id,name,storage_path,posted_at,lat,lng")
+      .not("lat", "is", null)
+      .not("lng", "is", null)
+      .is("posted_at", null)
       .order("created_at", { ascending: false })
       .limit(500);
     setImages((data ?? []) as ImageRow[]);
@@ -412,15 +414,9 @@ export function PostGeneratorPage({
     reloadImages();
   }, []);
 
-  const visibleImages = useMemo(() => {
-    const base = showPosted ? images : images.filter((i) => !i.posted_at);
-    return base.slice().sort((a, b) => {
-      const aGeo = a.lat != null && a.lng != null ? 1 : 0;
-      const bGeo = b.lat != null && b.lng != null ? 1 : 0;
-      if (aGeo !== bGeo) return bGeo - aGeo;
-      return 0;
-    });
-  }, [images, showPosted]);
+  // The post generator only surfaces geo-tagged images that have not yet been
+  // published. Already-posted images are excluded by design.
+  const visibleImages = useMemo(() => images, [images]);
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const filteredImportKw = useMemo(() => {
@@ -1080,22 +1076,13 @@ export function PostGeneratorPage({
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-3 flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <ImageIcon className="h-4 w-4 text-primary" /> Images
+                <ImageIcon className="h-4 w-4 text-primary" /> Geo-tagged images
                 <span className="text-xs text-muted-foreground">
                   ({selectedImages.size}/4 selected · {visibleImages.length}{" "}
-                  available)
+                  available · unpublished only)
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={showPosted}
-                    onChange={(e) => setShowPosted(e.target.checked)}
-                    className="h-3.5 w-3.5"
-                  />
-                  Show posted
-                </label>
                 <input
                   ref={uploadRef}
                   type="file"
@@ -1123,8 +1110,8 @@ export function PostGeneratorPage({
             {previewImages.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                 {images.length === 0
-                  ? "No images yet. Extract frames from a video first."
-                  : "All available images have been posted. Toggle 'Show posted' to reuse."}
+                  ? "No geo-tagged images available. Geo-tag images in the library first."
+                  : "All geo-tagged images have already been posted."}
               </div>
             ) : (
               <>
@@ -1615,21 +1602,13 @@ export function PostGeneratorPage({
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
               <div>
-                <div className="text-sm font-medium">All images</div>
+                <div className="text-sm font-medium">Geo-tagged images</div>
                 <div className="text-xs text-muted-foreground">
                   {selectedImages.size}/4 selected · {visibleImages.length}{" "}
-                  available
+                  available · already-published images are hidden
                 </div>
               </div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={showPosted}
-                    onChange={(e) => setShowPosted(e.target.checked)}
-                  />
-                  Show posted
-                </label>
                 <button
                   onClick={() => setGalleryOpen(false)}
                   className="rounded p-1 hover:bg-accent"
