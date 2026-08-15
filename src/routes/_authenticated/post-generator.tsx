@@ -1083,15 +1083,6 @@ export function PostGeneratorPage({
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <label className="flex items-center gap-2 text-xs text-muted-foreground">
-                  <input
-                    type="checkbox"
-                    checked={showPosted}
-                    onChange={(e) => setShowPosted(e.target.checked)}
-                    className="h-3.5 w-3.5"
-                  />
-                  Show posted
-                </label>
                 <input
                   ref={uploadRef}
                   type="file"
