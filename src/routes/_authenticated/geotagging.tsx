@@ -701,14 +701,16 @@ function GeotaggingPage() {
               upsert: true,
             });
           if (upErr) throw upErr;
+          // Never null out title/description here. An image may already carry a
+          // saved post body (written from the library composer / AI describe);
+          // geo-tagging must preserve it. We only write these fields when the
+          // wizard actually has a value for them.
+          const rowPatch: Record<string, unknown> = { lat: img.lat, lng: img.lng };
+          if (img.title.trim()) rowPatch.title = img.title.trim();
+          if (img.description.trim()) rowPatch.description = img.description.trim();
           const { error: dbErr } = await supabase
             .from("images")
-            .update({
-              lat: img.lat,
-              lng: img.lng,
-              title: img.title.trim() || null,
-              description: img.description.trim() || null,
-            } as never)
+            .update(rowPatch as never)
             .eq("id", img.libraryId);
           if (dbErr) throw dbErr;
         } else {
