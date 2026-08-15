@@ -26,8 +26,9 @@ dist-ssr
 .idea
 .DS_Store
 # Environment variables
-.env
-.env.*
+!.env
+.env.local
+.env.*.local
 !.env.example
 *.njsproj
 *.sln
