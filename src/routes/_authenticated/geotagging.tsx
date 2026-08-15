@@ -1315,7 +1315,9 @@ function StepUpload({
         </div>
         {previewLibrary.length === 0 ? (
           <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-            No images in your library yet. Uploaded and geotagged images will appear here.
+            No untagged favourite images available.
+            <br />
+            Favourite images that have not been geo-tagged will appear here.
           </div>
         ) : (
           <>
