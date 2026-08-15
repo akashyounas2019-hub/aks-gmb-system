@@ -1110,8 +1110,8 @@ export function PostGeneratorPage({
             {previewImages.length === 0 ? (
               <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                 {images.length === 0
-                  ? "No images yet. Extract frames from a video first."
-                  : "All available images have been posted. Toggle 'Show posted' to reuse."}
+                  ? "No geo-tagged images available. Geo-tag images in the library first."
+                  : "All geo-tagged images have already been posted."}
               </div>
             ) : (
               <>
