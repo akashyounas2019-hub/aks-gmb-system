@@ -2389,7 +2389,9 @@ function ImagePostComposer({
       {/* Post body */}
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="block text-xs font-medium text-muted-foreground">Post body</label>
+          <label className="block text-xs font-medium text-muted-foreground">
+            Post body <span className="text-[10px] font-normal">(saved as the image description)</span>
+          </label>
           <span
             className={`text-[11px] font-mono ${
               caption.length > POST_BODY_LIMIT ? "font-semibold text-destructive" : "text-muted-foreground"
