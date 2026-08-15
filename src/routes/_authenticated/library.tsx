@@ -2062,7 +2062,11 @@ function ImageEditModal({
                 )}
               </div>
 
-              <ImagePostComposer image={data.image} />
+              <ImagePostComposer
+                image={data.image}
+                caption={description}
+                onCaptionChange={setDescription}
+              />
             </div>
           </div>
         )}
@@ -2171,8 +2175,13 @@ const POST_BODY_LIMIT = 1500;
 
 function ImagePostComposer({
   image,
+  caption,
+  onCaptionChange,
 }: {
   image: { id: string; name: string; lat: number | null; lng: number | null };
+  /** Shared with the Edit modal's Description field so generated copy is saved. */
+  caption: string;
+  onCaptionChange: (next: string) => void;
 }) {
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
@@ -2182,7 +2191,7 @@ function ImagePostComposer({
   const [llm, setLlm] = useState<"gemini" | "chatgpt" | "anthropic" | "openrouter" | "aks">("gemini");
   const [templates, setTemplates] = useState<ComposerTemplate[]>([]);
   const [templateId, setTemplateId] = useState<string>("");
-  const [caption, setCaption] = useState("");
+  const setCaption = onCaptionChange;
   const [generating, setGenerating] = useState(false);
   const [ctaType, setCtaType] = useState<ComposerCta>("none");
   const [ctaUrl, setCtaUrl] = useState("");
@@ -2380,7 +2389,9 @@ function ImagePostComposer({
       {/* Post body */}
       <div>
         <div className="mb-1 flex items-center justify-between">
-          <label className="block text-xs font-medium text-muted-foreground">Post body</label>
+          <label className="block text-xs font-medium text-muted-foreground">
+            Post body <span className="text-[10px] font-normal">(saved as the image description)</span>
+          </label>
           <span
             className={`text-[11px] font-mono ${
               caption.length > POST_BODY_LIMIT ? "font-semibold text-destructive" : "text-muted-foreground"
