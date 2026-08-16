@@ -5,6 +5,7 @@ const ALLOWED_PROVIDERS = [
   "ghl",
   "dataforseo",
   "serpapi",
+  "serpstat",
   "local_falcon",
   "openai",
   "gemini",
@@ -61,6 +62,16 @@ const PROVIDER_RULES: Record<Provider, Record<string, Rule>> = {
       max: 128,
       pattern: /^[A-Za-z0-9]+$/,
       patternMessage: "SerpApi keys are alphanumeric.",
+    },
+  },
+  serpstat: {
+    api_key: {
+      label: "API key",
+      required: true,
+      min: 16,
+      max: 128,
+      pattern: /^[A-Za-z0-9._-]+$/,
+      patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
     },
   },
   local_falcon: {

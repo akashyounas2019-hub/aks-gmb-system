@@ -10,6 +10,24 @@ export type PickedLocation = {
   place_id?: string | null;
 };
 
+export type CityPlaceType = "home" | "office" | "commercial" | "villas";
+
+export const CITY_PLACE_TYPES: { key: CityPlaceType; label: string; term: string }[] = [
+  { key: "home", label: "Residential / Homes", term: "residential apartment building" },
+  { key: "office", label: "Offices & Tech", term: "office building business center" },
+  { key: "commercial", label: "Commercial Shops", term: "shopping mall retail store" },
+  { key: "villas", label: "Villas & Communities", term: "villa community residential" },
+];
+
+export type HistoryRow = {
+  id: string;
+  label: string;
+  lat: number;
+  lng: number;
+  place_id?: string | null;
+  used_count?: number;
+};
+
 const MAPS_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
   string | undefined;
 const CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as
@@ -51,6 +69,7 @@ export function LocationPicker({
   const [suggestions, setSuggestions] = useState<{ text: string; placeId: string }[]>([]);
   const [ready, setReady] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [history, setHistory] = useState<HistoryRow[]>([]);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
   const [cityPlaces, setCityPlaces] = useState<
     { placeId: string; label: string; lat: number; lng: number }[]

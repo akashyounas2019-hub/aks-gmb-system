@@ -14,6 +14,7 @@ export type ProviderId =
   | "ghl"
   | "dataforseo"
   | "serpapi"
+  | "serpstat"
   | "local_falcon"
   | "openai"
   | "gemini"
@@ -58,6 +59,16 @@ export const PROVIDER_RULES: Record<ProviderId, Record<string, FieldRule>> = {
       max: 128,
       pattern: /^[A-Za-z0-9]+$/,
       patternMessage: "SerpApi keys are alphanumeric.",
+    },
+  },
+  serpstat: {
+    api_key: {
+      label: "API key",
+      required: true,
+      min: 16,
+      max: 128,
+      pattern: /^[A-Za-z0-9._-]+$/,
+      patternMessage: "Only letters, numbers, '.', '_', and '-' are allowed.",
     },
   },
   local_falcon: {

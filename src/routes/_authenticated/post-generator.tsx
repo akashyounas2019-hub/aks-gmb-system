@@ -66,6 +66,7 @@ type ImageRow = {
   posted_at: string | null;
   lat: number | null;
   lng: number | null;
+  folder_id?: string | null;
 };
 
 const PREVIEW_COUNT = 8;
@@ -484,15 +485,30 @@ export function PostGeneratorPage({
   const captionOver = captionLen > CAPTION_LIMIT;
 
   async function reloadImages() {
+    // Exclude images tagged as published or posted (which belong in the Published tab)
+    const { data: tagRows } = await supabase
+      .from("image_tags")
+      .select("image_id, tags!inner(slug)")
+      .in("tags.slug", ["published", "posted"]);
+    const publishedTagIds = new Set(
+      ((tagRows as unknown as Array<{ image_id: string }>) ?? []).map((t) => t.image_id),
+    );
+
+    // Query images strictly in the root Geo-Tagged tab (geo-tagged, unfiled, non-social, non-trashed, unpublished)
     const { data } = await supabase
       .from("images")
-      .select("id,name,storage_path,posted_at,lat,lng")
+      .select("id,name,storage_path,posted_at,lat,lng,folder_id")
       .not("lat", "is", null)
       .not("lng", "is", null)
       .is("posted_at", null)
+      .is("deleted_at", null)
+      .is("folder_id", null)
+      .not("storage_path", "ilike", "%/social-%")
       .order("created_at", { ascending: false })
-      .limit(500);
-    setImages((data ?? []) as ImageRow[]);
+      .limit(1000);
+
+    const filtered = ((data ?? []) as ImageRow[]).filter((img) => !publishedTagIds.has(img.id));
+    setImages(filtered);
   }
 
   useEffect(() => {

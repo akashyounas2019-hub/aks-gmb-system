@@ -617,6 +617,17 @@ function IntegrationsPage() {
       />
 
       <ProviderCard
+        provider="serpstat"
+        title="Serpstat"
+        description="Domain & organic keyword intelligence. Uses a single API key."
+        icon={<Search className="h-6 w-6" />}
+        fields={[
+          { key: "api_key", label: "API key", secret: true, placeholder: "••••••••••••••••" },
+        ]}
+        docsUrl="https://serpstat.com/users/profile/"
+      />
+
+      <ProviderCard
         provider="local_falcon"
         title="Local Falcon"
         description="Geo-grid local rank tracking. Uses an API key."

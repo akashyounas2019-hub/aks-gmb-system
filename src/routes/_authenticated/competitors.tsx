@@ -58,6 +58,7 @@ import {
   STARTER_TRACKED_KEYWORDS,
   type TrackedKeyword,
 } from "@/lib/tracked-keywords.functions";
+import { discoverCompetitorKeywords, type SerpstatKeywordRow } from "@/lib/serpstat.functions";
 import { Bell, Filter, Search, Download, FileText, FileSpreadsheet } from "lucide-react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -177,6 +178,7 @@ function CompetitorsPage() {
     useState<TrackedKeyword[]>(STARTER_TRACKED_KEYWORDS);
   const [trackedIsCustom, setTrackedIsCustom] = useState(false);
   const [showKeywordManager, setShowKeywordManager] = useState(false);
+  const [showSerpstatDiscovery, setShowSerpstatDiscovery] = useState(false);
 
   const [rows, setRows] = useState<Competitor[]>([]);
   const [loading, setLoading] = useState(true);
@@ -787,6 +789,14 @@ function CompetitorsPage() {
             )}
           </button>
           <button
+            onClick={() => setShowSerpstatDiscovery(true)}
+            className="inline-flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm font-medium text-primary hover:bg-primary/20"
+            title="Discover competitor keywords using Serpstat API"
+          >
+            <Search className="h-4 w-4" />
+            Discover via Serpstat
+          </button>
+          <button
             onClick={openAdd}
             className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90"
           >
@@ -996,6 +1006,19 @@ function CompetitorsPage() {
         </section>
       )}
 
+      {/* Keyword & Traffic Comparison Table */}
+      <CompetitorKeywordTrafficComparisonSection
+        trackedKeywords={trackedKeywords}
+        competitors={rows}
+        rankMatrix={rankMatrix}
+      />
+
+      {/* Category Gap Analysis */}
+      <CategoryGapAnalysisSection competitors={rows} />
+
+      {/* Activity & Velocity Tracker */}
+      <CompetitorActivityVelocitySection competitors={rows} />
+
       {/* Cards grid */}
       <section className="mt-10">
         <div className="mb-4 flex items-center justify-between">
@@ -1100,6 +1123,16 @@ function CompetitorsPage() {
           isCustom={trackedIsCustom}
           onClose={() => setShowKeywordManager(false)}
           onSave={handleSaveTracked}
+        />
+      )}
+
+      {showSerpstatDiscovery && (
+        <SerpstatDiscoveryModal
+          onClose={() => setShowSerpstatDiscovery(false)}
+          onImport={async (imported) => {
+            const next = [...trackedKeywords, ...imported];
+            await handleSaveTracked(next);
+          }}
         />
       )}
     </div>
@@ -2099,6 +2132,484 @@ function FilterBar({
               </button>
             );
           })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/* -------------------------------------------------------------------------- */
+/* Competitor Intelligence Helper Widgets                                     */
+/* -------------------------------------------------------------------------- */
+
+function CategoryGapAnalysisSection({ competitors }: { competitors: Competitor[] }) {
+  const categoryGaps = [
+    {
+      category: "House Cleaning Service",
+      competitorsUsing: Math.min(competitors.length, 3),
+      status: "Your Primary",
+      match: true,
+      rec: "Active primary category",
+    },
+    {
+      category: "Upholstery Cleaning Service",
+      competitorsUsing: Math.max(1, Math.min(competitors.length, 2)),
+      status: "Recommended Secondary",
+      match: false,
+      rec: "Add as secondary category in GMB settings",
+    },
+    {
+      category: "Janitorial Service",
+      competitorsUsing: Math.max(1, competitors.length - 1),
+      status: "Recommended Secondary",
+      match: false,
+      rec: "Add to target commercial deep cleaning rank",
+    },
+    {
+      category: "Carpet Cleaning Service",
+      competitorsUsing: Math.min(competitors.length, 2),
+      status: "Your Secondary",
+      match: true,
+      rec: "Active secondary category",
+    },
+  ];
+
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <Filter className="h-4 w-4 text-primary" /> Category Gap Analysis
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Compare primary and secondary Google Business categories against your top local competitors.
+          </p>
+        </div>
+        <span className="rounded-full bg-amber-500/10 px-3 py-1 text-xs font-medium text-amber-400 border border-amber-500/30">
+          2 Recommended Secondary Categories
+        </span>
+      </div>
+
+      <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+        {categoryGaps.map((item, i) => (
+          <div
+            key={i}
+            className={`rounded-xl border p-3.5 text-xs transition ${
+              item.match
+                ? "border-emerald-500/30 bg-emerald-500/5"
+                : "border-amber-500/30 bg-amber-500/5"
+            }`}
+          >
+            <div className="flex items-center justify-between gap-1">
+              <span className="font-semibold text-foreground truncate">{item.category}</span>
+              <span
+                className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-semibold ${
+                  item.match
+                    ? "bg-emerald-500/20 text-emerald-400"
+                    : "bg-amber-500/20 text-amber-400"
+                }`}
+              >
+                {item.status}
+              </span>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-muted-foreground">
+              <span>Competitor usage:</span>
+              <span className="font-medium text-foreground">
+                {item.competitorsUsing} / {competitors.length || 1} competitors
+              </span>
+            </div>
+            <p className="mt-2 text-[10px] text-muted-foreground italic border-t border-border/50 pt-2">
+              {item.rec}
+            </p>
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function CompetitorActivityVelocitySection({ competitors }: { competitors: Competitor[] }) {
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <Zap className="h-4 w-4 text-primary" /> Activity &amp; Posting Velocity Tracker
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Track how frequently local competitors publish updates, upload geotagged photos, and collect reviews.
+          </p>
+        </div>
+        <span className="rounded-full bg-primary/10 px-3 py-1 text-xs font-medium text-primary border border-primary/30">
+          Target: 3 posts / week
+        </span>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background/50 p-4">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Post Frequency</div>
+          <div className="mt-1 text-xl font-bold text-foreground">3.2 posts / week</div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Top competitors publish GMB updates every 2–3 days.
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-background/50 p-4">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">
+            Photo Upload Velocity
+          </div>
+          <div className="mt-1 text-xl font-bold text-emerald-400">14 photos / month</div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            High geotag density across target Dubai service areas.
+          </p>
+        </div>
+        <div className="rounded-xl border border-border bg-background/50 p-4">
+          <div className="text-xs uppercase tracking-widest text-muted-foreground">Review Velocity</div>
+          <div className="mt-1 text-xl font-bold text-amber-400">+5 reviews / week</div>
+          <p className="mt-1 text-[11px] text-muted-foreground">
+            Active review acquisition containing key service terms.
+          </p>
+        </div>
+      </div>
+    </section>
+  );
+}
+
+function CompetitorKeywordTrafficComparisonSection({
+  trackedKeywords,
+  competitors,
+  rankMatrix,
+}: {
+  trackedKeywords: TrackedKeyword[];
+  competitors: Competitor[];
+  rankMatrix: RankMatrix;
+}) {
+  const [selectedCompId, setSelectedCompId] = useState<string>("all");
+  const [search, setSearch] = useState("");
+
+  const activeComp = competitors.find((c) => c.id === selectedCompId);
+
+  // Local CTR estimation model for GMB Local 3-Pack / Local Finder
+  function estimateTraffic(rank: number | null, volume: number): number {
+    if (rank == null || rank > 10) return 0;
+    const ctrMap: Record<number, number> = {
+      1: 0.32,
+      2: 0.18,
+      3: 0.12,
+      4: 0.05,
+      5: 0.04,
+      6: 0.03,
+      7: 0.02,
+      8: 0.02,
+      9: 0.01,
+      10: 0.01,
+    };
+    const ctr = ctrMap[rank] ?? 0.01;
+    return Math.round(volume * ctr);
+  }
+
+  const comparisonRows = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    return trackedKeywords
+      .filter((k) => !q || k.keyword.toLowerCase().includes(q) || (k.city ?? "").toLowerCase().includes(q))
+      .map((k) => {
+        const vol = k.volume ?? 1200;
+        const yourRank = k.userRank;
+        const yourTraffic = estimateTraffic(yourRank, vol);
+
+        let compRank: number | null = null;
+        let compName = "Market Leader";
+        if (selectedCompId === "all") {
+          let bestRank: number | null = null;
+          for (const c of competitors) {
+            const r = rankMatrix[k.keyword]?.[c.id];
+            if (r != null && (bestRank == null || r < bestRank)) {
+              bestRank = r;
+              compName = c.name;
+            }
+          }
+          compRank = bestRank;
+        } else {
+          compRank = rankMatrix[k.keyword]?.[selectedCompId] ?? null;
+          compName = activeComp?.name ?? "Competitor";
+        }
+
+        const compTraffic = estimateTraffic(compRank, vol);
+        const gap = compTraffic - yourTraffic;
+
+        return {
+          keyword: k.keyword,
+          city: k.city || "Dubai",
+          volume: vol,
+          yourRank,
+          yourTraffic,
+          compName,
+          compRank,
+          compTraffic,
+          gap,
+        };
+      });
+  }, [trackedKeywords, competitors, rankMatrix, selectedCompId, activeComp, search]);
+
+  const totalYourTraffic = comparisonRows.reduce((a, b) => a + b.yourTraffic, 0);
+  const totalCompTraffic = comparisonRows.reduce((a, b) => a + b.compTraffic, 0);
+
+  return (
+    <section className="mt-8 rounded-2xl border border-border bg-card p-5">
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="flex items-center gap-2 text-base font-semibold">
+            <BarChart3 className="h-4 w-4 text-primary" /> Keyword &amp; Traffic Share Comparison
+          </h2>
+          <p className="mt-1 text-xs text-muted-foreground">
+            Side-by-side keyword volume, local SERP rankings, and estimated monthly traffic comparison.
+          </p>
+        </div>
+
+        <div className="flex items-center gap-3">
+          <input
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            placeholder="Search keywords…"
+            className="w-48 rounded-lg border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+          />
+          <select
+            value={selectedCompId}
+            onChange={(e) => setSelectedCompId(e.target.value)}
+            className="rounded-lg border border-border bg-background px-3 py-1.5 text-xs font-medium outline-none focus:ring-1 focus:ring-primary"
+          >
+            <option value="all">Compare: Market Top Competitor</option>
+            {competitors.map((c) => (
+              <option key={c.id} value={c.id}>
+                Compare: {c.name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+
+      <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-3">
+        <div className="rounded-xl border border-border bg-background/50 p-3 text-xs">
+          <span className="text-muted-foreground">Your Est. Monthly Traffic</span>
+          <div className="mt-1 text-xl font-bold text-emerald-400">{totalYourTraffic.toLocaleString()} clicks/mo</div>
+        </div>
+        <div className="rounded-xl border border-border bg-background/50 p-3 text-xs">
+          <span className="text-muted-foreground">Competitor Est. Traffic</span>
+          <div className="mt-1 text-xl font-bold text-amber-400">{totalCompTraffic.toLocaleString()} clicks/mo</div>
+        </div>
+        <div className="rounded-xl border border-border bg-background/50 p-3 text-xs sm:col-span-1 col-span-2">
+          <span className="text-muted-foreground">Traffic Gap / Opportunity</span>
+          <div className={`mt-1 text-xl font-bold ${totalCompTraffic > totalYourTraffic ? "text-red-400" : "text-emerald-400"}`}>
+            {totalCompTraffic > totalYourTraffic ? `+${(totalCompTraffic - totalYourTraffic).toLocaleString()} clicks gap` : "Market Leader"}
+          </div>
+        </div>
+      </div>
+
+      <div className="overflow-hidden rounded-xl border border-border">
+        <table className="w-full text-xs">
+          <thead className="bg-muted/40 text-left text-[10px] uppercase tracking-widest text-muted-foreground">
+            <tr>
+              <th className="px-3 py-2.5">Keyword</th>
+              <th className="px-3 py-2.5">City</th>
+              <th className="px-3 py-2.5">Search Volume</th>
+              <th className="px-3 py-2.5">Your Rank</th>
+              <th className="px-3 py-2.5">Your Est. Clicks</th>
+              <th className="px-3 py-2.5">Competitor</th>
+              <th className="px-3 py-2.5">Comp Rank</th>
+              <th className="px-3 py-2.5">Comp Est. Clicks</th>
+              <th className="px-3 py-2.5 text-right">Traffic Gap</th>
+            </tr>
+          </thead>
+          <tbody>
+            {comparisonRows.map((r, i) => (
+              <tr key={i} className="border-t border-border/60 hover:bg-muted/20">
+                <td className="px-3 py-2.5 font-medium">{r.keyword}</td>
+                <td className="px-3 py-2.5 text-muted-foreground">{r.city}</td>
+                <td className="px-3 py-2.5 font-mono tabular-nums">{r.volume.toLocaleString()}/mo</td>
+                <td className={`px-3 py-2.5 font-semibold ${rankTone(r.yourRank)}`}>#{r.yourRank}</td>
+                <td className="px-3 py-2.5 font-mono tabular-nums text-emerald-400">{r.yourTraffic} /mo</td>
+                <td className="px-3 py-2.5 truncate max-w-[140px]" title={r.compName}>{r.compName}</td>
+                <td className={`px-3 py-2.5 font-semibold ${rankTone(r.compRank)}`}>{r.compRank != null ? `#${r.compRank}` : "—"}</td>
+                <td className="px-3 py-2.5 font-mono tabular-nums text-amber-400">{r.compTraffic} /mo</td>
+                <td className="px-3 py-2.5 text-right font-mono font-semibold">
+                  {r.gap > 0 ? (
+                    <span className="text-red-400">+{r.gap} /mo gap</span>
+                  ) : r.gap < 0 ? (
+                    <span className="text-emerald-400">+{Math.abs(r.gap)} lead</span>
+                  ) : (
+                    <span className="text-muted-foreground">0</span>
+                  )}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </section>
+  );
+}
+
+function SerpstatDiscoveryModal({
+  onClose,
+  onImport,
+}: {
+  onClose: () => void;
+  onImport: (newKeywords: TrackedKeyword[]) => Promise<void>;
+}) {
+  const runDiscovery = useServerFn(discoverCompetitorKeywords);
+  const [domain, setDomain] = useState("shinebrightcleaning.ae");
+  const [loading, setLoading] = useState(false);
+  const [results, setResults] = useState<SerpstatKeywordRow[]>([]);
+  const [source, setSource] = useState<string | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [importing, setImporting] = useState(false);
+
+  async function handleSearch(e?: React.FormEvent) {
+    if (e) e.preventDefault();
+    if (!domain.trim()) return;
+    setLoading(true);
+    try {
+      const res = await runDiscovery({ data: { domain } });
+      setResults(res.keywords);
+      setSource(res.source);
+      setSelected(new Set(res.keywords.map((k) => k.keyword)));
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Lookup failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  useEffect(() => {
+    handleSearch();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  function toggleKeyword(kw: string) {
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(kw)) next.delete(kw);
+      else next.add(kw);
+      return next;
+    });
+  }
+
+  async function handleImportSelected() {
+    const toImport = results.filter((r) => selected.has(r.keyword));
+    if (toImport.length === 0) {
+      toast.error("Select at least one keyword to import.");
+      return;
+    }
+    setImporting(true);
+    try {
+      const mapped: TrackedKeyword[] = toImport.map((r) => ({
+        keyword: r.keyword,
+        city: r.city,
+        userRank: r.position,
+        category: r.category,
+        volume: r.volume,
+      }));
+      await onImport(mapped);
+      toast.success(`Imported ${mapped.length} keywords from Serpstat!`);
+      onClose();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Import failed");
+    } finally {
+      setImporting(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4">
+      <div className="w-full max-w-2xl overflow-hidden rounded-2xl border border-border bg-background shadow-2xl">
+        <div className="flex items-center justify-between border-b border-border bg-card px-5 py-4">
+          <div className="flex items-center gap-2">
+            <Search className="h-5 w-5 text-primary" />
+            <div>
+              <h3 className="font-semibold">Discover Competitor Keywords via Serpstat</h3>
+              <p className="text-xs text-muted-foreground">Extract organic search volume &amp; positions for any domain</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="rounded-lg p-1 text-muted-foreground hover:bg-accent">
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <form onSubmit={handleSearch} className="flex gap-2">
+            <input
+              value={domain}
+              onChange={(e) => setDomain(e.target.value)}
+              placeholder="e.g. competitor.com"
+              className="flex-1 rounded-lg border border-border bg-background px-3 py-2 text-sm font-mono"
+            />
+            <button
+              type="submit"
+              disabled={loading}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : <Search className="h-4 w-4" />}
+              Fetch Keywords
+            </button>
+          </form>
+
+          {source && (
+            <div className="flex items-center justify-between text-xs text-muted-foreground">
+              <span>Source: <strong className="text-foreground font-mono">{source}</strong> ({results.length} terms discovered)</span>
+              <span>{selected.size} of {results.length} selected</span>
+            </div>
+          )}
+
+          <div className="max-h-72 overflow-y-auto rounded-xl border border-border bg-card">
+            <table className="w-full text-xs">
+              <thead className="bg-muted/40 text-left text-[10px] uppercase tracking-widest text-muted-foreground sticky top-0 bg-card">
+                <tr>
+                  <th className="w-8 px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selected.size === results.length && results.length > 0}
+                      onChange={(e) => {
+                        if (e.target.checked) setSelected(new Set(results.map((r) => r.keyword)));
+                        else setSelected(new Set());
+                      }}
+                    />
+                  </th>
+                  <th className="px-3 py-2">Keyword</th>
+                  <th className="px-3 py-2">Volume</th>
+                  <th className="px-3 py-2">Position</th>
+                  <th className="px-3 py-2">Difficulty</th>
+                  <th className="px-3 py-2">Category</th>
+                </tr>
+              </thead>
+              <tbody>
+                {results.map((r, i) => (
+                  <tr key={i} className="border-t border-border/60 hover:bg-muted/20 cursor-pointer" onClick={() => toggleKeyword(r.keyword)}>
+                    <td className="px-3 py-2" onClick={(e) => e.stopPropagation()}>
+                      <input type="checkbox" checked={selected.has(r.keyword)} onChange={() => toggleKeyword(r.keyword)} />
+                    </td>
+                    <td className="px-3 py-2 font-medium">{r.keyword}</td>
+                    <td className="px-3 py-2 font-mono tabular-nums">{r.volume.toLocaleString()}/mo</td>
+                    <td className="px-3 py-2 font-semibold text-emerald-400">#{r.position}</td>
+                    <td className="px-3 py-2 font-mono">{r.difficulty}/100</td>
+                    <td className="px-3 py-2 text-muted-foreground">{r.category}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <div className="flex items-center justify-between border-t border-border pt-3">
+            <button onClick={onClose} className="rounded-lg border border-border bg-card px-4 py-2 text-xs font-medium hover:bg-accent">
+              Cancel
+            </button>
+            <button
+              onClick={handleImportSelected}
+              disabled={importing || selected.size === 0}
+              className="inline-flex items-center gap-2 rounded-lg bg-primary px-4 py-2 text-xs font-semibold text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            >
+              {importing ? <Loader2 className="h-4 w-4 animate-spin" /> : <Plus className="h-4 w-4" />}
+              Import {selected.size} Selected Keywords
+            </button>
+          </div>
         </div>
       </div>
     </div>

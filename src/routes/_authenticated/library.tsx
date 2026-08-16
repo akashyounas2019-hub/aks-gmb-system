@@ -1632,6 +1632,7 @@ function ImageEditModal({
   const [saving, setSaving] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(false);
   const [lightboxOpen, setLightboxOpen] = useState(false);
+  const initializedIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     if (!lightboxOpen) return;
@@ -1641,7 +1642,8 @@ function ImageEditModal({
   }, [lightboxOpen]);
 
   useEffect(() => {
-    if (!data) return;
+    if (!data || initializedIdRef.current === data.image.id) return;
+    initializedIdRef.current = data.image.id;
     setName(data.image.name);
     setTitle(data.image.title ?? "");
     setDescription(data.image.description ?? "");
