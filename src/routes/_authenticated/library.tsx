@@ -67,7 +67,8 @@ async function fetchLibrary() {
     .not("storage_path", "ilike", "%/social-%")
     // Hide soft-deleted (trashed) images from normal views.
     .is("deleted_at", null)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .limit(10000);
   if (error) throw error;
 
   const { data: venues } = await supabase.from("venues").select("id, name");

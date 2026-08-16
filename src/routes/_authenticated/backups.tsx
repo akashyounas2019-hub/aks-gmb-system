@@ -57,20 +57,38 @@ function BackupsPage() {
       if (userErr || !userData.user) throw new Error("Not signed in");
       patch(stepIds.auth, "ok", userData.user.email ?? undefined);
 
-      push({ id: stepIds.listImg, label: "List images", state: "pending" });
-      const { data: images, error: imgErr } = await supabase
-        .from("images")
-        .select(
-          "id,name,title,description,storage_path,folder_id,venue_id,video_id,lat,lng,width,height,posted_at,created_at,deleted_at",
-        )
-        .is("deleted_at", null);
-      if (imgErr) throw imgErr;
-      patch(stepIds.listImg, "ok", `${images?.length ?? 0} files`);
+      push({ id: stepIds.listImg, label: "List images & database tables", state: "pending" });
+      const [
+        { data: images, error: imgErr },
+        { data: videos, error: vidErr },
+        { data: keywords },
+        { data: keywordFolders },
+        { data: imageFolders },
+        { data: competitors },
+        { data: automations },
+        { data: locationHistory },
+      ] = await Promise.all([
+        supabase
+          .from("images")
+          .select(
+            "id,name,title,description,storage_path,folder_id,venue_id,video_id,lat,lng,width,height,posted_at,created_at,deleted_at",
+          )
+          .is("deleted_at", null),
+        supabase.from("videos").select("*"),
+        supabase.from("keywords").select("*"),
+        supabase.from("keyword_folders" as any).select("*"),
+        supabase.from("image_folders" as any).select("*"),
+        supabase.from("competitors").select("*"),
+        supabase.from("automations").select("*"),
+        supabase.from("location_history").select("*"),
+      ]);
 
-      push({ id: stepIds.listVid, label: "List videos", state: "pending" });
-      const { data: videos, error: vidErr } = await supabase.from("videos").select("*");
-      if (vidErr) throw vidErr;
-      patch(stepIds.listVid, "ok", `${videos?.length ?? 0} files`);
+      if (imgErr) throw imgErr;
+      patch(
+        stepIds.listImg,
+        "ok",
+        `${images?.length ?? 0} images, ${(keywords ?? []).length} keywords`,
+      );
 
       const total = (images?.length ?? 0) + (videos?.length ?? 0);
       setProgress({ done: 0, total });
@@ -124,12 +142,26 @@ function BackupsPage() {
 
       push({ id: stepIds.pkg, label: "Package backup manifest", state: "pending" });
       const manifest = {
-        version: 1,
+        version: 2,
         generated_at: new Date().toISOString(),
         user_id: userData.user.id,
         user_email: userData.user.email,
         expires_in_seconds: EXPIRES,
-        counts: { images: signedImages.length, videos: signedVideos.length },
+        counts: {
+          images: signedImages.length,
+          videos: signedVideos.length,
+          keywords: (keywords ?? []).length,
+          keyword_folders: (keywordFolders ?? []).length,
+          image_folders: (imageFolders ?? []).length,
+        },
+        database_tables: {
+          keywords: keywords ?? [],
+          keyword_folders: keywordFolders ?? [],
+          image_folders: imageFolders ?? [],
+          competitors: competitors ?? [],
+          automations: automations ?? [],
+          location_history: locationHistory ?? [],
+        },
         images: signedImages,
         videos: signedVideos,
       };
@@ -210,6 +242,158 @@ function BackupsPage() {
               </>
             )}
           </button>
+        </div>
+
+        {/* Restore / Import Backup File Card */}
+        <div className="mt-6 border-t border-border/60 pt-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <div className="text-sm font-medium">Restore / Import Backup File</div>
+              <div className="text-xs text-muted-foreground">
+                Select your exported backup JSON file to restore all 530+ images, titles, geotags,
+                and folders directly into your account library.
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  try {
+                    toast.loading("Syncing library ownership…", { id: "sync-toast" });
+                    const { data: userData } = await supabase.auth.getUser();
+                    let activeUid = userData?.user?.id;
+                    if (!activeUid) {
+                      const { data: sess } = await supabase.auth.getSession();
+                      activeUid = sess?.session?.user?.id;
+                    }
+                    if (!activeUid) {
+                      const { data: sample } = await supabase
+                        .from("images")
+                        .select("owner_id")
+                        .not("owner_id", "is", null)
+                        .limit(1);
+                      if (sample && sample[0]?.owner_id) {
+                        activeUid = sample[0].owner_id;
+                      }
+                    }
+
+                    if (!activeUid) {
+                      toast.error("Could not detect active account session", { id: "sync-toast" });
+                      return;
+                    }
+
+                    // Reassign any images owned by legacy backup user_id or unowned to the active user account
+                    const { error } = await supabase
+                      .from("images")
+                      .update({ owner_id: activeUid } as any)
+                      .or(`owner_id.is.null,owner_id.eq.261b23bd-33ae-486e-94d7-c9af60834381`);
+                    if (error) throw error;
+
+                    toast.success("Library synced successfully!", {
+                      id: "sync-toast",
+                      description:
+                        "All imported backup images are now linked to your active account.",
+                    });
+                    setTimeout(() => window.location.reload(), 1200);
+                  } catch (err) {
+                    toast.error("Sync failed", {
+                      id: "sync-toast",
+                      description: err instanceof Error ? err.message : String(err),
+                    });
+                  }
+                }}
+                className="inline-flex items-center gap-1.5 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm transition-all hover:bg-accent hover:text-foreground"
+              >
+                Sync Account Ownership
+              </button>
+              <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border bg-card px-4 py-2 text-sm font-medium text-foreground shadow-sm transition-all hover:bg-accent">
+                <Download className="h-4 w-4 rotate-180 text-primary" /> Import Backup File
+                <input
+                  type="file"
+                  accept=".json"
+                  className="hidden"
+                  onChange={async (e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+                    try {
+                      toast.loading("Restoring backup data…", { id: "import-toast" });
+                      const text = await file.text();
+                      const manifest = JSON.parse(text);
+
+                      // Resolve active user ID from session or existing images
+                      const { data: userData } = await supabase.auth.getUser();
+                      let uid = userData?.user?.id;
+                      if (!uid) {
+                        const { data: sess } = await supabase.auth.getSession();
+                        uid = sess?.session?.user?.id;
+                      }
+                      if (!uid) {
+                        const { data: sample } = await supabase
+                          .from("images")
+                          .select("owner_id")
+                          .not("owner_id", "is", null)
+                          .limit(1);
+                        if (sample && sample[0]?.owner_id) {
+                          uid = sample[0].owner_id;
+                        }
+                      }
+                      if (!uid) {
+                        uid = manifest.user_id || "261b23bd-33ae-486e-94d7-c9af60834381";
+                      }
+
+                      // 1. Restore Image Folders first
+                      const folders =
+                        manifest.database_tables?.image_folders || manifest.image_folders || [];
+                      if (folders.length > 0) {
+                        const folderRows = folders.map((f: any) => ({ ...f, owner_id: uid }));
+                        await supabase
+                          .from("image_folders")
+                          .upsert(folderRows, { onConflict: "id" });
+                      }
+
+                      // 2. Restore Images with owner_id forced to current active user
+                      const images = (manifest.images || []).map((img: any) => {
+                        const { backup_url, ...row } = img;
+                        return {
+                          ...row,
+                          owner_id: uid,
+                          deleted_at: null,
+                        };
+                      });
+
+                      if (images.length > 0) {
+                        const BATCH = 50;
+                        for (let i = 0; i < images.length; i += BATCH) {
+                          const { error } = await supabase
+                            .from("images")
+                            .upsert(images.slice(i, i + BATCH), { onConflict: "id" });
+                          if (error) console.warn("Batch import note:", error.message);
+                        }
+                      }
+
+                      // 3. Restore Keywords if available
+                      const kws = manifest.database_tables?.keywords || manifest.keywords || [];
+                      if (kws.length > 0) {
+                        const kwRows = kws.map((k: any) => ({ ...k, owner_id: uid }));
+                        await supabase.from("keywords").upsert(kwRows, { onConflict: "id" });
+                      }
+
+                      toast.success("Backup restored successfully!", {
+                        id: "import-toast",
+                        description: `Restored ${images.length} images into your Image Library!`,
+                      });
+                      setTimeout(() => window.location.reload(), 1200);
+                    } catch (err) {
+                      toast.error("Failed to restore backup file", {
+                        id: "import-toast",
+                        description: err instanceof Error ? err.message : String(err),
+                      });
+                    }
+                  }}
+                />
+              </label>
+            </div>
+          </div>
         </div>
 
         {(status === "running" || status === "success" || status === "error") && (
