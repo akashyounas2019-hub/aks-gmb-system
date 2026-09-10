@@ -381,7 +381,7 @@ export function LocationPicker({
                       setCityPlaces([]);
                       if (next) {
                         setSearchArea(c);
-                        loadCityPlaces(c, null);
+                        loadCityPlaces(c, category);
                       } else {
                         setSearchArea(null);
                       }
@@ -399,6 +399,33 @@ export function LocationPicker({
           </div>
         </div>
       )}
+
+      {/* Place-type filter — homes, villas and towers first, shops next. */}
+      {searchArea && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {[{ key: null, label: "Homes & shops" } as const, ...CITY_PLACE_TYPES].map((t) => {
+            const active = category === (t.key as CityPlaceType | null);
+            return (
+              <button
+                key={t.label}
+                onClick={() => {
+                  const next = t.key as CityPlaceType | null;
+                  setCategory(next);
+                  loadCityPlaces(searchArea, next);
+                }}
+                className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                  active
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card hover:border-primary hover:text-primary"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
 
       {/* Map widget with a pin per matching location, plus a copyable
           coordinate list. Shown for both city chips and typed areas. */}
