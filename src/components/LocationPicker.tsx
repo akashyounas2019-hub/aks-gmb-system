@@ -99,17 +99,19 @@ export function LocationPicker({
     try {
       const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
       const hasCoords = typeof city.lat === "number" && typeof city.lng === "number";
-      let found: any[];
-      if (type || !hasCoords) {
-        const term = type ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term : "places";
+      const term = type ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term : "places";
+
+      const byText = async () => {
         const res = await Place.searchByText({
           textQuery: `${term} in ${city.name}`,
           fields: ["displayName", "formattedAddress", "location", "id"],
           ...(hasCoords ? { locationBias: { lat: city.lat!, lng: city.lng!, radius: 5000 } } : {}),
           maxResultCount: 20,
         });
-        found = res.places ?? [];
-      } else {
+        return (res.places ?? []) as any[];
+      };
+
+      const nearby = async () => {
         const res = await Place.searchNearby({
           fields: ["displayName", "formattedAddress", "location", "id"],
           locationRestriction: {
@@ -118,19 +120,64 @@ export function LocationPicker({
           },
           maxResultCount: 20,
         });
-        found = res.places ?? [];
+        return (res.places ?? []) as any[];
+      };
+
+      // Legacy Places service fallback for keys where the new Places API
+      // (searchNearby / searchByText) is not enabled.
+      const legacy = async () => {
+        const { PlacesService } = (await (window as any).google.maps.importLibrary(
+          "places",
+        )) as any;
+        const svc = new PlacesService(document.createElement("div"));
+        return await new Promise<any[]>((resolve, reject) => {
+          const cb = (results: any[] | null, status: string) => {
+            if (status === "OK" && results) resolve(results);
+            else if (status === "ZERO_RESULTS") resolve([]);
+            else reject(new Error(`Places lookup unavailable (${status})`));
+          };
+          if (hasCoords) {
+            svc.nearbySearch(
+              {
+                location: { lat: city.lat!, lng: city.lng! },
+                radius: 2500,
+                ...(type ? { keyword: term } : {}),
+              },
+              cb,
+            );
+          } else {
+            svc.textSearch({ query: `${term} in ${city.name}` }, cb);
+          }
+        });
+      };
+
+      let found: any[] = [];
+      const attempts = type || !hasCoords ? [byText, nearby, legacy] : [nearby, byText, legacy];
+      let lastError: unknown = null;
+      for (const attempt of attempts) {
+        try {
+          found = await attempt();
+          lastError = null;
+          break;
+        } catch (e) {
+          lastError = e;
+        }
       }
+      if (lastError) throw lastError;
+
       const mapped = (found ?? [])
         .map((p: any) => {
-          const loc = p.location;
+          const loc = p.location ?? p.geometry?.location;
           const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
           const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
           if (typeof lat !== "number" || typeof lng !== "number") return null;
           return {
-            placeId: p.id as string,
+            placeId: (p.id ?? p.place_id) as string,
             label: (p.displayName?.text ??
               p.formattedAddress ??
               p.displayName ??
+              p.name ??
+              p.vicinity ??
               "Unnamed place") as string,
             lat,
             lng,
@@ -147,8 +194,14 @@ export function LocationPicker({
           } => p !== null,
         );
       setCityPlaces(mapped);
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nearby search failed");
+      const raw = e instanceof Error ? e.message : String(e);
+      setError(
+        /PERMISSION_DENIED|not authorized|ApiNotActivated|REQUEST_DENIED/i.test(raw)
+          ? "Place search isn't available for this map key right now — pick a spot directly on the map below instead."
+          : "Couldn't load nearby places. Pick a spot directly on the map below.",
+      );
     } finally {
       setCityPlacesLoading(false);
     }
