@@ -442,8 +442,8 @@ export function LocationPicker({
           ) : (
             <div className="space-y-2">
               <div className="text-[11px] text-muted-foreground">
-                {cityPlaces.length} results · click a pin or the map to use that location ·
-                right-click anywhere to copy its coordinates.
+                {cityPlaces.length} places in {searchArea.name} · click a pin or the map to use
+                that location · right-click anywhere to copy its coordinates.
               </div>
               <div
                 ref={mapRef}
@@ -464,8 +464,22 @@ export function LocationPicker({
                       className="min-w-0 flex-1 truncate text-left hover:text-primary font-medium"
                       title="Use this location"
                     >
+                      {v.kind && (
+                        <span
+                          className={`mr-1.5 rounded px-1 py-0.5 text-[10px] font-semibold ${
+                            v.kind === "residential"
+                              ? "bg-emerald-500/15 text-emerald-500"
+                              : v.kind === "shop"
+                                ? "bg-amber-500/15 text-amber-500"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {v.kind === "residential" ? "Home" : v.kind === "shop" ? "Shop" : "Place"}
+                        </span>
+                      )}
                       {v.label}
                     </button>
+
                     <button
                       type="button"
                       onClick={() => copyCoords(v.placeId, v.lat, v.lng)}
