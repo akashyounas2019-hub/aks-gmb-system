@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MapPin, X, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { searchAreaPlaces, placeAutocomplete, placeDetails } from "@/lib/places.functions";
 
 export type PickedLocation = {
   label: string;
@@ -28,29 +29,6 @@ export type HistoryRow = {
   used_count?: number;
 };
 
-const MAPS_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
-  string | undefined;
-const CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as
-  string | undefined;
-
-let mapsPromise: Promise<void> | null = null;
-function loadMaps(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if ((window as any).google?.maps?.importLibrary) return Promise.resolve();
-  if (mapsPromise) return mapsPromise;
-  if (!MAPS_KEY) return Promise.reject(new Error("Google Maps key missing"));
-  mapsPromise = new Promise<void>((resolve, reject) => {
-    (window as any).__initMaps = () => resolve();
-    const s = document.createElement("script");
-    s.async = true;
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&v=weekly&libraries=places&loading=async&callback=__initMaps${
-      CHANNEL ? `&channel=${CHANNEL}` : ""
-    }`;
-    s.onerror = () => reject(new Error("Failed to load Google Maps"));
-    document.head.appendChild(s);
-  });
-  return mapsPromise;
-}
 
 export function LocationPicker({
   value,
@@ -71,8 +49,15 @@ export function LocationPicker({
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
+  const [category, setCategory] = useState<CityPlaceType | null>(null);
   const [cityPlaces, setCityPlaces] = useState<
-    { placeId: string; label: string; lat: number; lng: number }[]
+    {
+      placeId: string;
+      label: string;
+      lat: number;
+      lng: number;
+      kind?: "residential" | "shop" | "other";
+    }[]
   >([]);
   const [cityPlacesLoading, setCityPlacesLoading] = useState(false);
   const [copiedPlaceId, setCopiedPlaceId] = useState<string | null>(null);
@@ -83,13 +68,11 @@ export function LocationPicker({
     lng?: number;
   } | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
-  const sessionTokenRef = useRef<any>(null);
+  const sessionTokenRef = useRef<string | null>(null);
 
-  // Real nearby-places lookup around a city's centroid — replaces the old
-  // fabricated "point 1..5" coordinates that were never real addresses.
-  // When `type` is set, biases the search toward that property category
-  // (Home / Office / Commercial / Villas) instead of returning anything
-  // nearby.
+  // Real places lookup for the chosen area, run server-side through the
+  // Google Maps connector. Results are strictly limited to the area's radius
+  // and ordered residential (villas / houses / towers) first, then shops.
   async function loadCityPlaces(
     city: { name: string; lat?: number; lng?: number },
     type: CityPlaceType | null,
@@ -97,58 +80,32 @@ export function LocationPicker({
     setCityPlacesLoading(true);
     setCityPlaces([]);
     try {
-      const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
-      const hasCoords = typeof city.lat === "number" && typeof city.lng === "number";
-      let found: any[];
-      if (type || !hasCoords) {
-        const term = type ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term : "places";
-        const res = await Place.searchByText({
-          textQuery: `${term} in ${city.name}`,
-          fields: ["displayName", "formattedAddress", "location", "id"],
-          ...(hasCoords ? { locationBias: { lat: city.lat!, lng: city.lng!, radius: 5000 } } : {}),
-          maxResultCount: 20,
-        });
-        found = res.places ?? [];
-      } else {
-        const res = await Place.searchNearby({
-          fields: ["displayName", "formattedAddress", "location", "id"],
-          locationRestriction: {
-            center: { lat: city.lat!, lng: city.lng! },
-            radius: 2500,
-          },
-          maxResultCount: 20,
-        });
-        found = res.places ?? [];
-      }
-      const mapped = (found ?? [])
-        .map((p: any) => {
-          const loc = p.location;
-          const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
-          const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
-          if (typeof lat !== "number" || typeof lng !== "number") return null;
-          return {
-            placeId: p.id as string,
-            label: (p.displayName?.text ??
-              p.formattedAddress ??
-              p.displayName ??
-              "Unnamed place") as string,
-            lat,
-            lng,
-          };
-        })
-        .filter(
-          (
-            p: { placeId: string; label: string; lat: number; lng: number } | null,
-          ): p is {
-            placeId: string;
-            label: string;
-            lat: number;
-            lng: number;
-          } => p !== null,
-        );
-      setCityPlaces(mapped);
+      const res = await searchAreaPlaces({
+        data: {
+          area: city.name,
+          ...(typeof city.lat === "number" ? { lat: city.lat } : {}),
+          ...(typeof city.lng === "number" ? { lng: city.lng } : {}),
+          category: type ?? "all",
+          radius: 5000,
+        },
+      });
+      setCityPlaces(
+        res.places.map((p) => ({
+          placeId: p.placeId,
+          label: p.address ? `${p.label} — ${p.address}` : p.label,
+          lat: p.lat,
+          lng: p.lng,
+          kind: p.kind,
+        })),
+      );
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nearby search failed");
+      const raw = e instanceof Error ? e.message : String(e);
+      setError(
+        /PERMISSION_DENIED|not authorized|ApiNotActivated|REQUEST_DENIED|403/i.test(raw)
+          ? "Place search isn't available right now — pick a spot directly on the map below instead."
+          : "Couldn't load nearby places. Pick a spot directly on the map below.",
+      );
     } finally {
       setCityPlacesLoading(false);
     }
@@ -158,9 +115,10 @@ export function LocationPicker({
   // parent asks for a refresh (e.g. the page's "Refresh coordinates" button).
   useEffect(() => {
     if (refreshKey === 0 || !searchArea) return;
-    loadCityPlaces(searchArea, null);
+    loadCityPlaces(searchArea, category);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
+
 
   // Render the map widget with a pin per result once results have loaded.
   useEffect(() => {
@@ -242,49 +200,46 @@ export function LocationPicker({
   }
 
   useEffect(() => {
-    loadMaps()
+    loadGoogleMaps()
       .then(() => setReady(true))
       .catch((e) => setError(e.message));
   }, []);
 
   useEffect(() => {
-    if (!ready || query.trim().length < 2) {
+    if (query.trim().length < 2) {
       setSuggestions([]);
       return;
     }
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const { AutocompleteSessionToken, AutocompleteSuggestion } = (await (
-          window as any
-        ).google.maps.importLibrary("places")) as any;
         if (!sessionTokenRef.current) {
-          sessionTokenRef.current = new AutocompleteSessionToken();
+          sessionTokenRef.current =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : String(Date.now());
         }
-        const { suggestions: raw } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-          sessionToken: sessionTokenRef.current,
-          // bias towards UAE — most users are Dubai
-          includedRegionCodes: ["ae"],
+        const { suggestions: list } = await placeAutocomplete({
+          data: {
+            input: query.trim(),
+            sessionToken: sessionTokenRef.current,
+            ...(searchArea?.lat != null && searchArea?.lng != null
+              ? { lat: searchArea.lat, lng: searchArea.lng }
+              : {}),
+          },
         });
         if (cancelled) return;
-        const list = (raw ?? [])
-          .map((s: any) => s.placePrediction)
-          .filter(Boolean)
-          .map((p: any) => ({
-            text: p.text?.toString() ?? "",
-            placeId: p.placeId,
-          }));
         setSuggestions(list);
-      } catch (e) {
+      } catch {
         if (!cancelled) setSuggestions([]);
       }
-    }, 200);
+    }, 300);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, ready]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   // Typing a city/area name should show the map with pins automatically.
   useEffect(() => {
@@ -294,7 +249,7 @@ export function LocationPicker({
       setExpandedCity(null);
       const next = { name: area };
       setSearchArea(next);
-      loadCityPlaces(next, null);
+      loadCityPlaces(next, category);
     }, 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -302,23 +257,30 @@ export function LocationPicker({
 
   async function selectSuggestion(placeId: string, fallbackText: string) {
     try {
-      const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
-      const place = new Place({ id: placeId });
-      await place.fetchFields({
-        fields: ["displayName", "formattedAddress", "location"],
+      const place = await placeDetails({
+        data: {
+          placeId,
+          ...(sessionTokenRef.current ? { sessionToken: sessionTokenRef.current } : {}),
+        },
       });
-      const label =
-        place.formattedAddress || place.displayName?.text || place.displayName || fallbackText;
-      const loc = place.location;
-      const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
-      const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
-      if (typeof lat !== "number" || typeof lng !== "number") return;
-      await commit({ label, lat, lng, place_id: placeId });
       sessionTokenRef.current = null;
+      // Selecting a suggestion re-centres the recommendations on that exact
+      // place, so everything below the map belongs to that area.
+      const area = { name: place.label || fallbackText, lat: place.lat, lng: place.lng };
+      setSearchArea(area);
+      setExpandedCity(null);
+      await commit({
+        label: place.label || fallbackText,
+        lat: place.lat,
+        lng: place.lng,
+        place_id: placeId,
+      });
+      loadCityPlaces(area, category);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Place lookup failed");
     }
   }
+
 
   async function commit(loc: PickedLocation) {
     onChange(loc);
@@ -419,7 +381,7 @@ export function LocationPicker({
                       setCityPlaces([]);
                       if (next) {
                         setSearchArea(c);
-                        loadCityPlaces(c, null);
+                        loadCityPlaces(c, category);
                       } else {
                         setSearchArea(null);
                       }
@@ -438,6 +400,33 @@ export function LocationPicker({
         </div>
       )}
 
+      {/* Place-type filter — homes, villas and towers first, shops next. */}
+      {searchArea && (
+        <div className="mt-2 flex flex-wrap gap-1.5">
+          {[{ key: null, label: "Homes & shops" } as const, ...CITY_PLACE_TYPES].map((t) => {
+            const active = category === (t.key as CityPlaceType | null);
+            return (
+              <button
+                key={t.label}
+                onClick={() => {
+                  const next = t.key as CityPlaceType | null;
+                  setCategory(next);
+                  loadCityPlaces(searchArea, next);
+                }}
+                className={`rounded-full border px-2.5 py-1 text-xs transition ${
+                  active
+                    ? "border-primary bg-primary/10 text-primary"
+                    : "border-border bg-card hover:border-primary hover:text-primary"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+      )}
+
+
       {/* Map widget with a pin per matching location, plus a copyable
           coordinate list. Shown for both city chips and typed areas. */}
       {searchArea && (
@@ -453,8 +442,8 @@ export function LocationPicker({
           ) : (
             <div className="space-y-2">
               <div className="text-[11px] text-muted-foreground">
-                {cityPlaces.length} results · click a pin or the map to use that location ·
-                right-click anywhere to copy its coordinates.
+                {cityPlaces.length} places in {searchArea.name} · click a pin or the map to use
+                that location · right-click anywhere to copy its coordinates.
               </div>
               <div
                 ref={mapRef}
@@ -475,8 +464,22 @@ export function LocationPicker({
                       className="min-w-0 flex-1 truncate text-left hover:text-primary font-medium"
                       title="Use this location"
                     >
+                      {v.kind && (
+                        <span
+                          className={`mr-1.5 rounded px-1 py-0.5 text-[10px] font-semibold ${
+                            v.kind === "residential"
+                              ? "bg-emerald-500/15 text-emerald-500"
+                              : v.kind === "shop"
+                                ? "bg-amber-500/15 text-amber-500"
+                                : "bg-muted text-muted-foreground"
+                          }`}
+                        >
+                          {v.kind === "residential" ? "Home" : v.kind === "shop" ? "Shop" : "Place"}
+                        </span>
+                      )}
                       {v.label}
                     </button>
+
                     <button
                       type="button"
                       onClick={() => copyCoords(v.placeId, v.lat, v.lng)}
