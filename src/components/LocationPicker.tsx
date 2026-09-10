@@ -200,49 +200,46 @@ export function LocationPicker({
   }
 
   useEffect(() => {
-    loadMaps()
+    loadGoogleMaps()
       .then(() => setReady(true))
       .catch((e) => setError(e.message));
   }, []);
 
   useEffect(() => {
-    if (!ready || query.trim().length < 2) {
+    if (query.trim().length < 2) {
       setSuggestions([]);
       return;
     }
     let cancelled = false;
     const timer = setTimeout(async () => {
       try {
-        const { AutocompleteSessionToken, AutocompleteSuggestion } = (await (
-          window as any
-        ).google.maps.importLibrary("places")) as any;
         if (!sessionTokenRef.current) {
-          sessionTokenRef.current = new AutocompleteSessionToken();
+          sessionTokenRef.current =
+            typeof crypto !== "undefined" && "randomUUID" in crypto
+              ? crypto.randomUUID()
+              : String(Date.now());
         }
-        const { suggestions: raw } = await AutocompleteSuggestion.fetchAutocompleteSuggestions({
-          input: query,
-          sessionToken: sessionTokenRef.current,
-          // bias towards UAE — most users are Dubai
-          includedRegionCodes: ["ae"],
+        const { suggestions: list } = await placeAutocomplete({
+          data: {
+            input: query.trim(),
+            sessionToken: sessionTokenRef.current,
+            ...(searchArea?.lat != null && searchArea?.lng != null
+              ? { lat: searchArea.lat, lng: searchArea.lng }
+              : {}),
+          },
         });
         if (cancelled) return;
-        const list = (raw ?? [])
-          .map((s: any) => s.placePrediction)
-          .filter(Boolean)
-          .map((p: any) => ({
-            text: p.text?.toString() ?? "",
-            placeId: p.placeId,
-          }));
         setSuggestions(list);
-      } catch (e) {
+      } catch {
         if (!cancelled) setSuggestions([]);
       }
-    }, 200);
+    }, 300);
     return () => {
       cancelled = true;
       clearTimeout(timer);
     };
-  }, [query, ready]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [query]);
 
   // Typing a city/area name should show the map with pins automatically.
   useEffect(() => {
@@ -252,7 +249,7 @@ export function LocationPicker({
       setExpandedCity(null);
       const next = { name: area };
       setSearchArea(next);
-      loadCityPlaces(next, null);
+      loadCityPlaces(next, category);
     }, 900);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -260,23 +257,30 @@ export function LocationPicker({
 
   async function selectSuggestion(placeId: string, fallbackText: string) {
     try {
-      const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
-      const place = new Place({ id: placeId });
-      await place.fetchFields({
-        fields: ["displayName", "formattedAddress", "location"],
+      const place = await placeDetails({
+        data: {
+          placeId,
+          ...(sessionTokenRef.current ? { sessionToken: sessionTokenRef.current } : {}),
+        },
       });
-      const label =
-        place.formattedAddress || place.displayName?.text || place.displayName || fallbackText;
-      const loc = place.location;
-      const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
-      const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
-      if (typeof lat !== "number" || typeof lng !== "number") return;
-      await commit({ label, lat, lng, place_id: placeId });
       sessionTokenRef.current = null;
+      // Selecting a suggestion re-centres the recommendations on that exact
+      // place, so everything below the map belongs to that area.
+      const area = { name: place.label || fallbackText, lat: place.lat, lng: place.lng };
+      setSearchArea(area);
+      setExpandedCity(null);
+      await commit({
+        label: place.label || fallbackText,
+        lat: place.lat,
+        lng: place.lng,
+        place_id: placeId,
+      });
+      loadCityPlaces(area, category);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Place lookup failed");
     }
   }
+
 
   async function commit(loc: PickedLocation) {
     onChange(loc);
