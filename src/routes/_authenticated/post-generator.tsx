@@ -24,6 +24,8 @@ import {
   Smile,
   FolderOpen,
   Folder,
+  Calendar,
+  CalendarClock,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -67,6 +69,10 @@ type ImageRow = {
   lat: number | null;
   lng: number | null;
   folder_id?: string | null;
+};
+type ImageFolder = {
+  id: string;
+  name: string;
 };
 
 const PREVIEW_COUNT = 8;
@@ -158,6 +164,8 @@ export function PostGeneratorPage({
   const [importFilter, setImportFilter] = useState("");
 
   const [images, setImages] = useState<ImageRow[]>([]);
+  const [imageFolders, setImageFolders] = useState<ImageFolder[]>([]);
+  const [selectedImageFolderId, setSelectedImageFolderId] = useState<string>("all");
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
   const [galleryOpen, setGalleryOpen] = useState(false);
 
@@ -485,30 +493,37 @@ export function PostGeneratorPage({
   const captionOver = captionLen > CAPTION_LIMIT;
 
   async function reloadImages() {
-    // Exclude images tagged as published or posted (which belong in the Published tab)
-    const { data: tagRows } = await supabase
-      .from("image_tags")
-      .select("image_id, tags!inner(slug)")
-      .in("tags.slug", ["published", "posted"]);
-    const publishedTagIds = new Set(
-      ((tagRows as unknown as Array<{ image_id: string }>) ?? []).map((t) => t.image_id),
-    );
+    try {
+      // Exclude images tagged as published or posted (which belong in the Published tab)
+      const { data: tagRows } = await supabase
+        .from("image_tags")
+        .select("image_id, tag_id, tags(slug)");
+      const publishedTagIds = new Set<string>();
+      for (const r of (tagRows as Array<{ image_id: string; tags?: { slug: string } | null }>) ?? []) {
+        if (r.tags?.slug === "published" || r.tags?.slug === "posted") {
+          publishedTagIds.add(r.image_id);
+        }
+      }
 
-    // Query images strictly in the root Geo-Tagged tab (geo-tagged, unfiled, non-social, non-trashed, unpublished)
-    const { data } = await supabase
-      .from("images")
-      .select("id,name,storage_path,posted_at,lat,lng,folder_id")
-      .not("lat", "is", null)
-      .not("lng", "is", null)
-      .is("posted_at", null)
-      .is("deleted_at", null)
-      .is("folder_id", null)
-      .not("storage_path", "ilike", "%/social-%")
-      .order("created_at", { ascending: false })
-      .limit(1000);
+      // Query all geo-tagged unpublished non-trashed images across all folders
+      const { data, error } = await supabase
+        .from("images")
+        .select("id,name,storage_path,posted_at,lat,lng,folder_id")
+        .not("lat", "is", null)
+        .not("lng", "is", null)
+        .is("posted_at", null)
+        .is("deleted_at", null)
+        .not("storage_path", "ilike", "%/social-%")
+        .order("created_at", { ascending: false })
+        .limit(1000);
 
-    const filtered = ((data ?? []) as ImageRow[]).filter((img) => !publishedTagIds.has(img.id));
-    setImages(filtered);
+      if (error) console.error("Error loading images:", error);
+
+      const filtered = ((data ?? []) as ImageRow[]).filter((img) => !publishedTagIds.has(img.id));
+      setImages(filtered);
+    } catch (e) {
+      console.error("reloadImages error:", e);
+    }
   }
 
   useEffect(() => {
@@ -523,9 +538,14 @@ export function PostGeneratorPage({
         .from("keyword_folders" as any)
         .select("id,name,color,parent_id")
         .order("position", { ascending: true }),
-    ]).then(([{ data: kws }, { data: fs }]) => {
+      supabase
+        .from("image_folders")
+        .select("id,name")
+        .order("name", { ascending: true }),
+    ]).then(([{ data: kws }, { data: fs }, { data: imgFs }]) => {
       setImportedKw((kws ?? []) as KeywordRow[]);
       setKeywordFolders((fs ?? []) as unknown as KeywordFolder[]);
+      setImageFolders((imgFs ?? []) as ImageFolder[]);
     });
     reloadImages();
   }, []);
@@ -537,7 +557,20 @@ export function PostGeneratorPage({
     return map;
   }, [keywordFolders]);
 
-  const visibleImages = useMemo(() => images, [images]);
+  const imageFolderMap = useMemo(() => {
+    const map = new Map<string, string>();
+    imageFolders.forEach((f) => map.set(f.id, f.name));
+    return map;
+  }, [imageFolders]);
+
+  const visibleImages = useMemo(() => {
+    return images.filter((img) => {
+      if (selectedImageFolderId === "all") return true;
+      if (selectedImageFolderId === "unfiled") return !img.folder_id;
+      return img.folder_id === selectedImageFolderId;
+    });
+  }, [images, selectedImageFolderId]);
+
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const filteredImportKw = useMemo(() => {
@@ -704,19 +737,32 @@ export function PostGeneratorPage({
           title: (manualKw[0] ?? businessName ?? caption.slice(0, 60).trim()) || undefined,
           tags: manualKw.slice(0, 20),
           imageIds: Array.from(selectedImages),
-          locationLabel: location?.label,
-          lat: location?.lat,
-          lng: location?.lng,
-          primaryKeyword: manualKw[0],
+          locationLabel: location?.label || undefined,
+          lat: location?.lat ?? undefined,
+          lng: location?.lng ?? undefined,
+          primaryKeyword: manualKw[0] || undefined,
           scheduledAt: scheduledAt ? new Date(scheduledAt).toISOString() : undefined,
           networks: networks.length ? networks : ["gmb"],
         },
       });
-      toast.success(
-        res.status === "queued" ? "Scheduled in GHL Social Planner" : "Sent to GHL Social Planner",
-      );
+      if (res.status === "queued") {
+        if ("warning" in res && res.warning) {
+          toast.success(
+            `Post saved and queued in Scheduler!`,
+            { description: res.warning as string, duration: 5000 },
+          );
+        } else {
+          const formattedTime = scheduledAt
+            ? new Date(scheduledAt).toLocaleString()
+            : "the scheduled queue";
+          toast.success(`Post successfully scheduled for ${formattedTime}!`);
+        }
+      } else {
+        toast.success("Sent to GHL Social Planner successfully!");
+      }
       setSelectedImages(new Set());
       reloadImages();
+      setPreviewOpen(false);
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Send failed");
     } finally {
@@ -1244,7 +1290,7 @@ export function PostGeneratorPage({
 
             {/* Images picker — preview + View all */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center justify-between">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ImageIcon className="h-4 w-4 text-primary" /> Geo-tagged images
                   <span className="text-xs text-muted-foreground">
@@ -1252,7 +1298,23 @@ export function PostGeneratorPage({
                     unpublished only)
                   </span>
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2">
+                  {imageFolders.length > 0 && (
+                    <select
+                      value={selectedImageFolderId}
+                      onChange={(e) => setSelectedImageFolderId(e.target.value)}
+                      className="rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+                      title="Filter by Folder"
+                    >
+                      <option value="all">All Folders ({images.length})</option>
+                      <option value="unfiled">Uncategorized</option>
+                      {imageFolders.map((f) => (
+                        <option key={f.id} value={f.id}>
+                          {f.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                   <input
                     ref={uploadRef}
                     type="file"
@@ -1281,7 +1343,7 @@ export function PostGeneratorPage({
                 <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
                   {images.length === 0
                     ? "No geo-tagged images available. Geo-tag images in the library first."
-                    : "All geo-tagged images have already been posted."}
+                    : "No geo-tagged images match the selected folder filter."}
                 </div>
               ) : (
                 <>
@@ -1716,8 +1778,98 @@ export function PostGeneratorPage({
               );
             })()}
 
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 text-sm font-medium">Publish</div>
+            {/* Publish & Schedule */}
+            <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="flex items-center gap-2 text-sm font-semibold">
+                  <Send className="h-4 w-4 text-primary" /> Publish &amp; Schedule
+                </div>
+                {scheduledAt && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                    <CalendarClock className="h-3 w-3" />
+                    {new Date(scheduledAt).toLocaleString([], {
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </span>
+                )}
+              </div>
+
+              {/* Schedule timing box */}
+              <div className="mb-4 rounded-lg border border-border/80 bg-background/60 p-3">
+                <div className="mb-2 flex items-center justify-between">
+                  <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                    <Calendar className="h-3.5 w-3.5 text-primary" />
+                    Schedule publication (optional)
+                  </label>
+                  {scheduledAt && (
+                    <button
+                      type="button"
+                      onClick={() => setScheduledAt("")}
+                      className="text-[11px] text-muted-foreground hover:text-foreground"
+                    >
+                      Clear (Send now)
+                    </button>
+                  )}
+                </div>
+
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <input
+                    type="datetime-local"
+                    value={scheduledAt}
+                    min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                    onChange={(e) => setScheduledAt(e.target.value)}
+                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary sm:w-auto sm:flex-1"
+                  />
+                  {/* Quick preset buttons */}
+                  <div className="flex flex-wrap gap-1">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date(Date.now() + 60 * 60 * 1000);
+                        d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+                        setScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+                      }}
+                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                    >
+                      +1 hr
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(9, 0, 0, 0);
+                        setScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+                      }}
+                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                    >
+                      Tmrw 9 AM
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const d = new Date();
+                        d.setDate(d.getDate() + 1);
+                        d.setHours(14, 0, 0, 0);
+                        setScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
+                      }}
+                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                    >
+                      Tmrw 2 PM
+                    </button>
+                  </div>
+                </div>
+
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  {scheduledAt
+                    ? `Post will be queued for automated publishing at ${new Date(scheduledAt).toLocaleString()}.`
+                    : "No schedule date set — clicking Send will dispatch immediately (or queue if offline)."}
+                </p>
+              </div>
+
               <div className="space-y-3 text-sm">
                 <div className="grid grid-cols-3 gap-2">
                   <button
@@ -1740,22 +1892,24 @@ export function PostGeneratorPage({
                     Save
                   </button>
                   <button
-                    onClick={() => setPreviewOpen(true)}
+                    onClick={handleSend}
                     disabled={sending || !caption.trim() || captionOver || networks.length === 0}
-
                     className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
                   >
                     {sending ? (
                       <Loader2 className="h-4 w-4 animate-spin" />
+                    ) : scheduledAt ? (
+                      <CalendarClock className="h-4 w-4" />
                     ) : (
                       <Send className="h-4 w-4" />
                     )}
-                    Send
+                    {scheduledAt ? "Schedule" : "Send"}
                   </button>
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Preview shows exactly what will post to each network before it leaves. On success,
-                  images are marked as posted.
+                  {scheduledAt
+                    ? "Schedule places this post on the Scheduler calendar and queues it for automated delivery."
+                    : "Send publishes directly to your connected networks. On success, images are marked as posted."}
                 </p>
               </div>
             </section>

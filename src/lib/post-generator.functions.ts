@@ -241,22 +241,22 @@ function enforceGmbPostRules(raw: string): string {
 
 const SendInput = z.object({
   caption: z.string().min(1).max(1500),
-  title: z.string().max(300).optional(),
+  title: z.string().max(300).optional().nullable(),
   tags: z.array(z.string().max(80)).max(20).default([]),
   imageIds: z.array(z.string().uuid()).max(10).default([]),
-  locationLabel: z.string().max(200).optional(),
-  lat: z.number().optional(),
-  lng: z.number().optional(),
-  primaryKeyword: z.string().max(200).optional(),
-  ghlLocationId: z.string().max(120).optional(),
-  scheduledAt: z.string().datetime().optional(),
+  locationLabel: z.string().max(200).optional().nullable(),
+  lat: z.number().optional().nullable(),
+  lng: z.number().optional().nullable(),
+  primaryKeyword: z.string().max(200).optional().nullable(),
+  ghlLocationId: z.string().max(120).optional().nullable(),
+  scheduledAt: z.string().optional().nullable(),
   networks: z
     .array(z.enum(["gmb", "facebook", "instagram", "linkedin", "twitter"]))
     .default(["gmb"]),
   ctaType: z
     .enum(["none", "book", "order", "shop", "learn_more", "sign_up", "call"])
     .default("none"),
-  ctaUrl: z.string().max(500).optional(),
+  ctaUrl: z.string().max(500).optional().nullable(),
 });
 
 /**
@@ -434,7 +434,8 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
     const { supabase, userId } = context;
 
     // Persist to social_posts first (draft/queued)
-    const status = data.scheduledAt ? "queued" : "sending";
+    const isScheduled = !!data.scheduledAt && data.scheduledAt.trim() !== "";
+    const status = isScheduled ? "queued" : "sending";
     const { data: inserted, error: insErr } = await supabase
       .from("social_posts")
       .insert({
@@ -449,8 +450,8 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
         lat: data.lat ?? null,
         lng: data.lng ?? null,
         ghl_location_id: data.ghlLocationId ?? null,
-        scheduled_at: data.scheduledAt ?? null,
-        cta_type: data.ctaType,
+        scheduled_at: isScheduled ? data.scheduledAt : null,
+        cta_type: data.ctaType ?? "none",
         cta_url: data.ctaUrl ?? null,
         status,
       } as any)
@@ -462,7 +463,7 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
     // above already makes it show up on the Post Scheduler calendar. Actually
     // sending it happens later, when the cron dispatcher sees its time is due
     // (see run-automations → auto_publish). Nothing is marked "posted" yet.
-    if (data.scheduledAt) {
+    if (isScheduled) {
       return { postId: inserted.id, status: "queued" as const };
     }
 
@@ -485,7 +486,20 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
       supabase,
     );
 
-    if (!result.ok) throw new Error(result.error ?? "Failed to send post");
+    if (!result.ok) {
+      // If direct dispatch failed (e.g. webhook not yet configured in Settings),
+      // queue the post so the user never loses their work, and inform them.
+      await supabase
+        .from("social_posts")
+        .update({ status: "queued", error: result.error } as any)
+        .eq("id", inserted.id);
+
+      return {
+        postId: inserted.id,
+        status: "queued" as const,
+        warning: result.error ?? "No webhook configured. Post queued in Scheduler.",
+      };
+    }
 
     return { postId: inserted.id, status: "sent" as const };
   });
