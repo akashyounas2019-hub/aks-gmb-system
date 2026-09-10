@@ -167,15 +167,17 @@ export function LocationPicker({
 
       const mapped = (found ?? [])
         .map((p: any) => {
-          const loc = p.location;
+          const loc = p.location ?? p.geometry?.location;
           const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
           const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
           if (typeof lat !== "number" || typeof lng !== "number") return null;
           return {
-            placeId: p.id as string,
+            placeId: (p.id ?? p.place_id) as string,
             label: (p.displayName?.text ??
               p.formattedAddress ??
               p.displayName ??
+              p.name ??
+              p.vicinity ??
               "Unnamed place") as string,
             lat,
             lng,
@@ -192,8 +194,14 @@ export function LocationPicker({
           } => p !== null,
         );
       setCityPlaces(mapped);
+      setError(null);
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Nearby search failed");
+      const raw = e instanceof Error ? e.message : String(e);
+      setError(
+        /PERMISSION_DENIED|not authorized|ApiNotActivated|REQUEST_DENIED/i.test(raw)
+          ? "Place search isn't available for this map key right now — pick a spot directly on the map below instead."
+          : "Couldn't load nearby places. Pick a spot directly on the map below.",
+      );
     } finally {
       setCityPlacesLoading(false);
     }
