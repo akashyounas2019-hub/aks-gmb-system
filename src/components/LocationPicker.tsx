@@ -49,8 +49,15 @@ export function LocationPicker({
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<HistoryRow[]>([]);
   const [expandedCity, setExpandedCity] = useState<string | null>(null);
+  const [category, setCategory] = useState<CityPlaceType | null>(null);
   const [cityPlaces, setCityPlaces] = useState<
-    { placeId: string; label: string; lat: number; lng: number }[]
+    {
+      placeId: string;
+      label: string;
+      lat: number;
+      lng: number;
+      kind?: "residential" | "shop" | "other";
+    }[]
   >([]);
   const [cityPlacesLoading, setCityPlacesLoading] = useState(false);
   const [copiedPlaceId, setCopiedPlaceId] = useState<string | null>(null);
@@ -61,13 +68,11 @@ export function LocationPicker({
     lng?: number;
   } | null>(null);
   const mapRef = useRef<HTMLDivElement>(null);
-  const sessionTokenRef = useRef<any>(null);
+  const sessionTokenRef = useRef<string | null>(null);
 
-  // Real nearby-places lookup around a city's centroid — replaces the old
-  // fabricated "point 1..5" coordinates that were never real addresses.
-  // When `type` is set, biases the search toward that property category
-  // (Home / Office / Commercial / Villas) instead of returning anything
-  // nearby.
+  // Real places lookup for the chosen area, run server-side through the
+  // Google Maps connector. Results are strictly limited to the area's radius
+  // and ordered residential (villas / houses / towers) first, then shops.
   async function loadCityPlaces(
     city: { name: string; lat?: number; lng?: number },
     type: CityPlaceType | null,
@@ -75,109 +80,30 @@ export function LocationPicker({
     setCityPlacesLoading(true);
     setCityPlaces([]);
     try {
-      const { Place } = (await (window as any).google.maps.importLibrary("places")) as any;
-      const hasCoords = typeof city.lat === "number" && typeof city.lng === "number";
-      const term = type ? CITY_PLACE_TYPES.find((t) => t.key === type)!.term : "places";
-
-      const byText = async () => {
-        const res = await Place.searchByText({
-          textQuery: `${term} in ${city.name}`,
-          fields: ["displayName", "formattedAddress", "location", "id"],
-          ...(hasCoords ? { locationBias: { lat: city.lat!, lng: city.lng!, radius: 5000 } } : {}),
-          maxResultCount: 20,
-        });
-        return (res.places ?? []) as any[];
-      };
-
-      const nearby = async () => {
-        const res = await Place.searchNearby({
-          fields: ["displayName", "formattedAddress", "location", "id"],
-          locationRestriction: {
-            center: { lat: city.lat!, lng: city.lng! },
-            radius: 2500,
-          },
-          maxResultCount: 20,
-        });
-        return (res.places ?? []) as any[];
-      };
-
-      // Legacy Places service fallback for keys where the new Places API
-      // (searchNearby / searchByText) is not enabled.
-      const legacy = async () => {
-        const { PlacesService } = (await (window as any).google.maps.importLibrary(
-          "places",
-        )) as any;
-        const svc = new PlacesService(document.createElement("div"));
-        return await new Promise<any[]>((resolve, reject) => {
-          const cb = (results: any[] | null, status: string) => {
-            if (status === "OK" && results) resolve(results);
-            else if (status === "ZERO_RESULTS") resolve([]);
-            else reject(new Error(`Places lookup unavailable (${status})`));
-          };
-          if (hasCoords) {
-            svc.nearbySearch(
-              {
-                location: { lat: city.lat!, lng: city.lng! },
-                radius: 2500,
-                ...(type ? { keyword: term } : {}),
-              },
-              cb,
-            );
-          } else {
-            svc.textSearch({ query: `${term} in ${city.name}` }, cb);
-          }
-        });
-      };
-
-      let found: any[] = [];
-      const attempts = type || !hasCoords ? [byText, nearby, legacy] : [nearby, byText, legacy];
-      let lastError: unknown = null;
-      for (const attempt of attempts) {
-        try {
-          found = await attempt();
-          lastError = null;
-          break;
-        } catch (e) {
-          lastError = e;
-        }
-      }
-      if (lastError) throw lastError;
-
-      const mapped = (found ?? [])
-        .map((p: any) => {
-          const loc = p.location ?? p.geometry?.location;
-          const lat = typeof loc?.lat === "function" ? loc.lat() : loc?.lat;
-          const lng = typeof loc?.lng === "function" ? loc.lng() : loc?.lng;
-          if (typeof lat !== "number" || typeof lng !== "number") return null;
-          return {
-            placeId: (p.id ?? p.place_id) as string,
-            label: (p.displayName?.text ??
-              p.formattedAddress ??
-              p.displayName ??
-              p.name ??
-              p.vicinity ??
-              "Unnamed place") as string,
-            lat,
-            lng,
-          };
-        })
-        .filter(
-          (
-            p: { placeId: string; label: string; lat: number; lng: number } | null,
-          ): p is {
-            placeId: string;
-            label: string;
-            lat: number;
-            lng: number;
-          } => p !== null,
-        );
-      setCityPlaces(mapped);
+      const res = await searchAreaPlaces({
+        data: {
+          area: city.name,
+          ...(typeof city.lat === "number" ? { lat: city.lat } : {}),
+          ...(typeof city.lng === "number" ? { lng: city.lng } : {}),
+          category: type ?? "all",
+          radius: 5000,
+        },
+      });
+      setCityPlaces(
+        res.places.map((p) => ({
+          placeId: p.placeId,
+          label: p.address ? `${p.label} — ${p.address}` : p.label,
+          lat: p.lat,
+          lng: p.lng,
+          kind: p.kind,
+        })),
+      );
       setError(null);
     } catch (e) {
       const raw = e instanceof Error ? e.message : String(e);
       setError(
-        /PERMISSION_DENIED|not authorized|ApiNotActivated|REQUEST_DENIED/i.test(raw)
-          ? "Place search isn't available for this map key right now — pick a spot directly on the map below instead."
+        /PERMISSION_DENIED|not authorized|ApiNotActivated|REQUEST_DENIED|403/i.test(raw)
+          ? "Place search isn't available right now — pick a spot directly on the map below instead."
           : "Couldn't load nearby places. Pick a spot directly on the map below.",
       );
     } finally {
@@ -189,9 +115,10 @@ export function LocationPicker({
   // parent asks for a refresh (e.g. the page's "Refresh coordinates" button).
   useEffect(() => {
     if (refreshKey === 0 || !searchArea) return;
-    loadCityPlaces(searchArea, null);
+    loadCityPlaces(searchArea, category);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [refreshKey]);
+
 
   // Render the map widget with a pin per result once results have loaded.
   useEffect(() => {
