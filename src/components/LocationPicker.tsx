@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { MapPin, X, Copy, Check } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { loadGoogleMaps } from "@/lib/google-maps";
+import { searchAreaPlaces, placeAutocomplete, placeDetails } from "@/lib/places.functions";
 
 export type PickedLocation = {
   label: string;
@@ -28,29 +29,6 @@ export type HistoryRow = {
   used_count?: number;
 };
 
-const MAPS_KEY = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_BROWSER_KEY as
-  string | undefined;
-const CHANNEL = import.meta.env.VITE_LOVABLE_CONNECTOR_GOOGLE_MAPS_TRACKING_ID as
-  string | undefined;
-
-let mapsPromise: Promise<void> | null = null;
-function loadMaps(): Promise<void> {
-  if (typeof window === "undefined") return Promise.resolve();
-  if ((window as any).google?.maps?.importLibrary) return Promise.resolve();
-  if (mapsPromise) return mapsPromise;
-  if (!MAPS_KEY) return Promise.reject(new Error("Google Maps key missing"));
-  mapsPromise = new Promise<void>((resolve, reject) => {
-    (window as any).__initMaps = () => resolve();
-    const s = document.createElement("script");
-    s.async = true;
-    s.src = `https://maps.googleapis.com/maps/api/js?key=${MAPS_KEY}&v=weekly&libraries=places&loading=async&callback=__initMaps${
-      CHANNEL ? `&channel=${CHANNEL}` : ""
-    }`;
-    s.onerror = () => reject(new Error("Failed to load Google Maps"));
-    document.head.appendChild(s);
-  });
-  return mapsPromise;
-}
 
 export function LocationPicker({
   value,
