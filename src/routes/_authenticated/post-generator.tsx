@@ -14,6 +14,9 @@ import {
   CheckCircle2,
   Eye,
   PenSquare,
+  Pencil,
+  ExternalLink,
+  FileText,
   Inbox,
   Save,
   LayoutTemplate,
@@ -36,7 +39,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { PublishedBadge } from "@/components/PublishedBadge";
-import { type PickedLocation } from "@/components/LocationPicker";
+import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
 import { composePost, sendPostToSocialPlanner } from "@/lib/post-generator.functions";
 import { readGps } from "@/lib/exif-geotag";
 
@@ -64,11 +67,14 @@ type KeywordFolder = {
 type ImageRow = {
   id: string;
   name: string;
+  title?: string | null;
+  description?: string | null;
   storage_path: string;
   posted_at: string | null;
   lat: number | null;
   lng: number | null;
   folder_id?: string | null;
+  created_at?: string;
 };
 type ImageFolder = {
   id: string;
@@ -167,6 +173,8 @@ export function PostGeneratorPage({
   const [imageFolders, setImageFolders] = useState<ImageFolder[]>([]);
   const [selectedImageFolderId, setSelectedImageFolderId] = useState<string>("all");
   const [selectedImages, setSelectedImages] = useState<Set<string>>(new Set());
+  const [activeDetailId, setActiveDetailId] = useState<string | null>(null);
+  const [editingImage, setEditingImage] = useState<ImageRow | null>(null);
   const [galleryOpen, setGalleryOpen] = useState(false);
 
   const [location, setLocation] = useState<PickedLocation | null>(null);
@@ -508,7 +516,7 @@ export function PostGeneratorPage({
       // Query all geo-tagged unpublished non-trashed images across all folders
       const { data, error } = await supabase
         .from("images")
-        .select("id,name,storage_path,posted_at,lat,lng,folder_id")
+        .select("id,name,title,description,storage_path,posted_at,lat,lng,folder_id,created_at")
         .not("lat", "is", null)
         .not("lng", "is", null)
         .is("posted_at", null)
@@ -572,6 +580,21 @@ export function PostGeneratorPage({
   }, [images, selectedImageFolderId]);
 
   const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
+
+  const selectedImagesList = useMemo(() => {
+    return Array.from(selectedImages)
+      .map((id) => images.find((i) => i.id === id))
+      .filter(Boolean) as ImageRow[];
+  }, [selectedImages, images]);
+
+  const activeDetailImage = useMemo(() => {
+    if (selectedImagesList.length === 0) return null;
+    if (activeDetailId) {
+      const found = selectedImagesList.find((i) => i.id === activeDetailId);
+      if (found) return found;
+    }
+    return selectedImagesList[0];
+  }, [selectedImagesList, activeDetailId]);
 
   const filteredImportKw = useMemo(() => {
     const q = importFilter.trim().toLowerCase();
@@ -661,9 +684,14 @@ export function PostGeneratorPage({
   function toggleImage(id: string) {
     setSelectedImages((s) => {
       const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else if (n.size < 4) n.add(id);
-      else toast.info("Max 4 images per post");
+      if (n.has(id)) {
+        n.delete(id);
+      } else if (n.size < 4) {
+        n.add(id);
+        setActiveDetailId(id);
+      } else {
+        toast.info("Max 4 images per post");
+      }
       return n;
     });
   }
@@ -1367,6 +1395,146 @@ export function PostGeneratorPage({
                   )}
                 </>
               )}
+
+              {/* Selected Image Metadata & Geotag Details (Active image info & edit option) */}
+              {selectedImages.size > 0 && activeDetailImage && (
+                <div className="mt-3.5 space-y-2.5 rounded-lg border border-primary/25 bg-gradient-to-b from-primary/[0.04] to-card p-3 shadow-sm">
+                  {/* Tab bar when multiple images are selected */}
+                  {selectedImages.size > 1 && (
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1.5 border-b border-border/50">
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground whitespace-nowrap mr-1">
+                        Selected ({selectedImages.size}):
+                      </span>
+                      {selectedImagesList.map((img, idx) => {
+                        const isActive = img.id === activeDetailImage.id;
+                        return (
+                          <button
+                            key={img.id}
+                            type="button"
+                            onClick={() => setActiveDetailId(img.id)}
+                            className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs transition ${
+                              isActive
+                                ? "bg-primary text-primary-foreground font-medium shadow-sm"
+                                : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground"
+                            }`}
+                          >
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
+                            #{idx + 1}
+                            {img.title ? `: ${img.title.slice(0, 16)}` : ""}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+
+                  {/* Header: thumbnail, title/name & Edit button */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                      <div className="relative shrink-0 h-11 w-11 rounded-md overflow-hidden border border-border bg-muted">
+                        <SignedImage
+                          bucket="frames"
+                          path={activeDetailImage.storage_path}
+                          alt={activeDetailImage.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </div>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1.5 flex-wrap">
+                          <span className="text-xs font-semibold text-foreground truncate">
+                            {activeDetailImage.title || activeDetailImage.name}
+                          </span>
+                          {activeDetailImage.title && (
+                            <span className="inline-flex items-center rounded-full bg-primary/15 px-1.5 py-0.5 text-[9px] font-medium text-primary">
+                              Title
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[11px] text-muted-foreground truncate mt-0.5 font-mono">
+                          {activeDetailImage.name}
+                        </div>
+                      </div>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => setEditingImage(activeDetailImage)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition shrink-0 shadow-sm"
+                      title="Edit title, description, geotag coordinates, and folder"
+                    >
+                      <Pencil className="h-3 w-3" />
+                      Edit Details
+                    </button>
+                  </div>
+
+                  {/* Description container */}
+                  <div className="rounded-md border border-border/70 bg-background/80 p-2.5 text-xs">
+                    <div className="flex items-center justify-between mb-1 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      <span className="flex items-center gap-1">
+                        <FileText className="h-3 w-3" /> Description
+                      </span>
+                      {activeDetailImage.description && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setCaption((prev) =>
+                              prev
+                                ? `${prev}\n\n${activeDetailImage.description}`
+                                : activeDetailImage.description || ""
+                            );
+                            toast.success("Image description appended to post");
+                          }}
+                          className="text-[10px] font-medium text-primary hover:underline"
+                        >
+                          + Append to Post
+                        </button>
+                      )}
+                    </div>
+                    {activeDetailImage.description ? (
+                      <p className="whitespace-pre-wrap leading-relaxed text-foreground">
+                        {activeDetailImage.description}
+                      </p>
+                    ) : (
+                      <p className="italic text-muted-foreground text-[11px]">
+                        No description added yet. Click &quot;Edit Details&quot; to add a title, description, or update GPS coordinates.
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Geotag & Folder information */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                    <div className="flex items-center justify-between rounded-md border border-border/60 bg-background/80 px-2.5 py-1.5">
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <MapPin className="h-3.5 w-3.5 text-primary shrink-0" />
+                        <span className="font-mono text-[11px] text-muted-foreground truncate">
+                          {activeDetailImage.lat != null && activeDetailImage.lng != null
+                            ? `${activeDetailImage.lat.toFixed(5)}, ${activeDetailImage.lng.toFixed(5)}`
+                            : "No coordinates"}
+                        </span>
+                      </div>
+                      {activeDetailImage.lat != null && activeDetailImage.lng != null && (
+                        <a
+                          href={`https://www.google.com/maps?q=${activeDetailImage.lat},${activeDetailImage.lng}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline shrink-0 ml-2 font-medium"
+                        >
+                          <ExternalLink className="h-3 w-3" /> Map
+                        </a>
+                      )}
+                    </div>
+
+                    <div className="flex items-center gap-1.5 rounded-md border border-border/60 bg-background/80 px-2.5 py-1.5">
+                      <Folder className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-[11px] text-muted-foreground truncate">
+                        Folder:{" "}
+                        <strong className="font-medium text-foreground">
+                          {imageFolderMap.get(activeDetailImage.folder_id ?? "") || "Uncategorized"}
+                        </strong>
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </section>
 
             {/* Template + LLM */}
@@ -1967,6 +2135,18 @@ export function PostGeneratorPage({
             </div>
           </div>
         </div>
+      )}
+
+      {/* Edit image details modal */}
+      {editingImage && (
+        <EditImageDetailsModal
+          img={editingImage}
+          imageFolders={imageFolders}
+          onClose={() => setEditingImage(null)}
+          onSave={(updated) => {
+            setImages((prev) => prev.map((item) => (item.id === updated.id ? updated : item)));
+          }}
+        />
       )}
 
       {/* Preview & confirm modal */}
@@ -2734,13 +2914,18 @@ function ImageThumb({
   onClick: () => void;
 }) {
   const posted = !!img.posted_at;
+  const tooltip = img.title
+    ? `${img.title} (${img.name})`
+    : posted
+      ? `Posted ${new Date(img.posted_at!).toLocaleDateString()}`
+      : img.name;
   return (
     <button
       onClick={onClick}
       className={`relative overflow-hidden rounded-md border transition ${
         active ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/50"
       } ${posted ? "opacity-70" : ""}`}
-      title={posted ? `Posted ${new Date(img.posted_at!).toLocaleDateString()}` : img.name}
+      title={tooltip}
     >
       <SignedImage
         bucket="frames"
@@ -3035,6 +3220,262 @@ function StatCard({
       </div>
       <div className={`mt-1 text-2xl font-semibold tabular-nums ${toneClass}`}>
         {value.toLocaleString()}
+      </div>
+    </div>
+  );
+}
+
+function EditImageDetailsModal({
+  img,
+  imageFolders,
+  onClose,
+  onSave,
+}: {
+  img: ImageRow;
+  imageFolders: ImageFolder[];
+  onClose: () => void;
+  onSave: (updated: ImageRow) => void;
+}) {
+  const [name, setName] = useState(img.name);
+  const [title, setTitle] = useState(img.title ?? "");
+  const [description, setDescription] = useState(img.description ?? "");
+  const [folderId, setFolderId] = useState<string | null>(img.folder_id ?? null);
+  const [loc, setLoc] = useState<PickedLocation | null>(
+    img.lat != null && img.lng != null
+      ? { lat: Number(img.lat), lng: Number(img.lng), label: "" }
+      : null,
+  );
+  const [latInput, setLatInput] = useState(img.lat != null ? String(img.lat) : "");
+  const [lngInput, setLngInput] = useState(img.lng != null ? String(img.lng) : "");
+  const [saving, setSaving] = useState(false);
+
+  useEffect(() => {
+    if (loc) {
+      setLatInput(String(loc.lat));
+      setLngInput(String(loc.lng));
+    }
+  }, [loc]);
+
+  function handleManualCoordChange(latStr: string, lngStr: string) {
+    setLatInput(latStr);
+    setLngInput(lngStr);
+    const nLat = parseFloat(latStr);
+    const nLng = parseFloat(lngStr);
+    if (!isNaN(nLat) && !isNaN(nLng)) {
+      setLoc({ lat: nLat, lng: nLng, label: "" });
+    }
+  }
+
+  async function handleSave() {
+    setSaving(true);
+    try {
+      const finalLat = latInput.trim() ? parseFloat(latInput.trim()) : null;
+      const finalLng = lngInput.trim() ? parseFloat(lngInput.trim()) : null;
+      const finalName = name.trim() || img.name;
+      const finalTitle = title.trim() || null;
+      const finalDesc = description.trim() || null;
+      const finalFolderId = folderId || null;
+
+      const { error } = await supabase
+        .from("images")
+        .update({
+          name: finalName,
+          title: finalTitle,
+          description: finalDesc,
+          folder_id: finalFolderId,
+          lat: finalLat,
+          lng: finalLng,
+        } as never)
+        .eq("id", img.id);
+
+      if (error) throw error;
+
+      const updated: ImageRow = {
+        ...img,
+        name: finalName,
+        title: finalTitle,
+        description: finalDesc,
+        folder_id: finalFolderId,
+        lat: finalLat,
+        lng: finalLng,
+      };
+
+      toast.success("Image details updated successfully");
+      onSave(updated);
+      onClose();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to update image details");
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        onClick={(e) => e.stopPropagation()}
+      >
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-3.5">
+          <div className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-primary" />
+            <span className="text-sm font-semibold">Edit Image & Geotag Details</span>
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
+        </div>
+
+        {/* Body */}
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <div className="flex items-center gap-3 rounded-lg border border-border bg-muted/20 p-3">
+            <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md border border-border bg-muted">
+              <SignedImage
+                bucket="frames"
+                path={img.storage_path}
+                alt={img.name}
+                className="h-full w-full object-cover"
+              />
+            </div>
+            <div className="min-w-0 flex-1">
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                File Name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="image.jpg"
+                className="w-full rounded border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Image Title
+              </label>
+              <input
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="e.g. Deep Cleaning Villa in Palm Jumeirah"
+                className="w-full rounded border border-border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+              />
+            </div>
+
+            <div>
+              <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Folder / Category
+              </label>
+              <select
+                value={folderId ?? ""}
+                onChange={(e) => setFolderId(e.target.value || null)}
+                className="w-full rounded border border-border bg-background px-3 py-2 text-xs outline-none focus:border-primary"
+              >
+                <option value="">Uncategorized</option>
+                {imageFolders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          </div>
+
+          <div>
+            <label className="mb-1 block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              Description / Caption Note
+            </label>
+            <textarea
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              rows={3}
+              placeholder="Provide a detailed description of the service, work performed, or key visual highlights..."
+              className="w-full rounded border border-border bg-background p-2.5 text-xs outline-none focus:border-primary"
+            />
+          </div>
+
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <label className="text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+                Geotag / GPS Coordinates
+              </label>
+              {loc?.lat != null && loc?.lng != null && (
+                <a
+                  href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> View on Google Maps
+                </a>
+              )}
+            </div>
+
+            <div className="mb-2 grid grid-cols-2 gap-2">
+              <div>
+                <span className="text-[10px] text-muted-foreground">Latitude</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={latInput}
+                  onChange={(e) => handleManualCoordChange(e.target.value, lngInput)}
+                  placeholder="25.2048"
+                  className="w-full rounded border border-border bg-background px-2.5 py-1.5 font-mono text-xs outline-none focus:border-primary"
+                />
+              </div>
+              <div>
+                <span className="text-[10px] text-muted-foreground">Longitude</span>
+                <input
+                  type="number"
+                  step="any"
+                  value={lngInput}
+                  onChange={(e) => handleManualCoordChange(latInput, e.target.value)}
+                  placeholder="55.2708"
+                  className="w-full rounded border border-border bg-background px-2.5 py-1.5 font-mono text-xs outline-none focus:border-primary"
+                />
+              </div>
+            </div>
+
+            <div className="rounded-lg border border-border/70 bg-background p-3">
+              <span className="mb-2 block text-[10px] text-muted-foreground">
+                Search place or pick on map:
+              </span>
+              <LocationPicker value={loc} onChange={setLoc} />
+            </div>
+          </div>
+        </div>
+
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-border px-4 py-2 text-xs hover:bg-accent disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={saving}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 shadow-sm"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            {saving ? "Saving…" : "Save Changes"}
+          </button>
+        </div>
       </div>
     </div>
   );

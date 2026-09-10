@@ -731,41 +731,54 @@ function LibraryPage() {
       </div>
 
       {tab !== "videos" && tab !== "upload" && tab !== "trash" && selectMode && (
-        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3">
-          <span className="text-sm">
+        <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-xs">
+          <span className="text-sm font-medium">
             <strong>{selected.size}</strong> selected
           </span>
           <button
             onClick={selectAll}
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            className="rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent"
           >
             Select all ({filtered.length})
           </button>
           <button
             onClick={clearSelection}
-            className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+            className="rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent"
           >
             Clear
           </button>
-          <div className="ml-auto flex gap-2">
+          <button
+            onClick={() => {
+              const ids = Array.from(selected);
+              const paths = filtered
+                .filter((i) => selected.has(i.id))
+                .map((i) => i.storage_path);
+              bulkDeleteImages(ids, paths, ids.length === 1 ? "image" : "images");
+            }}
+            disabled={selected.size === 0}
+            className="inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete selected ({selected.size})
+          </button>
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             <button
               disabled={selected.size === 0}
               onClick={() => setBulkPanel("keywords")}
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground disabled:opacity-50"
             >
               Assign keywords
             </button>
             <button
               disabled={selected.size === 0}
               onClick={() => setBulkPanel("geotag")}
-              className="rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground disabled:opacity-50"
+              className="rounded-md bg-primary px-3 py-1.5 font-medium text-primary-foreground disabled:opacity-50"
             >
               Geotag
             </button>
             <button
               disabled={selected.size === 0 || autoTagging}
               onClick={runAutoTag}
-              className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded-md border border-primary/50 bg-primary/10 px-3 py-1.5 font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
             >
               {autoTagging ? (
                 <Loader2 className="h-3 w-3 animate-spin" />
@@ -946,7 +959,7 @@ function LibraryPage() {
             )}
           </div>
 
-          {tab === "raw" && (
+          {(tab === "raw" || tab === "published" || tab === "geotagged") && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-background/40 px-4 py-2.5 text-xs">
               <button
                 onClick={() => {
@@ -1082,6 +1095,138 @@ function LibraryPage() {
         </div>
       )}
 
+      {/* Favorites Tab Toolbar */}
+      {tab === "favorites" && !isLoading && filtered.length > 0 && (
+        <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-card/60 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
+            <div className="flex items-center gap-2">
+              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                <Heart className="h-4 w-4" />
+              </div>
+              <div>
+                <div className="text-sm font-semibold leading-tight">Favorites</div>
+                <div className="text-[11px] text-muted-foreground">
+                  Your curated collection of top-performing images
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={() => {
+                  const picked =
+                    selectMode && selected.size > 0
+                      ? filtered.filter((i) => selected.has(i.id))
+                      : filtered;
+                  downloadGhlCsv(picked);
+                }}
+                disabled={filtered.length === 0}
+                title="Download a GoHighLevel Social Planner CSV with permanent image links"
+                className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+              >
+                <Download className="h-3.5 w-3.5" />
+                GHL CSV ({selectMode && selected.size > 0 ? selected.size : filtered.length})
+              </button>
+            </div>
+          </div>
+          <div className="flex flex-wrap items-center gap-2 bg-background/40 px-4 py-2.5 text-xs">
+            <button
+              onClick={() => {
+                setSelectMode((s) => {
+                  if (s) clearSelection();
+                  return !s;
+                });
+              }}
+              className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 font-medium ${
+                selectMode
+                  ? "border-primary bg-primary/10 text-primary"
+                  : "border-border hover:bg-accent"
+              }`}
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              {selectMode ? "Done" : "Select"}
+            </button>
+            <button
+              onClick={() => {
+                setSelectMode(true);
+                selectAll();
+              }}
+              disabled={filtered.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+            >
+              <CheckSquare className="h-3.5 w-3.5" />
+              Select all ({filtered.length})
+            </button>
+            <button
+              onClick={() =>
+                downloadMany(filtered, "favorite images", "favorites")
+              }
+              disabled={filtered.length === 0 || downloadingAll}
+              className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+              title="Download all favorite images"
+            >
+              <Download className="h-3.5 w-3.5" />
+              {downloadingAll && downloadProgress
+                ? `Downloading… ${downloadProgress.done}/${downloadProgress.total}`
+                : `Download all (${filtered.length})`}
+            </button>
+
+            {selectMode && (
+              <>
+                <button
+                  onClick={clearSelection}
+                  disabled={selected.size === 0}
+                  className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                >
+                  <Square className="h-3.5 w-3.5" /> Clear
+                </button>
+                <span className="text-muted-foreground">
+                  <strong className="text-foreground">{selected.size}</strong> selected
+                </span>
+                <div className="ml-auto flex flex-wrap items-center gap-2">
+                  <button
+                    onClick={() => {
+                      const ids = Array.from(selected);
+                      const paths = filtered
+                        .filter((i) => selected.has(i.id))
+                        .map((i) => i.storage_path);
+                      bulkDeleteImages(ids, paths, ids.length === 1 ? "image" : "images");
+                    }}
+                    disabled={selected.size === 0}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+                  >
+                    <Trash2 className="h-3.5 w-3.5" /> Delete selected ({selected.size})
+                  </button>
+                  {selectedViaAll && selected.size === filtered.length && filtered.length > 0 && (
+                    <button
+                      onClick={() => {
+                        const ids = filtered.map((i) => i.id);
+                        const paths = filtered.map((i) => i.storage_path);
+                        bulkDeleteImages(ids, paths, "favorite images");
+                      }}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15"
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Delete all ({filtered.length})
+                    </button>
+                  )}
+                  <button
+                    onClick={() => {
+                      const picked = filtered.filter((i) => selected.has(i.id));
+                      downloadMany(picked, picked.length === 1 ? "image" : "images");
+                    }}
+                    disabled={selected.size === 0 || downloadingAll}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
+                  >
+                    <Download className="h-3.5 w-3.5" />
+                    {downloadingAll && downloadProgress
+                      ? `Downloading… ${downloadProgress.done}/${downloadProgress.total}`
+                      : `Download selected (${selected.size})`}
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      )}
       {tab === "upload" ? (
         <div className="mt-6">
           <UploadPanel
@@ -1104,7 +1249,7 @@ function LibraryPage() {
         <div className="mt-10 text-sm text-muted-foreground">Loading…</div>
       ) : filtered.length === 0 ? (
         <div className="mt-16 rounded-2xl border border-dashed border-border p-10 text-center">
-          <p className="text-muted-foreground">No frames yet.</p>
+          <p className="text-muted-foreground">No frames in this view.</p>
           <button
             onClick={() => setTab("upload")}
             className="mt-4 inline-block rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground"
@@ -1113,47 +1258,7 @@ function LibraryPage() {
           </button>
         </div>
       ) : (
-        <>
-          {tab !== "raw" && (
-            <div className="mt-6 flex items-center justify-between gap-2">
-              <div className="text-xs text-muted-foreground">
-                {filtered.length} {filtered.length === 1 ? "image" : "images"}
-              </div>
-              <div className="flex items-center gap-2">
-                {tab === "favorites" && (
-                  <button
-                    onClick={() => {
-                      const picked =
-                        selectMode && selected.size > 0
-                          ? filtered.filter((i) => selected.has(i.id))
-                          : filtered;
-                      downloadGhlCsv(picked);
-                    }}
-                    title="Download a GoHighLevel Social Planner CSV with permanent, no-index image links"
-                    className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
-                  >
-                    <Download className="h-3.5 w-3.5" />
-                    GHL CSV ({selectMode && selected.size > 0 ? selected.size : filtered.length})
-                  </button>
-                )}
-                <button
-                  onClick={() => {
-                    setSelectMode((s) => !s);
-                    clearSelection();
-                  }}
-                  className={`inline-flex items-center gap-1.5 rounded-md border px-3 py-1.5 text-xs font-medium ${
-                    selectMode
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:bg-accent"
-                  }`}
-                >
-                  <CheckSquare className="h-3.5 w-3.5" />
-                  {selectMode ? "Done" : "Select"}
-                </button>
-              </div>
-            </div>
-          )}
-          <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+        <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
             {filtered.map((img) => {
               const tags = data!.tagMap.get(img.id) ?? [];
               const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
@@ -1339,8 +1444,8 @@ function LibraryPage() {
               );
             })}
           </div>
-        </>
-      )}
+        )
+      }
 
       {bulkPanel && (
         <BulkPanel
@@ -3259,7 +3364,7 @@ function VideosPanel() {
           <span className="text-muted-foreground">
             <strong className="text-foreground">{selected.size}</strong> selected
           </span>
-          <div className="ml-auto flex items-center gap-2">
+          <div className="ml-auto flex flex-wrap items-center gap-2">
             {selected.size > 0 && (
               <button
                 onClick={() => setSelected(new Set())}
@@ -3309,6 +3414,42 @@ function VideosPanel() {
                 ? "Deleting…"
                 : `Delete selected${selected.size ? ` (${selected.size})` : ""}`}
             </button>
+            {visible.length > 0 && visible.every((v) => selected.has(v.id)) && (
+              <button
+                onClick={async () => {
+                  const items = visible;
+                  if (
+                    !window.confirm(
+                      `Delete ALL ${items.length} videos in this view? This cannot be undone.`,
+                    )
+                  )
+                    return;
+                  setBulkDeleting(true);
+                  let ok = 0;
+                  let failed = 0;
+                  for (const v of items) {
+                    try {
+                      await supabase.storage.from("videos").remove([v.storage_path]);
+                      const { error } = await supabase.from("videos").delete().eq("id", v.id);
+                      if (error) throw error;
+                      ok++;
+                    } catch (e) {
+                      failed++;
+                      console.error("Bulk delete failed for", v.id, e);
+                    }
+                  }
+                  setBulkDeleting(false);
+                  setSelected(new Set());
+                  qc.invalidateQueries({ queryKey: ["videos"] });
+                  if (failed === 0) toast.success(`Deleted all ${ok} videos.`);
+                  else toast.error(`Deleted ${ok}, failed ${failed}`);
+                }}
+                disabled={bulkDeleting}
+                className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 bg-destructive/10 px-3 py-1.5 font-medium text-destructive hover:bg-destructive/15 disabled:opacity-50"
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete all ({visible.length})
+              </button>
+            )}
           </div>
         </div>
       )}
@@ -3337,6 +3478,15 @@ function VideosPanel() {
               key={v.id}
               video={v}
               folders={folders ?? []}
+              selected={selected.has(v.id)}
+              onToggleSelect={() =>
+                setSelected((prev) => {
+                  const next = new Set(prev);
+                  if (next.has(v.id)) next.delete(v.id);
+                  else next.add(v.id);
+                  return next;
+                })
+              }
               onMove={(fid) => moveVideoToFolder(v.id, fid)}
               onPreview={() => setPreview(v)}
               onDelete={() => {
@@ -3389,6 +3539,8 @@ function useVideoUrl(path: string) {
 function VideoCard({
   video,
   folders,
+  selected,
+  onToggleSelect,
   onMove,
   onPreview,
   onDelete,
@@ -3400,6 +3552,8 @@ function VideoCard({
 }: {
   video: VideoRow;
   folders: VideoFolderRow[];
+  selected?: boolean;
+  onToggleSelect?: () => void;
   onMove: (folderId: string | null) => void | Promise<unknown>;
   onPreview: () => void;
   onDelete: () => void;
@@ -3419,50 +3573,72 @@ function VideoCard({
   const currentFolder = folders.find((f) => f.id === video.folder_id);
 
   return (
-    <div className="overflow-hidden rounded-xl border border-border bg-card">
-      <button onClick={onPreview} className="group relative block aspect-video w-full bg-muted">
-        {url ? (
-          <video
-            src={url}
-            className="h-full w-full object-cover"
-            muted
-            playsInline
-            preload="metadata"
-          />
-        ) : (
-          <div className="h-full w-full animate-pulse bg-muted" />
-        )}
-        <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-          <Play className="h-10 w-10 text-white" />
-        </div>
-        {regenerating && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-white">
-            <Loader2 className="h-6 w-6 animate-spin" />
-            <div className="text-xs font-medium">Regenerating frames…</div>
-          </div>
-        )}
-        {!regenerating && regenStatus?.status === "queued" && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 text-white">
-            <div className="text-xs font-medium">Queued</div>
-            <div className="text-[10px] text-white/80">Waiting for current job…</div>
-          </div>
-        )}
-        {regenStatus && (
+    <div
+      className={`overflow-hidden rounded-xl border bg-card transition ${
+        selected ? "border-primary ring-2 ring-primary" : "border-border hover:border-primary/50"
+      }`}
+    >
+      <div className="group relative block aspect-video w-full bg-muted">
+        {onToggleSelect && (
           <div
-            className={`absolute left-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-              regenStatus.status === "queued"
-                ? "bg-amber-500/90 text-white"
-                : regenStatus.status === "running"
-                  ? "bg-primary text-primary-foreground"
-                  : regenStatus.status === "completed"
-                    ? "bg-emerald-500/90 text-white"
-                    : "bg-red-500/90 text-white"
+            onClick={(e) => {
+              e.stopPropagation();
+              onToggleSelect();
+            }}
+            className={`absolute left-2.5 top-2.5 z-30 flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border shadow transition ${
+              selected
+                ? "border-primary bg-primary text-primary-foreground opacity-100"
+                : "border-white/70 bg-black/50 text-transparent opacity-0 group-hover:opacity-100 hover:border-white hover:bg-black/75"
             }`}
+            title={selected ? "Deselect video" : "Select video"}
           >
-            {regenStatus.status}
+            <CheckSquare className="h-4 w-4 text-white" />
           </div>
         )}
-      </button>
+        <button onClick={onPreview} className="relative block h-full w-full">
+          {url ? (
+            <video
+              src={url}
+              className="h-full w-full object-cover"
+              muted
+              playsInline
+              preload="metadata"
+            />
+          ) : (
+            <div className="h-full w-full animate-pulse bg-muted" />
+          )}
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+            <Play className="h-10 w-10 text-white" />
+          </div>
+          {regenerating && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-black/60 text-white">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <div className="text-xs font-medium">Regenerating frames…</div>
+            </div>
+          )}
+          {!regenerating && regenStatus?.status === "queued" && (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 bg-black/50 text-white">
+              <div className="text-xs font-medium">Queued</div>
+              <div className="text-[10px] text-white/80">Waiting for current job…</div>
+            </div>
+          )}
+          {regenStatus && (
+            <div
+              className={`absolute right-2 top-2 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
+                regenStatus.status === "queued"
+                  ? "bg-amber-500/90 text-white"
+                  : regenStatus.status === "running"
+                    ? "bg-primary text-primary-foreground"
+                    : regenStatus.status === "completed"
+                      ? "bg-emerald-500/90 text-white"
+                      : "bg-red-500/90 text-white"
+              }`}
+            >
+              {regenStatus.status}
+            </div>
+          )}
+        </button>
+      </div>
       {regenerating && regenProgress && (
         <div className="border-b border-border bg-primary/5 px-4 py-2">
           <div className="flex items-center justify-between text-[11px]">
