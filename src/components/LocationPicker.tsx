@@ -356,6 +356,46 @@ export function LocationPicker({
       )}
       {error && <div className="text-xs text-destructive">{error}</div>}
 
+      {/* Search field — type an address or area, then pick a suggestion. */}
+      <div className={`relative ${compact ? "mt-2" : ""}`}>
+        <MapPin className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          type="text"
+          value={query}
+          onChange={(e) => setQuery(e.target.value)}
+          placeholder={ready ? "Search an address, area or place…" : "Loading map…"}
+          className="w-full rounded-lg border border-border bg-card py-2 pl-8 pr-8 text-sm outline-none placeholder:text-muted-foreground focus:border-primary"
+          aria-label="Search for a location"
+        />
+        {query.length > 0 && (
+          <button
+            type="button"
+            onClick={() => {
+              setQuery("");
+              setSuggestions([]);
+            }}
+            className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-muted-foreground hover:bg-accent"
+            aria-label="Clear search"
+          >
+            <X className="h-3.5 w-3.5" />
+          </button>
+        )}
+        {suggestions.length > 0 && (
+          <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-popover shadow-lg">
+            {suggestions.map((s) => (
+              <button
+                key={s.placeId}
+                type="button"
+                onClick={() => selectSuggestion(s.placeId, s.text)}
+                className="block w-full truncate px-3 py-2 text-left text-sm hover:bg-accent"
+              >
+                {s.text}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
       {/* City shortcuts — clicking one runs a real Google Places search near
           that city's centroid, so results are actual places. */}
       {cityOptions && cityOptions.length > 0 && (
