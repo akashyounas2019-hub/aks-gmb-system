@@ -789,19 +789,8 @@ function GeotaggingPage() {
 
   return (
     <div className="mx-auto max-w-[1200px] p-6">
-      {/* Header */}
-      <header className="mb-4">
-        <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
-          <MapPin className="h-3.5 w-3.5" /> Geotagging wizard
-        </div>
-        <h1 className="font-display text-2xl leading-tight md:text-3xl">Bulk image geotagging</h1>
-        <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-          A guided flow — upload, choose a location, assign, then save. One step at a time.
-        </p>
-      </header>
-
-      {/* Tabs */}
-      <div className="mb-4 inline-flex rounded-lg border border-border bg-card p-1">
+      {/* Minimal header — just the two modes */}
+      <div className="mb-3 inline-flex rounded-lg border border-border bg-card p-1">
         <button
           onClick={() => setTab("wizard")}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
@@ -829,7 +818,7 @@ function GeotaggingPage() {
       ) : (
         <>
           {/* Progress bar */}
-          <ol className="mb-5 grid grid-cols-4 gap-2">
+          <ol className="mb-4 grid grid-cols-4 gap-2" aria-label="Steps">
             {steps.map((s) => {
               const done = step > s.n;
               const active = step === s.n;
@@ -854,17 +843,12 @@ function GeotaggingPage() {
                       >
                         {done ? <CircleCheck className="h-4 w-4" /> : s.n}
                       </div>
-                      <div className="min-w-0">
-                        <div
-                          className={`truncate text-xs font-medium ${
-                            active ? "text-foreground" : "text-muted-foreground"
-                          }`}
-                        >
-                          Step {s.n}
-                        </div>
-                        <div className="truncate text-[11px] text-muted-foreground/80">
-                          {s.title}
-                        </div>
+                      <div
+                        className={`min-w-0 truncate text-sm ${
+                          active ? "font-medium text-foreground" : "text-muted-foreground"
+                        }`}
+                      >
+                        {s.title}
                       </div>
                     </div>
                     <div
@@ -877,27 +861,6 @@ function GeotaggingPage() {
               );
             })}
           </ol>
-
-          {/* Persistent lightweight status strip (hidden on Step 1 to keep the
-              upload screen to a single viewport) */}
-          {step !== 1 && (
-            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-              <StatChip label="Uploaded" value={stats.total} />
-              <StatChip label="Tagged" value={stats.tagged} tone="primary" />
-              <StatChip label="Saved" value={stats.saved} tone="success" />
-              {activeCoord && (
-                <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
-                  <Crosshair className="h-3.5 w-3.5 text-primary" />
-                  <span className="truncate max-w-[220px]" title={activeCoord.label}>
-                    {activeCoord.label}
-                  </span>
-                  <span className="font-mono text-muted-foreground/80">
-                    {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
 
           {/* Step body */}
           <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
@@ -1049,6 +1012,26 @@ function GeotaggingPage() {
               </button>
             )}
           </div>
+
+          {/* Status strip — kept at the very bottom (hidden on Step 1) */}
+          {step !== 1 && (
+            <div className="mt-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+              <StatChip label="Uploaded" value={stats.total} />
+              <StatChip label="Tagged" value={stats.tagged} tone="primary" />
+              <StatChip label="Saved" value={stats.saved} tone="success" />
+              {activeCoord && (
+                <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
+                  <Crosshair className="h-3.5 w-3.5 text-primary" />
+                  <span className="truncate max-w-[220px]" title={activeCoord.label}>
+                    {activeCoord.label}
+                  </span>
+                  <span className="font-mono text-muted-foreground/80">
+                    {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
         </>
       )}
 
@@ -1788,50 +1771,23 @@ function StepAssign({
     patch: Partial<Pick<LocalImage, "title" | "description">>,
   ) => void;
 }) {
-  const [batchTitle, setBatchTitle] = useState("");
-  const [batchDescription, setBatchDescription] = useState("");
-  const prefilledRef = useRef(false);
-
-  // Auto-fill the batch title/description from any uploaded image that already
-  // carries embedded metadata, so users don't have to retype what's in the file.
-  useEffect(() => {
-    if (prefilledRef.current) return;
-    const withMeta = images.find((i) => i.hasExistingMeta && (i.title || i.description));
-    if (!withMeta) return;
-    if (!batchTitle && withMeta.title) setBatchTitle(withMeta.title);
-    if (!batchDescription && withMeta.description) setBatchDescription(withMeta.description);
-    prefilledRef.current = true;
-  }, [images, batchTitle, batchDescription]);
-
-  const applyBatchMeta = () => {
-    const ids = selected.size ? Array.from(selected) : images.map((i) => i.id);
-    if (ids.length === 0) {
-      toast.error("Upload some images first.");
-      return;
-    }
-    const patch: Partial<Pick<LocalImage, "title" | "description">> = {};
-    if (batchTitle.trim()) patch.title = batchTitle.trim();
-    if (batchDescription.trim()) patch.description = batchDescription.trim();
-    if (Object.keys(patch).length === 0) {
-      toast.error("Enter a title or description first.");
-      return;
-    }
-    applyMetaToTargets(ids, patch);
-    toast.success(`Applied details to ${ids.length} image${ids.length === 1 ? "" : "s"}.`);
-  };
   return (
     <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-medium">Assign the coordinate</h2>
-        <p className="text-sm text-muted-foreground">
-          Apply to every image, just the selected ones, or tag individually.
-        </p>
-      </div>
-
+      {/* Assign coordinates */}
       <div className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border bg-muted/30 px-3 py-2">
-        <div className="text-xs text-muted-foreground">
-          <b className="text-foreground">{images.length}</b> image{images.length === 1 ? "" : "s"} ·{" "}
-          <b className="text-foreground">{selected.size}</b> selected
+        <div className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className="flex items-center gap-1.5 text-sm font-medium text-foreground">
+            <MapPin className="h-4 w-4 text-primary" /> Assign coordinates
+          </span>
+          {activeCoord && (
+            <span className="max-w-[260px] truncate font-mono" title={activeCoord.label}>
+              {activeCoord.lat.toFixed(5)}, {activeCoord.lng.toFixed(5)}
+            </span>
+          )}
+          <span>
+            <b className="text-foreground">{images.length}</b> image{images.length === 1 ? "" : "s"}{" "}
+            · <b className="text-foreground">{selected.size}</b> selected
+          </span>
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <input
@@ -1871,38 +1827,6 @@ function StepAssign({
             className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
           >
             <MapPin className="h-3.5 w-3.5" />
-            Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
-          </button>
-        </div>
-      </div>
-
-      {/* Batch title + description */}
-      <div className="rounded-lg border border-border bg-muted/20 p-3">
-        <div className="mb-2 text-xs font-medium text-muted-foreground">
-          Title &amp; description for this batch
-          <span className="ml-1 text-muted-foreground/70">
-            — applied alongside the location when you save.
-          </span>
-        </div>
-        <div className="grid gap-2 md:grid-cols-[1fr_1.5fr_auto]">
-          <input
-            value={batchTitle}
-            onChange={(e) => setBatchTitle(e.target.value)}
-            placeholder="Title (e.g. Marina villa exterior)"
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-          <input
-            value={batchDescription}
-            onChange={(e) => setBatchDescription(e.target.value)}
-            placeholder="Description shown on hover in the library"
-            className="rounded-md border border-input bg-background px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-ring"
-          />
-          <button
-            type="button"
-            onClick={applyBatchMeta}
-            disabled={images.length === 0}
-            className="inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-40"
-          >
             Apply to {selected.size > 0 ? `${selected.size} selected` : "all"}
           </button>
         </div>
@@ -2696,22 +2620,6 @@ function MetaFields({
         .map((tag) => ({ tag, value: raw[tag] }))
     : [];
 
-  // Keyword source candidates: canonical (XPKeywords) and fallback
-  // (UserComment) both split into individual keywords for chip-swap.
-  const keywordAlts: { tag: "XPKeywords" | "UserComment"; keywords: string[] }[] = raw
-    ? (["XPKeywords", "UserComment"] as const)
-        .map((tag) => ({
-          tag,
-          keywords: raw[tag]
-            ? raw[tag]
-                .split(/;\s*|,\s*/)
-                .map((k) => k.trim())
-                .filter(Boolean)
-            : [],
-        }))
-        .filter(({ keywords }) => keywords.length > 0)
-    : [];
-
   return (
     <div className="mt-1 space-y-1.5">
       <div>
@@ -2772,125 +2680,6 @@ function MetaFields({
           </div>
         )}
       </div>
-
-      <KeywordsField
-        img={img}
-        sources={sources}
-        keywordAlts={keywordAlts}
-        updateImageMeta={updateImageMeta}
-      />
-
-      {(img.title || img.description || img.keywords.length > 0) && img.hasExistingMeta && (
-        <button
-          type="button"
-          onClick={() => updateImageMeta(img.id, { title: "", description: "", keywords: [] })}
-          className="text-[10px] text-muted-foreground hover:text-foreground hover:underline"
-        >
-          Clear all detected fields
-        </button>
-      )}
-    </div>
-  );
-}
-
-function KeywordsField({
-  img,
-  sources,
-  keywordAlts,
-  updateImageMeta,
-}: {
-  img: LocalImage;
-  sources: LocalImage["metaSources"];
-  keywordAlts: { tag: "XPKeywords" | "UserComment"; keywords: string[] }[];
-  updateImageMeta: (
-    id: string,
-    patch: Partial<Pick<LocalImage, "title" | "description" | "keywords">>,
-  ) => void;
-}) {
-  const [draft, setDraft] = useState("");
-
-  const addKeyword = (raw: string) => {
-    const v = raw.trim();
-    if (!v) return;
-    const exists = img.keywords.some((k) => k.toLowerCase() === v.toLowerCase());
-    if (exists) return;
-    updateImageMeta(img.id, { keywords: [...img.keywords, v] });
-  };
-
-  const removeKeyword = (kw: string) => {
-    updateImageMeta(img.id, {
-      keywords: img.keywords.filter((k) => k !== kw),
-    });
-  };
-
-  const activeSet = new Set(img.keywords.map((k) => k.toLowerCase()));
-
-  return (
-    <div>
-      <div className="mb-0.5 flex items-center gap-1 text-[9px] uppercase tracking-wide text-muted-foreground">
-        <span>Keywords</span>
-        <SourceBadge source={sources?.keywords ?? null} />
-      </div>
-      <div className="flex flex-wrap gap-1 rounded-md border border-input bg-background px-1.5 py-1">
-        {img.keywords.map((kw) => (
-          <span
-            key={kw}
-            className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-1.5 py-0.5 text-[10px] text-primary"
-          >
-            {kw}
-            <button
-              type="button"
-              onClick={() => removeKeyword(kw)}
-              className="text-primary/70 hover:text-primary"
-              aria-label={`Remove keyword ${kw}`}
-              title={`Remove ${kw}`}
-            >
-              ×
-            </button>
-          </span>
-        ))}
-        <input
-          value={draft}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter" || e.key === ",") {
-              e.preventDefault();
-              addKeyword(draft);
-              setDraft("");
-            } else if (e.key === "Backspace" && !draft && img.keywords.length > 0) {
-              removeKeyword(img.keywords[img.keywords.length - 1]);
-            }
-          }}
-          onBlur={() => {
-            if (draft.trim()) {
-              addKeyword(draft);
-              setDraft("");
-            }
-          }}
-          placeholder={img.keywords.length === 0 ? "Add keyword…" : ""}
-          className="min-w-[80px] flex-1 bg-transparent px-1 py-0.5 text-[11px] outline-none placeholder:text-muted-foreground/60"
-        />
-      </div>
-      {keywordAlts.length > 0 && (
-        <div className="mt-0.5 flex flex-wrap gap-1">
-          {keywordAlts.flatMap(({ tag, keywords }) =>
-            keywords
-              .filter((kw) => !activeSet.has(kw.toLowerCase()))
-              .map((kw) => (
-                <button
-                  key={`${tag}:${kw}`}
-                  type="button"
-                  onClick={() => addKeyword(kw)}
-                  title={`Add "${kw}" from ${tag}`}
-                  className="inline-flex max-w-full items-center gap-1 rounded border border-border px-1 py-px text-[9px] text-muted-foreground hover:bg-accent hover:text-foreground"
-                >
-                  <span className="font-medium text-primary">{tag}</span>
-                  <span className="truncate">{kw}</span>
-                </button>
-              )),
-          )}
-        </div>
-      )}
     </div>
   );
 }
