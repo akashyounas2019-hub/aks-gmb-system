@@ -22,6 +22,7 @@ import {
   Sparkles,
   Pencil,
   Target,
+  MapPin,
   DollarSign,
   Gauge,
   ListChecks,
@@ -42,6 +43,7 @@ import {
   YAxis,
 } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
+import { LocationKeywordsPanel } from "@/components/LocationKeywordsPanel";
 import * as XLSX from "xlsx";
 import {
   DropdownMenu,
@@ -225,7 +227,9 @@ function KeywordsPage() {
   } | null>(null);
   const [enriching, setEnriching] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<"research" | "library" | "tracked">("research");
+  const [activeTab, setActiveTab] = useState<"research" | "library" | "tracked" | "locations">(
+    "research",
+  );
   const [researchQuery, setResearchQuery] = useState("");
 
   const runBatchEnrich = useServerFn(batchEnrichKeywords);
@@ -973,6 +977,7 @@ function KeywordsPage() {
             { id: "research" as const, label: "Keyword Research", icon: Search },
             { id: "library" as const, label: "Library", icon: FolderOpen },
             { id: "tracked" as const, label: "Tracked Keywords", icon: Target },
+            { id: "locations" as const, label: "Location Keywords", icon: MapPin },
           ].map((t) => {
             const active = activeTab === t.id;
             const Icon = t.icon;
@@ -995,6 +1000,8 @@ function KeywordsPage() {
           })}
         </nav>
       </div>
+
+      {activeTab === "locations" && <LocationKeywordsPanel />}
 
       {activeTab === "research" && (
         <div className="w-full px-6 py-6 md:px-10 md:py-10">
@@ -1700,7 +1707,9 @@ function KeywordsPage() {
                       const folder = k.folder_id ? folderById.get(k.folder_id) : null;
                       const checked = selection.has(k.id);
                       // Seeded rank position & trend calculation
-                      const seed = k.phrase.split("").reduce((acc, char) => acc + char.charCodeAt(0), 0);
+                      const seed = k.phrase
+                        .split("")
+                        .reduce((acc, char) => acc + char.charCodeAt(0), 0);
                       const currentRank = (seed % 6) + 1;
                       const trendDelta = (seed % 5) - 2;
 
@@ -2597,13 +2606,7 @@ function ImportRow({
 /* Serpstat Keyword Detail Drawer                                             */
 /* -------------------------------------------------------------------------- */
 
-function SerpstatKeywordDetailDrawer({
-  phrase,
-  onClose,
-}: {
-  phrase: string;
-  onClose: () => void;
-}) {
+function SerpstatKeywordDetailDrawer({ phrase, onClose }: { phrase: string; onClose: () => void }) {
   const getDetail = useServerFn(fetchSerpstatKeywordDetail);
   const [detail, setDetail] = useState<SerpstatKeywordDetail | null>(null);
   const [loading, setLoading] = useState(true);
@@ -2645,7 +2648,8 @@ function SerpstatKeywordDetailDrawer({
 
         {loading ? (
           <div className="flex h-64 items-center justify-center text-sm text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Fetching Serpstat metrics…
+            <Loader2 className="mr-2 h-5 w-5 animate-spin text-primary" /> Fetching Serpstat
+            metrics…
           </div>
         ) : detail ? (
           <div className="p-6 space-y-6">
@@ -2653,7 +2657,9 @@ function SerpstatKeywordDetailDrawer({
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               <div className="rounded-xl border border-border bg-card p-3">
                 <span className="text-[10px] uppercase text-muted-foreground">Search Volume</span>
-                <div className="text-xl font-bold text-foreground">{detail.volume.toLocaleString()}/mo</div>
+                <div className="text-xl font-bold text-foreground">
+                  {detail.volume.toLocaleString()}/mo
+                </div>
               </div>
               <div className="rounded-xl border border-border bg-card p-3">
                 <span className="text-[10px] uppercase text-muted-foreground">Difficulty (KD)</span>
@@ -2672,7 +2678,9 @@ function SerpstatKeywordDetailDrawer({
             {/* Volume History Chart */}
             <div className="rounded-xl border border-border bg-card p-4">
               <div className="mb-3 flex items-center justify-between">
-                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">12-Month Search Volume Trend</h4>
+                <h4 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                  12-Month Search Volume Trend
+                </h4>
                 <span className="text-xs text-emerald-400 font-medium">Serpstat API Verified</span>
               </div>
               <div className="h-44 w-full">
@@ -2684,11 +2692,30 @@ function SerpstatKeywordDetailDrawer({
                         <stop offset="100%" stopColor="hsl(var(--primary))" stopOpacity={0} />
                       </linearGradient>
                     </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" opacity={0.4} />
-                    <XAxis dataKey="month" tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
+                    <CartesianGrid
+                      strokeDasharray="3 3"
+                      stroke="hsl(var(--border))"
+                      opacity={0.4}
+                    />
+                    <XAxis
+                      dataKey="month"
+                      tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }}
+                    />
                     <YAxis tick={{ fontSize: 10, fill: "hsl(var(--muted-foreground))" }} />
-                    <Tooltip contentStyle={{ background: "hsl(var(--card))", borderRadius: 8, fontSize: 11 }} />
-                    <Area type="monotone" dataKey="volume" stroke="hsl(var(--primary))" fill="url(#volGrad)" strokeWidth={2} />
+                    <Tooltip
+                      contentStyle={{
+                        background: "hsl(var(--card))",
+                        borderRadius: 8,
+                        fontSize: 11,
+                      }}
+                    />
+                    <Area
+                      type="monotone"
+                      dataKey="volume"
+                      stroke="hsl(var(--primary))"
+                      fill="url(#volGrad)"
+                      strokeWidth={2}
+                    />
                   </AreaChart>
                 </ResponsiveContainer>
               </div>
@@ -2696,7 +2723,9 @@ function SerpstatKeywordDetailDrawer({
 
             {/* Top SERP Competitors */}
             <div>
-              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">Top Ranking Competitor URLs (SERP)</h4>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                Top Ranking Competitor URLs (SERP)
+              </h4>
               <div className="overflow-hidden rounded-xl border border-border bg-card">
                 <table className="w-full text-xs">
                   <thead className="bg-muted/40 text-[10px] uppercase tracking-widest text-muted-foreground">
@@ -2712,7 +2741,12 @@ function SerpstatKeywordDetailDrawer({
                         <td className="px-3 py-2 font-bold text-emerald-400">#{c.rank}</td>
                         <td className="px-3 py-2 font-medium">{c.title}</td>
                         <td className="px-3 py-2 text-right">
-                          <a href={c.url} target="_blank" rel="noreferrer" className="text-primary hover:underline font-mono text-[11px]">
+                          <a
+                            href={c.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="text-primary hover:underline font-mono text-[11px]"
+                          >
                             {c.domain}
                           </a>
                         </td>

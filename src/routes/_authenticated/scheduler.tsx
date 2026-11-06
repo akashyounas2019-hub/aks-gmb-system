@@ -8,19 +8,15 @@ import {
   Trash2,
   X,
   Plus,
-  ImageIcon,
   MapPin,
   ExternalLink,
   Sparkles,
   Smile,
   CheckCircle2,
-  Clock,
   Send,
-  Eye,
   Tag,
   Folder,
   Globe,
-  Share2,
   Check,
   Search,
   AlertCircle,
@@ -318,7 +314,10 @@ function PostSchedulerPanel() {
                     .filter(Boolean) as ImageItem[];
 
                   return (
-                    <tr key={p.id} className="border-b border-border/60 align-top hover:bg-accent/30 transition">
+                    <tr
+                      key={p.id}
+                      className="border-b border-border/60 align-top hover:bg-accent/30 transition"
+                    >
                       <td className="whitespace-nowrap py-3 pr-4 tabular-nums">
                         <div className="font-medium text-foreground text-xs">
                           {p.scheduled_at ? new Date(p.scheduled_at).toLocaleDateString() : "—"}
@@ -431,6 +430,7 @@ function PostSchedulerPanel() {
           post={editingPost}
           imagesMap={imagesMap}
           libraryImages={libraryImages}
+          lastScheduledAt={latestScheduledExcept(posts, editingPost.id)}
           onClose={() => setEditingPost(null)}
           onSaved={() => {
             setEditingPost(null);
@@ -509,6 +509,17 @@ const CTA_OPTIONS = [
   { value: "CALL", label: "Call Now" },
 ];
 
+/** Latest scheduled_at across all posts except `excludeId` (null if none). */
+function latestScheduledExcept(posts: ScheduledPost[], excludeId: string): Date | null {
+  let max: number | null = null;
+  for (const p of posts) {
+    if (p.id === excludeId || !p.scheduled_at) continue;
+    const t = new Date(p.scheduled_at).getTime();
+    if (Number.isFinite(t) && (max === null || t > max)) max = t;
+  }
+  return max === null ? null : new Date(max);
+}
+
 function formatLocalDatetime(date: Date): string {
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
@@ -520,12 +531,15 @@ function EditScheduledPostModal({
   libraryImages,
   onClose,
   onSaved,
+  lastScheduledAt,
 }: {
   post: ScheduledPost;
   imagesMap: Map<string, ImageItem>;
   libraryImages: ImageItem[];
   onClose: () => void;
   onSaved: () => void;
+  /** Latest scheduled_at among the OTHER posts — base for the +X Days presets. */
+  lastScheduledAt: Date | null;
 }) {
   const [title, setTitle] = useState(post.title ?? "");
   const [caption, setCaption] = useState(post.caption ?? "");
@@ -665,8 +679,8 @@ function EditScheduledPostModal({
     }
     setSaving(true);
     try {
-      const finalLat = latInput.trim() ? parseFloat(latInput.trim()) : loc?.lat ?? null;
-      const finalLng = lngInput.trim() ? parseFloat(lngInput.trim()) : loc?.lng ?? null;
+      const finalLat = latInput.trim() ? parseFloat(latInput.trim()) : (loc?.lat ?? null);
+      const finalLng = lngInput.trim() ? parseFloat(lngInput.trim()) : (loc?.lng ?? null);
 
       const { error } = await supabase
         .from("social_posts")
@@ -695,28 +709,44 @@ function EditScheduledPostModal({
     }
   }
 
+  // Images on this post that already carry GPS — surfaced in the geotag
+  // section so their exact coordinates are visible at a glance.
+  const geotaggedAttached = attachedImages.filter((img) => img.lat != null && img.lng != null);
+
+  // "+X Days" presets are measured from the latest post already on the
+  // schedule (or from now, when nothing later is queued).
+  const lastFuture =
+    lastScheduledAt && lastScheduledAt.getTime() > Date.now() ? lastScheduledAt : null;
+  function presetFromLastPost(days: number) {
+    const d = new Date(lastFuture ?? Date.now());
+    d.setDate(d.getDate() + days);
+    if (!lastFuture) d.setHours(10, 0, 0, 0);
+    setScheduledAt(formatLocalDatetime(d));
+  }
+
+  const label = "mb-1 block text-[11px] font-medium text-muted-foreground";
+  const input =
+    "w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary";
+  const chip =
+    "rounded-md border border-border px-2 py-1 text-[11px] text-muted-foreground hover:bg-accent hover:text-foreground";
+
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-3 md:p-6 backdrop-blur-sm"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-3 backdrop-blur-sm md:p-6"
       onClick={onClose}
     >
       <div
-        className="flex h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
         onClick={(e) => e.stopPropagation()}
       >
-        {/* Modal Header */}
-        <div className="flex items-center justify-between border-b border-border px-5 py-3.5 bg-muted/20">
-          <div>
-            <div className="flex items-center gap-2">
-              <Pencil className="h-4 w-4 text-primary" />
-              <h2 className="text-base font-semibold text-foreground">Edit Scheduled Post</h2>
-              <span className="rounded-full border border-amber-500/40 bg-amber-500/10 px-2 py-0.5 text-[10px] font-medium text-amber-500 capitalize">
-                {post.status}
-              </span>
-            </div>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              Modify post content, attached images, geotag location, timing, and target networks.
-            </p>
+        {/* Header */}
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div className="flex items-center gap-2">
+            <Pencil className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold">Edit post</h2>
+            <span className="rounded-full bg-muted px-2 py-0.5 text-[10px] capitalize text-muted-foreground">
+              {post.status}
+            </span>
           </div>
           <button
             type="button"
@@ -724,593 +754,410 @@ function EditScheduledPostModal({
             aria-label="Close"
             className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
           >
-            <X className="h-5 w-5" />
+            <X className="h-4 w-4" />
           </button>
         </div>
 
-        {/* Modal Body: Split Pane */}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 p-5">
-            {/* Left Column: Comprehensive Editor Form (7 cols) */}
-            <div className="lg:col-span-7 space-y-5">
-              {/* 1. Attached Images Section */}
-              <div className="rounded-xl border border-border bg-background p-4 shadow-sm">
-                <div className="flex items-center justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <ImageIcon className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                      Attached Images ({imageIds.length}/4)
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => setShowImagePicker((prev) => !prev)}
-                    className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20 transition"
-                  >
-                    {showImagePicker ? (
-                      <>
-                        <X className="h-3.5 w-3.5" /> Close Gallery
-                      </>
-                    ) : (
-                      <>
-                        <Plus className="h-3.5 w-3.5" /> + Add / Change Images
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                {/* Attached Images Grid */}
-                {attachedImages.length > 0 ? (
-                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                    {attachedImages.map((img) => (
-                      <div
-                        key={img.id}
-                        className="group relative overflow-hidden rounded-lg border border-border bg-card shadow-sm"
-                      >
-                        <div className="relative aspect-square w-full bg-muted">
-                          <SignedImage
-                            bucket="frames"
-                            path={img.storage_path}
-                            alt={img.name}
-                            className="h-full w-full object-cover"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => toggleImageId(img.id)}
-                            className="absolute top-1.5 right-1.5 rounded-full bg-destructive/90 p-1 text-destructive-foreground shadow hover:bg-destructive transition"
-                            title="Remove image from post"
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </button>
-                          {img.lat != null && img.lng != null && (
-                            <div className="absolute bottom-1 left-1">
-                              <GeoTaggedBadge lat={img.lat} lng={img.lng} compact />
-                            </div>
-                          )}
-                        </div>
-                        <div className="p-1.5 text-center">
-                          <div className="truncate text-[11px] font-medium text-foreground" title={img.title || img.name}>
-                            {img.title || img.name}
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
+        {/* Body */}
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          {/* Images */}
+          <div>
+            <div className="mb-1.5 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">
+                Images ({imageIds.length}/4)
+              </span>
+              <button
+                type="button"
+                onClick={() => setShowImagePicker((prev) => !prev)}
+                className="inline-flex items-center gap-1 text-[11px] font-medium text-primary hover:underline"
+              >
+                {showImagePicker ? (
+                  <>
+                    <X className="h-3 w-3" /> Close
+                  </>
                 ) : (
-                  <div className="rounded-lg border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                    No images attached to this post. Click &quot;+ Add / Change Images&quot; to pick from your library.
-                  </div>
+                  <>
+                    <Plus className="h-3 w-3" /> Change
+                  </>
                 )}
-
-                {/* Expandable Image Library Picker */}
-                {showImagePicker && (
-                  <div className="mt-4 pt-4 border-t border-border space-y-3">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="relative flex-1">
-                        <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
-                        <input
-                          type="search"
-                          placeholder="Search library images by title or filename…"
-                          value={imageSearch}
-                          onChange={(e) => setImageSearch(e.target.value)}
-                          className="w-full rounded-md border border-border bg-background pl-8 pr-3 py-1.5 text-xs outline-none focus:border-primary"
-                        />
+              </button>
+            </div>
+            {attachedImages.length > 0 ? (
+              <div className="flex flex-wrap gap-2">
+                {attachedImages.map((img) => (
+                  <div
+                    key={img.id}
+                    className="group relative h-20 w-20 overflow-hidden rounded-lg border border-border bg-muted"
+                    title={img.title || img.name}
+                  >
+                    <SignedImage
+                      bucket="frames"
+                      path={img.storage_path}
+                      alt={img.name}
+                      className="h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => toggleImageId(img.id)}
+                      className="absolute right-1 top-1 rounded-full bg-background/90 p-0.5 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+                      aria-label={`Remove ${img.title || img.name}`}
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                    {img.lat != null && img.lng != null && (
+                      <div className="absolute bottom-1 left-1">
+                        <GeoTaggedBadge lat={img.lat} lng={img.lng} compact />
                       </div>
-                      <span className="text-[11px] text-muted-foreground whitespace-nowrap">
-                        {filteredLibraryImages.length} available
-                      </span>
-                    </div>
-
-                    <div className="max-h-48 overflow-y-auto grid grid-cols-4 sm:grid-cols-6 gap-2 p-1 border border-border/70 rounded-lg bg-muted/20">
-                      {filteredLibraryImages.map((img) => {
-                        const isSelected = imageIds.includes(img.id);
-                        return (
-                          <button
-                            key={img.id}
-                            type="button"
-                            onClick={() => toggleImageId(img.id)}
-                            className={`group relative aspect-square rounded-md overflow-hidden border transition ${
-                              isSelected
-                                ? "border-primary ring-2 ring-primary"
-                                : "border-border hover:border-primary/50"
-                            }`}
-                            title={img.title || img.name}
-                          >
-                            <SignedImage
-                              bucket="frames"
-                              path={img.storage_path}
-                              alt={img.name}
-                              className="h-full w-full object-cover"
-                            />
-                            {isSelected && (
-                              <div className="absolute inset-0 bg-primary/20 flex items-center justify-center">
-                                <div className="rounded-full bg-primary p-0.5 text-primary-foreground shadow">
-                                  <Check className="h-3 w-3" />
-                                </div>
-                              </div>
-                            )}
-                          </button>
-                        );
-                      })}
-                    </div>
+                    )}
                   </div>
-                )}
+                ))}
               </div>
+            ) : (
+              <div className="rounded-lg border border-dashed border-border p-3 text-center text-xs text-muted-foreground">
+                No images attached.
+              </div>
+            )}
 
-              {/* 2. Post Title & Caption */}
-              <div className="space-y-3 rounded-xl border border-border bg-background p-4 shadow-sm">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                    Post Title / Headline
-                  </label>
+            {showImagePicker && (
+              <div className="mt-2 space-y-2 rounded-lg border border-border p-2">
+                <div className="relative">
+                  <Search className="absolute left-2.5 top-2 h-3.5 w-3.5 text-muted-foreground" />
                   <input
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Professional Floor Scrubbing & Deep Cleaning in Dubai"
-                    className="w-full rounded-md border border-border bg-background px-3 py-2 text-xs font-medium outline-none focus:border-primary"
+                    type="search"
+                    placeholder="Search images…"
+                    value={imageSearch}
+                    onChange={(e) => setImageSearch(e.target.value)}
+                    className={`${input} pl-8`}
                   />
                 </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-1">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Post Content / Caption
-                    </label>
-                    <span
-                      className={`text-[11px] font-mono ${
-                        caption.length > 1500 ? "text-destructive font-semibold" : "text-muted-foreground"
-                      }`}
-                    >
-                      {caption.length} / 1,500 chars
-                    </span>
-                  </div>
-
-                  {/* Quick symbols toolbar */}
-                  <div className="flex items-center gap-1 overflow-x-auto pb-1.5 mb-1.5">
-                    <span className="text-[10px] text-muted-foreground uppercase mr-1">Insert:</span>
-                    {QUICK_SYMBOLS.map((sym) => (
+                <div className="grid max-h-44 grid-cols-5 gap-1.5 overflow-y-auto sm:grid-cols-8">
+                  {filteredLibraryImages.map((img) => {
+                    const isSelected = imageIds.includes(img.id);
+                    return (
                       <button
-                        key={sym}
+                        key={img.id}
                         type="button"
-                        onClick={() => insertSymbol(sym)}
-                        className="rounded border border-border bg-muted/40 hover:bg-accent px-1.5 py-0.5 text-xs transition"
+                        onClick={() => toggleImageId(img.id)}
+                        className={`relative aspect-square overflow-hidden rounded-md border transition ${
+                          isSelected
+                            ? "border-primary ring-2 ring-primary"
+                            : "border-border hover:border-primary/50"
+                        }`}
+                        title={img.title || img.name}
                       >
-                        {sym}
+                        <SignedImage
+                          bucket="frames"
+                          path={img.storage_path}
+                          alt={img.name}
+                          className="h-full w-full object-cover"
+                        />
+                        {isSelected && (
+                          <div className="absolute inset-0 flex items-center justify-center bg-primary/20">
+                            <Check className="h-4 w-4 text-primary-foreground drop-shadow" />
+                          </div>
+                        )}
                       </button>
-                    ))}
-                  </div>
-
-                  <textarea
-                    value={caption}
-                    onChange={(e) => setCaption(e.target.value)}
-                    rows={7}
-                    placeholder="Enter the complete post copy, highlights, call-to-action details, and service points..."
-                    className="w-full resize-y rounded-md border border-border bg-background p-3 text-xs leading-relaxed outline-none focus:border-primary"
-                  />
-                </div>
-
-                {/* Hashtags / Tags */}
-                <div>
-                  <label className="block text-[11px] font-semibold uppercase tracking-wider text-muted-foreground mb-1">
-                    Keywords & Hashtags
-                  </label>
-                  <div className="flex items-center gap-2 mb-2">
-                    <input
-                      value={tagInput}
-                      onChange={(e) => setTagInput(e.target.value)}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter" || e.key === ",") {
-                          e.preventDefault();
-                          addTag(tagInput);
-                        }
-                      }}
-                      placeholder="Type keyword and press Enter or comma…"
-                      className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => addTag(tagInput)}
-                      className="rounded-md bg-primary/10 border border-primary/40 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/20"
-                    >
-                      Add
-                    </button>
-                  </div>
-
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5">
-                      {tags.map((t) => (
-                        <span
-                          key={t}
-                          className="inline-flex items-center gap-1 rounded-full border border-border bg-muted px-2.5 py-0.5 text-[11px] text-foreground"
-                        >
-                          #{t}
-                          <button
-                            type="button"
-                            onClick={() => removeTag(t)}
-                            className="rounded-full hover:bg-accent p-0.5 text-muted-foreground hover:text-foreground"
-                          >
-                            <X className="h-3 w-3" />
-                          </button>
-                        </span>
-                      ))}
-                    </div>
-                  )}
+                    );
+                  })}
                 </div>
               </div>
+            )}
+          </div>
 
-              {/* 3. Timing & Social Platforms */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {/* Schedule timing */}
-                <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Schedule Timing
-                    </label>
-                    <Clock className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <input
-                    type="datetime-local"
-                    value={scheduledAt}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary font-medium"
-                  />
-
-                  {/* Timing presets */}
-                  <div className="flex flex-wrap gap-1 pt-1">
-                    <button
-                      type="button"
-                      onClick={() => setScheduledAt(formatLocalDatetime(new Date(Date.now() + 3600 * 1000)))}
-                      className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent"
-                    >
-                      +1 hr
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        d.setHours(9, 0, 0, 0);
-                        setScheduledAt(formatLocalDatetime(d));
-                      }}
-                      className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent"
-                    >
-                      Tmrw 9 AM
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        d.setHours(14, 0, 0, 0);
-                        setScheduledAt(formatLocalDatetime(d));
-                      }}
-                      className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent"
-                    >
-                      Tmrw 2 PM
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 2);
-                        d.setHours(10, 0, 0, 0);
-                        setScheduledAt(formatLocalDatetime(d));
-                      }}
-                      className="rounded border border-border bg-muted/30 px-2 py-0.5 text-[10px] text-muted-foreground hover:text-foreground hover:bg-accent"
-                    >
-                      +2 Days
-                    </button>
-                  </div>
-                </div>
-
-                {/* Target networks */}
-                <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-2.5">
-                  <div className="flex items-center justify-between">
-                    <label className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                      Target Networks
-                    </label>
-                    <Share2 className="h-3.5 w-3.5 text-primary" />
-                  </div>
-                  <div className="flex flex-wrap gap-1.5">
-                    {SOCIAL_NETWORKS.map((n) => {
-                      const isSelected = networks.includes(n.id);
-                      return (
-                        <button
-                          key={n.id}
-                          type="button"
-                          onClick={() => toggleNetwork(n.id)}
-                          className={`rounded-full px-2.5 py-1 text-xs font-medium transition ${
-                            isSelected
-                              ? "bg-primary text-primary-foreground shadow-sm"
-                              : "border border-border bg-muted/40 text-muted-foreground hover:text-foreground"
-                          }`}
-                        >
-                          {n.label}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-
-              {/* 4. Location & Geotag Details */}
-              <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-3">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-primary" />
-                    <span className="text-xs font-semibold uppercase tracking-wider text-foreground">
-                      Geotag & Location
-                    </span>
-                  </div>
-                  {loc?.lat != null && loc?.lng != null && (
-                    <a
-                      href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
-                    >
-                      <ExternalLink className="h-3 w-3" /> View Map
-                    </a>
-                  )}
-                </div>
-
-                <div>
-                  <label className="block text-[11px] text-muted-foreground mb-1">
-                    Location Label / Area
-                  </label>
-                  <input
-                    value={locationLabel}
-                    onChange={(e) => setLocationLabel(e.target.value)}
-                    placeholder="e.g. Dubai Marina, Dubai, United Arab Emirates"
-                    className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
-                  />
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground">Latitude</span>
-                    <input
-                      type="number"
-                      step="any"
-                      value={latInput}
-                      onChange={(e) => handleManualCoordChange(e.target.value, lngInput)}
-                      placeholder="25.2048"
-                      className="w-full rounded border border-border bg-background px-2.5 py-1.5 font-mono text-xs outline-none focus:border-primary"
-                    />
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground">Longitude</span>
-                    <input
-                      type="number"
-                      step="any"
-                      value={lngInput}
-                      onChange={(e) => handleManualCoordChange(latInput, e.target.value)}
-                      placeholder="55.2708"
-                      className="w-full rounded border border-border bg-background px-2.5 py-1.5 font-mono text-xs outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setShowMapPicker((prev) => !prev)}
-                  className="text-[11px] text-primary hover:underline font-medium block"
+          {/* Title + description */}
+          <div>
+            <label className={label}>Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Post title"
+              className={input}
+            />
+          </div>
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-[11px] font-medium text-muted-foreground">Description</span>
+              <div className="flex items-center gap-2">
+                {QUICK_SYMBOLS.slice(0, 6).map((sym) => (
+                  <button
+                    key={sym}
+                    type="button"
+                    onClick={() => insertSymbol(sym)}
+                    className="text-xs opacity-70 hover:opacity-100"
+                    title={`Insert ${sym}`}
+                  >
+                    {sym}
+                  </button>
+                ))}
+                <span
+                  className={`font-mono text-[11px] ${
+                    caption.length > 1500
+                      ? "font-semibold text-destructive"
+                      : "text-muted-foreground"
+                  }`}
                 >
-                  {showMapPicker ? "▲ Hide map search picker" : "▼ Search place or pick on map"}
-                </button>
-
-                {showMapPicker && (
-                  <div className="pt-2 border-t border-border">
-                    <LocationPicker value={loc} onChange={setLoc} />
-                  </div>
-                )}
-              </div>
-
-              {/* 5. Call To Action (Optional) */}
-              <div className="rounded-xl border border-border bg-background p-4 shadow-sm space-y-3">
-                <label className="block text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                  Call To Action Button (Optional)
-                </label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block mb-1">Button Action</span>
-                    <select
-                      value={ctaType}
-                      onChange={(e) => setCtaType(e.target.value)}
-                      className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
-                    >
-                      {CTA_OPTIONS.map((opt) => (
-                        <option key={opt.value} value={opt.value}>
-                          {opt.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-                  <div>
-                    <span className="text-[10px] text-muted-foreground block mb-1">Target URL / Phone</span>
-                    <input
-                      value={ctaUrl}
-                      onChange={(e) => setCtaUrl(e.target.value)}
-                      placeholder="https://yourwebsite.com/book"
-                      className="w-full rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:border-primary"
-                    />
-                  </div>
-                </div>
+                  {caption.length}/1500
+                </span>
               </div>
             </div>
+            <textarea
+              value={caption}
+              onChange={(e) => setCaption(e.target.value)}
+              rows={6}
+              className={`${input} resize-y p-3 leading-relaxed`}
+            />
+          </div>
 
-            {/* Right Column: Sticky Live Preview & Post Summary (5 cols) */}
-            <div className="lg:col-span-5 space-y-4">
-              <div className="sticky top-0 space-y-4">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
-                    <Eye className="h-3.5 w-3.5 text-primary" /> Live Post Preview
-                  </div>
-                  <span className="text-[10px] text-muted-foreground">
-                    Google Business &amp; Social layout
-                  </span>
-                </div>
+          {/* Keywords */}
+          <div>
+            <label className={label}>Keywords</label>
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 focus-within:border-primary">
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted py-0.5 pl-2 pr-1 text-[11px]"
+                >
+                  #{t}
+                  <button
+                    type="button"
+                    onClick={() => removeTag(t)}
+                    aria-label={`Remove ${t}`}
+                    className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTag(tagInput);
+                  }
+                }}
+                onBlur={() => tagInput.trim() && addTag(tagInput)}
+                placeholder={tags.length ? "" : "Type and press Enter"}
+                className="min-w-[120px] flex-1 bg-transparent py-1 text-xs outline-none"
+              />
+            </div>
+          </div>
 
-                {/* Card Preview Mockup */}
-                <div className="rounded-xl border border-border bg-card shadow-lg p-4 space-y-3">
-                  {/* Card Header */}
-                  <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-full bg-primary/20 flex items-center justify-center text-primary font-bold text-sm">
-                      GB
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <div className="text-sm font-semibold text-foreground truncate">
-                        Your Business
-                      </div>
-                      <div className="text-[11px] text-muted-foreground truncate">
-                        {locationLabel || loc?.label || "No location set"} · Scheduled
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Scheduled time reminder badge */}
-                  {scheduledAt && (
-                    <div className="flex items-center gap-1.5 rounded-md border border-amber-500/30 bg-amber-500/10 px-2.5 py-1 text-xs text-amber-500">
-                      <Clock className="h-3 w-3 shrink-0" />
-                      <span>
-                        Delivers on: <strong>{new Date(scheduledAt).toLocaleString()}</strong>
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Post Title */}
-                  {title && (
-                    <div className="text-sm font-bold text-foreground leading-snug">
-                      {title}
-                    </div>
-                  )}
-
-                  {/* Post Body Caption */}
-                  <div className="whitespace-pre-wrap text-xs leading-relaxed text-foreground/90 max-h-60 overflow-y-auto">
-                    {caption.trim() ? (
-                      caption
-                    ) : (
-                      <span className="italic text-muted-foreground">
-                        Post caption preview will appear here…
-                      </span>
-                    )}
-                  </div>
-
-                  {/* Image Grid Preview */}
-                  {attachedImages.length > 0 && (
-                    <div
-                      className={`grid gap-1.5 rounded-lg overflow-hidden ${
-                        attachedImages.length === 1
-                          ? "grid-cols-1"
-                          : attachedImages.length === 2
-                            ? "grid-cols-2"
-                            : "grid-cols-2 sm:grid-cols-3"
+          {/* Schedule + networks */}
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={label}>Schedule</label>
+              <input
+                type="datetime-local"
+                value={scheduledAt}
+                onChange={(e) => setScheduledAt(e.target.value)}
+                className={input}
+              />
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const d = new Date();
+                    d.setDate(d.getDate() + 1);
+                    d.setHours(9, 0, 0, 0);
+                    setScheduledAt(formatLocalDatetime(d));
+                  }}
+                  className={chip}
+                >
+                  Tomorrow 9 AM
+                </button>
+                {[2, 3, 5].map((n) => (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => presetFromLastPost(n)}
+                    className={chip}
+                    title={
+                      lastFuture
+                        ? `${n} days after the last scheduled post (${lastFuture.toLocaleString()})`
+                        : `${n} days from today (no later post scheduled)`
+                    }
+                  >
+                    +{n} Days
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={label}>Networks</label>
+              <div className="flex flex-wrap gap-1.5">
+                {SOCIAL_NETWORKS.map((n) => {
+                  const isSelected = networks.includes(n.id);
+                  return (
+                    <button
+                      key={n.id}
+                      type="button"
+                      onClick={() => toggleNetwork(n.id)}
+                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
+                        isSelected
+                          ? "bg-primary text-primary-foreground"
+                          : "border border-border text-muted-foreground hover:text-foreground"
                       }`}
                     >
-                      {attachedImages.map((img) => (
-                        <div key={img.id} className="relative aspect-video w-full overflow-hidden bg-muted">
-                          <SignedImage
-                            bucket="frames"
-                            path={img.storage_path}
-                            alt={img.name}
-                            className="h-full w-full object-cover"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* Tags Footer */}
-                  {tags.length > 0 && (
-                    <div className="flex flex-wrap gap-1 text-[11px] text-primary pt-1">
-                      {tags.map((t) => (
-                        <span key={t}>#{t}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* CTA Button Preview */}
-                  {ctaType && (
-                    <div className="pt-2">
-                      <button
-                        type="button"
-                        className="w-full rounded-md bg-primary py-2 text-xs font-semibold text-primary-foreground shadow-sm hover:opacity-90"
-                      >
-                        {CTA_OPTIONS.find((c) => c.value === ctaType)?.label || "Learn More"}
-                      </button>
-                    </div>
-                  )}
-                </div>
-
-                {/* Meta summary card */}
-                <div className="rounded-xl border border-border bg-muted/20 p-3 space-y-2 text-xs">
-                  <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                    Post Delivery Summary
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-[11px]">
-                    <div className="rounded border border-border/60 bg-background p-2">
-                      <span className="text-muted-foreground block text-[10px]">Images</span>
-                      <strong className="text-foreground">{attachedImages.length} attached</strong>
-                    </div>
-                    <div className="rounded border border-border/60 bg-background p-2">
-                      <span className="text-muted-foreground block text-[10px]">Networks</span>
-                      <strong className="text-foreground">{networks.length} selected</strong>
-                    </div>
-                  </div>
-                </div>
+                      {n.label}
+                    </button>
+                  );
+                })}
               </div>
+            </div>
+          </div>
+
+          {/* Geo-tag & location */}
+          <div className="space-y-2 rounded-lg border border-border p-3">
+            <div className="flex items-center justify-between">
+              <span className="flex items-center gap-1.5 text-xs font-medium">
+                <MapPin className="h-3.5 w-3.5 text-primary" /> Geo-tag &amp; location
+              </span>
+              {loc?.lat != null && loc?.lng != null && (
+                <a
+                  href={`https://www.google.com/maps?q=${loc.lat},${loc.lng}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 text-[11px] text-primary hover:underline"
+                >
+                  <ExternalLink className="h-3 w-3" /> Map
+                </a>
+              )}
+            </div>
+
+            {geotaggedAttached.length > 0 && (
+              <div className="space-y-1">
+                {geotaggedAttached.map((img) => {
+                  const imgLat = Number(img.lat);
+                  const imgLng = Number(img.lng);
+                  const inUse =
+                    loc != null &&
+                    Math.abs(loc.lat - imgLat) < 1e-7 &&
+                    Math.abs(loc.lng - imgLng) < 1e-7;
+                  return (
+                    <div
+                      key={img.id}
+                      className="flex flex-wrap items-center gap-2 rounded-md bg-emerald-500/10 px-2 py-1.5 text-[11px]"
+                    >
+                      <GeoTaggedBadge lat={img.lat} lng={img.lng} compact />
+                      <span className="min-w-0 flex-1 truncate" title={img.title || img.name}>
+                        {img.title || img.name}
+                      </span>
+                      <span className="font-mono text-foreground">
+                        Lat {imgLat.toFixed(6)} · Lng {imgLng.toFixed(6)}
+                      </span>
+                      {inUse ? (
+                        <span className="text-emerald-600 dark:text-emerald-400">In use</span>
+                      ) : (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setLoc({
+                              lat: imgLat,
+                              lng: imgLng,
+                              label: locationLabel || img.title || img.name,
+                            })
+                          }
+                          className="font-medium text-primary hover:underline"
+                        >
+                          Use
+                        </button>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+
+            <input
+              value={locationLabel}
+              onChange={(e) => setLocationLabel(e.target.value)}
+              placeholder="Location label, e.g. Dubai Marina"
+              className={input}
+            />
+            <div className="grid grid-cols-2 gap-2">
+              <input
+                type="number"
+                step="any"
+                value={latInput}
+                onChange={(e) => handleManualCoordChange(e.target.value, lngInput)}
+                placeholder="Latitude"
+                aria-label="Latitude"
+                className={`${input} font-mono`}
+              />
+              <input
+                type="number"
+                step="any"
+                value={lngInput}
+                onChange={(e) => handleManualCoordChange(latInput, e.target.value)}
+                placeholder="Longitude"
+                aria-label="Longitude"
+                className={`${input} font-mono`}
+              />
+            </div>
+            <button
+              type="button"
+              onClick={() => setShowMapPicker((prev) => !prev)}
+              className="text-[11px] font-medium text-primary hover:underline"
+            >
+              {showMapPicker ? "Hide map" : "Search place or pick on map"}
+            </button>
+            {showMapPicker && <LocationPicker value={loc} onChange={setLoc} />}
+          </div>
+
+          {/* CTA */}
+          <div className="grid gap-2 sm:grid-cols-2">
+            <div>
+              <label className={label}>Button</label>
+              <select
+                value={ctaType}
+                onChange={(e) => setCtaType(e.target.value)}
+                className={input}
+              >
+                {CTA_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className={label}>Button link / phone</label>
+              <input
+                value={ctaUrl}
+                onChange={(e) => setCtaUrl(e.target.value)}
+                placeholder="https://…"
+                disabled={!ctaType}
+                className={`${input} disabled:opacity-50`}
+              />
             </div>
           </div>
         </div>
 
-        {/* Modal Footer */}
-        <div className="flex items-center justify-between border-t border-border px-5 py-3 bg-muted/20">
-          <p className="text-[11px] text-muted-foreground hidden sm:block">
-            Posts scheduled for future delivery will be automatically dispatched at the specified time.
-          </p>
-          <div className="flex items-center gap-2 ml-auto">
-            <button
-              type="button"
-              onClick={onClose}
-              disabled={saving}
-              className="rounded-lg border border-border px-4 py-2 text-xs font-medium hover:bg-accent disabled:opacity-50"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={save}
-              disabled={saving || !caption.trim() || !scheduledAt}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50 shadow-sm"
-            >
-              {saving ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <Save className="h-3.5 w-3.5" />
-              )}
-              Save Changes
-            </button>
-          </div>
+        {/* Footer */}
+        <div className="flex items-center justify-end gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onClose}
+            disabled={saving}
+            className="rounded-lg border border-border px-4 py-2 text-xs font-medium hover:bg-accent disabled:opacity-50"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={save}
+            disabled={saving || !caption.trim() || !scheduledAt}
+            className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <Save className="h-3.5 w-3.5" />
+            )}
+            Save
+          </button>
         </div>
       </div>
     </div>

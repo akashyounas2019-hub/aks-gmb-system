@@ -1,11 +1,13 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Fetch nearby cities/localities via the Google Places connector gateway,
  * then bucket them by distance from the origin.
  */
 export const getNearbyCities = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
     z
       .object({

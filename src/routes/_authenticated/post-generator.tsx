@@ -81,7 +81,6 @@ type ImageFolder = {
   name: string;
 };
 
-const PREVIEW_COUNT = 8;
 
 // Dubai-area names the business serves — 7-8 are randomly picked per
 // generated post and mentioned as a "Serving:" line in the caption.
@@ -157,7 +156,7 @@ export function PostGeneratorPage({
   const compose = useServerFn(composePost);
   const send = useServerFn(sendPostToSocialPlanner);
   const saveDraft = useServerFn(upsertDraft);
-  const [tab, setTab] = useState<"compose" | "storage" | "history">("compose");
+  const [tab, setTab] = useState<"compose" | "storage" | "history" | "templates">("compose");
   const [saving, setSaving] = useState(false);
 
   // Keywords — manual list is primary; CSV imports come from the `keywords` table
@@ -194,6 +193,11 @@ export function PostGeneratorPage({
   const [mentions, setMentions] = useState<string[]>([]);
   const [mentionInput, setMentionInput] = useState("");
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewExpanded, setPreviewExpanded] = useState(false);
+  // Every time the Preview popup opens, start with the mobile-truncated view.
+  useEffect(() => {
+    if (previewOpen) setPreviewExpanded(false);
+  }, [previewOpen]);
 
   const [caption, setCaption] = useState("");
   const [generating, setGenerating] = useState(false);
@@ -213,7 +217,10 @@ export function PostGeneratorPage({
   const TEMPLATE_FOLDERS_KEY = "post-generator:template-folders";
   const [templates, setTemplates] = useState<PostTemplate[]>([]);
   const [templateFolders, setTemplateFolders] = useState<string[]>([]);
-  const [templatesOpen, setTemplatesOpen] = useState(false);
+  // Templates used to live in a modal; they are now a top-level tab. Keep the
+  // old open/close API so every existing call site keeps working.
+  const templatesOpen = tab === "templates";
+  const setTemplatesOpen = (open: boolean) => setTab(open ? "templates" : "compose");
   // "__all" = every template; "" = uncategorized
   const [activeFolder, setActiveFolder] = useState<string>("__all");
   const [templateSearch, setTemplateSearch] = useState("");
@@ -484,7 +491,6 @@ export function PostGeneratorPage({
     }
     function onKey(e: KeyboardEvent) {
       if (e.key === "Escape") {
-        if (templatesOpen) setTemplatesOpen(false);
         if (symbolsOpen) setSymbolsOpen(false);
       }
     }
@@ -494,7 +500,7 @@ export function PostGeneratorPage({
       document.removeEventListener("mousedown", onDown);
       document.removeEventListener("keydown", onKey);
     };
-  }, [importOpen, templatesOpen, symbolsOpen]);
+  }, [importOpen, symbolsOpen]);
 
   const CAPTION_LIMIT = 1500;
   const captionLen = caption.length;
@@ -507,7 +513,8 @@ export function PostGeneratorPage({
         .from("image_tags")
         .select("image_id, tag_id, tags(slug)");
       const publishedTagIds = new Set<string>();
-      for (const r of (tagRows as Array<{ image_id: string; tags?: { slug: string } | null }>) ?? []) {
+      for (const r of (tagRows as Array<{ image_id: string; tags?: { slug: string } | null }>) ??
+        []) {
         if (r.tags?.slug === "published" || r.tags?.slug === "posted") {
           publishedTagIds.add(r.image_id);
         }
@@ -546,10 +553,7 @@ export function PostGeneratorPage({
         .from("keyword_folders" as any)
         .select("id,name,color,parent_id")
         .order("position", { ascending: true }),
-      supabase
-        .from("image_folders")
-        .select("id,name")
-        .order("name", { ascending: true }),
+      supabase.from("image_folders").select("id,name").order("name", { ascending: true }),
     ]).then(([{ data: kws }, { data: fs }, { data: imgFs }]) => {
       setImportedKw((kws ?? []) as KeywordRow[]);
       setKeywordFolders((fs ?? []) as unknown as KeywordFolder[]);
@@ -579,7 +583,6 @@ export function PostGeneratorPage({
     });
   }, [images, selectedImageFolderId]);
 
-  const previewImages = visibleImages.slice(0, PREVIEW_COUNT);
 
   const selectedImagesList = useMemo(() => {
     return Array.from(selectedImages)
@@ -775,10 +778,10 @@ export function PostGeneratorPage({
       });
       if (res.status === "queued") {
         if ("warning" in res && res.warning) {
-          toast.success(
-            `Post saved and queued in Scheduler!`,
-            { description: res.warning as string, duration: 5000 },
-          );
+          toast.success(`Post saved and queued in Scheduler!`, {
+            description: res.warning as string,
+            duration: 5000,
+          });
         } else {
           const formattedTime = scheduledAt
             ? new Date(scheduledAt).toLocaleString()
@@ -960,19 +963,13 @@ export function PostGeneratorPage({
   }
 
   return (
-    <div className="w-full py-6 pl-6 md:py-10 md:pl-10" style={{ paddingRight: 50 }}>
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <h1 className="text-3xl">{pageTitle ?? "GMB Post Generator"}</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            Enter your keywords, pick images + location, generate with AI, then push to GHL Social
-            Planner.
-          </p>
-        </div>
-      </div>
+    <div className="mx-auto w-full max-w-[1400px] px-4 py-5 md:px-8 md:py-6">
+      {/* Only embedders that pass an explicit title get a heading; the GMB
+          screen itself goes straight to the tabs. */}
+      {pageTitle && <h1 className="mb-4 text-2xl">{pageTitle}</h1>}
 
       {/* Top tabs */}
-      <div className="mt-6 border-b border-border">
+      <div className="border-b border-border">
         <nav
           role="tablist"
           aria-label="Post generator sections"
@@ -982,6 +979,7 @@ export function PostGeneratorPage({
             { id: "compose" as const, label: "Compose", icon: PenSquare },
             { id: "storage" as const, label: "Post Storage", icon: Inbox },
             { id: "history" as const, label: "History", icon: BarChart3 },
+            { id: "templates" as const, label: "Templates", icon: LayoutTemplate },
           ].map((t) => {
             const active = tab === t.id;
             return (
@@ -1012,321 +1010,324 @@ export function PostGeneratorPage({
         <div className="mt-6">
           <PostHistoryPanel />
         </div>
-      ) : (
-        <div className="mt-8 grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {/* Left column — inputs */}
-          <div className="space-y-6">
-            {/* Keywords — manual first, CSV import as dropdown */}
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-medium">
-                  <KeyRound className="h-4 w-4 text-primary" /> Keywords
-                  {isSocial && (
-                    <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
-                      Optional
-                    </span>
-                  )}
-                  <span className="text-xs text-muted-foreground">({manualKw.length} added)</span>
-                </div>
-                <div className="relative" ref={importPopupRef}>
-                  <button
-                    onClick={() => setImportOpen((v) => !v)}
-                    className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm transition hover:border-primary hover:from-primary/25 hover:to-primary/10 hover:shadow"
-                  >
-                    <FolderOpen className="h-3.5 w-3.5" />
-                    Import from Keyword Library
-                    <ChevronDown className="h-3 w-3 opacity-70" />
-                  </button>
-                  {importOpen && (
-                    <div className="absolute right-0 z-20 mt-1 w-96 rounded-xl border border-border bg-popover p-3 shadow-2xl">
-                      <div className="mb-2 flex items-center justify-between">
-                        <div className="flex items-center gap-1.5 text-xs font-semibold">
-                          <Folder className="h-3.5 w-3.5 text-primary" /> Keyword Library
-                        </div>
-                        <Link
-                          to="/keywords"
-                          className="text-[11px] font-medium text-primary hover:underline"
-                        >
-                          Manage Library →
-                        </Link>
-                      </div>
-
-                      <div className="mb-2.5 flex gap-2">
-                        <input
-                          autoFocus
-                          value={importFilter}
-                          onChange={(e) => setImportFilter(e.target.value)}
-                          placeholder="Search phrase or category…"
-                          className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                        />
-                        <select
-                          value={selectedFolderId}
-                          onChange={(e) => setSelectedFolderId(e.target.value)}
-                          className="max-w-[130px] truncate rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
-                          title="Filter by Category/Folder"
-                        >
-                          <option value="all">All Folders ({importedKw.length})</option>
-                          <option value="unfiled">Uncategorized</option>
-                          {keywordFolders.map((f) => (
-                            <option key={f.id} value={f.id}>
-                              {f.name}
-                            </option>
-                          ))}
-                        </select>
-                      </div>
-
-                      <div className="max-h-72 overflow-y-auto space-y-1 pr-0.5">
-                        {filteredImportKw.length === 0 ? (
-                          <div className="px-2 py-6 text-center text-xs text-muted-foreground">
-                            {importedKw.length === 0
-                              ? "No keywords in library yet. Add or import in Keywords tab."
-                              : "No keywords match your search or category filter."}
+      ) : tab === "templates" ? null : (
+        <div className="mt-5 space-y-5">
+          {/* Row 1 — keywords | geo-tagged images, 50/50 */}
+          <div className="grid items-start gap-5 lg:grid-cols-2">
+            <div className="space-y-5">
+              {/* Keywords — manual first, CSV import as dropdown */}
+              <section className="rounded-xl border border-border bg-card p-4">
+                <div className="mb-3 flex items-center justify-between">
+                  <div className="flex items-center gap-2 text-sm font-medium">
+                    <KeyRound className="h-4 w-4 text-primary" /> Keywords
+                    {isSocial && (
+                      <span className="rounded-full border border-border px-1.5 py-0.5 text-[10px] uppercase tracking-widest text-muted-foreground">
+                        Optional
+                      </span>
+                    )}
+                    <span className="text-xs text-muted-foreground">({manualKw.length} added)</span>
+                  </div>
+                  <div className="relative" ref={importPopupRef}>
+                    <button
+                      onClick={() => setImportOpen((v) => !v)}
+                      className="inline-flex items-center gap-1.5 rounded-md border border-primary/40 bg-gradient-to-br from-primary/15 to-primary/5 px-3 py-1.5 text-xs font-semibold text-primary shadow-sm transition hover:border-primary hover:from-primary/25 hover:to-primary/10 hover:shadow"
+                    >
+                      <FolderOpen className="h-3.5 w-3.5" />
+                      Keyword Library
+                      <ChevronDown className="h-3 w-3 opacity-70" />
+                    </button>
+                    {importOpen && (
+                      <div className="absolute right-0 z-20 mt-1 w-96 rounded-xl border border-border bg-popover p-3 shadow-2xl">
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="flex items-center gap-1.5 text-xs font-semibold">
+                            <Folder className="h-3.5 w-3.5 text-primary" /> Keyword Library
                           </div>
-                        ) : (
-                          filteredImportKw.slice(0, 150).map((k) => {
-                            const folderName = k.folder_id ? folderMap.get(k.folder_id) : null;
-                            return (
-                              <button
-                                key={k.id}
-                                onClick={() => {
-                                  addManualKw(k.phrase);
-                                }}
-                                className="group flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition hover:bg-accent"
-                              >
-                                <div className="min-w-0 flex-1">
-                                  <div className="truncate font-medium">{k.phrase}</div>
-                                  <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
-                                    {folderName && (
-                                      <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
-                                        {folderName}
-                                      </span>
-                                    )}
-                                    {k.cluster && <span>{k.cluster}</span>}
+                          <Link
+                            to="/keywords"
+                            className="text-[11px] font-medium text-primary hover:underline"
+                          >
+                            Manage Library →
+                          </Link>
+                        </div>
+
+                        <div className="mb-2.5 flex gap-2">
+                          <input
+                            autoFocus
+                            value={importFilter}
+                            onChange={(e) => setImportFilter(e.target.value)}
+                            placeholder="Search phrase or category…"
+                            className="flex-1 rounded-md border border-border bg-background px-2.5 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                          />
+                          <select
+                            value={selectedFolderId}
+                            onChange={(e) => setSelectedFolderId(e.target.value)}
+                            className="max-w-[130px] truncate rounded-md border border-border bg-background px-2 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary"
+                            title="Filter by Category/Folder"
+                          >
+                            <option value="all">All Folders ({importedKw.length})</option>
+                            <option value="unfiled">Uncategorized</option>
+                            {keywordFolders.map((f) => (
+                              <option key={f.id} value={f.id}>
+                                {f.name}
+                              </option>
+                            ))}
+                          </select>
+                        </div>
+
+                        <div className="max-h-72 overflow-y-auto space-y-1 pr-0.5">
+                          {filteredImportKw.length === 0 ? (
+                            <div className="px-2 py-6 text-center text-xs text-muted-foreground">
+                              {importedKw.length === 0
+                                ? "No keywords in library yet. Add or import in Keywords tab."
+                                : "No keywords match your search or category filter."}
+                            </div>
+                          ) : (
+                            filteredImportKw.slice(0, 150).map((k) => {
+                              const folderName = k.folder_id ? folderMap.get(k.folder_id) : null;
+                              return (
+                                <button
+                                  key={k.id}
+                                  onClick={() => {
+                                    addManualKw(k.phrase);
+                                  }}
+                                  className="group flex w-full items-center justify-between gap-2 rounded-md px-2.5 py-1.5 text-left text-xs transition hover:bg-accent"
+                                >
+                                  <div className="min-w-0 flex-1">
+                                    <div className="truncate font-medium">{k.phrase}</div>
+                                    <div className="mt-0.5 flex items-center gap-1.5 text-[10px] text-muted-foreground">
+                                      {folderName && (
+                                        <span className="rounded bg-primary/10 px-1.5 py-0.5 font-medium text-primary">
+                                          {folderName}
+                                        </span>
+                                      )}
+                                      {k.cluster && <span>{k.cluster}</span>}
+                                    </div>
                                   </div>
-                                </div>
-                                {k.volume ? (
-                                  <span className="text-[10px] text-muted-foreground group-hover:text-foreground">
-                                    {k.volume.toLocaleString()} vol
-                                  </span>
-                                ) : null}
-                              </button>
-                            );
-                          })
+                                  {k.volume ? (
+                                    <span className="text-[10px] text-muted-foreground group-hover:text-foreground">
+                                      {k.volume.toLocaleString()} vol
+                                    </span>
+                                  ) : null}
+                                </button>
+                              );
+                            })
+                          )}
+                        </div>
+
+                        {filteredImportKw.length > 0 && (
+                          <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2 text-[11px] text-muted-foreground">
+                            <span>
+                              Showing {Math.min(filteredImportKw.length, 150)} of{" "}
+                              {filteredImportKw.length}
+                            </span>
+                            <button
+                              onClick={() => {
+                                filteredImportKw.slice(0, 20).forEach((k) => addManualKw(k.phrase));
+                                setImportOpen(false);
+                              }}
+                              className="font-medium text-primary hover:underline"
+                            >
+                              + Add top 20 to post
+                            </button>
+                          </div>
                         )}
                       </div>
-
-                      {filteredImportKw.length > 0 && (
-                        <div className="mt-2.5 flex items-center justify-between border-t border-border pt-2 text-[11px] text-muted-foreground">
-                          <span>
-                            Showing {Math.min(filteredImportKw.length, 150)} of{" "}
-                            {filteredImportKw.length}
-                          </span>
-                          <button
-                            onClick={() => {
-                              filteredImportKw.slice(0, 20).forEach((k) => addManualKw(k.phrase));
-                              setImportOpen(false);
-                            }}
-                            className="font-medium text-primary hover:underline"
-                          >
-                            + Add top 20 to post
-                          </button>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                    )}
+                  </div>
                 </div>
-              </div>
 
-              {/* Manual entry */}
-              <div className="flex gap-2">
-                <input
-                  value={manualInput}
-                  onChange={(e) => setManualInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") {
-                      e.preventDefault();
-                      addManualKw(manualInput);
-                    }
-                  }}
-                  placeholder="Type a keyword and press Enter (or paste comma-separated)"
-                  className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                />
-                <button
-                  onClick={() => addManualKw(manualInput)}
-                  className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
-                >
-                  <Plus className="h-3.5 w-3.5" /> Add
-                </button>
-              </div>
-
-              {manualKw.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-1.5">
+                {/* Tag input — keywords are added automatically on Enter,
+                      comma, Tab, paste or when the field loses focus. */}
+                <div className="flex max-h-28 flex-wrap items-center gap-1.5 overflow-y-auto rounded-lg border border-border bg-background px-2 py-1.5 focus-within:border-primary focus-within:ring-1 focus-within:ring-primary/40">
                   {manualKw.map((k) => (
                     <span
                       key={k}
-                      className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs text-primary"
+                      className="inline-flex items-center gap-1 rounded-full border border-primary/40 bg-primary/10 py-0.5 pl-2.5 pr-1 text-xs text-primary"
                     >
                       {k}
                       <button
                         onClick={() => removeManualKw(k)}
-                        className="ml-0.5 rounded-full hover:bg-primary/20"
+                        className="rounded-full p-0.5 hover:bg-primary/20"
                         aria-label={`Remove ${k}`}
                       >
                         <X className="h-3 w-3" />
                       </button>
                     </span>
                   ))}
+                  <input
+                    value={manualInput}
+                    aria-label="Add keyword"
+                    onChange={(e) => {
+                      const v = e.target.value;
+                      // A typed/pasted separator commits everything before it.
+                      const lastSep = Math.max(v.lastIndexOf(","), v.lastIndexOf("\n"));
+                      if (lastSep >= 0) {
+                        addManualKw(v.slice(0, lastSep));
+                        setManualInput(v.slice(lastSep + 1).trimStart());
+                      } else {
+                        setManualInput(v);
+                      }
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" || (e.key === "Tab" && manualInput.trim())) {
+                        e.preventDefault();
+                        addManualKw(manualInput);
+                      } else if (e.key === "Backspace" && !manualInput && manualKw.length > 0) {
+                        removeManualKw(manualKw[manualKw.length - 1]);
+                      }
+                    }}
+                    onBlur={() => manualInput.trim() && addManualKw(manualInput)}
+                    placeholder={
+                      manualKw.length ? "Add another…" : "Type a keyword and press Enter or comma"
+                    }
+                    className="min-w-[160px] flex-1 bg-transparent px-1 py-1 text-sm outline-none"
+                  />
                 </div>
-              )}
-            </section>
-
-            {/* Serving areas — 7-8 random Dubai areas mentioned in every GMB post */}
-            {!isSocial && (
-              <section className="rounded-xl border border-border bg-card p-4">
-                <div className="mb-3 flex items-center justify-between">
-                  <div className="flex items-center gap-2 text-sm font-medium">
-                    <MapPin className="h-4 w-4 text-primary" /> Serving areas
+              </section>
+              {/* Hashtags & Mentions — social platforms only */}
+              {isSocial && (
+                <section className="rounded-xl border border-border bg-card p-4">
+                  <div className="mb-3 flex items-center gap-2 text-sm font-medium">
+                    Hashtags &amp; mentions
                     <span className="text-xs text-muted-foreground">
-                      ({servingAreas.length} of {SERVING_AREAS.length})
+                      ({hashtags.length} tags · {mentions.length} mentions)
                     </span>
                   </div>
-                  <button
-                    onClick={() => setServingAreas(pickServingAreas())}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
-                  >
-                    Shuffle
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-1.5">
-                  {servingAreas.map((a) => (
-                    <span
-                      key={a}
-                      className="inline-flex items-center rounded-full border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs text-primary"
-                    >
-                      {a}
-                    </span>
-                  ))}
-                </div>
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  A fresh set of {servingAreas.length} areas is mentioned in every generated post.
-                  Shuffle to pick a different set.
-                </p>
-              </section>
-            )}
-
-            {/* Hashtags & Mentions — social platforms only */}
-            {isSocial && (
-              <section className="rounded-xl border border-border bg-card p-4">
-                <div className="mb-3 flex items-center gap-2 text-sm font-medium">
-                  Hashtags &amp; mentions
-                  <span className="text-xs text-muted-foreground">
-                    ({hashtags.length} tags · {mentions.length} mentions)
-                  </span>
-                </div>
-                <div className="space-y-3">
-                  <div>
-                    <label className="mb-1 block text-xs text-muted-foreground">Hashtags</label>
-                    <div className="flex gap-2">
-                      <input
-                        value={hashtagInput}
-                        onChange={(e) => setHashtagInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " " || e.key === ",") {
-                            e.preventDefault();
-                            addHashtag(hashtagInput);
-                          }
-                        }}
-                        placeholder="marketing, socialmedia (Enter or space to add)"
-                        className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                      />
-                      <button
-                        onClick={() => addHashtag(hashtagInput)}
-                        className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Add
-                      </button>
-                    </div>
-                    {hashtags.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {hashtags.map((h) => (
-                          <span
-                            key={h}
-                            className="inline-flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-600 dark:text-sky-400"
-                          >
-                            #{h}
-                            <button
-                              onClick={() => removeHashtag(h)}
-                              className="ml-0.5 rounded-full hover:bg-sky-500/20"
-                              aria-label={`Remove #${h}`}
-                            >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
+                  <div className="space-y-3">
+                    <div>
+                      <label className="mb-1 block text-xs text-muted-foreground">Hashtags</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={hashtagInput}
+                          onChange={(e) => setHashtagInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " " || e.key === ",") {
+                              e.preventDefault();
+                              addHashtag(hashtagInput);
+                            }
+                          }}
+                          placeholder="marketing, socialmedia (Enter or space to add)"
+                          className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                        />
+                        <button
+                          onClick={() => addHashtag(hashtagInput)}
+                          className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add
+                        </button>
                       </div>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="mb-1 block text-xs text-muted-foreground">Mentions</label>
-                    <div className="flex gap-2">
-                      <input
-                        value={mentionInput}
-                        onChange={(e) => setMentionInput(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter" || e.key === " " || e.key === ",") {
-                            e.preventDefault();
-                            addMention(mentionInput);
-                          }
-                        }}
-                        placeholder={`@handle (${defaultPlatform === "instagram" ? "Instagram" : "Facebook"} account)`}
-                        className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
-                      />
-                      <button
-                        onClick={() => addMention(mentionInput)}
-                        className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
-                      >
-                        <Plus className="h-3.5 w-3.5" /> Add
-                      </button>
-                    </div>
-                    {mentions.length > 0 && (
-                      <div className="mt-2 flex flex-wrap gap-1.5">
-                        {mentions.map((m) => (
-                          <span
-                            key={m}
-                            className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400"
-                          >
-                            @{m}
-                            <button
-                              onClick={() => removeMention(m)}
-                              className="ml-0.5 rounded-full hover:bg-emerald-500/20"
-                              aria-label={`Remove @${m}`}
+                      {hashtags.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {hashtags.map((h) => (
+                            <span
+                              key={h}
+                              className="inline-flex items-center gap-1 rounded-full border border-sky-500/40 bg-sky-500/10 px-2.5 py-1 text-xs text-sky-600 dark:text-sky-400"
                             >
-                              <X className="h-3 w-3" />
-                            </button>
-                          </span>
-                        ))}
+                              #{h}
+                              <button
+                                onClick={() => removeHashtag(h)}
+                                className="ml-0.5 rounded-full hover:bg-sky-500/20"
+                                aria-label={`Remove #${h}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="mb-1 block text-xs text-muted-foreground">Mentions</label>
+                      <div className="flex gap-2">
+                        <input
+                          value={mentionInput}
+                          onChange={(e) => setMentionInput(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" || e.key === " " || e.key === ",") {
+                              e.preventDefault();
+                              addMention(mentionInput);
+                            }
+                          }}
+                          placeholder={`@handle (${defaultPlatform === "instagram" ? "Instagram" : "Facebook"} account)`}
+                          className="flex-1 rounded border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary"
+                        />
+                        <button
+                          onClick={() => addMention(mentionInput)}
+                          className="inline-flex items-center gap-1 rounded bg-primary px-3 py-2 text-xs text-primary-foreground hover:opacity-90"
+                        >
+                          <Plus className="h-3.5 w-3.5" /> Add
+                        </button>
                       </div>
-                    )}
+                      {mentions.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {mentions.map((m) => (
+                            <span
+                              key={m}
+                              className="inline-flex items-center gap-1 rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1 text-xs text-emerald-600 dark:text-emerald-400"
+                            >
+                              @{m}
+                              <button
+                                onClick={() => removeMention(m)}
+                                className="ml-0.5 rounded-full hover:bg-emerald-500/20"
+                                aria-label={`Remove @${m}`}
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <p className="mt-3 text-[11px] text-muted-foreground">
-                  Hashtags and mentions are appended to the generated post automatically.
-                </p>
-              </section>
-            )}
+                  <p className="mt-3 text-[11px] text-muted-foreground">
+                    Hashtags and mentions are appended to the generated post automatically.
+                  </p>
+                </section>
+              )}
+            </div>
 
             {/* Images picker — preview + View all */}
             <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <div className="mb-3 space-y-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ImageIcon className="h-4 w-4 text-primary" /> Geo-tagged images
                   <span className="text-xs text-muted-foreground">
-                    ({selectedImages.size}/4 selected · {visibleImages.length} available ·
-                    unpublished only)
+                    ({selectedImages.size}/4 · {visibleImages.length} available)
                   </span>
                 </div>
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* Template + LLM (merged from the old "Template & AI model" card) */}
+                  <select
+                    value={styleTemplate?.id ?? ""}
+                    onChange={(e) => {
+                      const t = templates.find((x) => x.id === e.target.value);
+                      setStyleTemplate(t ?? null);
+                    }}
+                    className="max-w-[170px] truncate rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+                    title="Template (structure only) — the AI copies its format, not its wording"
+                    aria-label="Template"
+                  >
+                    <option value="">No template</option>
+                    {templates.map((t) => (
+                      <option key={t.id} value={t.id}>
+                        {t.name}
+                      </option>
+                    ))}
+                  </select>
+                  <select
+                    value={llm}
+                    onChange={(e) => setLlm(e.target.value as typeof llm)}
+                    className="rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+                    title="AI model used by Generate"
+                    aria-label="LLM"
+                  >
+                    <option value="gemini">Gemini</option>
+                    <option value="chatgpt">ChatGPT</option>
+                    <option value="anthropic">Claude</option>
+                    <option value="openrouter">OpenRouter</option>
+                    <option value="aks">AKS Cloud</option>
+                  </select>
                   {imageFolders.length > 0 && (
                     <select
                       value={selectedImageFolderId}
@@ -1367,35 +1368,436 @@ export function PostGeneratorPage({
                 </div>
               </div>
 
-              {previewImages.length === 0 ? (
-                <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
-                  {images.length === 0
-                    ? "No geo-tagged images available. Geo-tag images in the library first."
-                    : "No geo-tagged images match the selected folder filter."}
-                </div>
-              ) : (
-                <>
-                  <div className="grid grid-cols-4 gap-2">
-                    {previewImages.map((img) => (
-                      <ImageThumb
+              {/* Compact picker — the full grid lives in the "Select Images" popup */}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setGalleryOpen(true)}
+                  disabled={images.length === 0}
+                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-40"
+                >
+                  <ImageIcon className="h-4 w-4" /> Select Images
+                </button>
+                {selectedImagesList.length > 0 ? (
+                  <div className="flex min-w-0 gap-1.5 overflow-x-auto">
+                    {selectedImagesList.map((img) => (
+                      <button
                         key={img.id}
-                        img={img}
-                        active={selectedImages.has(img.id)}
-                        onClick={() => toggleImage(img.id)}
-                      />
+                        type="button"
+                        onClick={() => {
+                          setActiveDetailId(img.id);
+                          setGalleryOpen(true);
+                        }}
+                        title={img.title || img.name}
+                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-primary/50"
+                      >
+                        <SignedImage
+                          bucket="frames"
+                          path={img.storage_path}
+                          alt={img.name}
+                          className="h-full w-full object-cover"
+                        />
+                      </button>
                     ))}
                   </div>
-                  {visibleImages.length > PREVIEW_COUNT && (
-                    <button
-                      onClick={() => setGalleryOpen(true)}
-                      className="mt-3 w-full rounded-md border border-border py-2 text-xs font-medium hover:border-primary/50 hover:bg-accent"
-                    >
-                      View all {visibleImages.length} images →
-                    </button>
-                  )}
-                </>
-              )}
+                ) : (
+                  <span className="text-xs text-muted-foreground">
+                    {images.length === 0
+                      ? "No geo-tagged images yet — geo-tag images in the library first."
+                      : "No images selected (max 4)."}
+                  </span>
+                )}
+              </div>
+            </section>
+          </div>
 
+          {/* Row 3 — Description (full width) with the Generate action in its header */}
+          <section className="rounded-xl border border-border bg-card p-4">
+            <div className="mb-2 flex items-center justify-between">
+              <div>
+                <div className="text-sm font-medium">Description</div>
+                <div className="text-[11px] text-muted-foreground">
+                  This is what will be posted. Max {CAPTION_LIMIT} characters.
+                </div>
+                {styleTemplate && (
+                  <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
+                    <LayoutTemplate className="h-3 w-3 shrink-0" />
+                    <span className="truncate">
+                      Template: <strong>{styleTemplate.name}</strong>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setStyleTemplate(null)}
+                      className="rounded-full p-0.5 hover:bg-primary/20"
+                      aria-label="Clear template"
+                      title="Clear template"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                )}
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={openTemplatesModal}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
+                >
+                  <LayoutTemplate className="h-3 w-3" /> Templates
+                  {templates.length > 0 && (
+                    <span className="ml-1 rounded-full bg-primary/15 px-1.5 text-[10px] text-primary">
+                      {templates.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={copyOut}
+                  disabled={!caption}
+                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
+                >
+                  <Copy className="h-3 w-3" /> Copy
+                </button>
+                <button
+                  onClick={handleGenerate}
+                  disabled={generating}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:opacity-90 disabled:opacity-50"
+                >
+                  {generating ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Sparkles className="h-4 w-4" />
+                  )}
+                  {generating ? "Generating…" : "Generate with AI"}
+                </button>
+              </div>
+            </div>
+
+            <div className="relative">
+              {/* Mirror layer — renders the text with the over-limit slice
+                highlighted in red. Sits behind a transparent-text textarea. */}
+              <div
+                aria-hidden
+                ref={captionMirrorRef}
+                dir="ltr"
+                className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm text-left`}
+                style={{ fontFamily: "inherit", lineHeight: "1.5" }}
+              >
+                {caption.length <= CAPTION_LIMIT ? (
+                  <>
+                    {caption}
+                    {/* trailing space keeps last line height stable */}
+                    {"\u200b"}
+                  </>
+                ) : (
+                  <>
+                    <span>{caption.slice(0, CAPTION_LIMIT)}</span>
+                    <span className="rounded-sm bg-red-500/25 text-red-500">
+                      {caption.slice(CAPTION_LIMIT)}
+                    </span>
+                    {"\u200b"}
+                  </>
+                )}
+              </div>
+              <textarea
+                ref={captionRef}
+                value={caption}
+                onChange={(e) => setCaption(e.target.value)}
+                onScroll={(e) => {
+                  if (captionMirrorRef.current) {
+                    captionMirrorRef.current.scrollTop = e.currentTarget.scrollTop;
+                  }
+                }}
+                rows={10}
+                dir="ltr"
+                aria-invalid={captionOver}
+                placeholder="Click Generate with AI to draft a post, then edit here."
+                spellCheck
+                style={{ lineHeight: "1.5" }}
+                className={`relative w-full rounded border bg-transparent p-3 text-sm text-transparent caret-foreground outline-none transition selection:bg-primary/25 selection:text-transparent ${
+                  captionOver
+                    ? "border-red-500 focus:ring-2 focus:ring-red-500/40"
+                    : "border-border focus:ring-2 focus:ring-primary/40"
+                }`}
+              />
+            </div>
+
+            {/* Symbol picker */}
+            <div className="mt-2 flex items-center justify-between gap-2">
+              <div className="relative" ref={symbolsPopupRef}>
+                <button
+                  type="button"
+                  onClick={() => setSymbolsOpen((v) => !v)}
+                  aria-expanded={symbolsOpen}
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
+                >
+                  <Smile className="h-3.5 w-3.5" /> Insert symbol
+                  <ChevronDown className="h-3 w-3 opacity-70" />
+                </button>
+                {symbolsOpen && (
+                  <div className="absolute left-0 top-full z-30 mt-1.5 max-h-[420px] w-[360px] overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-xl">
+                    <div className="mb-2 flex items-center justify-between">
+                      <div className="text-xs font-semibold">Insert a symbol</div>
+                      <button
+                        onClick={() => setSymbolsOpen(false)}
+                        aria-label="Close"
+                        className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                      >
+                        <X className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                    <div className="space-y-3">
+                      {SYMBOL_GROUPS.map((g) => (
+                        <div key={g.label}>
+                          <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
+                            {g.label}
+                          </div>
+                          <div className="grid grid-cols-8 gap-1">
+                            {g.symbols.map((s, i) => (
+                              <button
+                                key={`${g.label}-${i}`}
+                                type="button"
+                                onClick={() => insertSymbol(s)}
+                                title={`Insert ${s}`}
+                                className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-lg leading-none transition hover:border-primary/40 hover:bg-primary/10"
+                              >
+                                {s}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                    <p className="mt-3 text-[10px] text-muted-foreground">
+                      Click a symbol to insert at the cursor position.
+                    </p>
+                  </div>
+                )}
+              </div>
+              {/* Quick-insert row — most-used cleaning glyphs */}
+              <div className="hidden items-center gap-1 sm:flex">
+                {["✅", "⭐", "📍", "🧼", "✨", "🔥"].map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => insertSymbol(s)}
+                    title={`Insert ${s}`}
+                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-base leading-none hover:border-primary/40 hover:bg-primary/10"
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="mt-2 flex items-center justify-between text-xs">
+              <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
+                {captionOver
+                  ? `Post body exceeds the ${CAPTION_LIMIT}-character limit. Trim ${captionLen - CAPTION_LIMIT} character${captionLen - CAPTION_LIMIT === 1 ? "" : "s"} to send.`
+                  : "Google Business Profile allows up to 1,500 characters per post."}
+              </span>
+              <span
+                className={`font-mono tabular-nums ${
+                  captionOver
+                    ? "font-semibold text-red-500"
+                    : captionLen > CAPTION_LIMIT - 100
+                      ? "text-amber-500"
+                      : "text-muted-foreground"
+                }`}
+              >
+                {captionLen}/{CAPTION_LIMIT}
+              </span>
+            </div>
+          </section>
+
+          {/* Row 4 — publish & schedule (preview lives in the Preview popup) */}
+          {/* Publish & Schedule */}
+          <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-semibold">
+                <Send className="h-4 w-4 text-primary" /> Publish &amp; Schedule
+              </div>
+              {scheduledAt && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
+                  <CalendarClock className="h-3 w-3" />
+                  {new Date(scheduledAt).toLocaleString([], {
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              )}
+            </div>
+
+            {/* Schedule timing box */}
+            <div className="mb-4 rounded-lg border border-border/80 bg-background/60 p-3">
+              <div className="mb-2 flex items-center justify-between">
+                <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                  <Calendar className="h-3.5 w-3.5 text-primary" />
+                  Schedule publication (optional)
+                </label>
+                {scheduledAt && (
+                  <button
+                    type="button"
+                    onClick={() => setScheduledAt("")}
+                    className="text-[11px] text-muted-foreground hover:text-foreground"
+                  >
+                    Clear (Send now)
+                  </button>
+                )}
+              </div>
+
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  type="datetime-local"
+                  value={scheduledAt}
+                  min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
+                  onChange={(e) => setScheduledAt(e.target.value)}
+                  className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary sm:w-auto sm:flex-1"
+                />
+                {/* Quick preset buttons */}
+                <div className="flex flex-wrap gap-1">
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date(Date.now() + 60 * 60 * 1000);
+                      d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
+                      setScheduledAt(
+                        new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .slice(0, 16),
+                      );
+                    }}
+                    className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                  >
+                    +1 hr
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(9, 0, 0, 0);
+                      setScheduledAt(
+                        new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .slice(0, 16),
+                      );
+                    }}
+                    className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                  >
+                    Tmrw 9 AM
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const d = new Date();
+                      d.setDate(d.getDate() + 1);
+                      d.setHours(14, 0, 0, 0);
+                      setScheduledAt(
+                        new Date(d.getTime() - d.getTimezoneOffset() * 60000)
+                          .toISOString()
+                          .slice(0, 16),
+                      );
+                    }}
+                    className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                  >
+                    Tmrw 2 PM
+                  </button>
+                </div>
+              </div>
+
+              <p className="mt-2 text-[11px] text-muted-foreground">
+                {scheduledAt
+                  ? `Post will be queued for automated publishing at ${new Date(scheduledAt).toLocaleString()}.`
+                  : "No schedule date set — clicking Send will dispatch immediately (or queue if offline)."}
+              </p>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  onClick={() => setPreviewOpen(true)}
+                  disabled={!caption.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  <Eye className="h-4 w-4" /> Preview
+                </button>
+                <button
+                  onClick={handleSaveDraft}
+                  disabled={saving || !caption.trim()}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
+                >
+                  {saving ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <Save className="h-4 w-4" />
+                  )}
+                  Save
+                </button>
+                <button
+                  onClick={handleSend}
+                  disabled={sending || !caption.trim() || captionOver || networks.length === 0}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                >
+                  {sending ? (
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  ) : scheduledAt ? (
+                    <CalendarClock className="h-4 w-4" />
+                  ) : (
+                    <Send className="h-4 w-4" />
+                  )}
+                  {scheduledAt ? "Schedule" : "Send"}
+                </button>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {scheduledAt
+                  ? "Schedule places this post on the Scheduler calendar and queues it for automated delivery."
+                  : "Send publishes directly to your connected networks. On success, images are marked as posted."}
+              </p>
+            </div>
+          </section>
+        </div>
+      )}
+
+      {/* Full gallery modal */}
+      {galleryOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
+          onClick={() => setGalleryOpen(false)}
+        >
+          <div
+            className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between border-b border-border px-5 py-3">
+              <div>
+                <div className="text-sm font-medium">Select images</div>
+                <div className="text-xs text-muted-foreground">
+                  {selectedImages.size}/4 selected · {visibleImages.length} available ·
+                  already-published images are hidden
+                </div>
+              </div>
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => setGalleryOpen(false)}
+                  className="rounded p-1 hover:bg-accent"
+                  aria-label="Close"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              </div>
+            </div>
+            <div className="flex-1 overflow-y-auto p-5">
+              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
+                {visibleImages.map((img) => (
+                  <ImageThumb
+                    key={img.id}
+                    img={img}
+                    active={selectedImages.has(img.id)}
+                    onClick={() => toggleImage(img.id)}
+                  />
+                ))}
+              </div>
               {/* Selected Image Metadata & Geotag Details (Active image info & edit option) */}
               {selectedImages.size > 0 && activeDetailImage && (
                 <div className="mt-3.5 space-y-2.5 rounded-lg border border-primary/25 bg-gradient-to-b from-primary/[0.04] to-card p-3 shadow-sm">
@@ -1418,8 +1820,7 @@ export function PostGeneratorPage({
                                 : "bg-muted/70 hover:bg-muted text-muted-foreground hover:text-foreground"
                             }`}
                           >
-                            <span className="h-1.5 w-1.5 rounded-full bg-current" />
-                            #{idx + 1}
+                            <span className="h-1.5 w-1.5 rounded-full bg-current" />#{idx + 1}
                             {img.title ? `: ${img.title.slice(0, 16)}` : ""}
                           </button>
                         );
@@ -1479,7 +1880,7 @@ export function PostGeneratorPage({
                             setCaption((prev) =>
                               prev
                                 ? `${prev}\n\n${activeDetailImage.description}`
-                                : activeDetailImage.description || ""
+                                : activeDetailImage.description || "",
                             );
                             toast.success("Image description appended to post");
                           }}
@@ -1495,7 +1896,8 @@ export function PostGeneratorPage({
                       </p>
                     ) : (
                       <p className="italic text-muted-foreground text-[11px]">
-                        No description added yet. Click &quot;Edit Details&quot; to add a title, description, or update GPS coordinates.
+                        No description added yet. Click &quot;Edit Details&quot; to add a title,
+                        description, or update GPS coordinates.
                       </p>
                     )}
                   </div>
@@ -1535,595 +1937,6 @@ export function PostGeneratorPage({
                   </div>
                 </div>
               )}
-            </section>
-
-            {/* Template + LLM */}
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="text-sm font-medium">Template &amp; AI model</div>
-                <button
-                  onClick={openTemplatesModal}
-                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
-                >
-                  <LayoutTemplate className="h-3 w-3" /> Manage
-                </button>
-              </div>
-              <div className="grid grid-cols-1 gap-3 text-sm sm:grid-cols-2">
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">Template (structure only)</span>
-                  <select
-                    value={styleTemplate?.id ?? ""}
-                    onChange={(e) => {
-                      const t = templates.find((x) => x.id === e.target.value);
-                      setStyleTemplate(t ?? null);
-                    }}
-                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                  >
-                    <option value="">No template — free-form</option>
-                    {templates.map((t) => (
-                      <option key={t.id} value={t.id}>
-                        {t.name}
-                      </option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block">
-                  <span className="text-xs text-muted-foreground">LLM</span>
-                  <select
-                    value={llm}
-                    onChange={(e) => setLlm(e.target.value as typeof llm)}
-                    className="mt-1 w-full rounded border border-border bg-background p-2 text-sm"
-                  >
-                    <option value="gemini">Gemini</option>
-                    <option value="chatgpt">ChatGPT</option>
-                    <option value="anthropic">Claude</option>
-                    <option value="openrouter">OpenRouter</option>
-                    <option value="aks">AKS Cloud</option>
-                  </select>
-                </label>
-              </div>
-              <p className="mt-2 text-[11px] text-muted-foreground">
-                The AI follows only the template's structural format — the wording is written fresh
-                from your keywords and the selected image(s).
-                {templates.length === 0 && " Save a template first to use one here."}
-              </p>
-            </section>
-
-            <button
-              onClick={handleGenerate}
-              disabled={generating}
-              className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-            >
-              {generating ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Sparkles className="h-4 w-4" />
-              )}
-              {generating ? "Generating…" : "Generate with AI"}
-            </button>
-          </div>
-
-          {/* Right column — output + send */}
-          <div className="space-y-4">
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <div>
-                  <div className="text-sm font-medium">Description</div>
-                  <div className="text-[11px] text-muted-foreground">
-                    This is what will be posted. Max {CAPTION_LIMIT} characters.
-                  </div>
-                  {styleTemplate && (
-                    <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
-                      <LayoutTemplate className="h-3 w-3 shrink-0" />
-                      <span className="truncate">
-                        Template: <strong>{styleTemplate.name}</strong>
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => setStyleTemplate(null)}
-                        className="rounded-full p-0.5 hover:bg-primary/20"
-                        aria-label="Clear template"
-                        title="Clear template"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  )}
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <button
-                    onClick={openTemplatesModal}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
-                  >
-                    <LayoutTemplate className="h-3 w-3" /> Templates
-                    {templates.length > 0 && (
-                      <span className="ml-1 rounded-full bg-primary/15 px-1.5 text-[10px] text-primary">
-                        {templates.length}
-                      </span>
-                    )}
-                  </button>
-                  <button
-                    onClick={copyOut}
-                    disabled={!caption}
-                    className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent disabled:opacity-40"
-                  >
-                    <Copy className="h-3 w-3" /> Copy
-                  </button>
-                </div>
-              </div>
-
-              <div className="relative">
-                {/* Mirror layer — renders the text with the over-limit slice
-                  highlighted in red. Sits behind a transparent-text textarea. */}
-                <div
-                  aria-hidden
-                  ref={captionMirrorRef}
-                  dir="ltr"
-                  className={`pointer-events-none absolute inset-0 overflow-hidden whitespace-pre-wrap break-words rounded border border-transparent p-3 text-sm text-left`}
-                  style={{ fontFamily: "inherit", lineHeight: "1.5" }}
-                >
-                  {caption.length <= CAPTION_LIMIT ? (
-                    <>
-                      {caption}
-                      {/* trailing space keeps last line height stable */}
-                      {"\u200b"}
-                    </>
-                  ) : (
-                    <>
-                      <span>{caption.slice(0, CAPTION_LIMIT)}</span>
-                      <span className="rounded-sm bg-red-500/25 text-red-500">
-                        {caption.slice(CAPTION_LIMIT)}
-                      </span>
-                      {"\u200b"}
-                    </>
-                  )}
-                </div>
-                <textarea
-                  ref={captionRef}
-                  value={caption}
-                  onChange={(e) => setCaption(e.target.value)}
-                  onScroll={(e) => {
-                    if (captionMirrorRef.current) {
-                      captionMirrorRef.current.scrollTop = e.currentTarget.scrollTop;
-                    }
-                  }}
-                  rows={16}
-                  dir="ltr"
-                  aria-invalid={captionOver}
-                  placeholder="Click Generate with AI to draft a post, then edit here."
-                  spellCheck
-                  style={{ lineHeight: "1.5" }}
-                  className={`relative w-full rounded border bg-transparent p-3 text-sm text-transparent caret-foreground outline-none transition selection:bg-primary/25 selection:text-transparent ${
-                    captionOver
-                      ? "border-red-500 focus:ring-2 focus:ring-red-500/40"
-                      : "border-border focus:ring-2 focus:ring-primary/40"
-                  }`}
-                />
-              </div>
-
-              {/* Symbol picker */}
-              <div className="mt-2 flex items-center justify-between gap-2">
-                <div className="relative" ref={symbolsPopupRef}>
-                  <button
-                    type="button"
-                    onClick={() => setSymbolsOpen((v) => !v)}
-                    aria-expanded={symbolsOpen}
-                    className="inline-flex items-center gap-1.5 rounded-lg border border-border bg-background px-2.5 py-1.5 text-xs font-medium hover:bg-accent"
-                  >
-                    <Smile className="h-3.5 w-3.5" /> Insert symbol
-                    <ChevronDown className="h-3 w-3 opacity-70" />
-                  </button>
-                  {symbolsOpen && (
-                    <div className="absolute left-0 top-full z-30 mt-1.5 max-h-[420px] w-[360px] overflow-y-auto rounded-xl border border-border bg-popover p-3 shadow-xl">
-                      <div className="mb-2 flex items-center justify-between">
-                        <div className="text-xs font-semibold">Insert a symbol</div>
-                        <button
-                          onClick={() => setSymbolsOpen(false)}
-                          aria-label="Close"
-                          className="rounded p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                      <div className="space-y-3">
-                        {SYMBOL_GROUPS.map((g) => (
-                          <div key={g.label}>
-                            <div className="mb-1 text-[10px] font-semibold uppercase tracking-widest text-muted-foreground">
-                              {g.label}
-                            </div>
-                            <div className="grid grid-cols-8 gap-1">
-                              {g.symbols.map((s, i) => (
-                                <button
-                                  key={`${g.label}-${i}`}
-                                  type="button"
-                                  onClick={() => insertSymbol(s)}
-                                  title={`Insert ${s}`}
-                                  className="flex h-8 w-8 items-center justify-center rounded-md border border-transparent text-lg leading-none transition hover:border-primary/40 hover:bg-primary/10"
-                                >
-                                  {s}
-                                </button>
-                              ))}
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                      <p className="mt-3 text-[10px] text-muted-foreground">
-                        Click a symbol to insert at the cursor position.
-                      </p>
-                    </div>
-                  )}
-                </div>
-                {/* Quick-insert row — most-used cleaning glyphs */}
-                <div className="hidden items-center gap-1 sm:flex">
-                  {["✅", "⭐", "📍", "🧼", "✨", "🔥"].map((s) => (
-                    <button
-                      key={s}
-                      type="button"
-                      onClick={() => insertSymbol(s)}
-                      title={`Insert ${s}`}
-                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-base leading-none hover:border-primary/40 hover:bg-primary/10"
-                    >
-                      {s}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-2 flex items-center justify-between text-xs">
-                <span
-                  className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}
-                >
-                  {captionOver
-                    ? `Post body exceeds the ${CAPTION_LIMIT}-character limit. Trim ${captionLen - CAPTION_LIMIT} character${captionLen - CAPTION_LIMIT === 1 ? "" : "s"} to send.`
-                    : "Google Business Profile allows up to 1,500 characters per post."}
-                </span>
-                <span
-                  className={`font-mono tabular-nums ${
-                    captionOver
-                      ? "font-semibold text-red-500"
-                      : captionLen > CAPTION_LIMIT - 100
-                        ? "text-amber-500"
-                        : "text-muted-foreground"
-                  }`}
-                >
-                  {captionLen}/{CAPTION_LIMIT}
-                </span>
-              </div>
-            </section>
-
-            {/* Live GMB preview */}
-            {(() => {
-              const GMB_TRUNCATE = 100;
-              const GMB_SWEET_MIN = 150;
-              const GMB_SWEET_MAX = 300;
-              const len = captionLen;
-              const pct = Math.min(100, (len / CAPTION_LIMIT) * 100);
-              const status =
-                len === 0
-                  ? { label: "Start typing to see a live preview", tone: "text-muted-foreground" }
-                  : len < GMB_TRUNCATE
-                    ? {
-                        label: `Short — add ${GMB_TRUNCATE - len} more chars so it isn't truncated on mobile.`,
-                        tone: "text-amber-500",
-                      }
-                    : len <= GMB_SWEET_MAX
-                      ? {
-                          label: "Optimal length for Google Business Profile.",
-                          tone: "text-emerald-600 dark:text-emerald-400",
-                        }
-                      : len <= CAPTION_LIMIT
-                        ? {
-                            label:
-                              "Longer than recommended — Google trims to ~100 chars on mobile feeds.",
-                            tone: "text-amber-500",
-                          }
-                        : { label: `Over the ${CAPTION_LIMIT}-char limit.`, tone: "text-red-500" };
-              const truncated =
-                len > GMB_TRUNCATE ? caption.slice(0, GMB_TRUNCATE).trimEnd() + "…" : caption;
-              const previewImgs = Array.from(selectedImages)
-                .map((id) => images.find((i) => i.id === id))
-                .filter((i): i is ImageRow => !!i)
-                .slice(0, 4);
-              return (
-                <section className="rounded-xl border border-border bg-card p-4">
-                  <div className="mb-3 flex items-center justify-between">
-                    <div>
-                      <div className="text-sm font-medium">Live Google Business preview</div>
-                      <div className="text-[11px] text-muted-foreground">
-                        Updates as you type. Ideal length {GMB_SWEET_MIN}–{GMB_SWEET_MAX}{" "}
-                        characters.
-                      </div>
-                    </div>
-                    <span className={`text-[11px] font-medium ${status.tone}`}>{status.label}</span>
-                  </div>
-
-                  {/* Segmented length meter */}
-                  <div className="mb-4">
-                    <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
-                      {/* sweet-spot band */}
-                      <div
-                        className="absolute inset-y-0 bg-emerald-500/20"
-                        style={{
-                          left: `${(GMB_SWEET_MIN / CAPTION_LIMIT) * 100}%`,
-                          width: `${((GMB_SWEET_MAX - GMB_SWEET_MIN) / CAPTION_LIMIT) * 100}%`,
-                        }}
-                      />
-                      {/* progress */}
-                      <div
-                        className={`absolute inset-y-0 left-0 transition-all ${
-                          len > CAPTION_LIMIT
-                            ? "bg-red-500"
-                            : len >= GMB_SWEET_MIN && len <= GMB_SWEET_MAX
-                              ? "bg-emerald-500"
-                              : "bg-primary"
-                        }`}
-                        style={{ width: `${pct}%` }}
-                      />
-                      {/* truncation marker */}
-                      <div
-                        className="absolute inset-y-0 w-px bg-foreground/40"
-                        style={{ left: `${(GMB_TRUNCATE / CAPTION_LIMIT) * 100}%` }}
-                        title="Mobile truncation (~100 chars)"
-                      />
-                    </div>
-                    <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
-                      <span>0</span>
-                      <span>~{GMB_TRUNCATE} (mobile cut-off)</span>
-                      <span>
-                        {GMB_SWEET_MIN}–{GMB_SWEET_MAX} ideal
-                      </span>
-                      <span>{CAPTION_LIMIT}</span>
-                    </div>
-                  </div>
-
-                  {/* Mock GMB card */}
-                  <div className="rounded-lg border border-border bg-background p-3">
-                    <div className="flex items-center gap-2.5">
-                      <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
-                        {(businessName || "B").slice(0, 1).toUpperCase()}
-                      </div>
-                      <div className="min-w-0 flex-1">
-                        <div className="truncate text-sm font-semibold">
-                          {businessName || "Your Business"}
-                        </div>
-                        <div className="truncate text-[11px] text-muted-foreground">
-                          {location?.label ?? "No location set"} · now
-                        </div>
-                      </div>
-                      <div className="text-muted-foreground/60">⋯</div>
-                    </div>
-
-                    {previewImgs.length > 0 && (
-                      <div
-                        className={`mt-3 grid gap-1 overflow-hidden rounded ${
-                          previewImgs.length === 1
-                            ? "grid-cols-1"
-                            : previewImgs.length === 2
-                              ? "grid-cols-2"
-                              : "grid-cols-2"
-                        }`}
-                      >
-                        {previewImgs.map((img) => (
-                          <SignedImage
-                            key={img.id}
-                            bucket="frames"
-                            path={img.storage_path}
-                            alt={img.name}
-                            className="aspect-video w-full object-cover"
-                          />
-                        ))}
-                      </div>
-                    )}
-
-                    <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed" dir="ltr">
-                      {caption ? (
-                        <>
-                          {truncated}
-                          {len > GMB_TRUNCATE && (
-                            <button
-                              type="button"
-                              className="ml-1 text-primary hover:underline"
-                              tabIndex={-1}
-                            >
-                              Read more
-                            </button>
-                          )}
-                        </>
-                      ) : (
-                        <span className="italic text-muted-foreground">
-                          Your post preview will appear here…
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="mt-3 flex items-center gap-4 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
-                      <span>👍 Like</span>
-                      <span>💬 Comment</span>
-                      <span>↗ Share</span>
-                    </div>
-                  </div>
-                </section>
-              );
-            })()}
-
-            {/* Publish & Schedule */}
-            <section className="rounded-xl border border-border bg-card p-4 shadow-sm">
-              <div className="mb-3 flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm font-semibold">
-                  <Send className="h-4 w-4 text-primary" /> Publish &amp; Schedule
-                </div>
-                {scheduledAt && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-0.5 text-[11px] font-medium text-primary">
-                    <CalendarClock className="h-3 w-3" />
-                    {new Date(scheduledAt).toLocaleString([], {
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    })}
-                  </span>
-                )}
-              </div>
-
-              {/* Schedule timing box */}
-              <div className="mb-4 rounded-lg border border-border/80 bg-background/60 p-3">
-                <div className="mb-2 flex items-center justify-between">
-                  <label className="text-xs font-medium text-foreground flex items-center gap-1.5">
-                    <Calendar className="h-3.5 w-3.5 text-primary" />
-                    Schedule publication (optional)
-                  </label>
-                  {scheduledAt && (
-                    <button
-                      type="button"
-                      onClick={() => setScheduledAt("")}
-                      className="text-[11px] text-muted-foreground hover:text-foreground"
-                    >
-                      Clear (Send now)
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <input
-                    type="datetime-local"
-                    value={scheduledAt}
-                    min={new Date(Date.now() + 60000).toISOString().slice(0, 16)}
-                    onChange={(e) => setScheduledAt(e.target.value)}
-                    className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary sm:w-auto sm:flex-1"
-                  />
-                  {/* Quick preset buttons */}
-                  <div className="flex flex-wrap gap-1">
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date(Date.now() + 60 * 60 * 1000);
-                        d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
-                        setScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
-                      }}
-                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
-                    >
-                      +1 hr
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        d.setHours(9, 0, 0, 0);
-                        setScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
-                      }}
-                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
-                    >
-                      Tmrw 9 AM
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        const d = new Date();
-                        d.setDate(d.getDate() + 1);
-                        d.setHours(14, 0, 0, 0);
-                        setScheduledAt(new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16));
-                      }}
-                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
-                    >
-                      Tmrw 2 PM
-                    </button>
-                  </div>
-                </div>
-
-                <p className="mt-2 text-[11px] text-muted-foreground">
-                  {scheduledAt
-                    ? `Post will be queued for automated publishing at ${new Date(scheduledAt).toLocaleString()}.`
-                    : "No schedule date set — clicking Send will dispatch immediately (or queue if offline)."}
-                </p>
-              </div>
-
-              <div className="space-y-3 text-sm">
-                <div className="grid grid-cols-3 gap-2">
-                  <button
-                    onClick={() => setPreviewOpen(true)}
-                    disabled={!caption.trim() || captionOver}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
-                  >
-                    <Eye className="h-4 w-4" /> Preview
-                  </button>
-                  <button
-                    onClick={handleSaveDraft}
-                    disabled={saving || !caption.trim()}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg border border-border px-4 py-3 text-sm font-medium hover:bg-accent disabled:opacity-40"
-                  >
-                    {saving ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : (
-                      <Save className="h-4 w-4" />
-                    )}
-                    Save
-                  </button>
-                  <button
-                    onClick={handleSend}
-                    disabled={sending || !caption.trim() || captionOver || networks.length === 0}
-                    className="inline-flex items-center justify-center gap-2 rounded-lg bg-primary px-4 py-3 text-sm font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
-                  >
-                    {sending ? (
-                      <Loader2 className="h-4 w-4 animate-spin" />
-                    ) : scheduledAt ? (
-                      <CalendarClock className="h-4 w-4" />
-                    ) : (
-                      <Send className="h-4 w-4" />
-                    )}
-                    {scheduledAt ? "Schedule" : "Send"}
-                  </button>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  {scheduledAt
-                    ? "Schedule places this post on the Scheduler calendar and queues it for automated delivery."
-                    : "Send publishes directly to your connected networks. On success, images are marked as posted."}
-                </p>
-              </div>
-            </section>
-          </div>
-        </div>
-      )}
-
-      {/* Full gallery modal */}
-      {galleryOpen && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4"
-          onClick={() => setGalleryOpen(false)}
-        >
-          <div
-            className="flex h-[85vh] w-full max-w-5xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-center justify-between border-b border-border px-5 py-3">
-              <div>
-                <div className="text-sm font-medium">Geo-tagged images</div>
-                <div className="text-xs text-muted-foreground">
-                  {selectedImages.size}/4 selected · {visibleImages.length} available ·
-                  already-published images are hidden
-                </div>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => setGalleryOpen(false)}
-                  className="rounded p-1 hover:bg-accent"
-                  aria-label="Close"
-                >
-                  <X className="h-4 w-4" />
-                </button>
-              </div>
-            </div>
-            <div className="flex-1 overflow-y-auto p-5">
-              <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 md:grid-cols-6">
-                {visibleImages.map((img) => (
-                  <ImageThumb
-                    key={img.id}
-                    img={img}
-                    active={selectedImages.has(img.id)}
-                    onClick={() => toggleImage(img.id)}
-                  />
-                ))}
-              </div>
             </div>
             <div className="border-t border-border px-5 py-3 text-right">
               <button
@@ -2156,7 +1969,7 @@ export function PostGeneratorPage({
           onClick={() => !sending && setPreviewOpen(false)}
         >
           <div
-            className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
+            className="flex max-h-[90vh] w-full max-w-2xl flex-col overflow-hidden rounded-xl border border-border bg-background shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between border-b border-border px-5 py-3">
@@ -2177,46 +1990,165 @@ export function PostGeneratorPage({
               </button>
             </div>
             <div className="flex-1 space-y-4 overflow-y-auto p-5">
-              {/* Mock GMB card */}
-              <div className="rounded-lg border border-border bg-card p-4">
-                <div className="flex items-center gap-3">
-                  <div className="h-9 w-9 rounded-full bg-primary/15" />
-                  <div>
-                    <div className="text-sm font-semibold">{businessName || "Your Business"}</div>
-                    <div className="text-[11px] text-muted-foreground">
-                      {location?.label ?? "No location set"} · now
+              {/* Live GMB preview */}
+              {(() => {
+                const GMB_TRUNCATE = 100;
+                const GMB_SWEET_MIN = 150;
+                const GMB_SWEET_MAX = 300;
+                const len = captionLen;
+                const pct = Math.min(100, (len / CAPTION_LIMIT) * 100);
+                const status =
+                  len === 0
+                    ? { label: "Start typing to see a live preview", tone: "text-muted-foreground" }
+                    : len < GMB_TRUNCATE
+                      ? {
+                          label: `Short — add ${GMB_TRUNCATE - len} more chars so it isn't truncated on mobile.`,
+                          tone: "text-amber-500",
+                        }
+                      : len <= GMB_SWEET_MAX
+                        ? {
+                            label: "Optimal length for Google Business Profile.",
+                            tone: "text-emerald-600 dark:text-emerald-400",
+                          }
+                        : len <= CAPTION_LIMIT
+                          ? {
+                              label:
+                                "Longer than recommended — Google trims to ~100 chars on mobile feeds.",
+                              tone: "text-amber-500",
+                            }
+                          : {
+                              label: `Over the ${CAPTION_LIMIT}-char limit.`,
+                              tone: "text-red-500",
+                            };
+                const truncated =
+                  len > GMB_TRUNCATE ? caption.slice(0, GMB_TRUNCATE).trimEnd() + "…" : caption;
+                const previewImgs = Array.from(selectedImages)
+                  .map((id) => images.find((i) => i.id === id))
+                  .filter((i): i is ImageRow => !!i)
+                  .slice(0, 4);
+                return (
+                  <section className="rounded-xl border border-border bg-card p-4">
+                    <div className="mb-3 flex items-center justify-between">
+                      <div>
+                        <div className="text-sm font-medium">Live Google Business preview</div>
+                        <div className="text-[11px] text-muted-foreground">
+                          Updates as you type. Ideal length {GMB_SWEET_MIN}–{GMB_SWEET_MAX}{" "}
+                          characters.
+                        </div>
+                      </div>
+                      <span className={`text-[11px] font-medium ${status.tone}`}>
+                        {status.label}
+                      </span>
                     </div>
-                  </div>
-                </div>
-                <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed" dir="ltr">
-                  {caption}
-                </div>
-                {Array.from(selectedImages).length > 0 && (
-                  <div
-                    className={`mt-3 grid gap-1 ${
-                      selectedImages.size === 1
-                        ? "grid-cols-1"
-                        : selectedImages.size === 2
-                          ? "grid-cols-2"
-                          : "grid-cols-2 sm:grid-cols-3"
-                    }`}
-                  >
-                    {Array.from(selectedImages).map((id) => {
-                      const img = images.find((i) => i.id === id);
-                      if (!img) return null;
-                      return (
-                        <SignedImage
-                          key={id}
-                          bucket="frames"
-                          path={img.storage_path}
-                          alt={img.name}
-                          className="aspect-square w-full rounded object-cover"
+
+                    {/* Segmented length meter */}
+                    <div className="mb-4">
+                      <div className="relative h-2 w-full overflow-hidden rounded-full bg-muted">
+                        {/* sweet-spot band */}
+                        <div
+                          className="absolute inset-y-0 bg-emerald-500/20"
+                          style={{
+                            left: `${(GMB_SWEET_MIN / CAPTION_LIMIT) * 100}%`,
+                            width: `${((GMB_SWEET_MAX - GMB_SWEET_MIN) / CAPTION_LIMIT) * 100}%`,
+                          }}
                         />
-                      );
-                    })}
-                  </div>
-                )}
-              </div>
+                        {/* progress */}
+                        <div
+                          className={`absolute inset-y-0 left-0 transition-all ${
+                            len > CAPTION_LIMIT
+                              ? "bg-red-500"
+                              : len >= GMB_SWEET_MIN && len <= GMB_SWEET_MAX
+                                ? "bg-emerald-500"
+                                : "bg-primary"
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                        {/* truncation marker */}
+                        <div
+                          className="absolute inset-y-0 w-px bg-foreground/40"
+                          style={{ left: `${(GMB_TRUNCATE / CAPTION_LIMIT) * 100}%` }}
+                          title="Mobile truncation (~100 chars)"
+                        />
+                      </div>
+                      <div className="mt-1 flex justify-between text-[10px] text-muted-foreground">
+                        <span>0</span>
+                        <span>~{GMB_TRUNCATE} (mobile cut-off)</span>
+                        <span>
+                          {GMB_SWEET_MIN}–{GMB_SWEET_MAX} ideal
+                        </span>
+                        <span>{CAPTION_LIMIT}</span>
+                      </div>
+                    </div>
+
+                    {/* Mock GMB card */}
+                    <div className="rounded-lg border border-border bg-background p-3">
+                      <div className="flex items-center gap-2.5">
+                        <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/15 text-xs font-semibold text-primary">
+                          {(businessName || "B").slice(0, 1).toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <div className="truncate text-sm font-semibold">
+                            {businessName || "Your Business"}
+                          </div>
+                          <div className="truncate text-[11px] text-muted-foreground">
+                            {location?.label ?? "No location set"} · now
+                          </div>
+                        </div>
+                        <div className="text-muted-foreground/60">⋯</div>
+                      </div>
+
+                      {previewImgs.length > 0 && (
+                        <div
+                          className={`mt-3 grid gap-1 overflow-hidden rounded ${
+                            previewImgs.length === 1
+                              ? "grid-cols-1"
+                              : previewImgs.length === 2
+                                ? "grid-cols-2"
+                                : "grid-cols-2"
+                          }`}
+                        >
+                          {previewImgs.map((img) => (
+                            <SignedImage
+                              key={img.id}
+                              bucket="frames"
+                              path={img.storage_path}
+                              alt={img.name}
+                              className="aspect-video w-full object-cover"
+                            />
+                          ))}
+                        </div>
+                      )}
+
+                      <div className="mt-3 whitespace-pre-wrap text-sm leading-relaxed" dir="ltr">
+                        {caption ? (
+                          <>
+                            {previewExpanded ? caption : truncated}
+                            {len > GMB_TRUNCATE && (
+                              <button
+                                type="button"
+                                onClick={() => setPreviewExpanded((v) => !v)}
+                                className="ml-1 text-primary hover:underline"
+                              >
+                                {previewExpanded ? "Show less" : "Read more"}
+                              </button>
+                            )}
+                          </>
+                        ) : (
+                          <span className="italic text-muted-foreground">
+                            Your post preview will appear here…
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-3 flex items-center gap-4 border-t border-border/60 pt-2 text-[11px] text-muted-foreground">
+                        <span>👍 Like</span>
+                        <span>💬 Comment</span>
+                        <span>↗ Share</span>
+                      </div>
+                    </div>
+                  </section>
+                );
+              })()}
 
               <div className="grid gap-2 text-xs sm:grid-cols-2">
                 <InfoRow label="Networks" value={networks.join(", ") || "—"} />
@@ -2291,12 +2223,9 @@ export function PostGeneratorPage({
             })),
           ];
           return (
-            <div
-              className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
-              onClick={() => setTemplatesOpen(false)}
-            >
+            <div className="mt-5">
               <div
-                className="flex h-[80vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+                className="flex h-[calc(100vh-190px)] min-h-[480px] w-full flex-col overflow-hidden rounded-2xl border border-border bg-card"
                 onClick={(e) => e.stopPropagation()}
               >
                 {/* Header */}
@@ -2334,10 +2263,9 @@ export function PostGeneratorPage({
                     </button>
                     <button
                       onClick={() => setTemplatesOpen(false)}
-                      aria-label="Close"
-                      className="rounded p-1 hover:bg-accent"
+                      className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
                     >
-                      <X className="h-4 w-4" />
+                      <PenSquare className="h-3 w-3" /> Back to Compose
                     </button>
                   </div>
                 </div>

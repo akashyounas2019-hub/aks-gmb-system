@@ -32,7 +32,8 @@ import { SignedImage, useSignedUrl } from "@/components/SignedImage";
 import { FavoriteBadge } from "@/components/FavoriteBadge";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { PublishedBadge } from "@/components/PublishedBadge";
-import { embedGps, readGps, readMeta, type GpsReadResult } from "@/lib/exif-geotag";
+import { embedGpsVerified, readGps, readMeta, type GpsReadResult } from "@/lib/exif-geotag";
+import { DUBAI_AREA_CENTERS } from "@/lib/dubai-areas";
 
 export const Route = createFileRoute("/_authenticated/geotagging")({
   component: GeotaggingPage,
@@ -81,61 +82,7 @@ const TYPE_SEARCH_TERM: Record<PlaceType, string> = {
 // Common Dubai areas — a shortcut for the area filter and the default map
 // city buttons. These are only starting points for a real Google Places
 // search; they are never used as a source of coordinates themselves.
-const AREA_SEED_CENTERS: Record<string, { lat: number; lng: number }> = {
-  "Abu Hail": { lat: 25.2857, lng: 55.3335 },
-  "Al Barsha": { lat: 25.1041, lng: 55.1936 },
-  "Al Barsha Heights": { lat: 25.0985, lng: 55.1758 },
-  "Al Furjan": { lat: 25.0263, lng: 55.1442 },
-  "Al Jadaf": { lat: 25.2246, lng: 55.3325 },
-  "Al Khalil Gate": { lat: 25.1876, lng: 55.2622 },
-  "Al Mamzar": { lat: 25.3007, lng: 55.3441 },
-  "Al Nahda": { lat: 25.2939, lng: 55.3691 },
-  "Al Qusais": { lat: 25.2867, lng: 55.3873 },
-  "Al Rigga": { lat: 25.2646, lng: 55.3243 },
-  "Al Warqa": { lat: 25.2062, lng: 55.3903 },
-  "Al Wasl": { lat: 25.1963, lng: 55.2534 },
-  Akoya: { lat: 24.9297, lng: 55.2611 },
-  "Arabian Ranches": { lat: 25.0432, lng: 55.2703 },
-  Arjaan: { lat: 25.0995, lng: 55.174 },
-  Boulevard: { lat: 25.193, lng: 55.276 },
-  "Burj Khalifa": { lat: 25.1972, lng: 55.2744 },
-  "Business Bay": { lat: 25.1867, lng: 55.2704 },
-  DIFC: { lat: 25.211, lng: 55.2796 },
-  "Discovery Gardens": { lat: 25.043, lng: 55.1385 },
-  "Dubai Downtown": { lat: 25.1934, lng: 55.2751 },
-  "Dubai Falcon City": { lat: 25.1183, lng: 55.3216 },
-  "Dubai Festival City": { lat: 25.2216, lng: 55.3536 },
-  "Dubai Health Care City": { lat: 25.232, lng: 55.3234 },
-  "Dubai Investment Park": { lat: 24.9857, lng: 55.177 },
-  "Dubai Land": { lat: 25.1, lng: 55.32 },
-  "Dubai Marina": { lat: 25.0805, lng: 55.1403 },
-  "Emirates Hills": { lat: 25.0682, lng: 55.1657 },
-  IMPZ: { lat: 25.0299, lng: 55.2088 },
-  "International City": { lat: 25.1615, lng: 55.4098 },
-  "Internet City": { lat: 25.0937, lng: 55.1626 },
-  JLT: { lat: 25.0705, lng: 55.1443 },
-  JVC: { lat: 25.0587, lng: 55.2094 },
-  Jumeirah: { lat: 25.2048, lng: 55.2708 },
-  "Jumeirah Beach Residence": { lat: 25.0784, lng: 55.1336 },
-  "Jumeirah Park": { lat: 25.0447, lng: 55.1583 },
-  "Layan Community": { lat: 25.064, lng: 55.317 },
-  Meadows: { lat: 25.0575, lng: 55.1745 },
-  Meydan: { lat: 25.1571, lng: 55.3006 },
-  Mirdiff: { lat: 25.2168, lng: 55.4183 },
-  "Mirdiff Hills": { lat: 25.211, lng: 55.4231 },
-  "Motor City": { lat: 25.0475, lng: 55.2385 },
-  Mudon: { lat: 25.0027, lng: 55.2646 },
-  "Nad Al Hammar": { lat: 25.2166, lng: 55.367 },
-  "Nad Al Sheba": { lat: 25.1567, lng: 55.32 },
-  "Palm Jumeirah": { lat: 25.1124, lng: 55.139 },
-  Rashidiya: { lat: 25.24, lng: 55.3897 },
-  "Sheikh Zayed Road": { lat: 25.211, lng: 55.274 },
-  "Sport City": { lat: 25.0388, lng: 55.2226 },
-  "Studio City": { lat: 25.0342, lng: 55.2418 },
-  "Umm Suqeim": { lat: 25.1413, lng: 55.1994 },
-  "Uptown Mirdiff": { lat: 25.2247, lng: 55.4149 },
-  Deira: { lat: 25.2701, lng: 55.316 },
-};
+const AREA_SEED_CENTERS = DUBAI_AREA_CENTERS;
 
 const AREAS = Object.keys(AREA_SEED_CENTERS).sort();
 
@@ -151,6 +98,12 @@ async function searchPlaces(type: PlaceType | "All", areaOrQuery: string): Promi
 
   const city = areaOrQuery.trim() || "Dubai";
   const types: PlaceType[] = type === "All" ? ["home", "office", "commercial"] : [type];
+  // Bias results toward the chosen area's own centre (tight radius) instead of
+  // the whole of Dubai, so "Home in Al Qusais" doesn't return Marina villas.
+  const seed = AREA_SEED_CENTERS[city];
+  const locationBias = seed
+    ? { center: { lat: seed.lat, lng: seed.lng }, radius: 4000 }
+    : { center: { lat: 25.2048, lng: 55.2708 }, radius: 50000 };
 
   const results = await Promise.all(
     types.map(async (t) => {
@@ -158,7 +111,7 @@ async function searchPlaces(type: PlaceType | "All", areaOrQuery: string): Promi
         const { places: found } = await GPlace.searchByText({
           textQuery: `${TYPE_SEARCH_TERM[t]} in ${city}`,
           fields: ["displayName", "formattedAddress", "location", "id"],
-          locationBias: { lat: 25.2048, lng: 55.2708, radius: 60000 },
+          locationBias,
           maxResultCount: 12,
         });
         return (found ?? [])
@@ -411,6 +364,7 @@ function GeotaggingPage() {
             .createSignedUrl(row.storage_path, 60 * 60);
           if (error || !signed?.signedUrl) continue;
           const res = await fetch(signed.signedUrl);
+          if (!res.ok) continue;
           const blob = await res.blob();
           const mime = blob.type || "image/jpeg";
           const file = new File([blob], row.name || `library-${row.id}.jpg`, {
@@ -548,13 +502,15 @@ function GeotaggingPage() {
 
   const filteredPlaces = useMemo(() => {
     const q = placeSearch.trim().toLowerCase();
+    // No area check here: searchPlaces() is already scoped to the area (or the
+    // free-text search, which takes precedence). Comparing p.area to
+    // areaFilter wiped out every result whenever both were set.
     return places.filter((p) => {
-      if (areaFilter !== "All" && p.area !== areaFilter) return false;
       if (typeFilter !== "All" && p.type !== typeFilter) return false;
       if (q && !`${p.name} ${p.area} ${p.address ?? ""}`.toLowerCase().includes(q)) return false;
       return true;
     });
-  }, [places, areaFilter, typeFilter, placeSearch]);
+  }, [places, typeFilter, placeSearch]);
 
   /* ----------------------------- apply coords ---------------------------- */
 
@@ -684,7 +640,7 @@ function GeotaggingPage() {
       try {
         // Embed GPS EXIF into the JPEG bytes so third-party viewers (Photos,
         // Windows Explorer, Lightroom, etc.) recognise the coordinates.
-        const tagged = await embedGps(img.file, img.lat!, img.lng!, {
+        const tagged = await embedGpsVerified(img.file, img.lat!, img.lng!, {
           title: img.title,
           description: img.description,
           keywords: mergeKeywordSet(img.keywords, img.locationLabel),
@@ -757,7 +713,7 @@ function GeotaggingPage() {
       return;
     }
     try {
-      const tagged = await embedGps(img.file, img.lat, img.lng, {
+      const tagged = await embedGpsVerified(img.file, img.lat, img.lng, {
         title: img.title,
         description: img.description,
         keywords: mergeKeywordSet(img.keywords, img.locationLabel),
@@ -834,18 +790,18 @@ function GeotaggingPage() {
   return (
     <div className="mx-auto max-w-[1200px] p-6">
       {/* Header */}
-      <header className="mb-6">
+      <header className="mb-4">
         <div className="mb-1 flex items-center gap-2 text-xs font-semibold uppercase tracking-widest text-primary">
           <MapPin className="h-3.5 w-3.5" /> Geotagging wizard
         </div>
-        <h1 className="font-display text-3xl leading-tight">Bulk image geotagging</h1>
+        <h1 className="font-display text-2xl leading-tight md:text-3xl">Bulk image geotagging</h1>
         <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
           A guided flow — upload, choose a location, assign, then save. One step at a time.
         </p>
       </header>
 
       {/* Tabs */}
-      <div className="mb-6 inline-flex rounded-lg border border-border bg-card p-1">
+      <div className="mb-4 inline-flex rounded-lg border border-border bg-card p-1">
         <button
           onClick={() => setTab("wizard")}
           className={`rounded-md px-4 py-1.5 text-sm font-medium transition ${
@@ -873,7 +829,7 @@ function GeotaggingPage() {
       ) : (
         <>
           {/* Progress bar */}
-          <ol className="mb-8 grid grid-cols-4 gap-2">
+          <ol className="mb-5 grid grid-cols-4 gap-2">
             {steps.map((s) => {
               const done = step > s.n;
               const active = step === s.n;
@@ -922,23 +878,26 @@ function GeotaggingPage() {
             })}
           </ol>
 
-          {/* Persistent lightweight status strip */}
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
-            <StatChip label="Uploaded" value={stats.total} />
-            <StatChip label="Tagged" value={stats.tagged} tone="primary" />
-            <StatChip label="Saved" value={stats.saved} tone="success" />
-            {activeCoord && (
-              <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
-                <Crosshair className="h-3.5 w-3.5 text-primary" />
-                <span className="truncate max-w-[220px]" title={activeCoord.label}>
-                  {activeCoord.label}
-                </span>
-                <span className="font-mono text-muted-foreground/80">
-                  {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
-                </span>
-              </div>
-            )}
-          </div>
+          {/* Persistent lightweight status strip (hidden on Step 1 to keep the
+              upload screen to a single viewport) */}
+          {step !== 1 && (
+            <div className="mb-4 flex flex-wrap items-center gap-2 rounded-xl border border-border bg-card px-3 py-2">
+              <StatChip label="Uploaded" value={stats.total} />
+              <StatChip label="Tagged" value={stats.tagged} tone="primary" />
+              <StatChip label="Saved" value={stats.saved} tone="success" />
+              {activeCoord && (
+                <div className="ml-auto flex min-w-0 items-center gap-2 rounded-md bg-muted/60 px-2 py-1 text-[11px]">
+                  <Crosshair className="h-3.5 w-3.5 text-primary" />
+                  <span className="truncate max-w-[220px]" title={activeCoord.label}>
+                    {activeCoord.label}
+                  </span>
+                  <span className="font-mono text-muted-foreground/80">
+                    {activeCoord.lat.toFixed(4)}, {activeCoord.lng.toFixed(4)}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* Step body */}
           <section className="rounded-2xl border border-border bg-card p-5 md:p-6">
@@ -1033,7 +992,7 @@ function GeotaggingPage() {
 
           {/* Validation notice */}
           {step < 4 && !canNext && (
-            <div className="mt-6 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
+            <div className="mt-4 flex items-start gap-2 rounded-md border border-amber-500/40 bg-amber-500/5 px-3 py-2 text-xs text-amber-600 dark:text-amber-400">
               <span aria-hidden>⚠</span>
               <span>
                 {step === 1
@@ -1046,7 +1005,7 @@ function GeotaggingPage() {
           )}
 
           {/* Wizard nav */}
-          <div className="mt-6 flex items-center justify-between gap-3">
+          <div className="mt-4 flex items-center justify-between gap-3">
             <button
               onClick={gotoBack}
               disabled={step === 1}
@@ -1257,47 +1216,91 @@ function StepUpload({
   const PREVIEW_COUNT = 8;
   const previewLibrary = library.slice(0, PREVIEW_COUNT);
   return (
-    <div className="space-y-4">
-      <div>
-        <h2 className="text-lg font-medium">Upload your images</h2>
-        <p className="text-sm text-muted-foreground">
-          Drop a batch of photos below, or pick from your existing library. You can add more or
-          remove any at later steps.
-        </p>
+    <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.1fr)]">
+      {/* Left: upload + current batch */}
+      <div className="flex min-w-0 flex-col gap-3">
+        <div className="flex items-baseline justify-between gap-2">
+          <h2 className="text-base font-medium">Upload your images</h2>
+          <span className="text-[11px] text-muted-foreground">JPG, PNG, WEBP · bulk</span>
+        </div>
+
+        <div
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={(e) => {
+            e.preventDefault();
+            setDragOver(false);
+            if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
+          }}
+          onClick={() => inputRef.current?.click()}
+          className={`flex min-h-[150px] flex-1 cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-5 text-center transition ${
+            dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"
+          }`}
+        >
+          <input
+            ref={inputRef}
+            type="file"
+            accept="image/*"
+            multiple
+            hidden
+            onChange={(e) => e.target.files && addFiles(e.target.files)}
+          />
+          <div className="grid h-11 w-11 place-items-center rounded-full bg-primary/10">
+            <UploadCloud className="h-5 w-5 text-primary" />
+          </div>
+          <div className="text-sm font-medium">Drop images here or click to browse</div>
+          <div className="text-xs text-muted-foreground">
+            You can add or remove images in later steps too.
+          </div>
+        </div>
+
+        {images.length > 0 && (
+          <div className="rounded-xl border border-border bg-card/40 p-2">
+            <div className="mb-1.5 px-1 text-[11px] font-medium text-muted-foreground">
+              In this batch · {images.length}
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1">
+              {images.map((img) => (
+                <div
+                  key={img.id}
+                  className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border"
+                  title={img.file.name}
+                >
+                  <img
+                    src={img.previewUrl}
+                    alt={img.file.name}
+                    className="h-full w-full object-cover"
+                  />
+                  {img.libraryId && (
+                    <span className="absolute left-0.5 top-0.5 rounded bg-primary/85 px-1 text-[8px] font-semibold uppercase text-primary-foreground">
+                      Lib
+                    </span>
+                  )}
+                  {img.favorite && (
+                    <div className="pointer-events-none absolute bottom-0.5 right-0.5">
+                      <FavoriteBadge favorite compact />
+                    </div>
+                  )}
+                  <button
+                    onClick={() => removeImage(img.id)}
+                    className="absolute right-0.5 top-0.5 rounded bg-background/90 p-0.5 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive focus-visible:opacity-100"
+                    aria-label={`Remove ${img.file.name}`}
+                  >
+                    <Trash2 className="h-3 w-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
       </div>
 
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragOver(true);
-        }}
-        onDragLeave={() => setDragOver(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragOver(false);
-          if (e.dataTransfer.files) addFiles(e.dataTransfer.files);
-        }}
-        onClick={() => inputRef.current?.click()}
-        className={`flex cursor-pointer flex-col items-center justify-center gap-2 rounded-xl border-2 border-dashed p-10 text-center transition ${
-          dragOver ? "border-primary bg-primary/5" : "border-border hover:border-primary/60"
-        }`}
-      >
-        <input
-          ref={inputRef}
-          type="file"
-          accept="image/*"
-          multiple
-          hidden
-          onChange={(e) => e.target.files && addFiles(e.target.files)}
-        />
-        <UploadCloud className="h-8 w-8 text-muted-foreground" />
-        <div className="text-sm font-medium">Drop images here or click to browse</div>
-        <div className="text-xs text-muted-foreground">JPG, PNG, WEBP — bulk upload supported</div>
-      </div>
-
-      {/* Library picker */}
-      <section className="rounded-xl border border-border bg-card/40 p-4">
-        <div className="mb-3 flex items-center justify-between gap-2">
+      {/* Right: library picker */}
+      <section className="flex min-w-0 flex-col rounded-xl border border-border bg-card/40 p-3">
+        <div className="mb-2 flex items-center justify-between gap-2">
           <div className="flex items-center gap-2 text-sm font-medium">
             <Library className="h-4 w-4 text-primary" /> Pick from your library
             <span className="text-xs text-muted-foreground">({library.length} available)</span>
@@ -1314,14 +1317,14 @@ function StepUpload({
           </button>
         </div>
         {previewLibrary.length === 0 ? (
-          <div className="rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
+          <div className="flex flex-1 items-center justify-center rounded-md border border-dashed border-border p-4 text-center text-xs text-muted-foreground">
             No untagged favourite images available.
             <br />
             Favourite images that have not been geo-tagged will appear here.
           </div>
         ) : (
           <>
-            <div className="grid grid-cols-4 gap-2 md:grid-cols-8">
+            <div className="grid grid-cols-4 gap-2">
               {previewLibrary.map((row) => {
                 const imported = alreadyImportedIds.has(row.id);
                 return (
@@ -1337,7 +1340,7 @@ function StepUpload({
             {library.length > PREVIEW_COUNT && (
               <button
                 onClick={openLibrary}
-                className="mt-3 w-full rounded-md border border-border py-2 text-xs font-medium hover:border-primary/50 hover:bg-accent"
+                className="mt-2 w-full rounded-md border border-border py-1.5 text-xs font-medium hover:border-primary/50 hover:bg-accent"
               >
                 View all {library.length} images →
               </button>
@@ -1345,40 +1348,6 @@ function StepUpload({
           </>
         )}
       </section>
-
-      {images.length > 0 && (
-        <div className="grid grid-cols-3 gap-2 md:grid-cols-5 lg:grid-cols-6">
-          {images.map((img) => (
-            <div
-              key={img.id}
-              className="group relative overflow-hidden rounded-lg border border-border"
-            >
-              <img
-                src={img.previewUrl}
-                alt={img.file.name}
-                className="aspect-square h-full w-full object-cover"
-              />
-              {img.libraryId && (
-                <span className="absolute left-1 top-1 rounded-md bg-primary/85 px-1.5 py-0.5 text-[9px] font-semibold uppercase tracking-wider text-primary-foreground">
-                  Library
-                </span>
-              )}
-              {img.favorite && (
-                <div className="absolute right-1 bottom-1 pointer-events-none">
-                  <FavoriteBadge favorite compact />
-                </div>
-              )}
-              <button
-                onClick={() => removeImage(img.id)}
-                className="absolute right-1 top-1 rounded-md bg-background/90 p-1 opacity-0 shadow transition group-hover:opacity-100 hover:text-destructive"
-                aria-label="Remove"
-              >
-                <Trash2 className="h-3.5 w-3.5" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
 }

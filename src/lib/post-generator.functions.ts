@@ -5,6 +5,51 @@ import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 import { callLovableAI, type ChatMessage } from "./ai-gateway.server";
 import { getDecryptedIntegration } from "./user-integrations.functions";
 import { callDirectLLM, type DirectProvider } from "./direct-llm.server";
+import { nearestDubaiArea } from "./dubai-areas";
+// Editable rule book appended to the system prompt (see the file for details).
+import GMB_POST_RULES from "@/rules/gmb-post-rules.md?raw";
+
+/** How many Location Keywords are mentioned per post (random pick). */
+const LOCATION_KEYWORDS_PER_POST = 4;
+
+function pickRandom<T>(list: T[], n: number): T[] {
+  const copy = [...list];
+  for (let i = copy.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [copy[i], copy[j]] = [copy[j], copy[i]];
+  }
+  return copy.slice(0, n);
+}
+
+/**
+ * Human-readable area for a coordinate: OpenStreetMap reverse geocoding first
+ * (suburb/neighbourhood level), falling back to the nearest known Dubai area.
+ */
+async function areaForCoordinate(lat: number, lng: number): Promise<string | null> {
+  try {
+    const ctrl = new AbortController();
+    const timer = setTimeout(() => ctrl.abort(), 4000);
+    const res = await fetch(
+      `https://nominatim.openstreetmap.org/reverse?format=json&zoom=14&lat=${lat}&lon=${lng}`,
+      {
+        headers: { Accept: "application/json", "User-Agent": "GMB-Rank-Pilot/1.0" },
+        signal: ctrl.signal,
+      },
+    );
+    clearTimeout(timer);
+    if (res.ok) {
+      const json = (await res.json()) as { address?: Record<string, string> };
+      const a = json.address ?? {};
+      const area = a.suburb ?? a.neighbourhood ?? a.quarter ?? a.city_district ?? null;
+      const city = a.city ?? a.town ?? a.state ?? null;
+      if (area && city && area !== city) return `${area}, ${city}`;
+      if (area || city) return (area ?? city) as string;
+    }
+  } catch {
+    /* network / timeout — use the offline fallback */
+  }
+  return nearestDubaiArea(lat, lng, 4);
+}
 
 /* ------------------------------------------------------------------ */
 /*  Compose a GMB caption with Lovable AI                              */
@@ -59,12 +104,14 @@ export const composePost = createServerFn({ method: "POST" })
 
     // Sign up to 4 image URLs so the vision model can see the frames
     const imageUrls: string[] = [];
+    let imageRows: { lat: number | null; lng: number | null }[] = [];
     if (data.imageIds.length) {
       const { data: rows } = await supabase
         .from("images")
-        .select("id, storage_path, owner_id")
+        .select("id, storage_path, owner_id, lat, lng, title")
         .in("id", data.imageIds)
         .eq("owner_id", userId);
+      imageRows = (rows ?? []) as typeof imageRows;
       for (const row of rows ?? []) {
         const { data: signed } = await supabase.storage
           .from("frames")
@@ -72,6 +119,32 @@ export const composePost = createServerFn({ method: "POST" })
         if (signed?.signedUrl) imageUrls.push(signed.signedUrl);
       }
     }
+
+    // Rule: a geo-tagged image's location MUST be mentioned in the post.
+    const geoLocations: string[] = [];
+    const seenCoords = new Set<string>();
+    for (const r of imageRows) {
+      if (r.lat == null || r.lng == null) continue;
+      const lat = Number(r.lat);
+      const lng = Number(r.lng);
+      const key = `${lat.toFixed(3)},${lng.toFixed(3)}`;
+      if (seenCoords.has(key)) continue;
+      seenCoords.add(key);
+      const area = await areaForCoordinate(lat, lng);
+      if (area && !geoLocations.includes(area)) geoLocations.push(area);
+    }
+
+    // Rule: use a random handful of the user's Location Keywords. Falls back
+    // to the client-sent serving areas when the list is empty.
+    const { data: locRows } = await supabase
+      .from("location_keywords")
+      .select("name")
+      .eq("owner_id", userId);
+    const locationKeywords = pickRandom(
+      (locRows ?? []).map((r) => r.name),
+      LOCATION_KEYWORDS_PER_POST,
+    );
+    const servingAreas = locationKeywords.length ? [] : (data.servingAreas ?? []);
 
     const system = `You are a senior local-SEO copywriter for a premium Dubai cleaning company.
 Write a Google Business Profile post that:
@@ -84,7 +157,10 @@ Write a Google Business Profile post that:
 - MUST be 1480 characters or fewer in total, including all spaces, line breaks, and punctuation. This is a hard limit, not a target — count carefully as you write and stop well before it. If you are unsure, write shorter rather than risk going over.
 - Written in English.
 - If a TEMPLATE is provided, follow ONLY its structural format: the order and number of sections, line/paragraph breaks, and where emojis/CTA sit (never hashtags, which are excluded regardless of what the template does). Every word must be newly written from the current keywords and images — never reuse its sentences, offers, prices, or brand names.
-Return ONLY the caption text, no preamble.`;
+Return ONLY the caption text, no preamble.
+
+The following rule book is mandatory and overrides anything above where they differ:
+${GMB_POST_RULES}`;
 
     const styleBlock = data.styleReference
       ? `\nTEMPLATE (structural blueprint ONLY — copy the layout, section order, line breaks and emoji placement; DO NOT copy any wording, offers, prices, brand names, or hashtags from it, and DO NOT include hashtags even if the template has them):\n"""\n${data.styleReference.body}\n"""\n`
@@ -96,7 +172,11 @@ Return ONLY the caption text, no preamble.`;
       `Keywords: ${data.keywords.join(", ")}`,
       data.callToAction ? `Call-to-action: ${data.callToAction}` : null,
       data.extraContext ? `Extra context: ${data.extraContext}` : null,
-      data.servingAreas?.length ? `Serving areas: ${data.servingAreas.join(", ")}` : null,
+      servingAreas.length ? `Serving areas: ${servingAreas.join(", ")}` : null,
+      locationKeywords.length ? `LOCATION KEYWORDS: ${locationKeywords.join(", ")}` : null,
+      geoLocations.length
+        ? `GEO-TAGGED IMAGE LOCATIONS (must be mentioned): ${geoLocations.join("; ")}`
+        : null,
       imageUrls.length
         ? `There ${imageUrls.length === 1 ? "is 1 image" : `are ${imageUrls.length} images`} attached — analyse what is visible and let it shape the description.`
         : null,
@@ -135,7 +215,9 @@ Return ONLY the caption text, no preamble.`;
           keywords: data.keywords,
           images: imageUrls,
           template: data.styleReference?.body ?? null,
-          servingAreas: data.servingAreas ?? [],
+          servingAreas,
+          locationKeywords,
+          geoTaggedLocations: geoLocations,
         }),
       });
       if (!res.ok)

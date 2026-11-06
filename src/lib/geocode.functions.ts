@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Geocode an address via the Google Maps connector gateway.
@@ -7,6 +8,7 @@ import { z } from "zod";
  * must run server-side using the server-side connector key.
  */
 export const geocodeAddress = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) => z.object({ address: z.string().min(3).max(500) }).parse(data))
   .handler(async ({ data }) => {
     const lovableKey = process.env.LOVABLE_API_KEY;

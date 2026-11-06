@@ -16,14 +16,92 @@ export type GpsReadResult = {
 };
 
 function isJpeg(file: File | Blob): boolean {
-  const t = (file as File).type || "";
-  return t === "image/jpeg" || t === "image/jpg";
+  const t = ((file as File).type || "").toLowerCase();
+  if (t === "image/jpeg" || t === "image/jpg" || t === "image/pjpeg") return true;
+  // Some drag-drop sources and storage downloads report an empty MIME type —
+  // fall back to the file extension in that case.
+  if (!t) return /\.(jpe?g|jfif)$/i.test((file as File).name ?? "");
+  return false;
+}
+
+/**
+ * Re-encode a browser-decodable image (PNG, WebP, GIF, BMP, AVIF…) as JPEG so
+ * GPS EXIF can be embedded. Transparent pixels are flattened onto white.
+ * Returns null when the browser can't decode the format (e.g. HEIC in Chrome).
+ */
+export async function convertToJpeg(file: File, quality = 0.92): Promise<File | null> {
+  if (isJpeg(file)) return file;
+  if (typeof createImageBitmap !== "function" || typeof document === "undefined") return null;
+  try {
+    const bitmap = await createImageBitmap(file);
+    const canvas = document.createElement("canvas");
+    canvas.width = bitmap.width;
+    canvas.height = bitmap.height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return null;
+    ctx.fillStyle = "#ffffff";
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(bitmap, 0, 0);
+    bitmap.close?.();
+    const blob = await new Promise<Blob | null>((resolve) =>
+      canvas.toBlob(resolve, "image/jpeg", quality),
+    );
+    if (!blob) return null;
+    const name = file.name.replace(/\.[^.]+$/, "") + ".jpg";
+    return new File([blob], name, { type: "image/jpeg", lastModified: Date.now() });
+  } catch {
+    return null;
+  }
+}
+
+/** Max allowed drift between requested and embedded coordinates (~1 cm). */
+const GPS_VERIFY_TOLERANCE_DEG = 1e-7;
+
+/**
+ * Embed GPS (converting to JPEG first when needed) and then read the bytes
+ * back to prove the coordinates really landed in the file. Throws with a
+ * human-readable reason instead of silently returning an untagged image.
+ */
+export async function embedGpsVerified(
+  file: File,
+  lat: number,
+  lng: number,
+  meta: ImageMetadata = {},
+): Promise<File> {
+  if (!Number.isFinite(lat) || !Number.isFinite(lng) || Math.abs(lat) > 90 || Math.abs(lng) > 180) {
+    throw new Error(`Invalid coordinates: ${lat}, ${lng}`);
+  }
+  const jpeg = await convertToJpeg(file);
+  if (!jpeg) {
+    throw new Error(
+      `${file.type || "This format"} can't be geotagged in the browser — export it as JPEG and try again.`,
+    );
+  }
+  const tagged = await embedGps(jpeg, lat, lng, meta);
+  const check = await readGps(tagged);
+  if (
+    !check.hasGps ||
+    check.lat == null ||
+    check.lng == null ||
+    Math.abs(check.lat - lat) > GPS_VERIFY_TOLERANCE_DEG ||
+    Math.abs(check.lng - lng) > GPS_VERIFY_TOLERANCE_DEG
+  ) {
+    throw new Error(
+      check.hasGps
+        ? `GPS verification mismatch: wrote ${lat}, ${lng} but read ${check.lat}, ${check.lng}`
+        : `GPS could not be written to this file (${check.reason ?? "unknown reason"}).`,
+    );
+  }
+  return tagged;
 }
 
 function fileToDataUrl(file: File | Blob): Promise<string> {
   return new Promise((resolve, reject) => {
     const r = new FileReader();
-    r.onload = () => resolve(r.result as string);
+    // piexif only accepts "data:image/jpeg;base64,…" — normalise the prefix
+    // for JPEGs whose Blob reported an empty/alias MIME type.
+    r.onload = () =>
+      resolve((r.result as string).replace(/^data:[^;,]*;base64,/, "data:image/jpeg;base64,"));
     r.onerror = () => reject(r.error ?? new Error("read failed"));
     r.readAsDataURL(file);
   });
@@ -39,11 +117,12 @@ function dataUrlToBlob(dataUrl: string, mime: string): Blob {
 
 // Convert signed decimal degrees to piexif rational triple [deg, min, sec].
 function toDmsRational(deg: number): [[number, number], [number, number], [number, number]] {
-  const abs = Math.abs(deg);
-  const d = Math.floor(abs);
-  const minFloat = (abs - d) * 60;
-  const m = Math.floor(minFloat);
-  const s = Math.round((minFloat - m) * 60 * 10000);
+  // Work in whole 1/10000-second units so rounding can never yield 60" or
+  // 60' (e.g. 25.99999999° must become 26°0'0", not 25°59'60").
+  const totalUnits = Math.round(Math.abs(deg) * 3600 * 10000);
+  const d = Math.floor(totalUnits / (3600 * 10000));
+  const m = Math.floor((totalUnits % (3600 * 10000)) / (60 * 10000));
+  const s = totalUnits % (60 * 10000);
   return [
     [d, 1],
     [m, 1],

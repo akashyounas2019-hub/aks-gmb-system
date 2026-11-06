@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { z } from "zod";
+import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
 
 /**
  * Google Places lookups run server-side through the Lovable connector
@@ -40,10 +41,9 @@ async function gatewayFetch(path: string, init: RequestInit & { fieldMask?: stri
 /* ------------------------------- geocoding ------------------------------- */
 
 async function geocodeArea(area: string): Promise<{ lat: number; lng: number } | null> {
-  const json = await gatewayFetch(
-    `/maps/api/geocode/json?address=${encodeURIComponent(area)}`,
-    { method: "GET" },
-  );
+  const json = await gatewayFetch(`/maps/api/geocode/json?address=${encodeURIComponent(area)}`, {
+    method: "GET",
+  });
   const loc = json?.results?.[0]?.geometry?.location;
   if (typeof loc?.lat !== "number" || typeof loc?.lng !== "number") return null;
   return { lat: loc.lat, lng: loc.lng };
@@ -88,17 +88,13 @@ export type AreaPlace = {
   kind: "residential" | "shop" | "other";
 };
 
-function distanceMeters(
-  a: { lat: number; lng: number },
-  b: { lat: number; lng: number },
-): number {
+function distanceMeters(a: { lat: number; lng: number }, b: { lat: number; lng: number }): number {
   const R = 6371000;
   const dLat = ((b.lat - a.lat) * Math.PI) / 180;
   const dLng = ((b.lng - a.lng) * Math.PI) / 180;
   const la1 = (a.lat * Math.PI) / 180;
   const la2 = (b.lat * Math.PI) / 180;
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(la1) * Math.cos(la2);
+  const h = Math.sin(dLat / 2) ** 2 + Math.sin(dLng / 2) ** 2 * Math.cos(la1) * Math.cos(la2);
   return 2 * R * Math.asin(Math.sqrt(h));
 }
 
@@ -130,6 +126,7 @@ function mapPlace(p: any): AreaPlace | null {
  * buildings, villas and apartment towers first, then shops.
  */
 export const searchAreaPlaces = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
     z
       .object({
@@ -170,7 +167,10 @@ export const searchAreaPlaces = createServerFn({ method: "POST" })
           maxResultCount: 20,
           rankPreference: "DISTANCE",
           locationRestriction: {
-            circle: { center: { latitude: center.lat, longitude: center.lng }, radius: data.radius },
+            circle: {
+              center: { latitude: center.lat, longitude: center.lng },
+              radius: data.radius,
+            },
           },
         }),
       })
@@ -246,6 +246,7 @@ export const searchAreaPlaces = createServerFn({ method: "POST" })
 /* ------------------------------ autocomplete ----------------------------- */
 
 export const placeAutocomplete = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
     z
       .object({
@@ -284,6 +285,7 @@ export const placeAutocomplete = createServerFn({ method: "POST" })
   });
 
 export const placeDetails = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
   .inputValidator((data) =>
     z
       .object({ placeId: z.string().min(3).max(300), sessionToken: z.string().max(100).optional() })

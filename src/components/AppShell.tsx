@@ -1,6 +1,8 @@
 import { Link, useLocation, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useServerFn } from "@tanstack/react-start";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
+  Star,
   ArrowLeft,
   BarChart3,
   Bell,
@@ -28,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalUploadQueue } from "@/components/GlobalUploadQueue";
+import { getPreferences, saveSidebarFavorites } from "@/lib/user-preferences.functions";
 
 type NavItem = {
   to: string;
@@ -86,11 +89,137 @@ const settingsChildren: NavItem[] = [
   { to: "/settings/security", label: "Security", icon: ShieldCheck },
 ];
 
+const settingsLabel = (item: NavItem) =>
+  item.to.startsWith("/settings/") ? `Settings · ${item.label}` : item.label;
+
+const allNavItems: NavItem[] = [
+  ...navGroups.flatMap((g) => g.items),
+  ...settingsChildren.map((s) => ({ ...s, label: settingsLabel(s) })),
+];
+const navItemByPath = new Map(allNavItems.map((i) => [i.to, i]));
+
+const FAVORITES_CACHE_KEY = "sidebar_favorites_v1";
+
+function readCachedFavorites(): string[] {
+  try {
+    const raw = window.localStorage.getItem(FAVORITES_CACHE_KEY);
+    const parsed = raw ? JSON.parse(raw) : [];
+    return Array.isArray(parsed) ? parsed.filter((p) => typeof p === "string") : [];
+  } catch {
+    return [];
+  }
+}
+
+function writeCachedFavorites(list: string[]) {
+  try {
+    window.localStorage.setItem(FAVORITES_CACHE_KEY, JSON.stringify(list));
+  } catch {
+    /* storage unavailable — server copy is still the source of truth */
+  }
+}
+
+/**
+ * Sidebar favourites: ordered list of route paths, cached locally for an
+ * instant first paint and synced to `user_preferences.appearance` so the
+ * list follows the user across browsers/devices.
+ */
+function useSidebarFavorites() {
+  const [favorites, setFavorites] = useState<string[]>([]);
+  const loadPrefs = useServerFn(getPreferences);
+  const saveFavs = useServerFn(saveSidebarFavorites);
+
+  useEffect(() => {
+    setFavorites(readCachedFavorites());
+    let cancelled = false;
+    loadPrefs()
+      .then((p) => {
+        const remote = (p.appearance as Record<string, unknown> | null)?.sidebarFavorites;
+        if (cancelled || !Array.isArray(remote)) return;
+        const list = remote.filter((x): x is string => typeof x === "string");
+        setFavorites(list);
+        writeCachedFavorites(list);
+      })
+      .catch(() => {
+        /* offline / not signed in yet — keep the cached list */
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [loadPrefs]);
+
+  const toggle = useCallback(
+    (path: string) => {
+      const next = favorites.includes(path)
+        ? favorites.filter((p) => p !== path)
+        : [...favorites, path];
+      setFavorites(next);
+      writeCachedFavorites(next);
+      saveFavs({ data: { favorites: next } }).catch(() => {
+        /* cached locally; will be re-sent on the next toggle */
+      });
+    },
+    [favorites, saveFavs],
+  );
+
+  return { favorites, toggle };
+}
+
+function FavoriteToggle({
+  active,
+  label,
+  onToggle,
+  small = false,
+}: {
+  active: boolean;
+  label: string;
+  onToggle: () => void;
+  small?: boolean;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        onToggle();
+      }}
+      aria-pressed={active}
+      aria-label={active ? `Remove ${label} from favourites` : `Add ${label} to favourites`}
+      title={active ? "Remove from favourites" : "Add to favourites"}
+      className={`absolute right-1.5 top-1/2 grid -translate-y-1/2 place-items-center rounded-md transition-all hover:bg-accent focus-visible:opacity-100 ${
+        small ? "h-6 w-6" : "h-7 w-7"
+      } ${
+        active
+          ? "text-amber-400 opacity-100"
+          : "text-muted-foreground opacity-0 hover:text-amber-400 group-hover:opacity-100"
+      }`}
+    >
+      <Star className={`${small ? "h-3 w-3" : "h-3.5 w-3.5"} ${active ? "fill-current" : ""}`} />
+    </button>
+  );
+}
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const location = useLocation();
   const navigate = useNavigate();
   const settingsActive = location.pathname.startsWith("/settings");
   const [settingsOpen, setSettingsOpen] = useState(settingsActive);
+  const { favorites, toggle: toggleFavorite } = useSidebarFavorites();
+
+  const favoriteSet = useMemo(() => new Set(favorites), [favorites]);
+  const favoriteItems = useMemo(
+    () => favorites.map((p) => navItemByPath.get(p)).filter((i): i is NavItem => Boolean(i)),
+    [favorites],
+  );
+  // Favourited modules move to the top section, so drop them from their
+  // original group (and hide any group left empty).
+  const visibleGroups = useMemo(
+    () =>
+      navGroups
+        .map((g) => ({ ...g, items: g.items.filter((i) => !favoriteSet.has(i.to)) }))
+        .filter((g) => g.items.length > 0),
+    [favoriteSet],
+  );
 
   useEffect(() => {
     if (settingsActive) setSettingsOpen(true);
@@ -157,53 +286,51 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     const active =
                       location.pathname === s.to || location.pathname.startsWith(s.to + "/");
                     return (
-                      <Link
-                        key={s.to}
-                        to={s.to}
-                        className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                          active
-                            ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_0] shadow-primary"
-                            : "text-muted-foreground hover:bg-accent/60 hover:text-foreground hover:translate-x-0.5"
-                        }`}
-                      >
-                        <s.icon className="h-4 w-4 shrink-0" />
-                        {s.label}
-                      </Link>
+                      <div key={s.to} className="group relative">
+                        <Link
+                          to={s.to}
+                          className={`relative flex items-center gap-3 rounded-lg py-2 pl-3 pr-9 transition-all ${
+                            active
+                              ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_0] shadow-primary"
+                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                          }`}
+                        >
+                          <s.icon className="h-4 w-4 shrink-0" />
+                          {s.label}
+                        </Link>
+                        <FavoriteToggle
+                          active={favoriteSet.has(s.to)}
+                          label={s.label}
+                          onToggle={() => toggleFavorite(s.to)}
+                        />
+                      </div>
                     );
                   })}
                 </div>
               </div>
             ) : (
-              navGroups.map((g) => (
-                <div key={g.label}>
-                  <div className="mb-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
-                    {g.label}
-                  </div>
-                  <div className="space-y-0.5">
-                    {g.items.map((item) => {
-                      const active = isItemActive(item);
-                      return (
-                        <Link
-                          key={`${item.to}-${item.label}`}
-                          to={item.to}
-                          className={`group relative flex items-center gap-3 rounded-lg px-3 py-2 transition-all ${
-                            active
-                              ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_0] shadow-primary"
-                              : "text-muted-foreground hover:bg-accent/60 hover:text-foreground hover:translate-x-0.5"
-                          }`}
-                        >
-                          <item.icon
-                            className={`h-4 w-4 shrink-0 transition-colors ${
-                              active ? "" : "group-hover:text-foreground"
-                            }`}
-                          />
-                          {item.label}
-                        </Link>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))
+              <>
+                {favoriteItems.length > 0 && (
+                  <NavSection
+                    label="Favourites"
+                    labelIcon
+                    items={favoriteItems}
+                    isActive={isItemActive}
+                    favoriteSet={favoriteSet}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                )}
+                {visibleGroups.map((g) => (
+                  <NavSection
+                    key={g.label}
+                    label={g.label}
+                    items={g.items}
+                    isActive={isItemActive}
+                    favoriteSet={favoriteSet}
+                    onToggleFavorite={toggleFavorite}
+                  />
+                ))}
+              </>
             )}
 
             {!settingsActive && (
@@ -240,14 +367,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 {settingsOpen && (
                   <div className="mt-1 space-y-0.5 border-l border-border/60 pl-2">
                     {settingsChildren.map((s) => (
-                      <Link
-                        key={s.to}
-                        to={s.to}
-                        className="flex items-center gap-2 rounded-md px-3 py-1.5 text-xs text-muted-foreground transition-all hover:bg-accent/60 hover:text-foreground hover:translate-x-0.5"
-                      >
-                        <s.icon className="h-3.5 w-3.5 shrink-0" />
-                        {s.label}
-                      </Link>
+                      <div key={s.to} className="group relative">
+                        <Link
+                          to={s.to}
+                          className="flex items-center gap-2 rounded-md py-1.5 pl-3 pr-8 text-xs text-muted-foreground transition-all hover:bg-accent/60 hover:text-foreground"
+                        >
+                          <s.icon className="h-3.5 w-3.5 shrink-0" />
+                          {s.label}
+                        </Link>
+                        <FavoriteToggle
+                          small
+                          active={favoriteSet.has(s.to)}
+                          label={s.label}
+                          onToggle={() => toggleFavorite(s.to)}
+                        />
+                      </div>
                     ))}
                   </div>
                 )}
@@ -268,6 +402,60 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1">{children}</main>
       </div>
       <GlobalUploadQueue />
+    </div>
+  );
+}
+
+function NavSection({
+  label,
+  labelIcon = false,
+  items,
+  isActive,
+  favoriteSet,
+  onToggleFavorite,
+}: {
+  label: string;
+  labelIcon?: boolean;
+  items: NavItem[];
+  isActive: (item: NavItem) => boolean;
+  favoriteSet: Set<string>;
+  onToggleFavorite: (path: string) => void;
+}) {
+  return (
+    <div>
+      <div className="mb-1.5 flex items-center gap-1.5 px-3 text-[10px] font-semibold uppercase tracking-[0.14em] text-muted-foreground/70">
+        {labelIcon && <Star className="h-3 w-3 fill-amber-400 text-amber-400" />}
+        {label}
+      </div>
+      <div className="space-y-0.5">
+        {items.map((item) => {
+          const active = isActive(item);
+          return (
+            <div key={`${item.to}-${item.label}`} className="group relative">
+              <Link
+                to={item.to}
+                className={`relative flex items-center gap-3 rounded-lg py-2 pl-3 pr-9 transition-all ${
+                  active
+                    ? "bg-primary/15 text-primary shadow-[inset_2px_0_0_0] shadow-primary"
+                    : "text-muted-foreground hover:bg-accent/60 hover:text-foreground"
+                }`}
+              >
+                <item.icon
+                  className={`h-4 w-4 shrink-0 transition-colors ${
+                    active ? "" : "group-hover:text-foreground"
+                  }`}
+                />
+                <span className="truncate">{item.label}</span>
+              </Link>
+              <FavoriteToggle
+                active={favoriteSet.has(item.to)}
+                label={item.label}
+                onToggle={() => onToggleFavorite(item.to)}
+              />
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }

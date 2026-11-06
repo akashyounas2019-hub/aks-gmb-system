@@ -159,11 +159,6 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             placeholder="e.g. Bathroom Deep Cleaning Dubai"
             className="mt-2 w-full rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Base name for extracted frames from every video in this batch — each frame is saved as "
-            {titleName.trim() || "video filename"} — Frame 1", "— Frame 2", etc. Leave empty to use
-            each video's filename.
-          </p>
         </label>
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
@@ -181,9 +176,6 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             }}
             className="mt-2 w-full accent-primary"
           />
-          <p className="mt-1 text-[11px] text-muted-foreground">
-            Backfills with the sharpest remaining frames if the video is short or evenly lit.
-          </p>
         </label>
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
@@ -216,9 +208,6 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
             onChange={(e) => updateSettings({ sampleMs: Number(e.target.value) })}
             className="mt-2 w-full accent-primary"
           />
-          <div className="mt-1 text-xs text-muted-foreground">
-            Lower = more candidates, slower analysis.
-          </div>
         </label>
         <label className="rounded-lg border border-border bg-card p-4 text-sm">
           <div className="flex items-center justify-between">
@@ -235,10 +224,6 @@ export function UploadPanel({ onComplete, onImageSaved, showHeader = true }: Upl
               </option>
             ))}
           </select>
-          <p className="mt-2 text-[11px] text-muted-foreground">
-            Longest edge (in pixels) of each extracted frame — this controls dimensions, not image
-            quality. Larger = more detail but bigger files and slower upload.
-          </p>
         </label>
       </div>
 

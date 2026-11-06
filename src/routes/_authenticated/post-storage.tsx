@@ -22,6 +22,8 @@ import {
   FileText,
   ChevronRight,
   ImageIcon,
+  Save,
+  X,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -246,6 +248,7 @@ export function PostStoragePanel() {
         ...(patch.status !== undefined ? { status: patch.status } : {}),
         ...(patch.scheduledAt !== undefined ? { scheduledAt: patch.scheduledAt } : {}),
         ...(patch.tags !== undefined ? { tags: patch.tags } : {}),
+        ...(patch.imageIds !== undefined ? { imageIds: patch.imageIds } : {}),
       },
     }).catch((e) => toast.error(e instanceof Error ? e.message : "Could not save post"));
   }
@@ -416,22 +419,25 @@ export function PostStoragePanel() {
                 </div>
               )}
             </div>
-
-            {selectedPost && (
-              <PostEditor
-                key={selectedPost.id}
-                post={selectedPost}
-                folders={folders}
-                imageMap={imageMap}
-                onClose={() => setSelectedPost(null)}
-                onUpdate={(patch) => updatePost(selectedPost.id, patch)}
-                onDelete={() => deletePost(selectedPost.id)}
-                onSchedule={() => setScheduling(selectedPost)}
-              />
-            )}
           </div>
         </div>
       </div>
+
+      {selectedPost && (
+        <EditPostModal
+          key={selectedPost.id}
+          post={selectedPost}
+          folders={folders}
+          imageMap={imageMap}
+          onClose={() => setSelectedPost(null)}
+          onSave={(patch) => {
+            updatePost(selectedPost.id, patch);
+            setSelectedPost(null);
+            toast.success("Post saved");
+          }}
+          onDelete={() => deletePost(selectedPost.id)}
+        />
+      )}
 
       {creatingFolder && (
         <Modal onClose={() => setCreatingFolder(false)} title="New folder">
@@ -624,7 +630,7 @@ function PostCard({
         <button onClick={onOpen} className="block w-full text-left" aria-label="Open post">
           <div className="relative aspect-[16/10] w-full overflow-hidden bg-muted">
             <SignedImage
-              bucket="images"
+              bucket="frames"
               path={attached[0].storage_path}
               alt={attached[0].name ?? "Post cover"}
               className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-[1.02]"
@@ -637,7 +643,7 @@ function PostCard({
                     className="relative h-12 w-12 overflow-hidden rounded-md border border-white/20 bg-muted"
                   >
                     <SignedImage
-                      bucket="images"
+                      bucket="frames"
                       path={img.storage_path}
                       alt={img.name ?? "Attached image"}
                       className="h-full w-full object-cover"
@@ -749,150 +755,301 @@ function PostCard({
   );
 }
 
-function PostEditor({
+function toLocalInput(iso: string | null): string {
+  if (!iso) return "";
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "";
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+/**
+ * Full "Edit Post" popup. Edits are kept in local state and written in one
+ * go on Save (the old side panel saved on every keystroke).
+ */
+function EditPostModal({
   post,
   folders,
   imageMap,
   onClose,
-  onUpdate,
+  onSave,
   onDelete,
-  onSchedule,
 }: {
   post: Post;
   folders: Folder[];
   imageMap: ImageMap;
   onClose: () => void;
-  onUpdate: (patch: Partial<Post>) => void;
+  onSave: (patch: Partial<Post>) => void;
   onDelete: () => void;
-  onSchedule: () => void;
 }) {
-  const attached = (post.imageIds ?? [])
-    .map((id) => imageMap[id])
-    .filter((r): r is ImageRow => Boolean(r));
-  function removeImage(id: string) {
-    onUpdate({ imageIds: (post.imageIds ?? []).filter((x) => x !== id) });
+  const [title, setTitle] = useState(post.title ?? "");
+  const [body, setBody] = useState(post.body ?? "");
+  const [status, setStatus] = useState<PostStatus>(post.status as PostStatus);
+  const [folderId, setFolderId] = useState<string | null>(post.folderId);
+  const [scheduledLocal, setScheduledLocal] = useState(toLocalInput(post.scheduledAt));
+  const [tags, setTags] = useState<string[]>(post.tags ?? []);
+  const [tagInput, setTagInput] = useState("");
+  const [imageIds, setImageIds] = useState<string[]>(post.imageIds ?? []);
+
+  const attached = imageIds.map((id) => imageMap[id]).filter((r): r is ImageRow => Boolean(r));
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+    }
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  function addTags(raw: string) {
+    const parts = raw
+      .split(/[,\n]/)
+      .map((t) => t.trim())
+      .filter(Boolean);
+    if (parts.length) {
+      setTags((prev) => {
+        const seen = new Set(prev.map((t) => t.toLowerCase()));
+        return [...prev, ...parts.filter((p) => !seen.has(p.toLowerCase()))];
+      });
+    }
+    setTagInput("");
   }
+
+  function save() {
+    const scheduledAt = scheduledLocal ? new Date(scheduledLocal).toISOString() : null;
+    // Scheduling a draft promotes it to Upcoming, matching the Schedule action.
+    const nextStatus: PostStatus = scheduledAt && status === "Draft" ? "Upcoming" : status;
+    onSave({
+      title: title.trim() || "Untitled post",
+      body,
+      status: nextStatus,
+      folderId,
+      scheduledAt,
+      tags,
+      imageIds,
+    });
+  }
+
+  const field =
+    "w-full rounded-md border border-border bg-background px-3 py-2 text-sm outline-none focus:border-primary";
+  const label = "mb-1 block text-xs font-medium text-muted-foreground";
+
   return (
-    <aside className="w-96 shrink-0 border-l border-border bg-card/40 flex flex-col">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-border">
-        <span className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">
-          Edit post
-        </span>
-        <button onClick={onClose} className="text-xs text-muted-foreground hover:text-foreground">
-          Close
-        </button>
-      </div>
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
-        <input
-          value={post.title}
-          onChange={(e) => onUpdate({ title: e.target.value })}
-          placeholder="Title"
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm font-medium"
-        />
-        <textarea
-          value={post.body}
-          onChange={(e) => onUpdate({ body: e.target.value })}
-          placeholder="Write your post…"
-          rows={10}
-          className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-        />
-        <div>
-          <label className="mb-1 flex items-center justify-between text-xs text-muted-foreground">
-            <span className="inline-flex items-center gap-1">
-              <ImageIcon className="h-3 w-3" />
-              Attached images
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-background/80 p-4 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label="Edit post"
+        onClick={(e) => e.stopPropagation()}
+        className="flex max-h-[92vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl border border-border bg-card shadow-2xl"
+      >
+        <div className="flex items-center justify-between border-b border-border px-5 py-3">
+          <div className="flex items-center gap-2">
+            <FileText className="h-4 w-4 text-primary" />
+            <h2 className="text-sm font-semibold">Edit post</h2>
+            <span
+              className={`rounded-full border px-2 py-0.5 text-[10px] ${STATUS_STYLES[status]}`}
+            >
+              {status}
             </span>
-            <span>{post.imageIds?.length ?? 0}</span>
-          </label>
-          {attached.length === 0 ? (
-            <p className="rounded-md border border-dashed border-border px-3 py-4 text-center text-[11px] text-muted-foreground">
-              {(post.imageIds?.length ?? 0) > 0
-                ? "Loading images…"
-                : "No images attached to this post."}
-            </p>
-          ) : (
-            <div className="grid grid-cols-3 gap-1.5">
-              {attached.map((img) => (
-                <div
-                  key={img.id}
-                  className="group/img relative aspect-square overflow-hidden rounded-md border border-border bg-muted"
-                >
-                  <SignedImage
-                    bucket="images"
-                    path={img.storage_path}
-                    alt={img.name ?? "Attached image"}
-                    className="h-full w-full object-cover"
-                  />
-                  <button
-                    onClick={() => removeImage(img.id)}
-                    className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-muted-foreground opacity-0 transition group-hover/img:opacity-100 hover:text-destructive"
-                    title="Remove image from post"
-                    aria-label="Remove image"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              ))}
-            </div>
-          )}
+          </div>
+          <button
+            onClick={onClose}
+            aria-label="Close"
+            className="rounded p-1 text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <X className="h-4 w-4" />
+          </button>
         </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Status</label>
-          <div className="flex flex-wrap gap-1.5">
-            {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
-              <button
-                key={s}
-                onClick={() => onUpdate({ status: s })}
-                className={`rounded-full border px-2.5 py-0.5 text-xs ${
-                  post.status === s
-                    ? STATUS_STYLES[s]
-                    : "border-border text-muted-foreground hover:text-foreground"
+
+        <div className="flex-1 space-y-4 overflow-y-auto p-5">
+          <div>
+            <label className={label}>Title</label>
+            <input
+              value={title}
+              onChange={(e) => setTitle(e.target.value)}
+              placeholder="Post title"
+              className={`${field} font-medium`}
+            />
+          </div>
+
+          <div>
+            <div className="mb-1 flex items-center justify-between">
+              <span className="text-xs font-medium text-muted-foreground">Description</span>
+              <span
+                className={`font-mono text-[11px] ${
+                  body.length > 1500 ? "font-semibold text-destructive" : "text-muted-foreground"
                 }`}
               >
-                {s}
-              </button>
-            ))}
+                {body.length}/1500
+              </span>
+            </div>
+            <textarea
+              value={body}
+              onChange={(e) => setBody(e.target.value)}
+              placeholder="Write your post…"
+              rows={9}
+              className={`${field} resize-y leading-relaxed`}
+            />
           </div>
-        </div>
-        <div>
-          <label className="block text-xs text-muted-foreground mb-1">Folder</label>
-          <select
-            value={post.folderId ?? ""}
-            onChange={(e) => onUpdate({ folderId: e.target.value || null })}
-            className="w-full rounded-md border border-border bg-background px-3 py-2 text-sm"
-          >
-            <option value="">Unfiled</option>
-            {folders.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}
-              </option>
-            ))}
-          </select>
-        </div>
-        {post.scheduledAt && (
-          <div className="rounded-md border border-border bg-background/50 px-3 py-2 text-xs text-muted-foreground">
-            <div className="flex items-center gap-1">
-              <CalendarClock className="h-3.5 w-3.5" />
-              Scheduled for {new Date(post.scheduledAt).toLocaleString()}
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div>
+              <label className={label}>Status</label>
+              <div className="flex flex-wrap gap-1.5">
+                {(["Draft", "Upcoming", "Published", "Live"] as const).map((s) => (
+                  <button
+                    key={s}
+                    type="button"
+                    onClick={() => setStatus(s)}
+                    className={`rounded-full border px-2.5 py-1 text-xs ${
+                      status === s
+                        ? STATUS_STYLES[s]
+                        : "border-border text-muted-foreground hover:text-foreground"
+                    }`}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className={label}>Folder</label>
+              <select
+                value={folderId ?? ""}
+                onChange={(e) => setFolderId(e.target.value || null)}
+                className={field}
+              >
+                <option value="">Unfiled</option>
+                {folders.map((f) => (
+                  <option key={f.id} value={f.id}>
+                    {f.name}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
-        )}
+
+          <div>
+            <label className={label}>Schedule time</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="datetime-local"
+                value={scheduledLocal}
+                onChange={(e) => setScheduledLocal(e.target.value)}
+                className={field}
+              />
+              {scheduledLocal && (
+                <button
+                  type="button"
+                  onClick={() => setScheduledLocal("")}
+                  className="shrink-0 rounded-md border border-border px-2.5 py-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
+                >
+                  Clear
+                </button>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className={label}>Keywords / tags</label>
+            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1.5 focus-within:border-primary">
+              {tags.map((t) => (
+                <span
+                  key={t}
+                  className="inline-flex items-center gap-1 rounded-full bg-muted py-0.5 pl-2 pr-1 text-xs"
+                >
+                  {t}
+                  <button
+                    type="button"
+                    onClick={() => setTags((prev) => prev.filter((x) => x !== t))}
+                    aria-label={`Remove ${t}`}
+                    className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    <X className="h-3 w-3" />
+                  </button>
+                </span>
+              ))}
+              <input
+                value={tagInput}
+                onChange={(e) => setTagInput(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === ",") {
+                    e.preventDefault();
+                    addTags(tagInput);
+                  }
+                }}
+                onBlur={() => tagInput.trim() && addTags(tagInput)}
+                placeholder={tags.length ? "" : "Type and press Enter"}
+                className="min-w-[120px] flex-1 bg-transparent py-0.5 text-sm outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className={label}>Images ({imageIds.length})</label>
+            {attached.length === 0 ? (
+              <p className="rounded-md border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">
+                {imageIds.length > 0 ? "Loading images…" : "No images attached."}
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {attached.map((img) => (
+                  <div
+                    key={img.id}
+                    className="group/img relative h-20 w-20 overflow-hidden rounded-md border border-border bg-muted"
+                  >
+                    <SignedImage
+                      bucket="frames"
+                      path={img.storage_path}
+                      alt={img.name ?? "Attached image"}
+                      className="h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setImageIds((prev) => prev.filter((x) => x !== img.id))}
+                      className="absolute right-1 top-1 rounded-full bg-background/80 p-1 text-muted-foreground opacity-0 transition hover:text-destructive group-hover/img:opacity-100 focus-visible:opacity-100"
+                      aria-label="Remove image"
+                    >
+                      <X className="h-3 w-3" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <div className="flex items-center gap-2 border-t border-border px-5 py-3">
+          <button
+            type="button"
+            onClick={onDelete}
+            className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 px-3 py-2 text-xs text-destructive hover:bg-destructive/10"
+          >
+            <Trash2 className="h-3.5 w-3.5" /> Delete
+          </button>
+          <div className="ml-auto flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-md border border-border px-4 py-2 text-xs hover:bg-accent"
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              onClick={save}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-4 py-2 text-xs font-medium text-primary-foreground hover:opacity-90"
+            >
+              <Save className="h-3.5 w-3.5" /> Save changes
+            </button>
+          </div>
+        </div>
       </div>
-      <div className="border-t border-border p-3 flex items-center gap-2">
-        <button
-          onClick={onSchedule}
-          className="flex-1 inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
-        >
-          <CalendarClock className="h-3.5 w-3.5" /> Schedule
-        </button>
-        <button
-          onClick={onDelete}
-          className="inline-flex items-center gap-1.5 rounded-md border border-destructive/40 px-3 py-1.5 text-xs text-destructive hover:bg-destructive/10"
-        >
-          <Trash2 className="h-3.5 w-3.5" /> Delete
-        </button>
-      </div>
-    </aside>
+    </div>
   );
 }
 

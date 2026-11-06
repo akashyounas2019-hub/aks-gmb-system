@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { embedGps, readGps, readMeta } from "./exif-geotag";
+import { embedGps, embedGpsVerified, readGps, readMeta } from "./exif-geotag";
 
 // Minimal 1x1 baseline JPEG. Used as the substrate for every EXIF round-trip
 // test — piexifjs accepts arbitrary JPEGs and only rewrites the APPn segments.
@@ -176,5 +176,46 @@ describe("exif-geotag consistency checks", () => {
     expect(meta.description).toBe("new caption");
     expect(gps.lat).toBeCloseTo(30, 3);
     expect(gps.lng).toBeCloseTo(40, 3);
+  });
+});
+
+describe("exif-geotag coordinate accuracy", () => {
+  const CASES: Array<[string, number, number]> = [
+    ["Dubai Marina (6dp)", 25.080512, 55.140301],
+    ["just below a whole degree (seconds carry)", 25.99999999, 55.99999999],
+    ["just below a whole minute", 25.0166666, -0.0166666],
+    ["equator / prime meridian", 0, 0],
+    ["extreme south-west", -89.999999, -179.999999],
+  ];
+  for (const [name, lat, lng] of CASES) {
+    it(`round-trips within ~1 cm: ${name}`, async () => {
+      const gps = await readGps(await embedGps(baseJpeg(), lat, lng));
+      expect(gps.hasGps).toBe(true);
+      expect(Math.abs(gps.lat! - lat)).toBeLessThan(1e-7);
+      expect(Math.abs(gps.lng! - lng)).toBeLessThan(1e-7);
+    });
+  }
+
+  it("embedGpsVerified returns a JPEG whose GPS matches", async () => {
+    const tagged = await embedGpsVerified(baseJpeg(), 25.2048, 55.2708);
+    const gps = await readGps(tagged);
+    expect(gps.lat).toBeCloseTo(25.2048, 7);
+    expect(gps.lng).toBeCloseTo(55.2708, 7);
+  });
+
+  it("embedGpsVerified accepts a JPEG with an empty MIME type (by extension)", async () => {
+    const bytes = Uint8Array.from(atob(BASE_JPEG_B64), (c) => c.charCodeAt(0));
+    const noType = new File([bytes], "photo.JPG", { type: "" });
+    await expect(embedGpsVerified(noType, 1, 2)).resolves.toBeInstanceOf(File);
+  });
+
+  it("embedGpsVerified rejects out-of-range coordinates", async () => {
+    await expect(embedGpsVerified(baseJpeg(), 91, 0)).rejects.toThrow(/Invalid coordinates/);
+    await expect(embedGpsVerified(baseJpeg(), 0, Number.NaN)).rejects.toThrow(/Invalid/);
+  });
+
+  it("embedGpsVerified throws instead of silently skipping undecodable formats", async () => {
+    const heic = new File([new Uint8Array([0, 1, 2, 3])], "x.heic", { type: "image/heic" });
+    await expect(embedGpsVerified(heic, 25, 55)).rejects.toThrow(/JPEG/);
   });
 });
