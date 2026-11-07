@@ -215,6 +215,24 @@ export const saveIntegration = createServerFn({ method: "POST" })
       encrypted[k] = { c: encryptSecret(v), m: maskValue(v) };
     }
 
+    // GHL: keep the Google Business account / user picked in Settings when the
+    // token is re-saved for the same Location ID (they belong to that location).
+    if (data.provider === "ghl") {
+      const prev = await getDecryptedIntegration(supabase, userId, "ghl").catch(() => null);
+      if (prev && prev.location_id === data.config.location_id) {
+        const { data: prevRow } = await supabase
+          .from("user_integrations")
+          .select("config")
+          .eq("user_id", userId)
+          .eq("provider", "ghl")
+          .maybeSingle();
+        const prevCfg = (prevRow?.config ?? {}) as Record<string, StoredField>;
+        for (const k of ["account_id", "account_name", "user_id"]) {
+          if (prevCfg[k]) encrypted[k] = prevCfg[k];
+        }
+      }
+    }
+
     const { error } = await supabase.from("user_integrations").upsert(
       {
         user_id: userId,

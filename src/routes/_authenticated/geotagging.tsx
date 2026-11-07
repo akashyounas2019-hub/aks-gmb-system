@@ -1252,8 +1252,9 @@ function StepUpload({
                   className="group relative h-16 w-16 shrink-0 overflow-hidden rounded-lg border border-border"
                   title={img.file.name}
                 >
-                  <img
-                    src={img.previewUrl}
+                  <SignedImage
+                    bucket="frames"
+                    path={img.previewUrl}
                     alt={img.file.name}
                     className="h-full w-full object-cover"
                   />
@@ -1358,7 +1359,12 @@ function LibraryThumb({
       }`}
     >
       {url ? (
-        <img src={url} alt={row.name} className="aspect-square w-full object-cover" />
+        <SignedImage
+          bucket="frames"
+          path={row.storage_path}
+          alt={row.name}
+          className="aspect-square w-full object-cover"
+        />
       ) : (
         <div className="aspect-square w-full animate-pulse bg-muted" />
       )}
@@ -1552,8 +1558,9 @@ function StepLocation(props: {
                   key={img.id}
                   className="flex items-center gap-3 rounded-md border border-border bg-background p-2"
                 >
-                  <img
-                    src={img.previewUrl}
+                  <SignedImage
+                    bucket="frames"
+                    path={img.previewUrl}
                     alt={img.file.name}
                     className="h-11 w-11 shrink-0 rounded object-cover"
                   />
@@ -1852,8 +1859,9 @@ function StepAssign({
                   onClick={() => toggleSelect(img.id)}
                   className="relative block aspect-square w-full overflow-hidden"
                 >
-                  <img
-                    src={img.previewUrl}
+                  <SignedImage
+                    bucket="frames"
+                    path={img.previewUrl}
                     alt={img.file.name}
                     className="h-full w-full object-cover transition group-hover:scale-105"
                   />
@@ -1993,9 +2001,10 @@ function StepSave({
               key={img.id}
               className="flex items-center gap-2 rounded-md border border-border bg-muted/20 p-2"
             >
-              <img
-                src={img.previewUrl}
-                alt=""
+              <SignedImage
+                bucket="frames"
+                path={img.previewUrl}
+                alt="Image"
                 className="h-10 w-10 shrink-0 rounded object-cover"
               />
               <div className="min-w-0 flex-1">
@@ -2343,8 +2352,9 @@ function GeoTagImager({
               key={r.id}
               className="flex flex-col gap-3 rounded-xl border border-border bg-card p-3 sm:flex-row sm:items-start"
             >
-              <img
-                src={r.previewUrl}
+              <SignedImage
+                bucket="frames"
+                path={r.previewUrl}
                 alt={r.displayName ?? r.file.name}
                 className="h-20 w-20 shrink-0 rounded-md object-cover"
               />

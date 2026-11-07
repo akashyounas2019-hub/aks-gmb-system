@@ -385,7 +385,7 @@ export async function dispatchSocialPost(
   post: DispatchablePost,
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   supabase: any,
-): Promise<{ ok: boolean; status: "sent" | "failed"; error?: string }> {
+): Promise<{ ok: boolean; status: "sent" | "scheduled" | "failed"; error?: string }> {
   const imageIds = post.image_ids ?? [];
 
   // Sign each image URL for 24h so the receiving webhook (n8n / GHL) can fetch it
@@ -411,20 +411,27 @@ export async function dispatchSocialPost(
   let errorText: string | null = null;
   let usedDirectGhl = false;
 
-  const ghlCreds = await getDecryptedIntegration(supabase, post.owner_id, "ghl").catch(() => null);
-  if (ghlCreds?.api_key && ghlCreds?.location_id) {
+  let ghlPostId: string | null = null;
+  let scheduledInGhl = false;
+  const { getGhlTarget, sendPostToGhl } = await import("./ghl-posting.server");
+  const ghlTarget = await getGhlTarget(supabase, post.owner_id);
+  if (ghlTarget) {
     usedDirectGhl = true;
     try {
-      const { publishToGhl } = await import("./ghl-api.server");
-      const res = await publishToGhl(ghlCreds.api_key, ghlCreds.location_id, {
+      const res = await sendPostToGhl(supabase, ghlTarget, {
+        id: post.id,
+        owner_id: post.owner_id,
         caption: post.caption,
-        imageUrls: imageUrls.map((i) => i.url),
-        ctaType: post.cta_type ?? "none",
-        ctaUrl: post.cta_url ?? null,
+        image_ids: imageIds,
+        scheduled_at: post.scheduled_at,
+        cta_type: post.cta_type ?? null,
+        cta_url: post.cta_url ?? null,
       });
       ok = res.ok;
       providerStatus = res.status;
       errorText = res.error ?? null;
+      ghlPostId = res.postId ?? null;
+      scheduledInGhl = res.ok && !!res.scheduled;
     } catch (err) {
       errorText = err instanceof Error ? err.message : "GHL request failed";
     }
@@ -490,15 +497,21 @@ export async function dispatchSocialPost(
   await supabase
     .from("social_posts")
     .update({
-      status: ok ? "sent" : "failed",
-      provider_response: { status: providerStatus, ok, via: usedDirectGhl ? "ghl_api" : "webhook" },
+      status: ok ? (scheduledInGhl ? "scheduled" : "sent") : "failed",
+      provider_response: {
+        status: providerStatus,
+        ok,
+        via: usedDirectGhl ? "ghl_api" : "webhook",
+        ...(ghlPostId ? { ghl_post_id: ghlPostId } : {}),
+        ...(scheduledInGhl ? { scheduled_in_ghl: true } : {}),
+      },
       error: errorText,
       updated_at: new Date().toISOString(),
     } as any)
     .eq("id", post.id);
 
   // Only mark images posted once the post has actually, successfully gone out.
-  if (ok && imageIds.length) {
+  if (ok && !scheduledInGhl && imageIds.length) {
     await supabase
       .from("images")
       .update({ posted_at: new Date().toISOString() } as any)
@@ -506,7 +519,15 @@ export async function dispatchSocialPost(
       .eq("owner_id", post.owner_id);
   }
 
-  return { ok, status: ok ? "sent" : "failed", error: errorText ?? undefined };
+  return {
+    ok,
+    status: ok
+      ? scheduledInGhl
+        ? ("scheduled" as const)
+        : ("sent" as const)
+      : ("failed" as const),
+    error: errorText ?? undefined,
+  };
 }
 
 export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
@@ -546,7 +567,43 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
     // sending it happens later, when the cron dispatcher sees its time is due
     // (see run-automations → auto_publish). Nothing is marked "posted" yet.
     if (isScheduled) {
-      return { postId: inserted.id, status: "queued" as const };
+      const { getGhlTarget } = await import("./ghl-posting.server");
+      const target = await getGhlTarget(supabase, userId);
+      if (!target?.accountId) {
+        return { postId: inserted.id, status: "queued" as const };
+      }
+      // GoHighLevel holds the post and publishes it at scheduledAt itself, so
+      // it no longer depends on our cron.
+      const res = await dispatchSocialPost(
+        {
+          id: inserted.id,
+          owner_id: userId,
+          caption: data.caption,
+          image_ids: data.imageIds,
+          location_label: data.locationLabel ?? null,
+          lat: data.lat ?? null,
+          lng: data.lng ?? null,
+          ghl_location_id: data.ghlLocationId ?? null,
+          scheduled_at: new Date(data.scheduledAt as string).toISOString(),
+          primary_keyword: data.primaryKeyword,
+          networks: data.networks,
+          cta_type: data.ctaType,
+          cta_url: data.ctaUrl ?? null,
+        },
+        supabase,
+      );
+      if (!res.ok) {
+        await supabase
+          .from("social_posts")
+          .update({ status: "queued", error: res.error } as never)
+          .eq("id", inserted.id);
+        return {
+          postId: inserted.id,
+          status: "queued" as const,
+          warning: `GoHighLevel rejected the schedule — kept in the Scheduler queue. ${res.error ?? ""}`,
+        };
+      }
+      return { postId: inserted.id, status: "scheduled" as const };
     }
 
     const result = await dispatchSocialPost(

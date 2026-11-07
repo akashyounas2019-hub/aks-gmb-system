@@ -29,6 +29,7 @@ import {
   Folder,
   Calendar,
   CalendarClock,
+  Info,
 } from "lucide-react";
 import { PostStoragePanel } from "@/routes/_authenticated/post-storage";
 import { upsertDraft } from "@/lib/post-drafts.functions";
@@ -36,7 +37,8 @@ import { upsertDraft } from "@/lib/post-drafts.functions";
 import { toast } from "sonner";
 
 import { supabase } from "@/integrations/supabase/client";
-import { SignedImage } from "@/components/SignedImage";
+import { SignedImage, useSignedUrl } from "@/components/SignedImage";
+import { openImagePreview } from "@/components/ImageLightbox";
 import { GeoTaggedBadge } from "@/components/GeoTaggedBadge";
 import { PublishedBadge } from "@/components/PublishedBadge";
 import { LocationPicker, type PickedLocation } from "@/components/LocationPicker";
@@ -80,7 +82,6 @@ type ImageFolder = {
   id: string;
   name: string;
 };
-
 
 // Dubai-area names the business serves — 7-8 are randomly picked per
 // generated post and mentioned as a "Serving:" line in the caption.
@@ -147,6 +148,45 @@ function pickServingAreas(): string[] {
     [pool[i], pool[j]] = [pool[j], pool[i]];
   }
   return pool.slice(0, count);
+}
+
+/** Small selected-image thumb with an "i" button that opens the large preview. */
+function SelectedImageChip({ img, onOpenDetails }: { img: ImageRow; onOpenDetails: () => void }) {
+  const url = useSignedUrl("frames", img.storage_path);
+  const label = img.title || img.name;
+  return (
+    <div className="relative h-10 w-10 shrink-0">
+      <button
+        type="button"
+        onClick={onOpenDetails}
+        title={`${label} — details`}
+        className="h-full w-full overflow-hidden rounded-md border border-primary/50"
+      >
+        <SignedImage
+          bucket="frames"
+          path={img.storage_path}
+          alt={img.name}
+          expandable={false}
+          className="h-full w-full object-cover"
+        />
+      </button>
+      <button
+        type="button"
+        onClick={() => url && openImagePreview(url, label)}
+        disabled={!url}
+        aria-label={`Preview ${label}`}
+        title="Preview"
+        className="absolute -right-1.5 -top-1.5 grid h-4 w-4 place-items-center rounded-full bg-primary text-primary-foreground shadow ring-2 ring-card hover:opacity-90 disabled:opacity-50"
+      >
+        <Info className="h-3 w-3" />
+      </button>
+    </div>
+  );
+}
+
+/** Date → value for <input type="datetime-local"> in local time. */
+function toLocalInputValue(d: Date): string {
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 }
 
 export function PostGeneratorPage({
@@ -504,6 +544,11 @@ export function PostGeneratorPage({
 
   const CAPTION_LIMIT = 1500;
   const captionLen = caption.length;
+  // How many of the user's keywords already appear in the description.
+  const keywordsUsed = useMemo(() => {
+    const body = caption.toLowerCase();
+    return manualKw.filter((k) => body.includes(k.toLowerCase())).length;
+  }, [caption, manualKw]);
   const captionOver = captionLen > CAPTION_LIMIT;
 
   async function reloadImages() {
@@ -583,7 +628,6 @@ export function PostGeneratorPage({
     });
   }, [images, selectedImageFolderId]);
 
-
   const selectedImagesList = useMemo(() => {
     return Array.from(selectedImages)
       .map((id) => images.find((i) => i.id === id))
@@ -617,6 +661,32 @@ export function PostGeneratorPage({
       return hay.includes(q);
     });
   }, [importedKw, importFilter, manualKw, selectedFolderId, folderMap]);
+
+  /** Latest scheduled_at on the user's schedule that is still in the future. */
+  async function latestFutureScheduledAt(): Promise<Date | null> {
+    const { data } = await supabase
+      .from("social_posts")
+      .select("scheduled_at")
+      .not("scheduled_at", "is", null)
+      .gt("scheduled_at", new Date().toISOString())
+      .order("scheduled_at", { ascending: false })
+      .limit(1);
+    const iso = data?.[0]?.scheduled_at;
+    return iso ? new Date(iso) : null;
+  }
+
+  async function scheduleDaysAfterLastPost(days: number) {
+    const last = await latestFutureScheduledAt().catch(() => null);
+    const d = new Date(last ?? Date.now());
+    d.setDate(d.getDate() + days);
+    if (!last) d.setHours(10, 0, 0, 0);
+    setScheduledAt(toLocalInputValue(d));
+    toast.info(
+      last
+        ? `Set to ${days} days after your last scheduled post (${last.toLocaleString()}).`
+        : `No upcoming posts — set to ${days} days from today.`,
+    );
+  }
 
   function addManualKw(raw: string) {
     const parts = raw
@@ -788,6 +858,10 @@ export function PostGeneratorPage({
             : "the scheduled queue";
           toast.success(`Post successfully scheduled for ${formattedTime}!`);
         }
+      } else if (res.status === "scheduled") {
+        toast.success(
+          `Scheduled in GoHighLevel for ${new Date(scheduledAt).toLocaleString()} — GHL will publish it to Google Business.`,
+        );
       } else {
         toast.success("Sent to GHL Social Planner successfully!");
       }
@@ -1013,10 +1087,10 @@ export function PostGeneratorPage({
       ) : tab === "templates" ? null : (
         <div className="mt-5 space-y-5">
           {/* Row 1 — keywords | geo-tagged images, 50/50 */}
-          <div className="grid items-start gap-5 lg:grid-cols-2">
-            <div className="space-y-5">
+          <div className="grid items-stretch gap-5 lg:grid-cols-2">
+            <div className="flex flex-col gap-5">
               {/* Keywords — manual first, CSV import as dropdown */}
-              <section className="rounded-xl border border-border bg-card p-4">
+              <section className="flex-1 rounded-xl border border-border bg-card p-4">
                 <div className="mb-3 flex items-center justify-between">
                   <div className="flex items-center gap-2 text-sm font-medium">
                     <KeyRound className="h-4 w-4 text-primary" /> Keywords
@@ -1288,15 +1362,21 @@ export function PostGeneratorPage({
             </div>
 
             {/* Images picker — preview + View all */}
-            <section className="rounded-xl border border-border bg-card p-4">
-              <div className="mb-3 space-y-2">
+            <section className="flex flex-col rounded-xl border border-border bg-card p-4">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2 text-sm font-medium">
                   <ImageIcon className="h-4 w-4 text-primary" /> Geo-tagged images
-                  <span className="text-xs text-muted-foreground">
-                    ({selectedImages.size}/4 · {visibleImages.length} available)
-                  </span>
+                  <span className="text-xs text-muted-foreground">({selectedImages.size}/4)</span>
                 </div>
-                <div className="flex flex-wrap items-center gap-2">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => setGalleryOpen(true)}
+                    disabled={images.length === 0}
+                    className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-40"
+                  >
+                    <ImageIcon className="h-3.5 w-3.5" /> Select Images
+                  </button>
                   {/* Template + LLM (merged from the old "Template & AI model" card) */}
                   <select
                     value={styleTemplate?.id ?? ""}
@@ -1368,43 +1448,26 @@ export function PostGeneratorPage({
                 </div>
               </div>
 
-              {/* Compact picker — the full grid lives in the "Select Images" popup */}
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => setGalleryOpen(true)}
-                  disabled={images.length === 0}
-                  className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-xs font-semibold text-primary hover:bg-primary/20 disabled:opacity-40"
-                >
-                  <ImageIcon className="h-4 w-4" /> Select Images
-                </button>
+              {/* Selected images — small thumbs; "i" opens a large preview */}
+              <div className="flex min-h-[42px] flex-1 items-center">
                 {selectedImagesList.length > 0 ? (
-                  <div className="flex min-w-0 gap-1.5 overflow-x-auto">
+                  <div className="flex min-w-0 flex-wrap gap-2">
                     {selectedImagesList.map((img) => (
-                      <button
+                      <SelectedImageChip
                         key={img.id}
-                        type="button"
-                        onClick={() => {
+                        img={img}
+                        onOpenDetails={() => {
                           setActiveDetailId(img.id);
                           setGalleryOpen(true);
                         }}
-                        title={img.title || img.name}
-                        className="relative h-10 w-10 shrink-0 overflow-hidden rounded-md border border-primary/50"
-                      >
-                        <SignedImage
-                          bucket="frames"
-                          path={img.storage_path}
-                          alt={img.name}
-                          className="h-full w-full object-cover"
-                        />
-                      </button>
+                      />
                     ))}
                   </div>
                 ) : (
                   <span className="text-xs text-muted-foreground">
                     {images.length === 0
                       ? "No geo-tagged images yet — geo-tag images in the library first."
-                      : "No images selected (max 4)."}
+                      : `No images selected (max 4) · ${visibleImages.length} available.`}
                   </span>
                 )}
               </div>
@@ -1414,13 +1477,10 @@ export function PostGeneratorPage({
           {/* Row 3 — Description (full width) with the Generate action in its header */}
           <section className="rounded-xl border border-border bg-card p-4">
             <div className="mb-2 flex items-center justify-between">
-              <div>
+              <div className="flex min-w-0 flex-wrap items-center gap-2">
                 <div className="text-sm font-medium">Description</div>
-                <div className="text-[11px] text-muted-foreground">
-                  This is what will be posted. Max {CAPTION_LIMIT} characters.
-                </div>
                 {styleTemplate && (
-                  <div className="mt-2 inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
+                  <div className="inline-flex max-w-full items-center gap-1.5 rounded-full border border-primary/30 bg-primary/10 py-0.5 pl-2 pr-1 text-[11px] text-primary">
                     <LayoutTemplate className="h-3 w-3 shrink-0" />
                     <span className="truncate">
                       Template: <strong>{styleTemplate.name}</strong>
@@ -1438,17 +1498,6 @@ export function PostGeneratorPage({
                 )}
               </div>
               <div className="flex items-center gap-1.5">
-                <button
-                  onClick={openTemplatesModal}
-                  className="inline-flex items-center gap-1 rounded border border-border px-2 py-1 text-xs hover:bg-accent"
-                >
-                  <LayoutTemplate className="h-3 w-3" /> Templates
-                  {templates.length > 0 && (
-                    <span className="ml-1 rounded-full bg-primary/15 px-1.5 text-[10px] text-primary">
-                      {templates.length}
-                    </span>
-                  )}
-                </button>
                 <button
                   onClick={copyOut}
                   disabled={!caption}
@@ -1588,23 +1637,42 @@ export function PostGeneratorPage({
               </div>
             </div>
 
-            <div className="mt-2 flex items-center justify-between text-xs">
-              <span className={captionOver ? "font-medium text-red-500" : "text-muted-foreground"}>
+            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
+              <span
+                className={
+                  captionOver ? "font-medium text-red-500" : "text-xs text-muted-foreground"
+                }
+              >
                 {captionOver
                   ? `Post body exceeds the ${CAPTION_LIMIT}-character limit. Trim ${captionLen - CAPTION_LIMIT} character${captionLen - CAPTION_LIMIT === 1 ? "" : "s"} to send.`
                   : "Google Business Profile allows up to 1,500 characters per post."}
               </span>
-              <span
-                className={`font-mono tabular-nums ${
-                  captionOver
-                    ? "font-semibold text-red-500"
-                    : captionLen > CAPTION_LIMIT - 100
-                      ? "text-amber-500"
-                      : "text-muted-foreground"
-                }`}
-              >
-                {captionLen}/{CAPTION_LIMIT}
-              </span>
+              <div className="flex items-center gap-2">
+                {manualKw.length > 0 && (
+                  <span
+                    className={`rounded-md px-2 py-0.5 font-semibold tabular-nums ${
+                      keywordsUsed === manualKw.length
+                        ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
+                        : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                    }`}
+                    title="Keywords from your list that appear in the description"
+                  >
+                    Keywords {keywordsUsed}/{manualKw.length}
+                  </span>
+                )}
+                <span
+                  className={`rounded-md px-2 py-0.5 font-mono font-semibold tabular-nums ${
+                    captionOver
+                      ? "bg-red-500/15 text-red-500"
+                      : captionLen > CAPTION_LIMIT - 100
+                        ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
+                        : "bg-sky-500/15 text-sky-600 dark:text-sky-400"
+                  }`}
+                  title="Characters used"
+                >
+                  {captionLen}/{CAPTION_LIMIT}
+                </span>
+              </div>
             </div>
           </section>
 
@@ -1654,55 +1722,32 @@ export function PostGeneratorPage({
                   onChange={(e) => setScheduledAt(e.target.value)}
                   className="w-full rounded-md border border-border bg-background px-3 py-1.5 text-xs outline-none focus:ring-1 focus:ring-primary sm:w-auto sm:flex-1"
                 />
-                {/* Quick preset buttons */}
+                {/* Quick preset buttons — "+X Days" counts from the latest
+                    post already on the schedule (or from today if none). */}
                 <div className="flex flex-wrap gap-1">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date(Date.now() + 60 * 60 * 1000);
-                      d.setMinutes(Math.ceil(d.getMinutes() / 5) * 5, 0, 0);
-                      setScheduledAt(
-                        new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-                          .toISOString()
-                          .slice(0, 16),
-                      );
-                    }}
-                    className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
-                  >
-                    +1 hr
-                  </button>
                   <button
                     type="button"
                     onClick={() => {
                       const d = new Date();
                       d.setDate(d.getDate() + 1);
                       d.setHours(9, 0, 0, 0);
-                      setScheduledAt(
-                        new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-                          .toISOString()
-                          .slice(0, 16),
-                      );
+                      setScheduledAt(toLocalInputValue(d));
                     }}
                     className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
                   >
-                    Tmrw 9 AM
+                    Tomorrow 9 AM
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      const d = new Date();
-                      d.setDate(d.getDate() + 1);
-                      d.setHours(14, 0, 0, 0);
-                      setScheduledAt(
-                        new Date(d.getTime() - d.getTimezoneOffset() * 60000)
-                          .toISOString()
-                          .slice(0, 16),
-                      );
-                    }}
-                    className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
-                  >
-                    Tmrw 2 PM
-                  </button>
+                  {[2, 3, 5].map((n) => (
+                    <button
+                      key={n}
+                      type="button"
+                      onClick={() => scheduleDaysAfterLastPost(n)}
+                      title={`${n} days after the last scheduled post (or from today if none)`}
+                      className="rounded border border-border bg-background px-2 py-1 text-[11px] hover:border-primary/50 hover:bg-accent"
+                    >
+                      +{n} Days
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -3099,7 +3144,7 @@ function PostHistoryPanel() {
                           className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ${
                             p.status === "sent"
                               ? "bg-emerald-500/15 text-emerald-500"
-                              : p.status === "queued"
+                              : p.status === "queued" || p.status === "scheduled"
                                 ? "bg-sky-500/15 text-sky-500"
                                 : p.status === "failed"
                                   ? "bg-destructive/15 text-destructive"

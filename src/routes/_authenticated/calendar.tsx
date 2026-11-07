@@ -101,6 +101,7 @@ function bucketOf(p: Post): Bucket {
   if (p.status === "sent") return "published";
   if (p.status === "failed") return "failed";
   if (p.status === "sending") return "sending";
+  if (p.status === "scheduled") return "scheduled"; // held by GoHighLevel
   if (p.status === "queued" && p.scheduled_at) return "scheduled";
   return "draft";
 }

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { ImageIcon } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { ExpandImageButton } from "@/components/ImageLightbox";
 
 const cache = new Map<string, { url: string; expires: number }>();
 
@@ -63,29 +64,50 @@ export function SignedImage({
   path,
   alt,
   className,
+  expandable = true,
 }: {
   bucket: string;
   path: string | null | undefined;
   alt: string;
   className?: string;
+  /** Show an eye button on hover that opens the image in the app-wide lightbox. */
+  expandable?: boolean;
 }) {
   const url = useSignedUrl(bucket, path);
   const [failed, setFailed] = useState(false);
 
   if (!url || failed) {
     return (
-      <div className={`flex items-center justify-center bg-muted/50 text-muted-foreground ${className ?? ""}`}>
+      <div
+        className={`flex items-center justify-center bg-muted/50 text-muted-foreground ${className ?? ""}`}
+      >
         <ImageIcon className="h-4 w-4 opacity-40" />
       </div>
     );
   }
+  if (!expandable) {
+    return (
+      <img
+        src={url}
+        alt={alt}
+        className={className}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+    );
+  }
+  // Wrapper takes the caller's sizing classes; the image fills it.
+  const fit = className?.includes("object-contain") ? "object-contain" : "object-cover";
   return (
-    <img
-      src={url}
-      alt={alt}
-      className={className}
-      loading="lazy"
-      onError={() => setFailed(true)}
-    />
+    <span className={`group/expand relative block overflow-hidden ${className ?? ""}`}>
+      <img
+        src={url}
+        alt={alt}
+        className={`h-full w-full ${fit}`}
+        loading="lazy"
+        onError={() => setFailed(true)}
+      />
+      <ExpandImageButton url={url} alt={alt} />
+    </span>
   );
 }

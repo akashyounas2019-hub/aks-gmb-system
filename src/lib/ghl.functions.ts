@@ -140,3 +140,155 @@ export const sendImagesToGhl = createServerFn({ method: "POST" })
       results,
     };
   });
+
+/* ------------------------------------------------------------------ */
+/*  GoHighLevel Social Planner → Google Business Profile               */
+/* ------------------------------------------------------------------ */
+
+const GHL_EXTRA_KEYS = ["account_id", "account_name", "user_id"] as const;
+
+/** Lists the social accounts (and, if the token allows, users) of the saved GHL location. */
+export const ghlListTargets = createServerFn({ method: "GET" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { getGhlTarget } = await import("./ghl-posting.server");
+    const target = await getGhlTarget(supabase, userId);
+    if (!target) {
+      throw new Error("Save your GHL Private Integration Token and Location ID first.");
+    }
+    const { listGhlAccounts, listGhlUsers } = await import("./ghl-api.server");
+    const [accounts, users] = await Promise.all([
+      listGhlAccounts(target.token, target.locationId),
+      listGhlUsers(target.token, target.locationId),
+    ]);
+    if (!accounts.ok) {
+      throw new Error(
+        `Could not load GHL accounts — ${accounts.error}. Check the token has the "socialplanner/account.readonly" scope and the Location ID is right.`,
+      );
+    }
+    return {
+      accounts: accounts.data ?? [],
+      users: users.ok ? (users.data ?? []) : [],
+      usersError: users.ok ? null : users.error,
+      selected: { accountId: target.accountId, userId: target.userId },
+    };
+  });
+
+/** Saves the chosen GMB account + "post as" user next to the encrypted token. */
+export const ghlSaveTarget = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z
+      .object({
+        accountId: z.string().trim().min(3).max(64),
+        accountName: z.string().trim().max(200).optional(),
+        userId: z
+          .string()
+          .trim()
+          .max(64)
+          .regex(/^[A-Za-z0-9]*$/, "User ID must be alphanumeric")
+          .optional(),
+      })
+      .parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { encryptSecret, maskValue } = await import("@/lib/integrations-crypto.server");
+    const { data: row, error } = await supabase
+      .from("user_integrations")
+      .select("config")
+      .eq("user_id", userId)
+      .eq("provider", "ghl")
+      .maybeSingle();
+    if (error) throw new Error(error.message);
+    if (!row) throw new Error("Save your GHL token and Location ID first.");
+    const config = { ...((row.config ?? {}) as Record<string, unknown>) };
+    const put = (k: (typeof GHL_EXTRA_KEYS)[number], v?: string) => {
+      if (v) config[k] = { c: encryptSecret(v), m: k === "account_name" ? v : maskValue(v) };
+      else delete config[k];
+    };
+    put("account_id", data.accountId);
+    put("account_name", data.accountName);
+    put("user_id", data.userId);
+    const { error: upErr } = await supabase
+      .from("user_integrations")
+      .update({ config: config as never, updated_at: new Date().toISOString() })
+      .eq("user_id", userId)
+      .eq("provider", "ghl");
+    if (upErr) throw new Error(upErr.message);
+    return { ok: true };
+  });
+
+/** Creates a DRAFT post in GHL — proves token, scopes and account work without publishing. */
+export const ghlSendTestDraft = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabase, userId } = context;
+    const { getGhlTarget } = await import("./ghl-posting.server");
+    const target = await getGhlTarget(supabase, userId);
+    if (!target?.accountId) throw new Error("Pick your Google Business account first.");
+    const { createGhlPost } = await import("./ghl-api.server");
+    const res = await createGhlPost(target.token, target.locationId, {
+      accountIds: [target.accountId],
+      userId: target.userId,
+      caption: "Test draft from GMB Rank Pilot — safe to delete.",
+      media: [],
+      draft: true,
+    });
+    if (!res.ok) throw new Error(res.error ?? "GHL rejected the test draft");
+    return { ok: true, postId: res.postId ?? null };
+  });
+
+async function loadGhlPostRow(
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  supabase: any,
+  userId: string,
+  postId: string,
+) {
+  const { data: post, error } = await supabase
+    .from("social_posts")
+    .select(
+      "id, owner_id, caption, image_ids, scheduled_at, cta_type, cta_url, status, provider_response",
+    )
+    .eq("id", postId)
+    .eq("owner_id", userId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!post) throw new Error("Post not found");
+  const ghlPostId =
+    (post.provider_response as { ghl_post_id?: string } | null)?.ghl_post_id ?? null;
+  return { post, ghlPostId };
+}
+
+/** After editing a post that GHL is holding for later, push the changes to GHL. */
+export const ghlSyncScheduledPost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ postId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { post, ghlPostId } = await loadGhlPostRow(supabase, userId, data.postId);
+    if (!ghlPostId || post.status !== "scheduled") return { synced: false as const };
+    const { getGhlTarget, syncPostToGhl } = await import("./ghl-posting.server");
+    const target = await getGhlTarget(supabase, userId);
+    if (!target) throw new Error("GHL is no longer connected — reconnect it in Settings.");
+    const res = await syncPostToGhl(supabase, target, ghlPostId, post);
+    if (!res.ok) throw new Error(res.error ?? "GHL update failed");
+    return { synced: true as const };
+  });
+
+/** Before deleting a post that GHL is holding for later, remove it from GHL too. */
+export const ghlDeleteScheduledPost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => z.object({ postId: z.string().uuid() }).parse(d))
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { post, ghlPostId } = await loadGhlPostRow(supabase, userId, data.postId);
+    if (!ghlPostId || post.status !== "scheduled") return { removed: false as const };
+    const { getGhlTarget, removePostFromGhl } = await import("./ghl-posting.server");
+    const target = await getGhlTarget(supabase, userId);
+    if (!target) throw new Error("GHL is no longer connected — reconnect it in Settings.");
+    const res = await removePostFromGhl(target, ghlPostId);
+    if (!res.ok && res.status !== 404) throw new Error(res.error ?? "GHL delete failed");
+    return { removed: true as const };
+  });

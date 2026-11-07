@@ -30,6 +30,7 @@ import {
 import { supabase } from "@/integrations/supabase/client";
 import { NotificationBell } from "@/components/NotificationBell";
 import { GlobalUploadQueue } from "@/components/GlobalUploadQueue";
+import { ImageLightboxHost } from "@/components/ImageLightbox";
 import { getPreferences, saveSidebarFavorites } from "@/lib/user-preferences.functions";
 
 type NavItem = {
@@ -402,6 +403,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1">{children}</main>
       </div>
       <GlobalUploadQueue />
+      <ImageLightboxHost />
     </div>
   );
 }

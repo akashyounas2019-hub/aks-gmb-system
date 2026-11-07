@@ -36,6 +36,8 @@ import {
   Send,
   ChevronDown,
   FolderOpen,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { extractSharpFrames } from "@/lib/ffmpeg-extract";
 
@@ -136,8 +138,27 @@ function LibraryPage() {
     published: null,
     geotagged: null,
   });
-  const activeFolderId =
-    tab === "raw" || tab === "published" || tab === "geotagged" ? folderByTab[tab] : null;
+  // Folders are only shown (and only filter) on the Raw Images tab.
+  const activeFolderId = tab === "raw" ? folderByTab.raw : null;
+  // Collapse state of the Raw Images folder widget, remembered per browser.
+  const [foldersHidden, setFoldersHidden] = useState<boolean>(() => {
+    try {
+      return (
+        typeof window !== "undefined" && localStorage.getItem("library_folders_hidden") === "1"
+      );
+    } catch {
+      return false;
+    }
+  });
+  const toggleFoldersHidden = () =>
+    setFoldersHidden((v) => {
+      try {
+        localStorage.setItem("library_folders_hidden", v ? "0" : "1");
+      } catch {
+        /* storage unavailable */
+      }
+      return !v;
+    });
   const setActiveFolderId = (id: string | null) => {
     if (tab !== "raw" && tab !== "published" && tab !== "geotagged") return;
     setFolderByTab((prev) => ({ ...prev, [tab]: id }));
@@ -750,9 +771,7 @@ function LibraryPage() {
           <button
             onClick={() => {
               const ids = Array.from(selected);
-              const paths = filtered
-                .filter((i) => selected.has(i.id))
-                .map((i) => i.storage_path);
+              const paths = filtered.filter((i) => selected.has(i.id)).map((i) => i.storage_path);
               bulkDeleteImages(ids, paths, ids.length === 1 ? "image" : "images");
             }}
             disabled={selected.size === 0}
@@ -859,105 +878,122 @@ function LibraryPage() {
 
       {(tab === "raw" || tab === "published" || tab === "geotagged") && !isLoading && (
         <div className="mt-6 overflow-hidden rounded-2xl border border-border bg-gradient-to-br from-card via-card to-primary/[0.03] shadow-sm">
-          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
-            <div className="flex items-center gap-2">
-              <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                <FolderIcon className="h-4 w-4" />
-              </div>
-              <div>
-                <div className="text-sm font-semibold leading-tight">Folders</div>
-                <div className="text-[11px] text-muted-foreground">
-                  {tab === "raw" && "Organize raw images into groups"}
-                  {tab === "published" && "Organize published images into groups"}
-                  {tab === "geotagged" && "Organize geo-tagged images into groups"}
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={createFolder}
-              className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
-            >
-              <FolderPlus className="h-3.5 w-3.5" /> New folder
-            </button>
-          </div>
-          <div className="flex flex-wrap gap-2 p-4">
-            <FolderChip
-              active={activeFolderId === null}
-              icon={ImagesIcon}
-              label={
-                tab === "raw" ? "All raw" : tab === "published" ? "All published" : "All geo-tagged"
-              }
-              count={data?.images.filter((i) => imageBucket(i) === tab).length ?? 0}
-              onClick={() => setActiveFolderId(null)}
-            />
-            <FolderChip
-              active={activeFolderId === "__uncategorized"}
-              icon={ImagesIcon}
-              label="Unfiled"
-              count={
-                data?.images.filter((i) => imageBucket(i) === tab && i.folder_id == null).length ??
-                0
-              }
-              onClick={() => setActiveFolderId("__uncategorized")}
-            />
-            {data?.folders.map((f) => {
-              const count = data.images.filter(
-                (i) => imageBucket(i) === tab && i.folder_id === f.id,
-              ).length;
-              const active = activeFolderId === f.id;
-              return (
-                <div
-                  key={f.id}
-                  className={`group inline-flex items-center overflow-hidden rounded-full border text-xs transition ${
-                    active
-                      ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
-                      : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
-                  }`}
-                >
-                  <button
-                    onClick={() => setActiveFolderId(f.id)}
-                    className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
-                  >
-                    <FolderIcon
-                      className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
-                    />
-                    <span>{f.name}</span>
-                    <span
-                      className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
-                        active ? "bg-primary/15 text-primary" : "bg-muted text-muted-foreground"
-                      }`}
-                    >
-                      {count}
-                    </span>
-                  </button>
-                  <div className="flex items-center pr-1 opacity-0 transition group-hover:opacity-100">
-                    <button
-                      onClick={() => renameFolder(f.id, f.name)}
-                      aria-label="Rename folder"
-                      title="Rename"
-                      className="rounded-full p-1 hover:bg-accent"
-                    >
-                      <Pencil className="h-3 w-3" />
-                    </button>
-                    <button
-                      onClick={() => deleteFolder(f.id, f.name)}
-                      aria-label="Delete folder"
-                      title="Delete folder"
-                      className="rounded-full p-1 text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="h-3 w-3" />
-                    </button>
+          {tab === "raw" && (
+            <>
+              <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border/60 bg-background/40 px-5 py-3">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                    <FolderIcon className="h-4 w-4" />
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold leading-tight">Folders</div>
                   </div>
                 </div>
-              );
-            })}
-            {data?.folders.length === 0 && (
-              <div className="flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-1.5 text-[11px] text-muted-foreground">
-                <FolderPlus className="h-3 w-3" />
-                No folders yet — click <span className="font-medium">New folder</span> to start.
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={createFolder}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-xs font-medium text-primary hover:bg-primary/15"
+                  >
+                    <FolderPlus className="h-3.5 w-3.5" /> New folder
+                  </button>
+                  <button
+                    onClick={toggleFoldersHidden}
+                    aria-expanded={!foldersHidden}
+                    title={foldersHidden ? "Show folders" : "Hide folders"}
+                    className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground hover:bg-accent hover:text-foreground"
+                  >
+                    {foldersHidden ? (
+                      <Eye className="h-3.5 w-3.5" />
+                    ) : (
+                      <EyeOff className="h-3.5 w-3.5" />
+                    )}
+                    {foldersHidden ? "Show" : "Hide"}
+                  </button>
+                </div>
               </div>
-            )}
-          </div>
+              {!foldersHidden && (
+                <div className="flex flex-wrap gap-2 p-4">
+                  <FolderChip
+                    active={activeFolderId === null}
+                    icon={ImagesIcon}
+                    label="All raw"
+                    count={data?.images.filter((i) => imageBucket(i) === tab).length ?? 0}
+                    onClick={() => setActiveFolderId(null)}
+                  />
+                  <FolderChip
+                    active={activeFolderId === "__uncategorized"}
+                    icon={ImagesIcon}
+                    label="Unfiled"
+                    count={
+                      data?.images.filter((i) => imageBucket(i) === tab && i.folder_id == null)
+                        .length ?? 0
+                    }
+                    onClick={() => setActiveFolderId("__uncategorized")}
+                  />
+                  {data?.folders.map((f) => {
+                    const count = data.images.filter(
+                      (i) => imageBucket(i) === tab && i.folder_id === f.id,
+                    ).length;
+                    const active = activeFolderId === f.id;
+                    return (
+                      <div
+                        key={f.id}
+                        className={`group inline-flex items-center overflow-hidden rounded-full border text-xs transition ${
+                          active
+                            ? "border-primary bg-primary/10 text-primary shadow-sm ring-1 ring-primary/20"
+                            : "border-border bg-background hover:border-primary/50 hover:bg-primary/[0.04]"
+                        }`}
+                      >
+                        <button
+                          onClick={() => setActiveFolderId(f.id)}
+                          className="inline-flex items-center gap-1.5 py-1.5 pl-3 pr-2 font-medium"
+                        >
+                          <FolderIcon
+                            className={`h-3.5 w-3.5 ${active ? "text-primary" : "text-muted-foreground"}`}
+                          />
+                          <span>{f.name}</span>
+                          <span
+                            className={`ml-1 rounded-full px-1.5 py-0.5 text-[10px] tabular-nums ${
+                              active
+                                ? "bg-primary/15 text-primary"
+                                : "bg-muted text-muted-foreground"
+                            }`}
+                          >
+                            {count}
+                          </span>
+                        </button>
+                        <div className="flex items-center pr-1 opacity-0 transition group-hover:opacity-100">
+                          <button
+                            onClick={() => renameFolder(f.id, f.name)}
+                            aria-label="Rename folder"
+                            title="Rename"
+                            className="rounded-full p-1 hover:bg-accent"
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </button>
+                          <button
+                            onClick={() => deleteFolder(f.id, f.name)}
+                            aria-label="Delete folder"
+                            title="Delete folder"
+                            className="rounded-full p-1 text-destructive hover:bg-destructive/10"
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  {data?.folders.length === 0 && (
+                    <div className="flex items-center gap-2 rounded-full border border-dashed border-border px-3 py-1.5 text-[11px] text-muted-foreground">
+                      <FolderPlus className="h-3 w-3" />
+                      No folders yet — click <span className="font-medium">New folder</span> to
+                      start.
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          )}
 
           {(tab === "raw" || tab === "published" || tab === "geotagged") && (
             <div className="flex flex-wrap items-center gap-2 border-t border-border/60 bg-background/40 px-4 py-2.5 text-xs">
@@ -1157,9 +1193,7 @@ function LibraryPage() {
               Select all ({filtered.length})
             </button>
             <button
-              onClick={() =>
-                downloadMany(filtered, "favorite images", "favorites")
-              }
+              onClick={() => downloadMany(filtered, "favorite images", "favorites")}
               disabled={filtered.length === 0 || downloadingAll}
               className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 font-medium hover:bg-accent disabled:opacity-50"
               title="Download all favorite images"
@@ -1259,193 +1293,192 @@ function LibraryPage() {
         </div>
       ) : (
         <div className="mt-4 grid gap-4 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-            {filtered.map((img) => {
-              const tags = data!.tagMap.get(img.id) ?? [];
-              const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
-              const isSelected = selected.has(img.id);
-              const CardTag: any = selectMode ? "div" : Link;
-              const linkProps = selectMode
-                ? {}
-                : { to: "/library/$imageId", params: { imageId: img.id } };
-              const isGeo = img.lat != null && img.lng != null;
-              const hoverTitle = [img.title, img.description].filter(Boolean).join(" — ");
-              return (
-                <CardTag
-                  key={img.id}
-                  {...linkProps}
-                  onClick={selectMode ? () => toggleSelect(img.id) : undefined}
-                  title={hoverTitle || img.name}
-                  className={`group relative overflow-hidden rounded-xl border bg-card transition ${
-                    isSelected
-                      ? "border-primary ring-2 ring-primary"
-                      : "border-border hover:border-primary/50"
-                  } ${selectMode ? "cursor-pointer" : ""}`}
-                >
-                  <div className="relative aspect-video overflow-hidden">
-                    <SignedImage
-                      bucket="frames"
-                      path={img.storage_path}
-                      alt={img.name}
-                      className="h-full w-full object-cover transition group-hover:scale-105"
-                    />
-                    {!selectMode && (isGeo || isPublished(img)) && (
-                      <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
-                        <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
-                        <PublishedBadge published={isPublished(img)} />
-                      </div>
-                    )}
-                    {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
-                      <div className="absolute right-2 top-2 z-10 pointer-events-none">
-                        <FavoriteBadge favorite compact />
-                      </div>
-                    )}
-                    {activeFolderId === null && img.folder_id && !selectMode && (
-                      <div className="absolute bottom-2 left-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground shadow ring-1 ring-border/60 backdrop-blur">
-                        <FolderIcon className="h-3 w-3 shrink-0 text-primary" />
-                        <span className="truncate">
-                          {data?.folders.find((f) => f.id === img.folder_id)?.name ?? "Folder"}
-                        </span>
-                      </div>
-                    )}
-
-                    {selectMode && (
-                      <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
-                        {isSelected ? (
-                          <CheckSquare className="h-4 w-4" />
-                        ) : (
-                          <Square className="h-4 w-4" />
-                        )}
-                      </div>
-                    )}
-                    {!selectMode && (
-                      <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
-                        {isGeo && (
-                          <GeoStatusButton
-                            bucket="frames"
-                            path={img.storage_path}
-                            lat={Number(img.lat)}
-                            lng={Number(img.lng)}
-                          />
-                        )}
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            toggleFavorite(
-                              img.id,
-                              Boolean((img as { is_favorite?: boolean }).is_favorite),
-                            );
-                          }}
-                          aria-label={
-                            (img as { is_favorite?: boolean }).is_favorite
-                              ? "Remove from favorites"
-                              : "Add to favorites"
-                          }
-                          title={
-                            (img as { is_favorite?: boolean }).is_favorite
-                              ? "Remove from favorites"
-                              : "Add to favorites"
-                          }
-                          className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${(img as { is_favorite?: boolean }).is_favorite ? "text-rose-500" : "text-foreground"}`}
-                        >
-                          <Heart
-                            className={`h-3.5 w-3.5 ${(img as { is_favorite?: boolean }).is_favorite ? "fill-current" : ""}`}
-                          />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            setEditingId(img.id);
-                          }}
-                          aria-label="Edit"
-                          className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            downloadImage({
-                              id: img.id,
-                              name: img.name,
-                              storage_path: img.storage_path,
-                              lat: img.lat as number | null,
-                              lng: img.lng as number | null,
-                              title: (img as { title: string | null }).title,
-                              description: (img as { description: string | null }).description,
-                            });
-                          }}
-                          aria-label="Download"
-                          title={`Download${img.title ? ` as “${img.title}”` : ""}`}
-                          className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
-                        >
-                          <Download className="h-3.5 w-3.5" />
-                        </button>
-                        <button
-                          onClick={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            deleteImage(img.id, img.storage_path);
-                          }}
-                          aria-label="Delete"
-                          className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-
-                    {(img.title || img.description) && (
-                      <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/85 via-black/70 to-transparent p-3 text-[11px] text-white opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
-                        {img.title && (
-                          <div className="truncate text-xs font-semibold">{img.title}</div>
-                        )}
-                        {img.description && (
-                          <div className="mt-0.5 line-clamp-2 text-[11px] text-white/85">
-                            {img.description}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-
-                  <div className="p-3">
-                    <div className="truncate text-sm font-medium">{img.title || img.name}</div>
-                    {img.description && (
-                      <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
-                        {img.description}
-                      </div>
-                    )}
-                    <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
-                      {venue && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
-                          <MapPin className="h-3 w-3" /> {venue}
-                        </span>
-                      )}
-                      {isGeo && !venue && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
-                          <MapPin className="h-3 w-3" /> Geotagged
-                        </span>
-                      )}
-                      {tags.slice(0, 3).map((t) => (
-                        <span
-                          key={t.slug}
-                          className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
-                        >
-                          <TagIcon className="h-3 w-3" />
-                          {t.label}
-                        </span>
-                      ))}
+          {filtered.map((img) => {
+            const tags = data!.tagMap.get(img.id) ?? [];
+            const venue = img.venue_id ? data!.venueMap.get(img.venue_id) : null;
+            const isSelected = selected.has(img.id);
+            const CardTag: any = selectMode ? "div" : Link;
+            const linkProps = selectMode
+              ? {}
+              : { to: "/library/$imageId", params: { imageId: img.id } };
+            const isGeo = img.lat != null && img.lng != null;
+            const hoverTitle = [img.title, img.description].filter(Boolean).join(" — ");
+            return (
+              <CardTag
+                key={img.id}
+                {...linkProps}
+                onClick={selectMode ? () => toggleSelect(img.id) : undefined}
+                title={hoverTitle || img.name}
+                className={`group relative overflow-hidden rounded-xl border bg-card transition ${
+                  isSelected
+                    ? "border-primary ring-2 ring-primary"
+                    : "border-border hover:border-primary/50"
+                } ${selectMode ? "cursor-pointer" : ""}`}
+              >
+                <div className="relative aspect-video overflow-hidden">
+                  <SignedImage
+                    bucket="frames"
+                    path={img.storage_path}
+                    alt={img.name}
+                    className="h-full w-full object-cover transition group-hover:scale-105"
+                  />
+                  {!selectMode && (isGeo || isPublished(img)) && (
+                    <div className="absolute left-2 top-2 z-10 flex flex-wrap items-center gap-1">
+                      <GeoTaggedBadge lat={Number(img.lat)} lng={Number(img.lng)} />
+                      <PublishedBadge published={isPublished(img)} />
                     </div>
+                  )}
+                  {(img as { is_favorite?: boolean }).is_favorite && !selectMode && (
+                    <div className="absolute right-2 top-2 z-10 pointer-events-none">
+                      <FavoriteBadge favorite compact />
+                    </div>
+                  )}
+                  {activeFolderId === null && img.folder_id && !selectMode && (
+                    <div className="absolute bottom-2 left-2 z-10 inline-flex max-w-[calc(100%-1rem)] items-center gap-1 rounded-full bg-background/90 px-2 py-0.5 text-[10px] font-medium text-foreground shadow ring-1 ring-border/60 backdrop-blur">
+                      <FolderIcon className="h-3 w-3 shrink-0 text-primary" />
+                      <span className="truncate">
+                        {data?.folders.find((f) => f.id === img.folder_id)?.name ?? "Folder"}
+                      </span>
+                    </div>
+                  )}
+
+                  {selectMode && (
+                    <div className="absolute left-2 top-2 rounded-md bg-background/90 p-1 text-primary shadow">
+                      {isSelected ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </div>
+                  )}
+                  {!selectMode && (
+                    <div className="absolute right-2 top-2 flex gap-1 opacity-0 transition group-hover:opacity-100">
+                      {isGeo && (
+                        <GeoStatusButton
+                          bucket="frames"
+                          path={img.storage_path}
+                          lat={Number(img.lat)}
+                          lng={Number(img.lng)}
+                        />
+                      )}
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          toggleFavorite(
+                            img.id,
+                            Boolean((img as { is_favorite?: boolean }).is_favorite),
+                          );
+                        }}
+                        aria-label={
+                          (img as { is_favorite?: boolean }).is_favorite
+                            ? "Remove from favorites"
+                            : "Add to favorites"
+                        }
+                        title={
+                          (img as { is_favorite?: boolean }).is_favorite
+                            ? "Remove from favorites"
+                            : "Add to favorites"
+                        }
+                        className={`rounded-md bg-background/90 p-1.5 shadow hover:bg-background ${(img as { is_favorite?: boolean }).is_favorite ? "text-rose-500" : "text-foreground"}`}
+                      >
+                        <Heart
+                          className={`h-3.5 w-3.5 ${(img as { is_favorite?: boolean }).is_favorite ? "fill-current" : ""}`}
+                        />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          setEditingId(img.id);
+                        }}
+                        aria-label="Edit"
+                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          downloadImage({
+                            id: img.id,
+                            name: img.name,
+                            storage_path: img.storage_path,
+                            lat: img.lat as number | null,
+                            lng: img.lng as number | null,
+                            title: (img as { title: string | null }).title,
+                            description: (img as { description: string | null }).description,
+                          });
+                        }}
+                        aria-label="Download"
+                        title={`Download${img.title ? ` as “${img.title}”` : ""}`}
+                        className="rounded-md bg-background/90 p-1.5 text-foreground shadow hover:bg-background"
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                      </button>
+                      <button
+                        onClick={(e) => {
+                          e.preventDefault();
+                          e.stopPropagation();
+                          deleteImage(img.id, img.storage_path);
+                        }}
+                        aria-label="Delete"
+                        className="rounded-md bg-background/90 p-1.5 text-destructive shadow hover:bg-destructive hover:text-destructive-foreground"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  )}
+
+                  {(img.title || img.description) && (
+                    <div className="pointer-events-none absolute inset-x-0 bottom-0 translate-y-full bg-gradient-to-t from-black/85 via-black/70 to-transparent p-3 text-[11px] text-white opacity-0 transition-all group-hover:translate-y-0 group-hover:opacity-100">
+                      {img.title && (
+                        <div className="truncate text-xs font-semibold">{img.title}</div>
+                      )}
+                      {img.description && (
+                        <div className="mt-0.5 line-clamp-2 text-[11px] text-white/85">
+                          {img.description}
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
+                <div className="p-3">
+                  <div className="truncate text-sm font-medium">{img.title || img.name}</div>
+                  {img.description && (
+                    <div className="mt-0.5 line-clamp-1 text-[11px] text-muted-foreground">
+                      {img.description}
+                    </div>
+                  )}
+                  <div className="mt-2 flex flex-wrap gap-1 text-xs text-muted-foreground">
+                    {venue && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                        <MapPin className="h-3 w-3" /> {venue}
+                      </span>
+                    )}
+                    {isGeo && !venue && (
+                      <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-primary">
+                        <MapPin className="h-3 w-3" /> Geotagged
+                      </span>
+                    )}
+                    {tags.slice(0, 3).map((t) => (
+                      <span
+                        key={t.slug}
+                        className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5"
+                      >
+                        <TagIcon className="h-3 w-3" />
+                        {t.label}
+                      </span>
+                    ))}
                   </div>
-                </CardTag>
-              );
-            })}
-          </div>
-        )
-      }
+                </div>
+              </CardTag>
+            );
+          })}
+        </div>
+      )}
 
       {bulkPanel && (
         <BulkPanel

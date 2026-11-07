@@ -1,5 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useServerFn } from "@tanstack/react-start";
+import { GhlGmbAccountPanel } from "@/components/GhlGmbAccountPanel";
 import {
   BarChart3,
   Bot,
@@ -510,7 +511,7 @@ function IntegrationsPage() {
       <ProviderCard
         provider="ghl"
         title="GoHighLevel (GHL)"
-        description="Direct API access for contacts, opportunities, and posting. Paste your Private Integration Token."
+        description="Posts and schedules Google Business posts through GHL Social Planner. Paste your Private Integration Token and Location ID, then pick your Google Business account below."
         icon={<Webhook className="h-6 w-6" />}
         fields={[
           {
@@ -521,8 +522,9 @@ function IntegrationsPage() {
           },
           { key: "location_id", label: "Location ID", secret: false, placeholder: "ABC123..." },
         ]}
-        docsUrl="https://highlevel.stoplight.io/docs/integrations/"
+        docsUrl="https://marketplace.gohighlevel.com/docs/2021-04-15/ghl/social-planner/create-post.md"
       />
+      <GhlGmbAccountPanel />
 
       {/* n8n */}
       <N8nIntegrationCard />

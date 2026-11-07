@@ -23,6 +23,8 @@ import {
   FileText,
 } from "lucide-react";
 import { toast } from "sonner";
+import { useServerFn } from "@tanstack/react-start";
+import { ghlDeleteScheduledPost, ghlSyncScheduledPost } from "@/lib/ghl.functions";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -138,6 +140,7 @@ function PostSchedulerPanel() {
   const [editingPost, setEditingPost] = useState<ScheduledPost | null>(null);
   const [deletingPost, setDeletingPost] = useState<ScheduledPost | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const ghlDelete = useServerFn(ghlDeleteScheduledPost);
 
   async function reload() {
     setLoading(true);
@@ -187,6 +190,9 @@ function PostSchedulerPanel() {
     if (!deletingPost) return;
     setDeleting(true);
     try {
+      // If GoHighLevel is holding this post for later, cancel it there first —
+      // otherwise GHL would still publish it.
+      await ghlDelete({ data: { postId: deletingPost.id } });
       const { error } = await supabase.from("social_posts").delete().eq("id", deletingPost.id);
       if (error) throw error;
       toast.success("Scheduled post deleted.");
@@ -491,14 +497,6 @@ function PostSchedulerPanel() {
 
 const QUICK_SYMBOLS = ["✨", "📍", "📞", "🌟", "🧹", "🧼", "✅", "🔥", "⭐", "💯", "🏠", "🏢"];
 
-const SOCIAL_NETWORKS: Array<{ id: string; label: string }> = [
-  { id: "gmb", label: "Google Business" },
-  { id: "facebook", label: "Facebook" },
-  { id: "instagram", label: "Instagram" },
-  { id: "linkedin", label: "LinkedIn" },
-  { id: "twitter", label: "Twitter / X" },
-];
-
 const CTA_OPTIONS = [
   { value: "", label: "No CTA Button" },
   { value: "BOOK", label: "Book Appointment" },
@@ -541,6 +539,7 @@ function EditScheduledPostModal({
   /** Latest scheduled_at among the OTHER posts — base for the +X Days presets. */
   lastScheduledAt: Date | null;
 }) {
+  const ghlSync = useServerFn(ghlSyncScheduledPost);
   const [title, setTitle] = useState(post.title ?? "");
   const [caption, setCaption] = useState(post.caption ?? "");
   const [imageIds, setImageIds] = useState<string[]>(post.image_ids ?? []);
@@ -548,8 +547,7 @@ function EditScheduledPostModal({
     if (!post.scheduled_at) return "";
     return formatLocalDatetime(new Date(post.scheduled_at));
   });
-  const [tags, setTags] = useState<string[]>(post.tags ?? []);
-  const [tagInput, setTagInput] = useState("");
+  const [tags] = useState<string[]>(post.tags ?? []);
   const [locationLabel, setLocationLabel] = useState(post.location_label ?? "");
   const [loc, setLoc] = useState<PickedLocation | null>(() => {
     if (post.lat != null && post.lng != null) {
@@ -563,7 +561,7 @@ function EditScheduledPostModal({
   });
   const [latInput, setLatInput] = useState(post.lat != null ? String(post.lat) : "");
   const [lngInput, setLngInput] = useState(post.lng != null ? String(post.lng) : "");
-  const [networks, setNetworks] = useState<string[]>(post.networks ?? ["gmb"]);
+  const [networks] = useState<string[]>(post.networks ?? ["gmb"]);
   const [ctaType, setCtaType] = useState(post.cta_type ?? "");
   const [ctaUrl, setCtaUrl] = useState(post.cta_url ?? "");
 
@@ -593,45 +591,8 @@ function EditScheduledPostModal({
     }
   }
 
-  function addTag(raw: string) {
-    const parts = raw
-      .split(/[,\s\n]/)
-      .map((p) => p.trim().replace(/^#+/, ""))
-      .filter(Boolean);
-    if (!parts.length) return;
-    setTags((prev) => {
-      const seen = new Set(prev.map((t) => t.toLowerCase()));
-      const next = [...prev];
-      for (const p of parts) {
-        if (!seen.has(p.toLowerCase())) {
-          next.push(p);
-          seen.add(p.toLowerCase());
-        }
-      }
-      return next;
-    });
-    setTagInput("");
-  }
-
-  function removeTag(tagToRemove: string) {
-    setTags((prev) => prev.filter((t) => t !== tagToRemove));
-  }
-
   function insertSymbol(sym: string) {
     setCaption((prev) => `${prev} ${sym} `);
-  }
-
-  function toggleNetwork(id: string) {
-    setNetworks((prev) => {
-      if (prev.includes(id)) {
-        if (prev.length === 1) {
-          toast.error("Keep at least one network selected");
-          return prev;
-        }
-        return prev.filter((n) => n !== id);
-      }
-      return [...prev, id];
-    });
   }
 
   function toggleImageId(id: string) {
@@ -700,7 +661,21 @@ function EditScheduledPostModal({
         .eq("id", post.id);
 
       if (error) throw error;
-      toast.success("Scheduled post updated successfully.");
+      // Push the edit to GoHighLevel when GHL is holding this post for later.
+      try {
+        const sync = await ghlSync({ data: { postId: post.id } });
+        toast.success(
+          sync.synced
+            ? "Post updated here and in GoHighLevel."
+            : "Scheduled post updated successfully.",
+        );
+      } catch (syncErr) {
+        toast.error(
+          `Saved here, but GoHighLevel was not updated: ${
+            syncErr instanceof Error ? syncErr.message : "unknown error"
+          }`,
+        );
+      }
       onSaved();
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Failed to save changes");
@@ -908,103 +883,43 @@ function EditScheduledPostModal({
             />
           </div>
 
-          {/* Keywords */}
+          {/* Schedule */}
           <div>
-            <label className={label}>Keywords</label>
-            <div className="flex flex-wrap items-center gap-1.5 rounded-md border border-border bg-background px-2 py-1 focus-within:border-primary">
-              {tags.map((t) => (
-                <span
-                  key={t}
-                  className="inline-flex items-center gap-1 rounded-full bg-muted py-0.5 pl-2 pr-1 text-[11px]"
-                >
-                  #{t}
-                  <button
-                    type="button"
-                    onClick={() => removeTag(t)}
-                    aria-label={`Remove ${t}`}
-                    className="rounded-full p-0.5 text-muted-foreground hover:bg-accent hover:text-foreground"
-                  >
-                    <X className="h-3 w-3" />
-                  </button>
-                </span>
-              ))}
-              <input
-                value={tagInput}
-                onChange={(e) => setTagInput(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === ",") {
-                    e.preventDefault();
-                    addTag(tagInput);
-                  }
+            <label className={label}>Schedule</label>
+            <input
+              type="datetime-local"
+              value={scheduledAt}
+              onChange={(e) => setScheduledAt(e.target.value)}
+              className={input}
+            />
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              <button
+                type="button"
+                onClick={() => {
+                  const d = new Date();
+                  d.setDate(d.getDate() + 1);
+                  d.setHours(9, 0, 0, 0);
+                  setScheduledAt(formatLocalDatetime(d));
                 }}
-                onBlur={() => tagInput.trim() && addTag(tagInput)}
-                placeholder={tags.length ? "" : "Type and press Enter"}
-                className="min-w-[120px] flex-1 bg-transparent py-1 text-xs outline-none"
-              />
-            </div>
-          </div>
-
-          {/* Schedule + networks */}
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label className={label}>Schedule</label>
-              <input
-                type="datetime-local"
-                value={scheduledAt}
-                onChange={(e) => setScheduledAt(e.target.value)}
-                className={input}
-              />
-              <div className="mt-1.5 flex flex-wrap gap-1">
+                className={chip}
+              >
+                Tomorrow 9 AM
+              </button>
+              {[2, 3, 5].map((n) => (
                 <button
+                  key={n}
                   type="button"
-                  onClick={() => {
-                    const d = new Date();
-                    d.setDate(d.getDate() + 1);
-                    d.setHours(9, 0, 0, 0);
-                    setScheduledAt(formatLocalDatetime(d));
-                  }}
+                  onClick={() => presetFromLastPost(n)}
                   className={chip}
+                  title={
+                    lastFuture
+                      ? `${n} days after the last scheduled post (${lastFuture.toLocaleString()})`
+                      : `${n} days from today (no later post scheduled)`
+                  }
                 >
-                  Tomorrow 9 AM
+                  +{n} Days
                 </button>
-                {[2, 3, 5].map((n) => (
-                  <button
-                    key={n}
-                    type="button"
-                    onClick={() => presetFromLastPost(n)}
-                    className={chip}
-                    title={
-                      lastFuture
-                        ? `${n} days after the last scheduled post (${lastFuture.toLocaleString()})`
-                        : `${n} days from today (no later post scheduled)`
-                    }
-                  >
-                    +{n} Days
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <label className={label}>Networks</label>
-              <div className="flex flex-wrap gap-1.5">
-                {SOCIAL_NETWORKS.map((n) => {
-                  const isSelected = networks.includes(n.id);
-                  return (
-                    <button
-                      key={n.id}
-                      type="button"
-                      onClick={() => toggleNetwork(n.id)}
-                      className={`rounded-full px-2.5 py-1 text-[11px] font-medium transition ${
-                        isSelected
-                          ? "bg-primary text-primary-foreground"
-                          : "border border-border text-muted-foreground hover:text-foreground"
-                      }`}
-                    >
-                      {n.label}
-                    </button>
-                  );
-                })}
-              </div>
+              ))}
             </div>
           </div>
 
