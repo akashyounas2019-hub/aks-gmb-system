@@ -9,142 +9,76 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as AuthRouteImport } from './routes/auth'
-import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated/wizard'
-import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
-import { Route as AuthenticatedVideoConverterRouteImport } from './routes/_authenticated/video-converter'
-import { Route as AuthenticatedVideoCompressRouteImport } from './routes/_authenticated/video-compress'
-import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
-import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
-import { Route as AuthenticatedSchedulerRouteImport } from './routes/_authenticated/scheduler'
-import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
-import { Route as AuthenticatedPostStorageRouteImport } from './routes/_authenticated/post-storage'
-import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
-import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
-import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
-import { Route as AuthenticatedGmbOauthCallbackRouteImport } from './routes/_authenticated/gmb-oauth-callback'
-import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
-import { Route as AuthenticatedGeotaggingRouteImport } from './routes/_authenticated/geotagging'
-import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
-import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
-import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
-import { Route as AuthenticatedBackupsRouteImport } from './routes/_authenticated/backups'
-import { Route as AuthenticatedAutomationRouteImport } from './routes/_authenticated/automation'
+import { Route as AuthenticatedRouteRouteImport } from './routes/_authenticated/route'
+import { Route as AuthRouteImport } from './routes/auth'
 import { Route as AuthenticatedAgentsRouteImport } from './routes/_authenticated/agents'
-import { Route as AuthenticatedSettingsWebhooksRouteImport } from './routes/_authenticated/settings.webhooks'
-import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
-import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
-import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
-import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
-import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
-import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
-import { Route as AuthenticatedSettingsBusinessProfileRouteImport } from './routes/_authenticated/settings.business-profile'
-import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
-import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
+import { Route as AuthenticatedAutomationRouteImport } from './routes/_authenticated/automation'
+import { Route as AuthenticatedBackupsRouteImport } from './routes/_authenticated/backups'
+import { Route as AuthenticatedCalendarRouteImport } from './routes/_authenticated/calendar'
+import { Route as AuthenticatedCompetitorsRouteImport } from './routes/_authenticated/competitors'
+import { Route as AuthenticatedDashboardRouteImport } from './routes/_authenticated/dashboard'
+import { Route as AuthenticatedGeotaggingRouteImport } from './routes/_authenticated/geotagging'
+import { Route as AuthenticatedGmbAnalyticsRouteImport } from './routes/_authenticated/gmb-analytics'
+import { Route as AuthenticatedGmbOauthCallbackRouteImport } from './routes/_authenticated/gmb-oauth-callback'
+import { Route as AuthenticatedKeywordsRouteImport } from './routes/_authenticated/keywords'
+import { Route as AuthenticatedLibraryRouteImport } from './routes/_authenticated/library'
+import { Route as AuthenticatedPostGeneratorRouteImport } from './routes/_authenticated/post-generator'
+import { Route as AuthenticatedPostStorageRouteImport } from './routes/_authenticated/post-storage'
+import { Route as AuthenticatedResourcesRouteImport } from './routes/_authenticated/resources'
+import { Route as AuthenticatedSchedulerRouteImport } from './routes/_authenticated/scheduler'
+import { Route as AuthenticatedSettingsRouteImport } from './routes/_authenticated/settings'
+import { Route as AuthenticatedUploadRouteImport } from './routes/_authenticated/upload'
+import { Route as AuthenticatedVideoCompressRouteImport } from './routes/_authenticated/video-compress'
+import { Route as AuthenticatedVideoConverterRouteImport } from './routes/_authenticated/video-converter'
+import { Route as AuthenticatedVideosRouteImport } from './routes/_authenticated/videos'
+import { Route as AuthenticatedWizardRouteImport } from './routes/_authenticated/wizard'
 import { Route as AuthenticatedAgentsAgentIdRouteImport } from './routes/_authenticated/agents.$agentId'
-import { Route as ApiPublicImgIdRouteImport } from './routes/api/public/img/$id'
+import { Route as AuthenticatedLibraryImageIdRouteImport } from './routes/_authenticated/library.$imageId'
+import { Route as AuthenticatedSettingsAppearanceRouteImport } from './routes/_authenticated/settings.appearance'
+import { Route as AuthenticatedSettingsBusinessProfileRouteImport } from './routes/_authenticated/settings.business-profile'
+import { Route as AuthenticatedSettingsGeneralRouteImport } from './routes/_authenticated/settings.general'
+import { Route as AuthenticatedSettingsIntegrationsRouteImport } from './routes/_authenticated/settings.integrations'
+import { Route as AuthenticatedSettingsNotificationsRouteImport } from './routes/_authenticated/settings.notifications'
+import { Route as AuthenticatedSettingsProfileRouteImport } from './routes/_authenticated/settings.profile'
+import { Route as AuthenticatedSettingsSecurityRouteImport } from './routes/_authenticated/settings.security'
+import { Route as AuthenticatedSettingsTeamRouteImport } from './routes/_authenticated/settings.team'
+import { Route as AuthenticatedSettingsWebhooksRouteImport } from './routes/_authenticated/settings.webhooks'
 import { Route as ApiPublicHooksRunAutomationsRouteImport } from './routes/api/public/hooks/run-automations'
+import { Route as ApiPublicImgIdRouteImport } from './routes/api/public/img/$id'
 
-const AuthRoute = AuthRouteImport.update({
-  id: '/auth',
-  path: '/auth',
+const IndexRoute = IndexRouteImport.update({
+  id: '/',
+  path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthenticatedRouteRoute = AuthenticatedRouteRouteImport.update({
   id: '/_authenticated',
   getParentRoute: () => rootRouteImport,
 } as any)
-const IndexRoute = IndexRouteImport.update({
-  id: '/',
-  path: '/',
+const AuthRoute = AuthRouteImport.update({
+  id: '/auth',
+  path: '/auth',
   getParentRoute: () => rootRouteImport,
 } as any)
-const AuthenticatedWizardRoute = AuthenticatedWizardRouteImport.update({
-  id: '/wizard',
-  path: '/wizard',
+const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
-  id: '/videos',
-  path: '/videos',
+const AuthenticatedAutomationRoute = AuthenticatedAutomationRouteImport.update({
+  id: '/automation',
+  path: '/automation',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedVideoConverterRoute =
-  AuthenticatedVideoConverterRouteImport.update({
-    id: '/video-converter',
-    path: '/video-converter',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedVideoCompressRoute =
-  AuthenticatedVideoCompressRouteImport.update({
-    id: '/video-compress',
-    path: '/video-compress',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
-  id: '/upload',
-  path: '/upload',
+const AuthenticatedBackupsRoute = AuthenticatedBackupsRouteImport.update({
+  id: '/backups',
+  path: '/backups',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedSchedulerRoute = AuthenticatedSchedulerRouteImport.update({
-  id: '/scheduler',
-  path: '/scheduler',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
-  id: '/resources',
-  path: '/resources',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedPostStorageRoute =
-  AuthenticatedPostStorageRouteImport.update({
-    id: '/post-storage',
-    path: '/post-storage',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedPostGeneratorRoute =
-  AuthenticatedPostGeneratorRouteImport.update({
-    id: '/post-generator',
-    path: '/post-generator',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedKeywordsRoute = AuthenticatedKeywordsRouteImport.update({
-  id: '/keywords',
-  path: '/keywords',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedGmbOauthCallbackRoute =
-  AuthenticatedGmbOauthCallbackRouteImport.update({
-    id: '/gmb-oauth-callback',
-    path: '/gmb-oauth-callback',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedGmbAnalyticsRoute =
-  AuthenticatedGmbAnalyticsRouteImport.update({
-    id: '/gmb-analytics',
-    path: '/gmb-analytics',
-    getParentRoute: () => AuthenticatedRouteRoute,
-  } as any)
-const AuthenticatedGeotaggingRoute = AuthenticatedGeotaggingRouteImport.update({
-  id: '/geotagging',
-  path: '/geotagging',
-  getParentRoute: () => AuthenticatedRouteRoute,
-} as any)
-const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
+const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
+  id: '/calendar',
+  path: '/calendar',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
 const AuthenticatedCompetitorsRoute =
@@ -153,66 +87,108 @@ const AuthenticatedCompetitorsRoute =
     path: '/competitors',
     getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedCalendarRoute = AuthenticatedCalendarRouteImport.update({
-  id: '/calendar',
-  path: '/calendar',
+const AuthenticatedDashboardRoute = AuthenticatedDashboardRouteImport.update({
+  id: '/dashboard',
+  path: '/dashboard',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedBackupsRoute = AuthenticatedBackupsRouteImport.update({
-  id: '/backups',
-  path: '/backups',
+const AuthenticatedGeotaggingRoute = AuthenticatedGeotaggingRouteImport.update({
+  id: '/geotagging',
+  path: '/geotagging',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAutomationRoute = AuthenticatedAutomationRouteImport.update({
-  id: '/automation',
-  path: '/automation',
+const AuthenticatedGmbAnalyticsRoute =
+  AuthenticatedGmbAnalyticsRouteImport.update({
+    id: '/gmb-analytics',
+    path: '/gmb-analytics',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedGmbOauthCallbackRoute =
+  AuthenticatedGmbOauthCallbackRouteImport.update({
+    id: '/gmb-oauth-callback',
+    path: '/gmb-oauth-callback',
+    getParentRoute: () => AuthenticatedRouteRoute,
+  } as any)
+const AuthenticatedKeywordsRoute = AuthenticatedKeywordsRouteImport.update({
+  id: '/keywords',
+  path: '/keywords',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedAgentsRoute = AuthenticatedAgentsRouteImport.update({
-  id: '/agents',
-  path: '/agents',
+const AuthenticatedLibraryRoute = AuthenticatedLibraryRouteImport.update({
+  id: '/library',
+  path: '/library',
   getParentRoute: () => AuthenticatedRouteRoute,
 } as any)
-const AuthenticatedSettingsWebhooksRoute =
-  AuthenticatedSettingsWebhooksRouteImport.update({
-    id: '/webhooks',
-    path: '/webhooks',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedPostGeneratorRoute =
+  AuthenticatedPostGeneratorRouteImport.update({
+    id: '/post-generator',
+    path: '/post-generator',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsTeamRoute =
-  AuthenticatedSettingsTeamRouteImport.update({
-    id: '/team',
-    path: '/team',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedPostStorageRoute =
+  AuthenticatedPostStorageRouteImport.update({
+    id: '/post-storage',
+    path: '/post-storage',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsSecurityRoute =
-  AuthenticatedSettingsSecurityRouteImport.update({
-    id: '/security',
-    path: '/security',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedResourcesRoute = AuthenticatedResourcesRouteImport.update({
+  id: '/resources',
+  path: '/resources',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSchedulerRoute = AuthenticatedSchedulerRouteImport.update({
+  id: '/scheduler',
+  path: '/scheduler',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedSettingsRoute = AuthenticatedSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedUploadRoute = AuthenticatedUploadRouteImport.update({
+  id: '/upload',
+  path: '/upload',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedVideoCompressRoute =
+  AuthenticatedVideoCompressRouteImport.update({
+    id: '/video-compress',
+    path: '/video-compress',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsProfileRoute =
-  AuthenticatedSettingsProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedVideoConverterRoute =
+  AuthenticatedVideoConverterRouteImport.update({
+    id: '/video-converter',
+    path: '/video-converter',
+    getParentRoute: () => AuthenticatedRouteRoute,
   } as any)
-const AuthenticatedSettingsNotificationsRoute =
-  AuthenticatedSettingsNotificationsRouteImport.update({
-    id: '/notifications',
-    path: '/notifications',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedVideosRoute = AuthenticatedVideosRouteImport.update({
+  id: '/videos',
+  path: '/videos',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedWizardRoute = AuthenticatedWizardRouteImport.update({
+  id: '/wizard',
+  path: '/wizard',
+  getParentRoute: () => AuthenticatedRouteRoute,
+} as any)
+const AuthenticatedAgentsAgentIdRoute =
+  AuthenticatedAgentsAgentIdRouteImport.update({
+    id: '/$agentId',
+    path: '/$agentId',
+    getParentRoute: () => AuthenticatedAgentsRoute,
   } as any)
-const AuthenticatedSettingsIntegrationsRoute =
-  AuthenticatedSettingsIntegrationsRouteImport.update({
-    id: '/integrations',
-    path: '/integrations',
-    getParentRoute: () => AuthenticatedSettingsRoute,
+const AuthenticatedLibraryImageIdRoute =
+  AuthenticatedLibraryImageIdRouteImport.update({
+    id: '/$imageId',
+    path: '/$imageId',
+    getParentRoute: () => AuthenticatedLibraryRoute,
   } as any)
-const AuthenticatedSettingsGeneralRoute =
-  AuthenticatedSettingsGeneralRouteImport.update({
-    id: '/general',
-    path: '/general',
+const AuthenticatedSettingsAppearanceRoute =
+  AuthenticatedSettingsAppearanceRouteImport.update({
+    id: '/appearance',
+    path: '/appearance',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
 const AuthenticatedSettingsBusinessProfileRoute =
@@ -221,35 +197,59 @@ const AuthenticatedSettingsBusinessProfileRoute =
     path: '/business-profile',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedSettingsAppearanceRoute =
-  AuthenticatedSettingsAppearanceRouteImport.update({
-    id: '/appearance',
-    path: '/appearance',
+const AuthenticatedSettingsGeneralRoute =
+  AuthenticatedSettingsGeneralRouteImport.update({
+    id: '/general',
+    path: '/general',
     getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedLibraryImageIdRoute =
-  AuthenticatedLibraryImageIdRouteImport.update({
-    id: '/$imageId',
-    path: '/$imageId',
-    getParentRoute: () => AuthenticatedLibraryRoute,
+const AuthenticatedSettingsIntegrationsRoute =
+  AuthenticatedSettingsIntegrationsRouteImport.update({
+    id: '/integrations',
+    path: '/integrations',
+    getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const AuthenticatedAgentsAgentIdRoute =
-  AuthenticatedAgentsAgentIdRouteImport.update({
-    id: '/$agentId',
-    path: '/$agentId',
-    getParentRoute: () => AuthenticatedAgentsRoute,
+const AuthenticatedSettingsNotificationsRoute =
+  AuthenticatedSettingsNotificationsRouteImport.update({
+    id: '/notifications',
+    path: '/notifications',
+    getParentRoute: () => AuthenticatedSettingsRoute,
   } as any)
-const ApiPublicImgIdRoute = ApiPublicImgIdRouteImport.update({
-  id: '/api/public/img/$id',
-  path: '/api/public/img/$id',
-  getParentRoute: () => rootRouteImport,
-} as any)
+const AuthenticatedSettingsProfileRoute =
+  AuthenticatedSettingsProfileRouteImport.update({
+    id: '/profile',
+    path: '/profile',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsSecurityRoute =
+  AuthenticatedSettingsSecurityRouteImport.update({
+    id: '/security',
+    path: '/security',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsTeamRoute =
+  AuthenticatedSettingsTeamRouteImport.update({
+    id: '/team',
+    path: '/team',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
+const AuthenticatedSettingsWebhooksRoute =
+  AuthenticatedSettingsWebhooksRouteImport.update({
+    id: '/webhooks',
+    path: '/webhooks',
+    getParentRoute: () => AuthenticatedSettingsRoute,
+  } as any)
 const ApiPublicHooksRunAutomationsRoute =
   ApiPublicHooksRunAutomationsRouteImport.update({
     id: '/api/public/hooks/run-automations',
     path: '/api/public/hooks/run-automations',
     getParentRoute: () => rootRouteImport,
   } as any)
+const ApiPublicImgIdRoute = ApiPublicImgIdRouteImport.update({
+  id: '/api/public/img/$id',
+  path: '/api/public/img/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -495,11 +495,11 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/auth': {
-      id: '/auth'
-      path: '/auth'
-      fullPath: '/auth'
-      preLoaderRoute: typeof AuthRouteImport
+    '/': {
+      id: '/'
+      path: '/'
+      fullPath: '/'
+      preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/_authenticated': {
@@ -509,144 +509,18 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/': {
-      id: '/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof IndexRouteImport
+    '/auth': {
+      id: '/auth'
+      path: '/auth'
+      fullPath: '/auth'
+      preLoaderRoute: typeof AuthRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/_authenticated/wizard': {
-      id: '/_authenticated/wizard'
-      path: '/wizard'
-      fullPath: '/wizard'
-      preLoaderRoute: typeof AuthenticatedWizardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/videos': {
-      id: '/_authenticated/videos'
-      path: '/videos'
-      fullPath: '/videos'
-      preLoaderRoute: typeof AuthenticatedVideosRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/video-converter': {
-      id: '/_authenticated/video-converter'
-      path: '/video-converter'
-      fullPath: '/video-converter'
-      preLoaderRoute: typeof AuthenticatedVideoConverterRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/video-compress': {
-      id: '/_authenticated/video-compress'
-      path: '/video-compress'
-      fullPath: '/video-compress'
-      preLoaderRoute: typeof AuthenticatedVideoCompressRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/upload': {
-      id: '/_authenticated/upload'
-      path: '/upload'
-      fullPath: '/upload'
-      preLoaderRoute: typeof AuthenticatedUploadRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/settings': {
-      id: '/_authenticated/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/scheduler': {
-      id: '/_authenticated/scheduler'
-      path: '/scheduler'
-      fullPath: '/scheduler'
-      preLoaderRoute: typeof AuthenticatedSchedulerRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/resources': {
-      id: '/_authenticated/resources'
-      path: '/resources'
-      fullPath: '/resources'
-      preLoaderRoute: typeof AuthenticatedResourcesRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/post-storage': {
-      id: '/_authenticated/post-storage'
-      path: '/post-storage'
-      fullPath: '/post-storage'
-      preLoaderRoute: typeof AuthenticatedPostStorageRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/post-generator': {
-      id: '/_authenticated/post-generator'
-      path: '/post-generator'
-      fullPath: '/post-generator'
-      preLoaderRoute: typeof AuthenticatedPostGeneratorRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/library': {
-      id: '/_authenticated/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/keywords': {
-      id: '/_authenticated/keywords'
-      path: '/keywords'
-      fullPath: '/keywords'
-      preLoaderRoute: typeof AuthenticatedKeywordsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/gmb-oauth-callback': {
-      id: '/_authenticated/gmb-oauth-callback'
-      path: '/gmb-oauth-callback'
-      fullPath: '/gmb-oauth-callback'
-      preLoaderRoute: typeof AuthenticatedGmbOauthCallbackRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/gmb-analytics': {
-      id: '/_authenticated/gmb-analytics'
-      path: '/gmb-analytics'
-      fullPath: '/gmb-analytics'
-      preLoaderRoute: typeof AuthenticatedGmbAnalyticsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/geotagging': {
-      id: '/_authenticated/geotagging'
-      path: '/geotagging'
-      fullPath: '/geotagging'
-      preLoaderRoute: typeof AuthenticatedGeotaggingRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/dashboard': {
-      id: '/_authenticated/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/competitors': {
-      id: '/_authenticated/competitors'
-      path: '/competitors'
-      fullPath: '/competitors'
-      preLoaderRoute: typeof AuthenticatedCompetitorsRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/calendar': {
-      id: '/_authenticated/calendar'
-      path: '/calendar'
-      fullPath: '/calendar'
-      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
-      parentRoute: typeof AuthenticatedRouteRoute
-    }
-    '/_authenticated/backups': {
-      id: '/_authenticated/backups'
-      path: '/backups'
-      fullPath: '/backups'
-      preLoaderRoute: typeof AuthenticatedBackupsRouteImport
+    '/_authenticated/agents': {
+      id: '/_authenticated/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
     '/_authenticated/automation': {
@@ -656,60 +530,158 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedAutomationRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/agents': {
-      id: '/_authenticated/agents'
-      path: '/agents'
-      fullPath: '/agents'
-      preLoaderRoute: typeof AuthenticatedAgentsRouteImport
+    '/_authenticated/backups': {
+      id: '/_authenticated/backups'
+      path: '/backups'
+      fullPath: '/backups'
+      preLoaderRoute: typeof AuthenticatedBackupsRouteImport
       parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/webhooks': {
-      id: '/_authenticated/settings/webhooks'
-      path: '/webhooks'
-      fullPath: '/settings/webhooks'
-      preLoaderRoute: typeof AuthenticatedSettingsWebhooksRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/calendar': {
+      id: '/_authenticated/calendar'
+      path: '/calendar'
+      fullPath: '/calendar'
+      preLoaderRoute: typeof AuthenticatedCalendarRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/team': {
-      id: '/_authenticated/settings/team'
-      path: '/team'
-      fullPath: '/settings/team'
-      preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/competitors': {
+      id: '/_authenticated/competitors'
+      path: '/competitors'
+      fullPath: '/competitors'
+      preLoaderRoute: typeof AuthenticatedCompetitorsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/security': {
-      id: '/_authenticated/settings/security'
-      path: '/security'
-      fullPath: '/settings/security'
-      preLoaderRoute: typeof AuthenticatedSettingsSecurityRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/dashboard': {
+      id: '/_authenticated/dashboard'
+      path: '/dashboard'
+      fullPath: '/dashboard'
+      preLoaderRoute: typeof AuthenticatedDashboardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/profile': {
-      id: '/_authenticated/settings/profile'
-      path: '/profile'
-      fullPath: '/settings/profile'
-      preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/geotagging': {
+      id: '/_authenticated/geotagging'
+      path: '/geotagging'
+      fullPath: '/geotagging'
+      preLoaderRoute: typeof AuthenticatedGeotaggingRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/notifications': {
-      id: '/_authenticated/settings/notifications'
-      path: '/notifications'
-      fullPath: '/settings/notifications'
-      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/gmb-analytics': {
+      id: '/_authenticated/gmb-analytics'
+      path: '/gmb-analytics'
+      fullPath: '/gmb-analytics'
+      preLoaderRoute: typeof AuthenticatedGmbAnalyticsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/integrations': {
-      id: '/_authenticated/settings/integrations'
-      path: '/integrations'
-      fullPath: '/settings/integrations'
-      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsRouteImport
-      parentRoute: typeof AuthenticatedSettingsRoute
+    '/_authenticated/gmb-oauth-callback': {
+      id: '/_authenticated/gmb-oauth-callback'
+      path: '/gmb-oauth-callback'
+      fullPath: '/gmb-oauth-callback'
+      preLoaderRoute: typeof AuthenticatedGmbOauthCallbackRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
     }
-    '/_authenticated/settings/general': {
-      id: '/_authenticated/settings/general'
-      path: '/general'
-      fullPath: '/settings/general'
-      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
+    '/_authenticated/keywords': {
+      id: '/_authenticated/keywords'
+      path: '/keywords'
+      fullPath: '/keywords'
+      preLoaderRoute: typeof AuthenticatedKeywordsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/library': {
+      id: '/_authenticated/library'
+      path: '/library'
+      fullPath: '/library'
+      preLoaderRoute: typeof AuthenticatedLibraryRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/post-generator': {
+      id: '/_authenticated/post-generator'
+      path: '/post-generator'
+      fullPath: '/post-generator'
+      preLoaderRoute: typeof AuthenticatedPostGeneratorRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/post-storage': {
+      id: '/_authenticated/post-storage'
+      path: '/post-storage'
+      fullPath: '/post-storage'
+      preLoaderRoute: typeof AuthenticatedPostStorageRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/resources': {
+      id: '/_authenticated/resources'
+      path: '/resources'
+      fullPath: '/resources'
+      preLoaderRoute: typeof AuthenticatedResourcesRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/scheduler': {
+      id: '/_authenticated/scheduler'
+      path: '/scheduler'
+      fullPath: '/scheduler'
+      preLoaderRoute: typeof AuthenticatedSchedulerRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/settings': {
+      id: '/_authenticated/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AuthenticatedSettingsRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/upload': {
+      id: '/_authenticated/upload'
+      path: '/upload'
+      fullPath: '/upload'
+      preLoaderRoute: typeof AuthenticatedUploadRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/video-compress': {
+      id: '/_authenticated/video-compress'
+      path: '/video-compress'
+      fullPath: '/video-compress'
+      preLoaderRoute: typeof AuthenticatedVideoCompressRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/video-converter': {
+      id: '/_authenticated/video-converter'
+      path: '/video-converter'
+      fullPath: '/video-converter'
+      preLoaderRoute: typeof AuthenticatedVideoConverterRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/videos': {
+      id: '/_authenticated/videos'
+      path: '/videos'
+      fullPath: '/videos'
+      preLoaderRoute: typeof AuthenticatedVideosRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/wizard': {
+      id: '/_authenticated/wizard'
+      path: '/wizard'
+      fullPath: '/wizard'
+      preLoaderRoute: typeof AuthenticatedWizardRouteImport
+      parentRoute: typeof AuthenticatedRouteRoute
+    }
+    '/_authenticated/agents/$agentId': {
+      id: '/_authenticated/agents/$agentId'
+      path: '/$agentId'
+      fullPath: '/agents/$agentId'
+      preLoaderRoute: typeof AuthenticatedAgentsAgentIdRouteImport
+      parentRoute: typeof AuthenticatedAgentsRoute
+    }
+    '/_authenticated/library/$imageId': {
+      id: '/_authenticated/library/$imageId'
+      path: '/$imageId'
+      fullPath: '/library/$imageId'
+      preLoaderRoute: typeof AuthenticatedLibraryImageIdRouteImport
+      parentRoute: typeof AuthenticatedLibraryRoute
+    }
+    '/_authenticated/settings/appearance': {
+      id: '/_authenticated/settings/appearance'
+      path: '/appearance'
+      fullPath: '/settings/appearance'
+      preLoaderRoute: typeof AuthenticatedSettingsAppearanceRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/_authenticated/settings/business-profile': {
@@ -719,39 +691,67 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthenticatedSettingsBusinessProfileRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/settings/appearance': {
-      id: '/_authenticated/settings/appearance'
-      path: '/appearance'
-      fullPath: '/settings/appearance'
-      preLoaderRoute: typeof AuthenticatedSettingsAppearanceRouteImport
+    '/_authenticated/settings/general': {
+      id: '/_authenticated/settings/general'
+      path: '/general'
+      fullPath: '/settings/general'
+      preLoaderRoute: typeof AuthenticatedSettingsGeneralRouteImport
       parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/library/$imageId': {
-      id: '/_authenticated/library/$imageId'
-      path: '/$imageId'
-      fullPath: '/library/$imageId'
-      preLoaderRoute: typeof AuthenticatedLibraryImageIdRouteImport
-      parentRoute: typeof AuthenticatedLibraryRoute
+    '/_authenticated/settings/integrations': {
+      id: '/_authenticated/settings/integrations'
+      path: '/integrations'
+      fullPath: '/settings/integrations'
+      preLoaderRoute: typeof AuthenticatedSettingsIntegrationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/_authenticated/agents/$agentId': {
-      id: '/_authenticated/agents/$agentId'
-      path: '/$agentId'
-      fullPath: '/agents/$agentId'
-      preLoaderRoute: typeof AuthenticatedAgentsAgentIdRouteImport
-      parentRoute: typeof AuthenticatedAgentsRoute
+    '/_authenticated/settings/notifications': {
+      id: '/_authenticated/settings/notifications'
+      path: '/notifications'
+      fullPath: '/settings/notifications'
+      preLoaderRoute: typeof AuthenticatedSettingsNotificationsRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
-    '/api/public/img/$id': {
-      id: '/api/public/img/$id'
-      path: '/api/public/img/$id'
-      fullPath: '/api/public/img/$id'
-      preLoaderRoute: typeof ApiPublicImgIdRouteImport
-      parentRoute: typeof rootRouteImport
+    '/_authenticated/settings/profile': {
+      id: '/_authenticated/settings/profile'
+      path: '/profile'
+      fullPath: '/settings/profile'
+      preLoaderRoute: typeof AuthenticatedSettingsProfileRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/security': {
+      id: '/_authenticated/settings/security'
+      path: '/security'
+      fullPath: '/settings/security'
+      preLoaderRoute: typeof AuthenticatedSettingsSecurityRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/team': {
+      id: '/_authenticated/settings/team'
+      path: '/team'
+      fullPath: '/settings/team'
+      preLoaderRoute: typeof AuthenticatedSettingsTeamRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
+    }
+    '/_authenticated/settings/webhooks': {
+      id: '/_authenticated/settings/webhooks'
+      path: '/webhooks'
+      fullPath: '/settings/webhooks'
+      preLoaderRoute: typeof AuthenticatedSettingsWebhooksRouteImport
+      parentRoute: typeof AuthenticatedSettingsRoute
     }
     '/api/public/hooks/run-automations': {
       id: '/api/public/hooks/run-automations'
       path: '/api/public/hooks/run-automations'
       fullPath: '/api/public/hooks/run-automations'
       preLoaderRoute: typeof ApiPublicHooksRunAutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/img/$id': {
+      id: '/api/public/img/$id'
+      path: '/api/public/img/$id'
+      fullPath: '/api/public/img/$id'
+      preLoaderRoute: typeof ApiPublicImgIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
