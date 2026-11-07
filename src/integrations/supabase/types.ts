@@ -1005,6 +1005,27 @@ export type Database = {
         }
         Relationships: []
       }
+      location_keywords: {
+        Row: {
+          created_at: string
+          id: string
+          name: string
+          owner_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          name: string
+          owner_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          name?: string
+          owner_id?: string
+        }
+        Relationships: []
+      }
       post_drafts: {
         Row: {
           body: string
@@ -1307,27 +1328,6 @@ export type Database = {
           provider?: string
           updated_at?: string
           user_id?: string
-        }
-        Relationships: []
-      }
-      location_keywords: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          owner_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          owner_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          owner_id?: string
         }
         Relationships: []
       }
