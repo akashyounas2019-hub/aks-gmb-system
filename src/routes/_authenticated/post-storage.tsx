@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
 import {
@@ -24,6 +24,8 @@ import {
   ImageIcon,
   Save,
   X,
+  Loader2,
+  UploadCloud,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -663,14 +665,25 @@ function PostCard({
             </div>
           </div>
         </button>
+      ) : post.imageIds.length > 0 ? (
+        <div className="flex aspect-[16/10] w-full items-center justify-center bg-muted text-xs text-muted-foreground">
+          <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+          Loading {post.imageIds.length} image
+          {post.imageIds.length === 1 ? "" : "s"}…
+        </div>
       ) : (
-        post.imageIds.length > 0 && (
-          <div className="flex aspect-[16/10] w-full items-center justify-center bg-muted text-xs text-muted-foreground">
-            <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-            Loading {post.imageIds.length} image
-            {post.imageIds.length === 1 ? "" : "s"}…
-          </div>
-        )
+        <div className="flex aspect-[16/10] w-full flex-col items-center justify-center gap-2 border-b border-dashed border-border bg-muted/40 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1.5">
+            <ImageIcon className="h-3.5 w-3.5" /> No image attached
+          </span>
+          <button
+            type="button"
+            onClick={onOpen}
+            className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90"
+          >
+            <UploadCloud className="h-3.5 w-3.5" /> Add / Upload image
+          </button>
+        </div>
       )}
 
       <div className="p-4">
@@ -790,8 +803,75 @@ function EditPostModal({
   const [tags, setTags] = useState<string[]>(post.tags ?? []);
   const [tagInput, setTagInput] = useState("");
   const [imageIds, setImageIds] = useState<string[]>(post.imageIds ?? []);
+  // Images added inside this popup (picked from the library or uploaded).
+  const [extraImages, setExtraImages] = useState<ImageMap>({});
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [library, setLibrary] = useState<ImageRow[] | null>(null);
+  const [uploading, setUploading] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
 
-  const attached = imageIds.map((id) => imageMap[id]).filter((r): r is ImageRow => Boolean(r));
+  const attached = imageIds
+    .map((id) => imageMap[id] ?? extraImages[id])
+    .filter((r): r is ImageRow => Boolean(r));
+
+  async function openPicker() {
+    setPickerOpen((v) => !v);
+    if (library) return;
+    const { data, error } = await supabase
+      .from("images")
+      .select("id,name,storage_path")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(200);
+    if (error) {
+      toast.error(error.message);
+      return;
+    }
+    setLibrary((data ?? []) as ImageRow[]);
+  }
+
+  function togglePick(img: ImageRow) {
+    setExtraImages((prev) => ({ ...prev, [img.id]: img }));
+    setImageIds((prev) =>
+      prev.includes(img.id) ? prev.filter((x) => x !== img.id) : [...prev, img.id],
+    );
+  }
+
+  async function uploadFiles(files: FileList) {
+    const list = Array.from(files).filter((file) => file.type.startsWith("image/"));
+    if (!list.length) return;
+    setUploading(true);
+    try {
+      const { data: userData } = await supabase.auth.getUser();
+      const uid = userData.user?.id;
+      if (!uid) throw new Error("Not signed in");
+      for (const file of list) {
+        const ext = file.name.split(".").pop() || "jpg";
+        const path = `${uid}/post-storage/${crypto.randomUUID()}.${ext}`;
+        const { error: upErr } = await supabase.storage
+          .from("frames")
+          .upload(path, file, { contentType: file.type, upsert: false });
+        if (upErr) throw upErr;
+        const { data: row, error: dbErr } = await supabase
+          .from("images")
+          .insert({ owner_id: uid, storage_path: path, name: file.name } as never)
+          .select("id,name,storage_path")
+          .single();
+        if (dbErr) throw dbErr;
+        const img = row as ImageRow;
+        setExtraImages((prev) => ({ ...prev, [img.id]: img }));
+        setImageIds((prev) => [...prev, img.id]);
+      }
+      toast.success(
+        `Uploaded ${list.length} image${list.length === 1 ? "" : "s"} — click Save to keep.`,
+      );
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Upload failed");
+    } finally {
+      setUploading(false);
+      if (fileRef.current) fileRef.current.value = "";
+    }
+  }
 
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
@@ -990,11 +1070,108 @@ function EditPostModal({
           </div>
 
           <div>
-            <label className={label}>Images ({imageIds.length})</label>
+            <div className="mb-1 flex items-center justify-between gap-2">
+              <span className="text-xs font-medium text-muted-foreground">
+                Images ({imageIds.length})
+              </span>
+              <div className="flex items-center gap-1.5">
+                <input
+                  ref={fileRef}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  hidden
+                  onChange={(e) => e.target.files && uploadFiles(e.target.files)}
+                />
+                <button
+                  type="button"
+                  onClick={openPicker}
+                  className="inline-flex items-center gap-1 rounded-md border border-border px-2.5 py-1 text-xs hover:bg-accent"
+                >
+                  <ImageIcon className="h-3.5 w-3.5" />{" "}
+                  {pickerOpen ? "Close library" : "Add from library"}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => fileRef.current?.click()}
+                  disabled={uploading}
+                  className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+                >
+                  {uploading ? (
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  ) : (
+                    <UploadCloud className="h-3.5 w-3.5" />
+                  )}
+                  Upload
+                </button>
+              </div>
+            </div>
+            {pickerOpen && (
+              <div className="mb-2 rounded-md border border-border p-2">
+                {library === null ? (
+                  <div className="flex justify-center py-4 text-muted-foreground">
+                    <Loader2 className="h-4 w-4 animate-spin" />
+                  </div>
+                ) : library.length === 0 ? (
+                  <p className="py-3 text-center text-xs text-muted-foreground">
+                    Your library is empty — use Upload.
+                  </p>
+                ) : (
+                  <div className="grid max-h-48 grid-cols-6 gap-1.5 overflow-y-auto sm:grid-cols-8">
+                    {library.map((img) => {
+                      const on = imageIds.includes(img.id);
+                      return (
+                        <button
+                          key={img.id}
+                          type="button"
+                          onClick={() => togglePick(img)}
+                          title={img.name ?? ""}
+                          className={`relative aspect-square overflow-hidden rounded border ${
+                            on
+                              ? "border-primary ring-2 ring-primary"
+                              : "border-border hover:border-primary/50"
+                          }`}
+                        >
+                          <SignedImage
+                            bucket="frames"
+                            path={img.storage_path}
+                            alt={img.name ?? "Library image"}
+                            className="h-full w-full object-cover"
+                          />
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            )}
             {attached.length === 0 ? (
-              <p className="rounded-md border border-dashed border-border px-3 py-3 text-center text-xs text-muted-foreground">
-                {imageIds.length > 0 ? "Loading images…" : "No images attached."}
-              </p>
+              <div className="flex flex-col items-center gap-2 rounded-md border border-dashed border-border px-3 py-4 text-center text-xs text-muted-foreground">
+                {imageIds.length > 0 ? (
+                  "Loading images…"
+                ) : (
+                  <>
+                    <span>No image attached.</span>
+                    <span className="flex gap-2">
+                      <button
+                        type="button"
+                        onClick={() => fileRef.current?.click()}
+                        disabled={uploading}
+                        className="inline-flex items-center gap-1 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+                      >
+                        <UploadCloud className="h-3.5 w-3.5" /> Upload image
+                      </button>
+                      <button
+                        type="button"
+                        onClick={openPicker}
+                        className="inline-flex items-center gap-1 rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent"
+                      >
+                        <Plus className="h-3.5 w-3.5" /> Add from library
+                      </button>
+                    </span>
+                  </>
+                )}
+              </div>
             ) : (
               <div className="flex flex-wrap gap-2">
                 {attached.map((img) => (

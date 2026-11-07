@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useServerFn } from "@tanstack/react-start";
-import { ghlDeleteScheduledPost, ghlSyncScheduledPost } from "@/lib/ghl.functions";
+import { ghlDeleteScheduledPost, ghlSendPosts, ghlSyncScheduledPost } from "@/lib/ghl.functions";
 
 import { supabase } from "@/integrations/supabase/client";
 import { SignedImage } from "@/components/SignedImage";
@@ -141,6 +141,72 @@ function PostSchedulerPanel() {
   const [deletingPost, setDeletingPost] = useState<ScheduledPost | null>(null);
   const [deleting, setDeleting] = useState(false);
   const ghlDelete = useServerFn(ghlDeleteScheduledPost);
+  const ghlSend = useServerFn(ghlSendPosts);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [sendingGhl, setSendingGhl] = useState(false);
+
+  function toggleRow(id: string) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }
+
+  async function confirmBulkDelete() {
+    const ids = Array.from(selectedIds);
+    setDeleting(true);
+    let done = 0;
+    const errors: string[] = [];
+    for (const id of ids) {
+      try {
+        await ghlDelete({ data: { postId: id } });
+        const { error } = await supabase.from("social_posts").delete().eq("id", id);
+        if (error) throw error;
+        done++;
+      } catch (e) {
+        errors.push(e instanceof Error ? e.message : "delete failed");
+      }
+    }
+    setDeleting(false);
+    setBulkDeleteOpen(false);
+    setSelectedIds(new Set());
+    if (errors.length) toast.error(`Deleted ${done}/${ids.length}. ${errors[0]}`);
+    else toast.success(`Deleted ${done} post${done === 1 ? "" : "s"}.`);
+    await reload();
+  }
+
+  async function sendToGhl() {
+    // Selected rows, or every row in the current view when nothing is selected.
+    const ids = selectedIds.size ? Array.from(selectedIds) : rows.map((p) => p.id);
+    if (ids.length === 0) return toast.error("Nothing to send.");
+    if (
+      !window.confirm(
+        `Send ${ids.length} post${ids.length === 1 ? "" : "s"} to GoHighLevel? Future posts are scheduled in GHL; past ones publish now.`,
+      )
+    )
+      return;
+    setSendingGhl(true);
+    try {
+      const res = await ghlSend({ data: { postIds: ids.slice(0, 100) } });
+      const parts = [
+        res.scheduled && `${res.scheduled} scheduled`,
+        res.sent && `${res.sent} published`,
+        res.skipped && `${res.skipped} already in GHL`,
+        res.failed && `${res.failed} failed`,
+      ].filter(Boolean);
+      if (res.failed) toast.error(`${parts.join(" · ")}. ${res.firstError ?? ""}`);
+      else toast.success(`GoHighLevel: ${parts.join(" · ") || "nothing to send"}.`);
+      setSelectedIds(new Set());
+      await reload();
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Send to GHL failed");
+    } finally {
+      setSendingGhl(false);
+    }
+  }
 
   async function reload() {
     setLoading(true);
@@ -211,6 +277,14 @@ function PostSchedulerPanel() {
       ? posts.filter((p) => p.scheduled_at && new Date(p.scheduled_at).getTime() >= now)
       : posts;
   }, [posts, scope]);
+
+  useEffect(() => {
+    setSelectedIds((prev) => {
+      const visible = new Set(rows.map((r) => r.id));
+      const next = new Set(Array.from(prev).filter((id) => visible.has(id)));
+      return next.size === prev.size ? prev : next;
+    });
+  }, [rows]);
 
   function downloadCsv() {
     if (!rows.length) {
@@ -286,6 +360,19 @@ function PostSchedulerPanel() {
             >
               <Save className="h-3.5 w-3.5" /> Download GHL CSV ({rows.length})
             </button>
+            <button
+              onClick={sendToGhl}
+              disabled={sendingGhl || rows.length === 0}
+              className="inline-flex items-center gap-1.5 rounded-md bg-primary px-3 py-1.5 text-xs font-medium text-primary-foreground hover:opacity-90 disabled:opacity-50"
+              title="Send to GoHighLevel Social Planner — selected posts, or all in view"
+            >
+              {sendingGhl ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <Send className="h-3.5 w-3.5" />
+              )}
+              Send to GHL ({selectedIds.size || rows.length})
+            </button>
           </div>
         </div>
       </section>
@@ -303,9 +390,47 @@ function PostSchedulerPanel() {
           </div>
         ) : (
           <div className="overflow-x-auto">
+            {selectedIds.size > 0 && (
+              <div className="mb-3 flex flex-wrap items-center gap-2 rounded-lg border border-primary/30 bg-primary/[0.05] px-3 py-2 text-xs">
+                <span>
+                  <strong>{selectedIds.size}</strong> selected
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setSelectedIds(new Set())}
+                  className="rounded-md border border-border px-2.5 py-1 hover:bg-accent"
+                >
+                  Clear
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setBulkDeleteOpen(true)}
+                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-destructive/40 bg-destructive/10 px-2.5 py-1 font-medium text-destructive hover:bg-destructive/15"
+                >
+                  <Trash2 className="h-3.5 w-3.5" /> Delete selected ({selectedIds.size})
+                </button>
+              </div>
+            )}
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-border text-[11px] uppercase tracking-widest text-muted-foreground">
+                  <th className="w-8 py-2.5 pr-2">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all"
+                      checked={rows.length > 0 && selectedIds.size === rows.length}
+                      ref={(el) => {
+                        if (el)
+                          el.indeterminate = selectedIds.size > 0 && selectedIds.size < rows.length;
+                      }}
+                      onChange={(e) =>
+                        setSelectedIds(
+                          e.target.checked ? new Set(rows.map((r) => r.id)) : new Set(),
+                        )
+                      }
+                      className="h-4 w-4 accent-primary"
+                    />
+                  </th>
                   <th className="py-2.5 pr-4 font-medium">Scheduled</th>
                   <th className="py-2.5 pr-4 font-medium">Status</th>
                   <th className="py-2.5 pr-4 font-medium">Images</th>
@@ -322,8 +447,26 @@ function PostSchedulerPanel() {
                   return (
                     <tr
                       key={p.id}
-                      className="border-b border-border/60 align-top hover:bg-accent/30 transition"
+                      onClick={(e) => {
+                        // Buttons / links inside the row keep their own behaviour.
+                        if ((e.target as HTMLElement).closest("button,a,input,[role=button]"))
+                          return;
+                        toggleRow(p.id);
+                      }}
+                      aria-selected={selectedIds.has(p.id)}
+                      className={`cursor-pointer border-b border-border/60 align-top transition ${
+                        selectedIds.has(p.id) ? "bg-primary/10" : "hover:bg-accent/30"
+                      }`}
                     >
+                      <td className="py-3 pr-2">
+                        <input
+                          type="checkbox"
+                          aria-label="Select post"
+                          checked={selectedIds.has(p.id)}
+                          onChange={() => toggleRow(p.id)}
+                          className="h-4 w-4 accent-primary"
+                        />
+                      </td>
                       <td className="whitespace-nowrap py-3 pr-4 tabular-nums">
                         <div className="font-medium text-foreground text-xs">
                           {p.scheduled_at ? new Date(p.scheduled_at).toLocaleDateString() : "—"}
@@ -443,6 +586,49 @@ function PostSchedulerPanel() {
             reload();
           }}
         />
+      )}
+
+      {bulkDeleteOpen && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+          onClick={() => !deleting && setBulkDeleteOpen(false)}
+        >
+          <div
+            className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="text-base font-semibold">
+              Delete {selectedIds.size} post{selectedIds.size === 1 ? "" : "s"}?
+            </div>
+            <p className="mt-2 text-xs leading-relaxed text-muted-foreground">
+              They are removed from the schedule (and from GoHighLevel if GHL is holding them). This
+              cannot be undone.
+            </p>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setBulkDeleteOpen(false)}
+                disabled={deleting}
+                className="rounded-md border border-border px-3 py-1.5 text-xs hover:bg-accent disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBulkDelete}
+                disabled={deleting}
+                className="inline-flex items-center gap-1.5 rounded-md bg-destructive px-3 py-1.5 text-xs font-medium text-destructive-foreground hover:opacity-90 disabled:opacity-50"
+              >
+                {deleting ? (
+                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                ) : (
+                  <Trash2 className="h-3.5 w-3.5" />
+                )}
+                Delete {selectedIds.size}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {deletingPost && (

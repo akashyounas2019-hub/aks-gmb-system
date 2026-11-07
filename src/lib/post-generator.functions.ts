@@ -510,8 +510,8 @@ export async function dispatchSocialPost(
     } as any)
     .eq("id", post.id);
 
-  // Only mark images posted once the post has actually, successfully gone out.
-  if (ok && !scheduledInGhl && imageIds.length) {
+  // Images move to "Published" as soon as the post is sent OR scheduled.
+  if (ok && imageIds.length) {
     await supabase
       .from("images")
       .update({ posted_at: new Date().toISOString() } as any)
@@ -567,6 +567,16 @@ export const sendPostToSocialPlanner = createServerFn({ method: "POST" })
     // sending it happens later, when the cron dispatcher sees its time is due
     // (see run-automations → auto_publish). Nothing is marked "posted" yet.
     if (isScheduled) {
+      // Scheduling counts as publishing for the Image Library: the images
+      // leave Geo-Tagged / Favorites and show up under Published right away.
+      if (data.imageIds.length) {
+        await supabase
+          .from("images")
+          .update({ posted_at: new Date().toISOString() } as never)
+          .in("id", data.imageIds)
+          .eq("owner_id", userId)
+          .is("posted_at", null);
+      }
       const { getGhlTarget } = await import("./ghl-posting.server");
       const target = await getGhlTarget(supabase, userId);
       if (!target?.accountId) {

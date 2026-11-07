@@ -1408,22 +1408,6 @@ export function PostGeneratorPage({
                     <option value="openrouter">OpenRouter</option>
                     <option value="aks">AKS Cloud</option>
                   </select>
-                  {imageFolders.length > 0 && (
-                    <select
-                      value={selectedImageFolderId}
-                      onChange={(e) => setSelectedImageFolderId(e.target.value)}
-                      className="rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
-                      title="Filter by Folder"
-                    >
-                      <option value="all">All Folders ({images.length})</option>
-                      <option value="unfiled">Uncategorized</option>
-                      {imageFolders.map((f) => (
-                        <option key={f.id} value={f.id}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
                   <input
                     ref={uploadRef}
                     type="file"
@@ -1621,36 +1605,11 @@ export function PostGeneratorPage({
                   </div>
                 )}
               </div>
-              {/* Quick-insert row — most-used cleaning glyphs */}
-              <div className="hidden items-center gap-1 sm:flex">
-                {["✅", "⭐", "📍", "🧼", "✨", "🔥"].map((s) => (
-                  <button
-                    key={s}
-                    type="button"
-                    onClick={() => insertSymbol(s)}
-                    title={`Insert ${s}`}
-                    className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-base leading-none hover:border-primary/40 hover:bg-primary/10"
-                  >
-                    {s}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            <div className="mt-2 flex flex-wrap items-center justify-between gap-2 text-sm">
-              <span
-                className={
-                  captionOver ? "font-medium text-red-500" : "text-xs text-muted-foreground"
-                }
-              >
-                {captionOver
-                  ? `Post body exceeds the ${CAPTION_LIMIT}-character limit. Trim ${captionLen - CAPTION_LIMIT} character${captionLen - CAPTION_LIMIT === 1 ? "" : "s"} to send.`
-                  : "Google Business Profile allows up to 1,500 characters per post."}
-              </span>
+              {/* Right end of the row: counters, then quick-insert emojis */}
               <div className="flex items-center gap-2">
                 {manualKw.length > 0 && (
                   <span
-                    className={`rounded-md px-2 py-0.5 font-semibold tabular-nums ${
+                    className={`rounded-md px-2 py-0.5 text-sm font-semibold tabular-nums ${
                       keywordsUsed === manualKw.length
                         ? "bg-emerald-500/15 text-emerald-600 dark:text-emerald-400"
                         : "bg-amber-500/15 text-amber-600 dark:text-amber-400"
@@ -1661,17 +1620,34 @@ export function PostGeneratorPage({
                   </span>
                 )}
                 <span
-                  className={`rounded-md px-2 py-0.5 font-mono font-semibold tabular-nums ${
+                  className={`rounded-md px-2 py-0.5 font-mono text-sm font-semibold tabular-nums ${
                     captionOver
                       ? "bg-red-500/15 text-red-500"
                       : captionLen > CAPTION_LIMIT - 100
                         ? "bg-amber-500/15 text-amber-600 dark:text-amber-400"
                         : "bg-sky-500/15 text-sky-600 dark:text-sky-400"
                   }`}
-                  title="Characters used"
+                  title={
+                    captionOver
+                      ? `Over the ${CAPTION_LIMIT}-character limit — trim ${captionLen - CAPTION_LIMIT} to send`
+                      : "Characters used"
+                  }
                 >
                   {captionLen}/{CAPTION_LIMIT}
                 </span>
+                <div className="hidden items-center gap-1 sm:flex">
+                  {["✅", "⭐", "📍", "🧼", "✨", "🔥"].map((s) => (
+                    <button
+                      key={s}
+                      type="button"
+                      onClick={() => insertSymbol(s)}
+                      title={`Insert ${s}`}
+                      className="flex h-7 w-7 items-center justify-center rounded-md border border-border text-base leading-none hover:border-primary/40 hover:bg-primary/10"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
           </section>
@@ -1823,6 +1799,22 @@ export function PostGeneratorPage({
                 </div>
               </div>
               <div className="flex items-center gap-3">
+                {imageFolders.length > 0 && (
+                  <select
+                    value={selectedImageFolderId}
+                    onChange={(e) => setSelectedImageFolderId(e.target.value)}
+                    className="rounded border border-border bg-background px-2 py-1 text-xs outline-none focus:ring-1 focus:ring-primary"
+                    title="Filter by Folder"
+                  >
+                    <option value="all">All Folders ({images.length})</option>
+                    <option value="unfiled">Uncategorized</option>
+                    {imageFolders.map((f) => (
+                      <option key={f.id} value={f.id}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                )}
                 <button
                   onClick={() => setGalleryOpen(false)}
                   className="rounded p-1 hover:bg-accent"

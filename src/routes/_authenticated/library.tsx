@@ -255,15 +255,14 @@ function LibraryPage() {
     qc.invalidateQueries({ queryKey: ["trash"] });
   }
 
+  // Trash purge asks for a single "OK" in a small popup (no typing).
+  const [purgeConfirm, setPurgeConfirm] = useState<{ ids: string[]; paths: string[] } | null>(null);
   async function purgeImages(ids: string[], paths: string[]) {
     if (ids.length === 0) return;
-    const typed = window.prompt(
-      `Permanently delete ${ids.length} image${ids.length === 1 ? "" : "s"} from Trash? This cannot be undone.\n\nType DELETE to confirm.`,
-    );
-    if (typed?.trim().toUpperCase() !== "DELETE") {
-      toast.message("Purge cancelled");
-      return;
-    }
+    setPurgeConfirm({ ids, paths });
+  }
+
+  async function doPurgeImages(ids: string[], paths: string[]) {
     let purged = 0;
     for (let i = 0; i < ids.length; i += 100) {
       const slice = ids.slice(i, i + 100);
@@ -543,7 +542,7 @@ function LibraryPage() {
       c[bucket]++;
       // Published images move out of Favorites — once posted, they only
       // live in the Published tab even if is_favorite is still true.
-      if (bucket !== "published" && (i as { is_favorite?: boolean }).is_favorite) c.favorites++;
+      if (bucket === "raw" && (i as { is_favorite?: boolean }).is_favorite) c.favorites++;
     }
     return c;
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -552,10 +551,11 @@ function LibraryPage() {
   const filtered = useMemo(() => {
     if (!data || tab === "videos") return [];
     const q = filter.toLowerCase();
-    return data.images.filter((i) => {
+    const list = data.images.filter((i) => {
       if (tab === "favorites") {
         if (!(i as { is_favorite?: boolean }).is_favorite) return false;
-        if (imageBucket(i) === "published") return false;
+        // Once geo-tagged (or published) an image moves out of Favorites.
+        if (imageBucket(i) !== "raw") return false;
       } else {
         if (imageBucket(i) !== tab) return false;
       }
@@ -573,6 +573,13 @@ function LibraryPage() {
       if (tags?.some((t) => t.slug.includes(q) || t.label.toLowerCase().includes(q))) return true;
       return false;
     });
+    if (tab === "published") {
+      // Reverse-chronological: most recently published first.
+      const t = (i: { posted_at?: string | null; created_at?: string | null }) =>
+        new Date(i.posted_at ?? i.created_at ?? 0).getTime();
+      return [...list].sort((a, b) => t(b) - t(a));
+    }
+    return list;
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [data, filter, tab, folderByTab]);
 
@@ -689,34 +696,13 @@ function LibraryPage() {
   ];
 
   return (
-    <div className="p-6 md:p-10">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h1 className="text-3xl">Image Library</h1>
-          <p className="mt-1 text-sm text-muted-foreground">
-            {data?.images.length ?? 0} extracted frames
-          </p>
-        </div>
-
-        {tab !== "videos" && tab !== "upload" && tab !== "trash" && (
-          <div className="flex items-center gap-2">
-            <input
-              type="search"
-              placeholder="Search name, tag, or venue"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value)}
-              className="w-64 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
-            />
-          </div>
-        )}
-      </div>
-
-      {/* Horizontal tabs */}
-      <div className="mt-6 border-b border-border">
+    <div className="p-4 md:p-6">
+      {/* Minimal header: section tabs + search in one bar */}
+      <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2 border-b border-border">
         <nav
           role="tablist"
           aria-label="Library sections"
-          className="-mb-px flex flex-wrap gap-1 overflow-x-auto"
+          className="-mb-px flex min-w-0 flex-wrap gap-1 overflow-x-auto"
         >
           {tabs.map((t) => {
             const active = tab === t.id;
@@ -749,7 +735,60 @@ function LibraryPage() {
             );
           })}
         </nav>
+        {tab !== "videos" && tab !== "upload" && tab !== "trash" && (
+          <div className="flex items-center gap-2">
+            <input
+              type="search"
+              placeholder="Search name, tag, or venue"
+              value={filter}
+              onChange={(e) => setFilter(e.target.value)}
+              className="mb-1.5 w-56 rounded-md border border-input bg-background/50 px-3 py-2 text-sm outline-none focus:ring-2 focus:ring-primary"
+            />
+          </div>
+        )}
       </div>
+
+      {purgeConfirm && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center bg-background/70 p-4 backdrop-blur-sm"
+          onClick={() => setPurgeConfirm(null)}
+        >
+          <div
+            role="alertdialog"
+            aria-modal="true"
+            className="w-full max-w-sm rounded-xl border border-border bg-card p-5 shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div className="text-sm font-semibold">
+                Delete {purgeConfirm.ids.length} image{purgeConfirm.ids.length === 1 ? "" : "s"}{" "}
+                permanently?
+              </div>
+              <button
+                onClick={() => setPurgeConfirm(null)}
+                aria-label="Close"
+                className="rounded p-1 text-muted-foreground hover:bg-accent"
+              >
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            <p className="mt-2 text-xs text-muted-foreground">This cannot be undone.</p>
+            <div className="mt-4 flex justify-end">
+              <button
+                autoFocus
+                onClick={() => {
+                  const job = purgeConfirm;
+                  setPurgeConfirm(null);
+                  doPurgeImages(job.ids, job.paths);
+                }}
+                className="rounded-md bg-destructive px-5 py-2 text-sm font-medium text-destructive-foreground hover:opacity-90"
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {tab !== "videos" && tab !== "upload" && tab !== "trash" && selectMode && (
         <div className="mt-4 flex flex-wrap items-center gap-2 rounded-lg border border-border bg-card p-3 text-xs">

@@ -292,3 +292,51 @@ export const ghlDeleteScheduledPost = createServerFn({ method: "POST" })
     if (!res.ok && res.status !== 404) throw new Error(res.error ?? "GHL delete failed");
     return { removed: true as const };
   });
+
+/**
+ * Scheduler → "Send to GHL": pushes the given posts to GHL Social Planner.
+ * Future posts are scheduled in GHL (scheduleDate); others publish now.
+ * Posts already sent, or already held by GHL, are skipped.
+ */
+export const ghlSendPosts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ postIds: z.array(z.string().uuid()).min(1).max(100) }).parse(d),
+  )
+  .handler(async ({ data, context }) => {
+    const { supabase, userId } = context;
+    const { getGhlTarget } = await import("./ghl-posting.server");
+    const target = await getGhlTarget(supabase, userId);
+    if (!target) throw new Error("Connect GoHighLevel in Settings → Integrations first.");
+    if (!target.accountId) {
+      throw new Error(
+        "Pick your Google Business account in Settings → Integrations → GoHighLevel first.",
+      );
+    }
+    const { data: rows, error } = await supabase
+      .from("social_posts")
+      .select(
+        "id, owner_id, caption, image_ids, location_label, lat, lng, ghl_location_id, scheduled_at, cta_type, cta_url, primary_keyword, networks, status, provider_response",
+      )
+      .in("id", data.postIds)
+      .eq("owner_id", userId);
+    if (error) throw new Error(error.message);
+
+    const { dispatchSocialPost } = await import("./post-generator.functions");
+    let sent = 0;
+    let scheduled = 0;
+    let skipped = 0;
+    const failures: string[] = [];
+    for (const row of rows ?? []) {
+      const ghlId = (row.provider_response as { ghl_post_id?: string } | null)?.ghl_post_id;
+      if (row.status === "sent" || (row.status === "scheduled" && ghlId)) {
+        skipped++;
+        continue;
+      }
+      const res = await dispatchSocialPost(row as never, supabase);
+      if (res.status === "scheduled") scheduled++;
+      else if (res.ok) sent++;
+      else failures.push(res.error ?? "unknown error");
+    }
+    return { sent, scheduled, skipped, failed: failures.length, firstError: failures[0] ?? null };
+  });
