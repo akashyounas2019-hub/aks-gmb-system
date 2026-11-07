@@ -1310,27 +1310,6 @@ export type Database = {
         }
         Relationships: []
       }
-      location_keywords: {
-        Row: {
-          created_at: string
-          id: string
-          name: string
-          owner_id: string
-        }
-        Insert: {
-          created_at?: string
-          id?: string
-          name: string
-          owner_id: string
-        }
-        Update: {
-          created_at?: string
-          id?: string
-          name?: string
-          owner_id?: string
-        }
-        Relationships: []
-      }
       user_preferences: {
         Row: {
           appearance: Json
